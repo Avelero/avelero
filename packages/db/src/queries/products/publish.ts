@@ -7,10 +7,11 @@
  */
 
 import { and, eq, inArray } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import type { Database } from "../../client";
 import { products, productVariants } from "../../schema";
 import { getOrCreatePassport, updatePassportCurrentVersion } from "./passports";
-import { createDppVersion } from "./dpp-versions";
+import { createDppVersion, getLatestVersion, type DppSnapshot } from "./dpp-versions";
 import { generateDppSnapshot } from "./snapshot";
 
 // =============================================================================
@@ -64,6 +65,27 @@ export interface BulkPublishResult {
 // =============================================================================
 
 /**
+ * Calculate a content-only hash for deduplication.
+ * This excludes metadata (publishedAt, versionNumber, schemaVersion) which change on every publish.
+ * Used to determine if content has actually changed since the last version.
+ */
+function calculateContentOnlyHash(snapshot: DppSnapshot): string {
+  // Extract only the content fields, excluding metadata
+  const contentOnly = {
+    "@context": snapshot["@context"],
+    "@type": snapshot["@type"],
+    "@id": snapshot["@id"],
+    productIdentifiers: snapshot.productIdentifiers,
+    productAttributes: snapshot.productAttributes,
+    environmental: snapshot.environmental,
+    materials: snapshot.materials,
+    supplyChain: snapshot.supplyChain,
+  };
+  const canonicalJson = JSON.stringify(contentOnly, Object.keys(contentOnly).sort());
+  return createHash("sha256").update(canonicalJson, "utf8").digest("hex");
+}
+
+/**
  * Get variant data needed for publishing.
  */
 async function getVariantForPublish(db: Database, variantId: string) {
@@ -110,7 +132,6 @@ async function updateProductStatus(
     .update(products)
     .set({
       status: "published",
-      hasUnpublishedChanges: false,
       updatedAt: new Date().toISOString(),
     })
     .where(and(eq(products.id, productId), eq(products.brandId, brandId)));
@@ -193,7 +214,32 @@ export async function publishVariant(
       };
     }
 
-    // Step 3: Create new version record
+    // Step 2.5: Check if content has changed (deduplication)
+    // Compare the content-only hash with the latest version's content
+    const latestVersion = await getLatestVersion(db, passport.id);
+    if (latestVersion) {
+      const newContentHash = calculateContentOnlyHash(snapshot);
+      const existingContentHash = calculateContentOnlyHash(
+        latestVersion.dataSnapshot as DppSnapshot,
+      );
+
+      if (newContentHash === existingContentHash) {
+        // Content hasn't changed, skip creating a new version
+        // But still return success with the existing version info
+        return {
+          success: true,
+          variantId,
+          passport: { id: passport.id, upid: passport.upid, isNew: false },
+          version: {
+            id: latestVersion.id,
+            versionNumber: latestVersion.versionNumber,
+            publishedAt: latestVersion.publishedAt,
+          },
+        };
+      }
+    }
+
+    // Step 3: Create new version record (content has changed or no previous version)
     const version = await createDppVersion(db, passport.id, snapshot, "1.0");
 
     if (!version) {
@@ -383,26 +429,6 @@ export async function hasPublishedVariants(
 }
 
 /**
- * Check if a product has unpublished changes.
- *
- * @param db - Database instance
- * @param productId - The product ID
- * @returns True if the product has changes that haven't been published
- */
-export async function hasUnpublishedChanges(
-  db: Database,
-  productId: string,
-): Promise<boolean> {
-  const [product] = await db
-    .select({ hasUnpublishedChanges: products.hasUnpublishedChanges })
-    .from(products)
-    .where(eq(products.id, productId))
-    .limit(1);
-
-  return product?.hasUnpublishedChanges ?? false;
-}
-
-/**
  * Get the publishing state for a product.
  *
  * @param db - Database instance
@@ -413,7 +439,6 @@ export async function getPublishingState(db: Database, productId: string) {
   const [product] = await db
     .select({
       status: products.status,
-      hasUnpublishedChanges: products.hasUnpublishedChanges,
     })
     .from(products)
     .where(eq(products.id, productId))
@@ -422,9 +447,6 @@ export async function getPublishingState(db: Database, productId: string) {
   if (!product) return null;
 
   return {
-    status: product.status as "published" | "unpublished",
-    hasUnpublishedChanges: product.hasUnpublishedChanges,
-    canPublish:
-      product.status === "unpublished" || product.hasUnpublishedChanges,
+    status: product.status as "published" | "unpublished" | "scheduled",
   };
 }

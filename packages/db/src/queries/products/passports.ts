@@ -6,7 +6,7 @@
  * QR codes remain resolvable indefinitely.
  */
 
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
   productPassports,
@@ -35,9 +35,13 @@ export async function createProductPassport(
   variantId: string,
   brandId: string,
 ) {
-  // Get the variant's UPID - it must exist
+  // Get the variant's data - UPID must exist, also get sku/barcode
   const [variant] = await db
-    .select({ upid: productVariants.upid })
+    .select({
+      upid: productVariants.upid,
+      sku: productVariants.sku,
+      barcode: productVariants.barcode,
+    })
     .from(productVariants)
     .where(eq(productVariants.id, variantId))
     .limit(1);
@@ -48,8 +52,8 @@ export async function createProductPassport(
 
   if (!variant.upid) {
     throw new Error(
-      `Cannot publish variant ${variantId}: variant has no UPID assigned. ` +
-        `Variants must have a UPID before they can be published.`,
+      `Cannot create passport for variant ${variantId}: variant has no UPID assigned. ` +
+        `Variants must have a UPID before they can have a passport.`,
     );
   }
 
@@ -60,8 +64,10 @@ export async function createProductPassport(
       upid: variant.upid,
       brandId,
       workingVariantId: variantId,
+      status: "active",
+      sku: variant.sku,
+      barcode: variant.barcode,
       firstPublishedAt: now,
-      lastPublishedAt: now,
     })
     .returning({
       id: productPassports.id,
@@ -69,8 +75,11 @@ export async function createProductPassport(
       brandId: productPassports.brandId,
       workingVariantId: productPassports.workingVariantId,
       currentVersionId: productPassports.currentVersionId,
+      status: productPassports.status,
+      orphanedAt: productPassports.orphanedAt,
+      sku: productPassports.sku,
+      barcode: productPassports.barcode,
       firstPublishedAt: productPassports.firstPublishedAt,
-      lastPublishedAt: productPassports.lastPublishedAt,
       createdAt: productPassports.createdAt,
       updatedAt: productPassports.updatedAt,
     });
@@ -97,8 +106,11 @@ export async function getPassportByUpid(db: Database, upid: string) {
       brandId: productPassports.brandId,
       workingVariantId: productPassports.workingVariantId,
       currentVersionId: productPassports.currentVersionId,
+      status: productPassports.status,
+      orphanedAt: productPassports.orphanedAt,
+      sku: productPassports.sku,
+      barcode: productPassports.barcode,
       firstPublishedAt: productPassports.firstPublishedAt,
-      lastPublishedAt: productPassports.lastPublishedAt,
       createdAt: productPassports.createdAt,
       updatedAt: productPassports.updatedAt,
     })
@@ -152,8 +164,11 @@ export async function getPassportByVariantId(db: Database, variantId: string) {
       brandId: productPassports.brandId,
       workingVariantId: productPassports.workingVariantId,
       currentVersionId: productPassports.currentVersionId,
+      status: productPassports.status,
+      orphanedAt: productPassports.orphanedAt,
+      sku: productPassports.sku,
+      barcode: productPassports.barcode,
       firstPublishedAt: productPassports.firstPublishedAt,
-      lastPublishedAt: productPassports.lastPublishedAt,
       createdAt: productPassports.createdAt,
       updatedAt: productPassports.updatedAt,
     })
@@ -192,8 +207,11 @@ export async function getPassportsForProduct(db: Database, productId: string) {
       brandId: productPassports.brandId,
       workingVariantId: productPassports.workingVariantId,
       currentVersionId: productPassports.currentVersionId,
+      status: productPassports.status,
+      orphanedAt: productPassports.orphanedAt,
+      sku: productPassports.sku,
+      barcode: productPassports.barcode,
       firstPublishedAt: productPassports.firstPublishedAt,
-      lastPublishedAt: productPassports.lastPublishedAt,
       createdAt: productPassports.createdAt,
       updatedAt: productPassports.updatedAt,
     })
@@ -233,7 +251,6 @@ export async function updatePassportCurrentVersion(
     .update(productPassports)
     .set({
       currentVersionId: versionId,
-      lastPublishedAt: now,
       updatedAt: now,
     })
     .where(eq(productPassports.id, passportId))
@@ -243,8 +260,11 @@ export async function updatePassportCurrentVersion(
       brandId: productPassports.brandId,
       workingVariantId: productPassports.workingVariantId,
       currentVersionId: productPassports.currentVersionId,
+      status: productPassports.status,
+      orphanedAt: productPassports.orphanedAt,
+      sku: productPassports.sku,
+      barcode: productPassports.barcode,
       firstPublishedAt: productPassports.firstPublishedAt,
-      lastPublishedAt: productPassports.lastPublishedAt,
       createdAt: productPassports.createdAt,
       updatedAt: productPassports.updatedAt,
     });
@@ -275,4 +295,198 @@ export async function getOrCreatePassport(
   // Create a new passport
   const passport = await createProductPassport(db, variantId, brandId);
   return { passport, isNew: true };
+}
+
+// =============================================================================
+// ORPHAN OPERATIONS
+// =============================================================================
+
+/**
+ * Orphan a passport when its working variant is deleted.
+ *
+ * This preserves the passport record and version history but severs the
+ * connection to the working layer. The passport's sku and barcode are cleared
+ * to prevent identifier conflicts.
+ *
+ * @param db - Database instance
+ * @param passportId - The passport ID to orphan
+ * @returns The updated passport, or null if not found
+ */
+export async function orphanPassport(db: Database, passportId: string) {
+  const now = new Date().toISOString();
+
+  const [updated] = await db
+    .update(productPassports)
+    .set({
+      status: "orphaned",
+      workingVariantId: null,
+      sku: null,
+      barcode: null,
+      orphanedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(productPassports.id, passportId))
+    .returning({
+      id: productPassports.id,
+      upid: productPassports.upid,
+      brandId: productPassports.brandId,
+      workingVariantId: productPassports.workingVariantId,
+      currentVersionId: productPassports.currentVersionId,
+      status: productPassports.status,
+      orphanedAt: productPassports.orphanedAt,
+      sku: productPassports.sku,
+      barcode: productPassports.barcode,
+      firstPublishedAt: productPassports.firstPublishedAt,
+      createdAt: productPassports.createdAt,
+      updatedAt: productPassports.updatedAt,
+    });
+
+  return updated ?? null;
+}
+
+/**
+ * Batch orphan passports by their working variant IDs.
+ *
+ * Used when multiple variants are being deleted at once (e.g., during sync or bulk delete).
+ * Passports whose workingVariantId matches any of the given IDs will be orphaned.
+ *
+ * @param db - Database instance
+ * @param variantIds - Array of variant IDs whose passports should be orphaned
+ * @returns Object with count of orphaned passports
+ */
+export async function batchOrphanPassportsByVariantIds(
+  db: Database,
+  variantIds: string[],
+) {
+  if (variantIds.length === 0) {
+    return { orphaned: 0 };
+  }
+
+  const now = new Date().toISOString();
+
+  const result = await db
+    .update(productPassports)
+    .set({
+      status: "orphaned",
+      workingVariantId: null,
+      sku: null,
+      barcode: null,
+      orphanedAt: now,
+      updatedAt: now,
+    })
+    .where(inArray(productPassports.workingVariantId, variantIds))
+    .returning({ id: productPassports.id });
+
+  return { orphaned: result.length };
+}
+
+/**
+ * Create a passport for a newly created variant.
+ *
+ * This is called immediately after variant creation to ensure a passport
+ * record exists. Unlike getOrCreatePassport (which is used during publish),
+ * this function assumes the variant was just created and has a UPID.
+ *
+ * @param db - Database instance
+ * @param variantId - The newly created variant's ID
+ * @param brandId - The brand ID
+ * @param variantData - Data to copy to the passport (upid, sku, barcode)
+ * @returns The created passport
+ */
+export async function createPassportForVariant(
+  db: Database,
+  variantId: string,
+  brandId: string,
+  variantData: {
+    upid: string;
+    sku?: string | null;
+    barcode?: string | null;
+  },
+) {
+  const now = new Date().toISOString();
+
+  const [passport] = await db
+    .insert(productPassports)
+    .values({
+      upid: variantData.upid,
+      brandId,
+      workingVariantId: variantId,
+      status: "active",
+      sku: variantData.sku ?? null,
+      barcode: variantData.barcode ?? null,
+      firstPublishedAt: now,
+    })
+    .returning({
+      id: productPassports.id,
+      upid: productPassports.upid,
+      brandId: productPassports.brandId,
+      workingVariantId: productPassports.workingVariantId,
+      currentVersionId: productPassports.currentVersionId,
+      status: productPassports.status,
+      orphanedAt: productPassports.orphanedAt,
+      sku: productPassports.sku,
+      barcode: productPassports.barcode,
+      firstPublishedAt: productPassports.firstPublishedAt,
+      createdAt: productPassports.createdAt,
+      updatedAt: productPassports.updatedAt,
+    });
+
+  return passport;
+}
+
+/**
+ * Batch create passports for multiple newly created variants.
+ *
+ * Used during bulk variant creation (e.g., sync, bulk import).
+ *
+ * @param db - Database instance
+ * @param brandId - The brand ID
+ * @param variants - Array of variant data to create passports for
+ * @returns Array of created passports
+ */
+export async function batchCreatePassportsForVariants(
+  db: Database,
+  brandId: string,
+  variants: Array<{
+    variantId: string;
+    upid: string;
+    sku?: string | null;
+    barcode?: string | null;
+  }>,
+) {
+  if (variants.length === 0) {
+    return [];
+  }
+
+  const now = new Date().toISOString();
+
+  const passports = await db
+    .insert(productPassports)
+    .values(
+      variants.map((v) => ({
+        upid: v.upid,
+        brandId,
+        workingVariantId: v.variantId,
+        status: "active",
+        sku: v.sku ?? null,
+        barcode: v.barcode ?? null,
+        firstPublishedAt: now,
+      })),
+    )
+    .returning({
+      id: productPassports.id,
+      upid: productPassports.upid,
+      brandId: productPassports.brandId,
+      workingVariantId: productPassports.workingVariantId,
+      currentVersionId: productPassports.currentVersionId,
+      status: productPassports.status,
+      orphanedAt: productPassports.orphanedAt,
+      sku: productPassports.sku,
+      barcode: productPassports.barcode,
+      firstPublishedAt: productPassports.firstPublishedAt,
+      createdAt: productPassports.createdAt,
+      updatedAt: productPassports.updatedAt,
+    });
+
+  return passports;
 }

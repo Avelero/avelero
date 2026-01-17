@@ -118,18 +118,21 @@ function DeleteProductsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none">
-        <DialogHeader>
+      <DialogContent size="md" className="p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">
             {isBulk ? `Delete ${count} products?` : "Delete product?"}
           </DialogTitle>
-          <DialogDescription className="text-secondary w-full whitespace-normal break-words">
+          <DialogDescription className="text-secondary">
             {isBulk
               ? `This will permanently delete ${count} products and all their associated data including variants and passport information. This action cannot be undone.`
               : "This will permanently delete this product and all its associated data including variants and passport information. This action cannot be undone."}
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="flex justify-end gap-2">
+
+        <div className="px-6 py-4 min-h-[60px]" />
+
+        <DialogFooter className="px-6 py-4 border-t border-border">
           <Button
             variant="outline"
             type="button"

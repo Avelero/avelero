@@ -42,7 +42,7 @@ export function PassportDataTable({
   hasActiveFilters,
   onClearFilters,
   onDeleteProduct,
-  onPublishProduct,
+  onChangeStatus,
 }: {
   onSelectionChangeAction?: (count: number) => void;
   columnOrder?: string[];
@@ -71,7 +71,10 @@ export function PassportDataTable({
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
   onDeleteProduct?: (productId: string) => void;
-  onPublishProduct?: (productId: string) => void;
+  onChangeStatus?: (
+    productId: string,
+    status: "published" | "unpublished",
+  ) => void;
 }) {
   const pageSize = 50;
   const page =
@@ -263,7 +266,7 @@ export function PassportDataTable({
     meta: {
       handleRangeSelection,
       onDeleteProduct,
-      onPublishProduct,
+      onChangeStatus,
     },
   });
 

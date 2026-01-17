@@ -242,7 +242,7 @@ export function CarouselProductsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[800px] p-0 gap-0 border border-border overflow-hidden">
+      <DialogContent size="full" className="p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">Select products</DialogTitle>
         </DialogHeader>

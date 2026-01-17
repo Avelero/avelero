@@ -80,6 +80,10 @@ export function ManufacturerSheet({
     ValidationErrors<ManufacturerFormValues>
   >({});
 
+  // Container ref for portal - ensures popovers render inside the sheet
+  const [sheetContainer, setSheetContainer] =
+    React.useState<HTMLDivElement | null>(null);
+
   // API mutation for creating manufacturer
   const createManufacturerMutation = useMutation(
     trpc.catalog.manufacturers.create.mutationOptions(),
@@ -327,6 +331,7 @@ export function ManufacturerSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        ref={setSheetContainer}
         side="right"
         className="flex flex-col p-0 gap-0 w-full sm:w-[480px] lg:w-[560px] m-6 h-[calc(100vh-48px)]"
         hideDefaultClose
@@ -514,6 +519,7 @@ export function ManufacturerSheet({
                 placeholder="Select country"
                 value={countryCode}
                 onChange={(code) => setCountryCode(code)}
+                container={sheetContainer}
               />
               <div className="space-y-1.5">
                 <Label htmlFor="manufacturer-city">City</Label>

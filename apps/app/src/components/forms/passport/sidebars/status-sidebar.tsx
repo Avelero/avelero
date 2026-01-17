@@ -30,6 +30,11 @@ const STATUS_OPTIONS = [
     label: "Unpublished",
     icon: <Icons.StatusUnpublished width={14} height={14} />,
   },
+  {
+    value: "scheduled",
+    label: "Scheduled",
+    icon: <Icons.StatusScheduled width={14} height={14} />,
+  },
 ];
 
 interface StatusSidebarProps {

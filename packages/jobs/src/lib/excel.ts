@@ -94,10 +94,6 @@ export interface ExportProductData {
   manufacturerName: string | null;
   imagePath: string | null;
   status: string;
-  /** Whether this product has unpublished changes (new publishing model) */
-  hasUnpublishedChanges: boolean;
-  /** ISO timestamp of last publish, null if never published */
-  lastPublishedAt: string | null;
   categoryPath: string | null;
   seasonName: string | null;
   tags: string[];
@@ -162,7 +158,6 @@ const EXPORT_COLUMNS = [
   "Description",
   "Image",
   "Status",
-  "Has Unpublished Changes",
   "Last Published At",
   "Category",
   "Season",
@@ -781,11 +776,6 @@ export async function generateProductExportExcel(
           buildImageUrl(variant.imagePathOverride ?? product.imagePath),
         );
         setCell("Status", product.status);
-        setCell(
-          "Has Unpublished Changes",
-          product.hasUnpublishedChanges ? "Yes" : "No",
-        );
-        setCell("Last Published At", product.lastPublishedAt);
         setCell("Category", product.categoryPath);
         setCell("Season", product.seasonName);
         setCell("Tags", joinSemicolon(product.tags));

@@ -18,3 +18,4 @@ export * from "./passports";
 export * from "./dpp-versions";
 export * from "./snapshot";
 export * from "./publish";
+export * from "./upid-generation";

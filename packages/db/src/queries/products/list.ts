@@ -197,7 +197,7 @@ export async function listProductsWithIncludes(
     ? await loadAttributesForProducts(db, productIds)
     : new Map<string, ProductAttributesBundle>();
 
-  // Load passport data if requested (for lastPublishedAt and firstVariantUpid)
+  // Load passport data if requested (for firstVariantUpid)
   const passportDataMap = opts.includePassports
     ? await loadPassportDataForProducts(db, productIds)
     : null;
@@ -220,7 +220,6 @@ export async function listProductsWithIncludes(
     }
     if (passportDataMap) {
       const passportData = passportDataMap.get(product.id);
-      enriched.last_published_at = passportData?.lastPublishedAt ?? null;
       enriched.first_variant_upid = passportData?.firstVariantUpid ?? null;
     }
     return enriched;

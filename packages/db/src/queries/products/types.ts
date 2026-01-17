@@ -153,8 +153,6 @@ export interface ProductAttributesBundle {
 export interface ProductWithRelations extends ProductRecord {
   variants?: ProductVariantWithAttributes[];
   attributes?: ProductAttributesBundle;
-  /** When the product was last published (from passport data) */
-  last_published_at?: string | null;
   /** UPID of the first variant's passport (for viewing the public passport) */
   first_variant_upid?: string | null;
 }
@@ -196,6 +194,8 @@ export interface BulkDeleteResult {
  */
 export interface BulkUpdateResult {
   updated: number;
+  /** IDs of products that were updated (for triggering publish on status change) */
+  productIds?: string[];
 }
 
 /**

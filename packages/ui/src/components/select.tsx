@@ -41,10 +41,23 @@ const SelectContent = React.forwardRef<
     shouldFilter?: boolean;
     /** Default highlighted value - highlights this item instead of the first one */
     defaultValue?: string;
+    /**
+     * Container element for the portal. When specified, the popover will be portaled
+     * into this container instead of document.body. Useful when the select is inside
+     * a Sheet/Dialog to ensure proper scroll behavior.
+     */
+    container?: HTMLElement | null;
   }
 >(
   (
-    { className, children, shouldFilter = true, defaultValue, ...props },
+    {
+      className,
+      children,
+      shouldFilter = true,
+      defaultValue,
+      container,
+      ...props
+    },
     ref,
   ) => {
     // Track the controlled value for cmdk selection
@@ -70,6 +83,7 @@ const SelectContent = React.forwardRef<
           className,
         )}
         align="start"
+        container={container}
         {...props}
       >
         <SelectContext.Provider value={contextValue}>

@@ -8,6 +8,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@v1/ui/dialog";
@@ -99,23 +100,26 @@ export function LeaveBrandModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none">
-        <DialogHeader>
+      <DialogContent size="md" className="p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">{title}</DialogTitle>
-          <DialogDescription className="text-secondary w-full whitespace-normal break-words">
+          <DialogDescription className="text-secondary">
             {descriptionNode}
           </DialogDescription>
         </DialogHeader>
 
-        {error ? <p className="text-sm text-red-500">{error}</p> : null}
+        <div className="px-6 py-4 min-h-[40px]">
+          {error ? (
+            <p className="type-small text-destructive">{error}</p>
+          ) : null}
+        </div>
 
-        <div className="w-full flex gap-2 mt-2">
+        <DialogFooter className="px-6 py-4 border-t border-border">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isSubmitting}
-            className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
           >
             Cancel
           </Button>
@@ -125,12 +129,11 @@ export function LeaveBrandModal({
               variant="default"
               onClick={onConfirmLeave}
               disabled={isSubmitting}
-              className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
             >
               {isSubmitting ? "Leaving..." : "Leave"}
             </Button>
           )}
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

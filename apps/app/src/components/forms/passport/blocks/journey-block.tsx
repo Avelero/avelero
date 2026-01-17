@@ -244,10 +244,15 @@ const OperatorCell = ({
     [operators],
   );
 
-  const handleToggleOperator = (selectedOperator: { id: string; name: string }) => {
+  const handleToggleOperator = (selectedOperator: {
+    id: string;
+    name: string;
+  }) => {
     if (selectedIds.has(selectedOperator.id)) {
       // Remove operator
-      onOperatorsChange(operators.filter((op) => op.id !== selectedOperator.id));
+      onOperatorsChange(
+        operators.filter((op) => op.id !== selectedOperator.id),
+      );
     } else {
       // Add operator
       onOperatorsChange([...operators, selectedOperator]);
@@ -276,7 +281,10 @@ const OperatorCell = ({
     // Notify parent about the just-created operator (for race condition handling)
     onOperatorJustCreated?.(createdOperator.id, createdOperator.name);
     // Add the newly created operator to selection
-    onOperatorsChange([...operators, { id: createdOperator.id, name: createdOperator.name }]);
+    onOperatorsChange([
+      ...operators,
+      { id: createdOperator.id, name: createdOperator.name },
+    ]);
     setNewOperatorName("");
   };
 
@@ -598,7 +606,10 @@ export function JourneySection({
                 ...enrichedStep,
                 operators: [
                   ...enrichedStep.operators,
-                  { id: justCreatedOperator.id, name: justCreatedOperator.name },
+                  {
+                    id: justCreatedOperator.id,
+                    name: justCreatedOperator.name,
+                  },
                 ],
               };
             } else {
@@ -611,7 +622,10 @@ export function JourneySection({
                   ...incompleteStep,
                   operators: [
                     ...incompleteStep.operators,
-                    { id: justCreatedOperator.id, name: justCreatedOperator.name },
+                    {
+                      id: justCreatedOperator.id,
+                      name: justCreatedOperator.name,
+                    },
                   ],
                 };
               }

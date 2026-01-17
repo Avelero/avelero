@@ -1,22 +1,23 @@
 import { randomBytes } from "node:crypto";
 
 /**
- * Base62 alphabet for URL-safe UPIDs.
- * Contains 0-9, A-Z, a-z (62 characters total).
+ * Base36 alphabet for clean, readable UPIDs.
+ * Contains 0-9 and A-Z only (uppercase, no lowercase).
+ * This provides a cleaner, more professional-looking ID format.
  */
-const BASE62_ALPHABET =
-  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const UPID_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 /**
- * Generate a random base62 string suitable for use as a UPID.
- * Uses 16 characters by default, providing ~95 bits of entropy.
+ * Generate a random base36 string suitable for use as a UPID.
+ * Uses 16 characters by default, providing ~82 bits of entropy.
+ * Format: Numbers and uppercase letters only (e.g., "7H4J11GLJ345M9XK")
  */
 export function randomUpidString(length = 16): string {
   const bytes = randomBytes(length);
   let result = "";
   for (let i = 0; i < length; i += 1) {
-    const index = bytes[i]! % BASE62_ALPHABET.length;
-    result += BASE62_ALPHABET[index]!;
+    const index = bytes[i]! % UPID_ALPHABET.length;
+    result += UPID_ALPHABET[index]!;
   }
   return result;
 }

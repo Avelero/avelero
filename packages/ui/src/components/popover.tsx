@@ -21,6 +21,12 @@ type PopoverContentProps = React.ComponentPropsWithoutRef<
    * auto-focus behavior on open.
    */
   modal?: boolean;
+  /**
+   * Container element for the portal. When specified, the popover will be portaled
+   * into this container instead of document.body. Useful when the popover is inside
+   * a Sheet/Dialog to ensure proper scroll behavior.
+   */
+  container?: HTMLElement | null;
 };
 
 const PopoverContent = React.forwardRef<
@@ -34,6 +40,7 @@ const PopoverContent = React.forwardRef<
       sideOffset = 4,
       inline = false,
       modal = false,
+      container,
       onOpenAutoFocus,
       ...props
     },
@@ -72,7 +79,11 @@ const PopoverContent = React.forwardRef<
     );
 
     if (inline) return content;
-    return <PopoverPrimitive.Portal>{content}</PopoverPrimitive.Portal>;
+    return (
+      <PopoverPrimitive.Portal container={container}>
+        {content}
+      </PopoverPrimitive.Portal>
+    );
   },
 );
 PopoverContent.displayName = PopoverPrimitive.Content.displayName;

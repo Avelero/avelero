@@ -14,7 +14,7 @@ import {
   productVariants,
   products,
 } from "../../schema";
-import { generateUniqueUpids } from "../../utils/upid.js";
+import { generateGloballyUniqueUpids } from "./upid-generation";
 import type {
   VariantAttributeAssignment,
   VariantWithAttributeAssignments,
@@ -312,27 +312,11 @@ export async function replaceProductVariantsExplicit(
   }
 
   // Generate UPIDs for variants that need them
+  // Uses centralized function that checks both product_variants AND product_passports
   const variantsNeedingUpids = variants.filter((v) => !v.upid);
   const upids =
     variantsNeedingUpids.length > 0
-      ? await generateUniqueUpids({
-          count: variantsNeedingUpids.length,
-          isTaken: async (candidate) => {
-            const [existing] = await db
-              .select({ id: productVariants.id })
-              .from(productVariants)
-              .where(eq(productVariants.upid, candidate))
-              .limit(1);
-            return Boolean(existing);
-          },
-          fetchTakenSet: async (candidates) => {
-            const rows = await db
-              .select({ upid: productVariants.upid })
-              .from(productVariants)
-              .where(inArray(productVariants.upid, candidates as string[]));
-            return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
-          },
-        })
+      ? await generateGloballyUniqueUpids(db, variantsNeedingUpids.length)
       : [];
 
   let upidIndex = 0;

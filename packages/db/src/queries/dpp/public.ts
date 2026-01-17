@@ -63,7 +63,6 @@ export interface PublicDppResult {
     brandId: string;
     workingVariantId: string | null;
     firstPublishedAt: string;
-    lastPublishedAt: string;
   } | null;
   /** The current version's snapshot data */
   snapshot: DppSnapshot | null;
@@ -118,8 +117,7 @@ export async function getPublicDppByUpid(
       workingVariantId: productPassports.workingVariantId,
       currentVersionId: productPassports.currentVersionId,
       firstPublishedAt: productPassports.firstPublishedAt,
-      lastPublishedAt: productPassports.lastPublishedAt,
-    })
+          })
     .from(productPassports)
     .where(eq(productPassports.upid, upid))
     .limit(1);
@@ -148,8 +146,7 @@ export async function getPublicDppByUpid(
         brandId: passport.brandId,
         workingVariantId: passport.workingVariantId,
         firstPublishedAt: passport.firstPublishedAt,
-        lastPublishedAt: passport.lastPublishedAt,
-      },
+              },
       snapshot: null,
       version: null,
       theme: null,
@@ -181,8 +178,7 @@ export async function getPublicDppByUpid(
         brandId: passport.brandId,
         workingVariantId: passport.workingVariantId,
         firstPublishedAt: passport.firstPublishedAt,
-        lastPublishedAt: passport.lastPublishedAt,
-      },
+              },
       snapshot: null,
       version: null,
       theme: null,
@@ -205,8 +201,7 @@ export async function getPublicDppByUpid(
       brandId: passport.brandId,
       workingVariantId: passport.workingVariantId,
       firstPublishedAt: passport.firstPublishedAt,
-      lastPublishedAt: passport.lastPublishedAt,
-    },
+          },
     snapshot: version.dataSnapshot as DppSnapshot,
     version: {
       id: version.id,
@@ -286,8 +281,7 @@ export async function getPublicDppVersion(
       brandId: productPassports.brandId,
       workingVariantId: productPassports.workingVariantId,
       firstPublishedAt: productPassports.firstPublishedAt,
-      lastPublishedAt: productPassports.lastPublishedAt,
-    })
+          })
     .from(productPassports)
     .where(eq(productPassports.upid, upid))
     .limit(1);
@@ -329,8 +323,7 @@ export async function getPublicDppVersion(
         brandId: passport.brandId,
         workingVariantId: passport.workingVariantId,
         firstPublishedAt: passport.firstPublishedAt,
-        lastPublishedAt: passport.lastPublishedAt,
-      },
+              },
       snapshot: null,
       version: null,
       theme: null,
@@ -351,8 +344,7 @@ export async function getPublicDppVersion(
       brandId: passport.brandId,
       workingVariantId: passport.workingVariantId,
       firstPublishedAt: passport.firstPublishedAt,
-      lastPublishedAt: passport.lastPublishedAt,
-    },
+          },
     snapshot: version.dataSnapshot as DppSnapshot,
     version: {
       id: version.id,

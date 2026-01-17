@@ -16,9 +16,9 @@ import { VariantSection } from "@/components/forms/passport/blocks/variant-block
 import { IdentifiersSidebar } from "@/components/forms/passport/sidebars/identifiers-sidebar";
 import { StatusSidebar } from "@/components/forms/passport/sidebars/status-sidebar";
 import {
-  FirstPublishModal,
-  shouldShowFirstPublishModal,
-} from "@/components/modals/first-publish-modal";
+  VariantDeletionModal,
+  type VariantToDelete,
+} from "@/components/modals/variant-deletion-modal";
 import {
   usePassportFormContext,
   useRegisterForm,
@@ -110,6 +110,7 @@ function ProductFormInner({
     requestNavigation,
     formResetCallbackRef,
     setProductId,
+    publishingStatus,
     setPublishingStatus,
     setHasDbUnpublishedChanges,
   } = usePassportFormContext();
@@ -130,22 +131,22 @@ function ProductFormInner({
     submit,
     isSubmitting,
     hasUnsavedChanges,
-    resetForm,
+    revertToSaved,
     savedVariantsMap,
     productHandle: savedProductHandle,
     productId,
     dbPublishingStatus,
     dbHasUnpublishedChanges,
+    getVariantsToDelete,
   } = usePassportForm({ mode, productHandle, initialData });
 
-  // Publishing mutation
-  const publishProductMutation = useMutation(
-    trpc.products.publish.product.mutationOptions(),
-  );
-
-  // First publish modal state (for three-dot menu)
-  const [showFirstPublishModal, setShowFirstPublishModal] =
+  // Variant deletion warning modal state
+  const [variantDeletionModalOpen, setVariantDeletionModalOpen] =
     React.useState(false);
+  const [pendingVariantDeletions, setPendingVariantDeletions] = React.useState<
+    VariantToDelete[]
+  >([]);
+  const pendingSubmitRef = React.useRef<(() => Promise<void>) | null>(null);
 
   // Sync productId and publishing state with context when they change
   React.useEffect(() => {
@@ -160,73 +161,6 @@ function ProductFormInner({
     dbHasUnpublishedChanges,
     setHasDbUnpublishedChanges,
   ]);
-
-  // Actual publish logic
-  const executePublish = React.useCallback(async () => {
-    if (!productId) {
-      toast.error("Cannot publish: product has not been saved yet");
-      return;
-    }
-
-    try {
-      const result = await publishProductMutation.mutateAsync({ productId });
-      if (result.success) {
-        toast.success("Product published successfully");
-
-        // Update publishing status immediately in context so UI updates without page refresh
-        setPublishingStatus("published");
-        setHasDbUnpublishedChanges(false);
-
-        // Invalidate queries to refresh data
-        await queryClient.invalidateQueries({
-          queryKey: trpc.products.get.queryKey({
-            handle: savedProductHandle ?? productHandle ?? "",
-          }),
-        });
-        await queryClient.invalidateQueries({
-          queryKey: trpc.products.list.queryKey(),
-        });
-      }
-    } catch (err) {
-      console.error("Publish failed:", err);
-      toast.error("Failed to publish product");
-    }
-  }, [
-    productId,
-    publishProductMutation,
-    queryClient,
-    trpc,
-    savedProductHandle,
-    productHandle,
-    setPublishingStatus,
-    setHasDbUnpublishedChanges,
-  ]);
-
-  // Handle publish action - show modal on first publish if preference not set
-  const handlePublish = React.useCallback(() => {
-    if (!productId) {
-      toast.error("Cannot publish: product has not been saved yet");
-      return;
-    }
-
-    // On first publish, show warning modal (unless user dismissed it before)
-    const isFirstPublish = dbPublishingStatus === "unpublished";
-    if (isFirstPublish && shouldShowFirstPublishModal()) {
-      setShowFirstPublishModal(true);
-    } else {
-      void executePublish();
-    }
-  }, [productId, dbPublishingStatus, executePublish]);
-
-  // First publish modal handlers
-  const handleFirstPublishConfirm = React.useCallback(() => {
-    setShowFirstPublishModal(false);
-    void executePublish();
-  }, [executePublish]);
-
-  const handleFirstPublishCancel = React.useCallback(() => {
-    setShowFirstPublishModal(false);
-  }, []);
 
   // Clear errors when fields change (after first submit attempt)
   React.useEffect(() => {
@@ -321,18 +255,30 @@ function ProductFormInner({
     setHasUnsavedChanges(hasUnsavedChanges);
   }, [hasUnsavedChanges, setHasUnsavedChanges]);
 
-  // Register reset callback with context so discard handler can reset form state
+  // Register revert callback with context so discard handler can revert to saved state
+  // We use revertToSaved instead of resetForm to restore form to last fetched data
+  // rather than resetting to empty initial values
   React.useEffect(() => {
-    formResetCallbackRef.current = resetForm;
+    formResetCallbackRef.current = revertToSaved;
     return () => {
       formResetCallbackRef.current = null;
     };
-  }, [resetForm, formResetCallbackRef]);
+  }, [revertToSaved, formResetCallbackRef]);
 
   // Refs for focusing invalid fields
   const nameInputRef = React.useRef<HTMLInputElement>(null);
   const productHandleInputRef = React.useRef<HTMLInputElement>(null);
   const materialsSectionRef = React.useRef<HTMLDivElement>(null);
+
+  // Perform the actual form submission
+  const executeSubmit = React.useCallback(async () => {
+    if (!user?.brand_id) return;
+    try {
+      await submit(user.brand_id);
+    } catch (err) {
+      console.error("Form submission failed:", err);
+    }
+  }, [user?.brand_id, submit]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -383,12 +329,37 @@ function ProductFormInner({
       return;
     }
 
-    try {
-      await submit(user.brand_id);
-    } catch (err) {
-      console.error("Form submission failed:", err);
+    // Check for variant deletions in edit mode
+    if (isEditMode) {
+      const variantsToDelete = getVariantsToDelete();
+      if (variantsToDelete.length > 0) {
+        // Show the deletion warning modal
+        setPendingVariantDeletions(variantsToDelete);
+        pendingSubmitRef.current = executeSubmit;
+        setVariantDeletionModalOpen(true);
+        return;
+      }
     }
+
+    await executeSubmit();
   };
+
+  // Handle variant deletion confirmation
+  const handleConfirmVariantDeletion = React.useCallback(async () => {
+    setVariantDeletionModalOpen(false);
+    setPendingVariantDeletions([]);
+    if (pendingSubmitRef.current) {
+      await pendingSubmitRef.current();
+      pendingSubmitRef.current = null;
+    }
+  }, []);
+
+  // Handle variant deletion cancellation
+  const handleCancelVariantDeletion = React.useCallback(() => {
+    setVariantDeletionModalOpen(false);
+    setPendingVariantDeletions([]);
+    pendingSubmitRef.current = null;
+  }, []);
 
   return (
     <form
@@ -471,7 +442,6 @@ function ProductFormInner({
                 !isEditMode || !savedVariantsMap || savedVariantsMap.size === 0
               }
               onNavigateToVariant={requestNavigation}
-              publishingStatus={dbPublishingStatus}
             />
             <EnvironmentSection
               carbonKgCo2e={state.carbonKgCo2e}
@@ -534,12 +504,13 @@ function ProductFormInner({
         }
       />
 
-      <FirstPublishModal
-        open={showFirstPublishModal}
-        onOpenChange={setShowFirstPublishModal}
-        onConfirm={handleFirstPublishConfirm}
-        onCancel={handleFirstPublishCancel}
-        isPublishing={publishProductMutation.isPending}
+      {/* Variant Deletion Warning Modal */}
+      <VariantDeletionModal
+        open={variantDeletionModalOpen}
+        onOpenChange={setVariantDeletionModalOpen}
+        variants={pendingVariantDeletions}
+        onConfirm={handleConfirmVariantDeletion}
+        onCancel={handleCancelVariantDeletion}
       />
     </form>
   );

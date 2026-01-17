@@ -23,6 +23,7 @@ import { DeleteProductsModal } from "../modals/delete-products-modal";
 import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type {
   PassportTableRow,
+  PassportStatus,
   SelectionState,
 } from "../tables/passports/types";
 import type { FilterState } from "./filter-types";
@@ -59,23 +60,11 @@ export function TableSection() {
   // Count for delete modal (resolved from selection or passed directly for single delete)
   const [deleteCount, setDeleteCount] = useState(0);
 
-  // Publish product mutation
+  // Status change mutation
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const publishProductMutation = useMutation(
-    trpc.products.publish.product.mutationOptions({
-      onSuccess: () => {
-        // Invalidate products list to refresh table
-        void queryClient.invalidateQueries({
-          queryKey: [["products", "list"]],
-        });
-        void queryClient.invalidateQueries({ queryKey: [["summary"]] });
-      },
-    }),
-  );
-
-  const publishBulkMutation = useMutation(
-    trpc.products.publish.bulk.mutationOptions({
+  const updateProductMutation = useMutation(
+    trpc.products.update.mutationOptions({
       onSuccess: () => {
         // Invalidate products list to refresh table
         void queryClient.invalidateQueries({
@@ -115,7 +104,6 @@ export function TableSection() {
       "category",
       "season",
       "variantCount",
-      "lastPublishedAt",
       "tags",
       "actions",
     ],
@@ -129,7 +117,6 @@ export function TableSection() {
       category: true,
       season: true,
       variantCount: true,
-      lastPublishedAt: true,
       tags: true,
       actions: true,
     }),
@@ -206,59 +193,69 @@ export function TableSection() {
     setDeleteCount(0);
   }, []);
 
-  // Handle publish from row action (single product)
-  const handlePublishProduct = useCallback(
-    (productId: string) => {
-      publishProductMutation.mutate(
-        { productId },
+  // Handle status change from row action (single product)
+  const handleChangeStatus = useCallback(
+    (productId: string, status: "published" | "unpublished") => {
+      updateProductMutation.mutate(
+        { id: productId, status },
         {
-          onSuccess: (result) => {
-            toast.success("Product published successfully");
+          onSuccess: () => {
+            toast.success(
+              `Product ${status === "published" ? "published" : "unpublished"} successfully`,
+            );
           },
           onError: (error) => {
-            toast.error(error.message || "Failed to publish product");
+            toast.error(error.message || "Failed to update product status");
           },
         },
       );
     },
-    [publishProductMutation],
+    [updateProductMutation],
   );
 
-  // Handle bulk publish from Actions menu
-  const handlePublishSelected = useCallback(() => {
-    if (selectedCount === 0) {
-      toast.error("No products selected");
-      return;
-    }
+  // Handle bulk status change from Actions menu
+  const handleChangeStatusSelected = useCallback(
+    (status: "published" | "unpublished" | "scheduled") => {
+      if (selectedCount === 0) {
+        toast.error("No products selected");
+        return;
+      }
 
-    // For bulk publish, we need explicit product IDs
-    // If selection mode is "all", we need to get visible product IDs
-    const productIds =
-      selection.mode === "explicit"
-        ? selection.includeIds
-        : visibleProductIds.filter((id) => !selection.excludeIds.includes(id));
+      // Build selection for bulk update
+      const bulkSelection =
+        selection.mode === "explicit"
+          ? { mode: "explicit" as const, includeIds: selection.includeIds }
+          : {
+              mode: "all" as const,
+              excludeIds: selection.excludeIds,
+              filters: filterState.groups.length > 0 ? filterState : undefined,
+              search: searchValue?.trim() || undefined,
+            };
 
-    if (productIds.length === 0) {
-      toast.error("No products to publish");
-      return;
-    }
-
-    publishBulkMutation.mutate(
-      { productIds },
-      {
-        onSuccess: (result) => {
-          toast.success(
-            `Published ${result.totalProductsPublished} ${result.totalProductsPublished === 1 ? "product" : "products"}`,
-          );
-          // Clear selection after bulk publish
-          setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+      updateProductMutation.mutate(
+        { selection: bulkSelection, status },
+        {
+          onSuccess: () => {
+            const statusLabel =
+              status === "published"
+                ? "published"
+                : status === "scheduled"
+                  ? "scheduled"
+                  : "unpublished";
+            toast.success(
+              `${selectedCount} ${selectedCount === 1 ? "product" : "products"} ${statusLabel} successfully`,
+            );
+            // Clear selection after bulk operation
+            setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+          },
+          onError: (error) => {
+            toast.error(error.message || "Failed to update product status");
+          },
         },
-        onError: (error) => {
-          toast.error(error.message || "Failed to publish products");
-        },
-      },
-    );
-  }, [selection, selectedCount, visibleProductIds, publishBulkMutation]);
+      );
+    },
+    [selection, selectedCount, filterState, searchValue, updateProductMutation],
+  );
 
   // Map UI field names to API field names
   const mapSortField = useCallback((uiField: string): SortField => {
@@ -302,7 +299,7 @@ export function TableSection() {
       hasActiveFilters={hasActiveFilters}
       onClearFilters={handleClearFilters}
       onDeleteProduct={handleDeleteProduct}
-      onPublishProduct={handlePublishProduct}
+      onChangeStatus={handleChangeStatus}
       onVisibleProductIdsChange={setVisibleProductIds}
     />
   );
@@ -317,7 +314,7 @@ export function TableSection() {
           setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
         }}
         onDeleteSelectedAction={handleDeleteSelected}
-        onPublishSelectedAction={handlePublishSelected}
+        onChangeStatusSelectedAction={handleChangeStatusSelected}
         filterState={filterState}
         filterActions={filterActions}
         sortState={sortState}
@@ -372,7 +369,10 @@ interface TableContentProps {
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
   onDeleteProduct?: (productId: string) => void;
-  onPublishProduct?: (productId: string) => void;
+  onChangeStatus?: (
+    productId: string,
+    status: "published" | "unpublished",
+  ) => void;
   onVisibleProductIdsChange?: (ids: string[]) => void;
 }
 
@@ -394,7 +394,7 @@ function TableContent({
   hasActiveFilters = false,
   onClearFilters,
   onDeleteProduct,
-  onPublishProduct,
+  onChangeStatus,
   onVisibleProductIdsChange,
 }: TableContentProps) {
   const trpc = useTRPC();
@@ -476,10 +476,7 @@ function TableContent({
         passportIds: [p.id],
         name: p.name ?? "",
         productHandle: p.product_handle ?? p.productHandle ?? "",
-        status: (p.status ?? "unpublished") as any,
-        hasUnpublishedChanges:
-          p.has_unpublished_changes ?? p.hasUnpublishedChanges ?? false,
-        lastPublishedAt: p.last_published_at ?? null,
+        status: (p.status ?? "unpublished") as PassportStatus,
         firstVariantUpid: p.first_variant_upid ?? null,
         category: (p as any).category_name ?? null,
         categoryPath: (p as any).category_path ?? null,
@@ -694,7 +691,7 @@ function TableContent({
       hasActiveFilters={hasActiveFilters}
       onClearFilters={onClearFilters}
       onDeleteProduct={onDeleteProduct}
-      onPublishProduct={onPublishProduct}
+      onChangeStatus={onChangeStatus}
     />
   );
 }

@@ -7,6 +7,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@v1/ui/dialog";
@@ -60,45 +61,45 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none">
-        <DialogHeader>
+      <DialogContent size="md" className="p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">Delete brand</DialogTitle>
-          <DialogDescription className="text-secondary w-full whitespace-normal break-words">
+          <DialogDescription className="text-secondary">
             This action is irreversible. All brand data including members and
             invites will be permanently deleted. Type DELETE to confirm.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="w-full flex flex-col gap-3">
+        <div className="px-6 py-4 space-y-3">
           <Input
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder='Type "DELETE" to confirm'
             className="w-full"
           />
-          {error ? <p className="text-sm text-red-500">{error}</p> : null}
-
-          <div className="w-full flex gap-2 mt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={deleteMutation.isPending}
-              className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={onConfirm}
-              disabled={confirmText !== "DELETE" || deleteMutation.isPending}
-              className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </div>
+          {error ? (
+            <p className="type-small text-destructive">{error}</p>
+          ) : null}
         </div>
+
+        <DialogFooter className="px-6 py-4 border-t border-border">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={deleteMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={confirmText !== "DELETE" || deleteMutation.isPending}
+          >
+            {deleteMutation.isPending ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

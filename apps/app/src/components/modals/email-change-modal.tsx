@@ -217,7 +217,7 @@ export function EmailChangeModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-auto p-0 gap-0 border border-border overflow-hidden">
+      <DialogContent size="md" className="p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">{title}</DialogTitle>
         </DialogHeader>

@@ -1,6 +1,6 @@
 {
-  "id": "10b693b2-e3d1-4533-b2dc-e90941846c2c",
-  "prevId": "db03925e-8f5d-4d31-b7ff-3bf593ccb784",
+  "id": "0e8b0415-bdfa-41fb-a8eb-8167ce6cbf72",
+  "prevId": "40385231-ff05-44d8-8546-18e1f132ce22",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -968,18 +968,6 @@
         },
         "google_fonts_url": {
           "name": "google_fonts_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "screenshot_desktop_path": {
-          "name": "screenshot_desktop_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "screenshot_mobile_path": {
-          "name": "screenshot_mobile_path",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -4165,6 +4153,31 @@
           "primaryKey": false,
           "notNull": false
         },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "orphaned_at": {
+          "name": "orphaned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sku": {
+          "name": "sku",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "barcode": {
+          "name": "barcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "first_published_at": {
           "name": "first_published_at",
           "type": "timestamp with time zone",
@@ -4237,6 +4250,39 @@
           ],
           "isUnique": false,
           "where": "working_variant_id IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_product_passports_status": {
+          "name": "idx_product_passports_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "text_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_product_passports_orphaned_at": {
+          "name": "idx_product_passports_orphaned_at",
+          "columns": [
+            {
+              "expression": "orphaned_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last",
+              "opclass": "timestamptz_ops"
+            }
+          ],
+          "isUnique": false,
+          "where": "status = 'orphaned'",
           "concurrently": false,
           "method": "btree",
           "with": {}

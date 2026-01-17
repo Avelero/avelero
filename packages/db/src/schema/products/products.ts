@@ -1,8 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  boolean,
   index,
-  numeric,
   pgPolicy,
   pgTable,
   text,
@@ -44,20 +42,12 @@ export const products = pgTable(
     }),
     /**
      * Publication status of the product.
-     * Values: 'published' | 'unpublished'
-     * - 'unpublished': Draft, never been published (default)
-     * - 'published': Has been published at least once
-     * Note: Previous status values 'archived' and 'scheduled' have been removed.
+     * Values: 'published' | 'unpublished' | 'scheduled'
+     * - 'unpublished': Draft, not visible to the public (default)
+     * - 'published': Visible to the public
+     * - 'scheduled': Visual indicator only, not currently visible (behaves like unpublished)
      */
     status: text("status").notNull().default("unpublished"),
-    /**
-     * Tracks whether the product has changes that haven't been published yet.
-     * Set to `true` on every save, set to `false` on publish.
-     * Used to enable/disable the "Publish" button in the UI.
-     */
-    hasUnpublishedChanges: boolean("has_unpublished_changes")
-      .notNull()
-      .default(false),
     /**
      * Source of product creation.
      * Values: 'manual' | 'integration'

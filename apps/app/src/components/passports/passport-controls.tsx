@@ -6,6 +6,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
@@ -26,7 +29,9 @@ interface PassportControlsProps {
   selection?: SelectionState;
   onClearSelectionAction?: () => void;
   onDeleteSelectedAction?: () => void;
-  onPublishSelectedAction?: () => void;
+  onChangeStatusSelectedAction?: (
+    status: "published" | "unpublished" | "scheduled",
+  ) => void;
   filterState?: FilterState;
   filterActions?: FilterActions;
   sortState?: { field: string; direction: "asc" | "desc" } | null;
@@ -43,7 +48,7 @@ export function PassportControls({
   selection,
   onClearSelectionAction,
   onDeleteSelectedAction,
-  onPublishSelectedAction,
+  onChangeStatusSelectedAction,
   filterState,
   filterActions,
   sortState,
@@ -148,16 +153,41 @@ export function PassportControls({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[220px]">
-            <DropdownMenuItem
-              onSelect={() => {
-                onPublishSelectedAction?.();
-              }}
-            >
-              <span className="inline-flex items-center">
-                <Icons.StatusPublished width={12} height={12} />
-                <span className="px-1">Publish</span>
-              </span>
-            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Change status</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onChangeStatusSelectedAction?.("published");
+                  }}
+                >
+                  <span className="inline-flex items-center">
+                    <Icons.StatusPublished width={12} height={12} />
+                    <span className="px-1">Published</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onChangeStatusSelectedAction?.("unpublished");
+                  }}
+                >
+                  <span className="inline-flex items-center">
+                    <Icons.StatusUnpublished width={12} height={12} />
+                    <span className="px-1">Unpublished</span>
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onChangeStatusSelectedAction?.("scheduled");
+                  }}
+                >
+                  <span className="inline-flex items-center">
+                    <Icons.StatusScheduled width={12} height={12} />
+                    <span className="px-1">Scheduled</span>
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
               onSelect={() => {

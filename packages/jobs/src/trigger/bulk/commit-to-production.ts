@@ -24,8 +24,9 @@ import { logger, task } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
 import type { NormalizedRowData, NormalizedVariant } from "@v1/db/queries/bulk";
+import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
 import * as schema from "@v1/db/schema";
-import { generateUniqueUpids, sendBulkBroadcast } from "@v1/db/utils";
+import { sendBulkBroadcast } from "@v1/db/utils";
 import {
   downloadAndUploadImage,
   isExternalImageUrl,
@@ -80,8 +81,6 @@ interface PendingProductionOps {
     manufacturerId?: string;
     imagePath?: string;
     status: string;
-    /** Imported products always have unpublished changes - require manual publish */
-    hasUnpublishedChanges: boolean;
   }>;
   productUpdates: Array<{
     id: string;
@@ -94,8 +93,6 @@ interface PendingProductionOps {
       manufacturerId: string;
       imagePath: string;
       status: string;
-      /** Updates to products mark them as having unpublished changes */
-      hasUnpublishedChanges: boolean;
     }>;
   }>;
   variantCreates: Array<{
@@ -571,6 +568,9 @@ async function deleteCommittedImportRows(
 
 /**
  * Pre-generate all UPIDs for new variants in a batch.
+ *
+ * Uses the centralized generateGloballyUniqueUpids function which checks
+ * uniqueness against BOTH product_variants AND product_passports tables.
  */
 async function preGenerateUpids(
   database: Database,
@@ -591,25 +591,11 @@ async function preGenerateUpids(
     return new Map();
   }
 
-  // Generate all UPIDs in one batch
-  const upids = await generateUniqueUpids({
-    count: variantsNeedingUpids.length,
-    isTaken: async (candidate) => {
-      const [existing] = await database
-        .select({ id: productVariants.id })
-        .from(productVariants)
-        .where(eq(productVariants.upid, candidate))
-        .limit(1);
-      return Boolean(existing);
-    },
-    fetchTakenSet: async (candidates) => {
-      const rows = await database
-        .select({ upid: productVariants.upid })
-        .from(productVariants)
-        .where(inArray(productVariants.upid, candidates as string[]));
-      return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
-    },
-  });
+  // Generate all UPIDs using the centralized function that checks both tables
+  const upids = await generateGloballyUniqueUpids(
+    database,
+    variantsNeedingUpids.length,
+  );
 
   // Map stagingVariantId -> generated UPID
   const upidMap = new Map<string, string>();
@@ -682,8 +668,6 @@ function computeProductionOps(
         manufacturerId: normalizedProduct.manufacturerId ?? undefined,
         imagePath: normalizedProduct.imagePath ?? undefined,
         status: normalizedProduct.status ?? "unpublished",
-        // Imported products require manual publish before data is public
-        hasUnpublishedChanges: true,
       });
       batchStats.productsCreated++;
     } else if (
@@ -708,9 +692,6 @@ function computeProductionOps(
         updateData.imagePath = normalizedProduct.imagePath;
       if (normalizedProduct.status?.trim())
         updateData.status = normalizedProduct.status;
-
-      // Mark product as having unpublished changes after import update
-      updateData.hasUnpublishedChanges = true;
 
       if (Object.keys(updateData).length > 0) {
         ops.productUpdates.push({

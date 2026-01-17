@@ -176,7 +176,7 @@ export function ExportProductsModal({
       ) : (
         <DialogTrigger asChild>{buttonElement}</DialogTrigger>
       )}
-      <DialogContent className="rounded-none sm:rounded-none p-0 gap-0 border border-border focus:outline-none focus-visible:outline-none max-w-xl">
+      <DialogContent size="xl" className="p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle>Export products</DialogTitle>
         </DialogHeader>

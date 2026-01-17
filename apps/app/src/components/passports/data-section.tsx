@@ -8,7 +8,7 @@ const CARD_CONFIG = [
   { key: "total", title: "Total Passports" },
   { key: "published", title: "Published" },
   { key: "unpublished", title: "Unpublished" },
-  { key: "pendingChanges", title: "Pending Changes" },
+  { key: "scheduled", title: "Scheduled" },
 ] as const;
 
 export function DataSection() {
@@ -19,7 +19,7 @@ export function DataSection() {
     total: data?.data?.total ?? 0,
     published: data?.data?.published ?? 0,
     unpublished: data?.data?.unpublished ?? 0,
-    pendingChanges: data?.data?.pendingChanges ?? 0,
+    scheduled: data?.data?.scheduled ?? 0,
   };
 
   return (

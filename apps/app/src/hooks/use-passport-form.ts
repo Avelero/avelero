@@ -246,6 +246,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     null,
   );
 
+  // Store the last hydrated values so we can revert to them when discarding changes
+  const hydratedValuesRef = React.useRef<PassportFormValues | null>(null);
+
   // Database publishing state (from loaded product data)
   const [dbPublishingStatus, setDbPublishingStatus] = React.useState<
     "published" | "unpublished" | null
@@ -329,15 +332,34 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     [formValues, validationErrors, hasAttemptedSubmit],
   );
 
-  // Compute a map of variant value keys -> { upid, hasOverrides } for navigation in edit mode
+  // Compute a map of variant value keys -> variant info for navigation in edit mode
   // The key is pipe-separated value IDs matching the format used in variantMetadata
+  // Includes all variant data needed for delete warnings and navigation
   const savedVariantsMap = React.useMemo(() => {
     if (!isEditMode || !passportFormQuery.data)
-      return new Map<string, { upid: string; hasOverrides: boolean }>();
+      return new Map<
+        string,
+        {
+          upid: string;
+          hasOverrides: boolean;
+          sku: string | null;
+          barcode: string | null;
+          attributeLabel: string;
+        }
+      >();
 
     const payload = passportFormQuery.data as any;
     const variants = Array.isArray(payload?.variants) ? payload.variants : [];
-    const map = new Map<string, { upid: string; hasOverrides: boolean }>();
+    const map = new Map<
+      string,
+      {
+        upid: string;
+        hasOverrides: boolean;
+        sku: string | null;
+        barcode: string | null;
+        attributeLabel: string;
+      }
+    >();
 
     for (const variant of variants) {
       const upid = variant.upid ?? variant.unique_product_id;
@@ -348,9 +370,21 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         .map((a: any) => a.value_id ?? a.valueId)
         .filter(Boolean);
 
+      // Build attribute label from value names (e.g., "Black / S")
+      const attributeLabel =
+        attrs.length > 0
+          ? attrs.map((a: any) => a.value_name).join(" / ")
+          : variant.sku || variant.barcode || `Variant ${upid.slice(0, 6)}`;
+
       if (valueKeys.length > 0) {
         const key = valueKeys.join("|");
-        map.set(key, { upid, hasOverrides: variant.hasOverrides ?? false });
+        map.set(key, {
+          upid,
+          hasOverrides: variant.hasOverrides ?? false,
+          sku: variant.sku ?? null,
+          barcode: variant.barcode ?? null,
+          attributeLabel,
+        });
       }
     }
 
@@ -362,7 +396,13 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   // and navigates back - the deleted variant should not show as "new"
   const prevSavedVariantsRef = React.useRef<Map<
     string,
-    { upid: string; hasOverrides: boolean }
+    {
+      upid: string;
+      hasOverrides: boolean;
+      sku: string | null;
+      barcode: string | null;
+      attributeLabel: string;
+    }
   > | null>(null);
   React.useEffect(() => {
     // Only run after initial hydration is complete
@@ -566,15 +606,37 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             ? Number(m.percentage)
             : m.percentage,
       })) ?? [];
-    const journeySteps =
-      attributes.journey?.map((s: any) => ({
-        sortIndex: s.sort_index ?? s.sortIndex ?? 0,
-        stepType: s.step_type ?? s.stepType ?? "",
-        operatorIds:
-          s.operator_ids ??
-          s.operatorIds ??
-          (s.operatorId ? [s.operatorId] : []),
-      })) ?? [];
+    // Group journey rows by (sortIndex, stepType) and aggregate operator_ids
+    // The database stores one row per operator, so we need to re-group them
+    const journeySteps = (() => {
+      const rawJourney = attributes.journey ?? [];
+      const grouped = new Map<
+        string,
+        { sortIndex: number; stepType: string; operatorIds: string[] }
+      >();
+
+      for (const s of rawJourney) {
+        const sortIndex = s.sort_index ?? s.sortIndex ?? 0;
+        const stepType = s.step_type ?? s.stepType ?? "";
+        const key = `${sortIndex}|${stepType}`;
+
+        // Get operator ID from any of the possible field names
+        const operatorId = s.operator_id ?? s.operatorId ?? null;
+
+        if (!grouped.has(key)) {
+          grouped.set(key, { sortIndex, stepType, operatorIds: [] });
+        }
+
+        if (operatorId) {
+          grouped.get(key)!.operatorIds.push(operatorId);
+        }
+      }
+
+      // Sort by sortIndex and return as array
+      return Array.from(grouped.values()).sort(
+        (a, b) => a.sortIndex - b.sortIndex,
+      );
+    })();
     const tagIds =
       attributes.tags?.map((t: any) => t.tag_id ?? t.tagId).filter(Boolean) ??
       [];
@@ -609,6 +671,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     };
 
     setFields(nextValues);
+    // Store the hydrated values so we can revert to them when discarding changes
+    hydratedValuesRef.current = nextValues;
     metadataRef.current = {
       productId: payload.id,
       productHandle: payload.product_handle ?? productHandle ?? undefined,
@@ -1347,11 +1411,64 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     ],
   );
 
+  // Detect variants that would be deleted on save (exist in DB but not in enabledVariantKeys)
+  const getVariantsToDelete = React.useCallback(() => {
+    if (!isEditMode || savedVariantsMap.size === 0) return [];
+
+    const variantsToDelete: Array<{
+      upid: string;
+      attributeSummary: string;
+      sku?: string;
+      barcode?: string;
+    }> = [];
+
+    // Check each saved variant to see if it's still in enabledVariantKeys
+    for (const [key, variantInfo] of savedVariantsMap) {
+      if (!formValues.enabledVariantKeys.has(key)) {
+        // This variant will be deleted - use data from savedVariantsMap
+        // which stores the original API response data including attribute labels
+        variantsToDelete.push({
+          upid: variantInfo.upid,
+          attributeSummary: variantInfo.attributeLabel,
+          sku: variantInfo.sku ?? undefined,
+          barcode: variantInfo.barcode ?? undefined,
+        });
+      }
+    }
+
+    return variantsToDelete;
+  }, [isEditMode, savedVariantsMap, formValues.enabledVariantKeys]);
+
+  /**
+   * Revert the form to its last saved/hydrated state.
+   * Used when discarding unsaved changes - restores form to the original
+   * fetched data rather than resetting to empty initial values.
+   */
+  const revertToSaved = React.useCallback(() => {
+    if (isEditMode && hydratedValuesRef.current) {
+      // Restore form to the last hydrated values from the server
+      setFields(hydratedValuesRef.current);
+      setValidationErrors({});
+      setHasAttemptedSubmit(false);
+      // Reset the snapshot to match the reverted values
+      setInitialSnapshot(
+        JSON.stringify(computeComparableState(hydratedValuesRef.current)),
+      );
+    } else {
+      // For create mode, just reset to initial empty values
+      resetFormValues();
+      setValidationErrors({});
+      setHasAttemptedSubmit(false);
+      setInitialSnapshot(null);
+    }
+  }, [isEditMode, setFields, resetFormValues, computeComparableState]);
+
   return {
     state,
     setField,
     updateField,
     resetForm: resetFormValues,
+    revertToSaved,
     clearValidationError,
     validate,
     submit,
@@ -1367,5 +1484,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     productId: metadataRef.current.productId ?? null,
     dbPublishingStatus,
     dbHasUnpublishedChanges,
+    // Variant deletion detection
+    getVariantsToDelete,
   };
 }

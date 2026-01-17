@@ -260,6 +260,8 @@ function VariantFormInner({
           upid: v.upid ?? "",
           attributeLabel: attrLabel,
           hasOverrides: v.hasOverrides ?? false,
+          sku: v.sku,
+          barcode: v.barcode,
         };
       })
       .filter((v) => v.upid); // Only variants with UPIDs

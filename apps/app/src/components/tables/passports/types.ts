@@ -10,11 +10,12 @@ export type {
   FilterOperator,
 } from "@/components/passports/filter-types";
 
-export type PassportStatus = "published" | "unpublished";
+export type PassportStatus = "published" | "unpublished" | "scheduled";
 
 export const PASSPORT_STATUS_LABELS: Record<PassportStatus, string> = {
   published: "Published",
   unpublished: "Unpublished",
+  scheduled: "Scheduled",
 };
 
 export interface ProductPassportRow {
@@ -23,10 +24,6 @@ export interface ProductPassportRow {
   productHandle: string;
   name: string;
   status: PassportStatus;
-  /** Whether the product has unpublished changes (only relevant when status='published') */
-  hasUnpublishedChanges?: boolean;
-  /** The timestamp of when the product was last published */
-  lastPublishedAt?: string | Date | null;
   category?: string | null;
   categoryPath?: string[] | null;
   season?: string | null;

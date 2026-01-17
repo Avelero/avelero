@@ -22,7 +22,6 @@ import {
   productEnvironment,
   productJourneySteps,
   productMaterials,
-  productPassports,
   productTags,
   productVariantAttributes,
   productVariants,
@@ -56,11 +55,6 @@ export interface ExportProductData {
   categoryPath: string | null;
   seasonName: string | null;
   tags: string[]; // tag names for semicolon-join
-
-  // Publishing state (new publishing model)
-  hasUnpublishedChanges: boolean;
-  /** ISO timestamp of last publish, null if never published */
-  lastPublishedAt: string | null;
 
   // Environmental
   carbonKg: number | null;
@@ -127,7 +121,6 @@ export async function getProductsForExport(
       description: products.description,
       imagePath: products.imagePath,
       status: products.status,
-      hasUnpublishedChanges: products.hasUnpublishedChanges,
       categoryId: products.categoryId,
       seasonId: products.seasonId,
       manufacturerId: products.manufacturerId,
@@ -160,7 +153,6 @@ export async function getProductsForExport(
     materialsMap,
     journeyMap,
     variantsWithData,
-    lastPublishedMap,
   ] = await Promise.all([
     loadCategoryPathsForProducts(db, categoryIds),
     loadTagsForProducts(db, productIdList),
@@ -169,7 +161,6 @@ export async function getProductsForExport(
     loadMaterialsForProducts(db, productIdList),
     loadJourneyForProducts(db, productIdList),
     loadVariantsWithOverrides(db, productIdList),
-    loadLastPublishedForProducts(db, productIdList),
   ]);
 
   // 3. Assemble complete product data
@@ -180,7 +171,6 @@ export async function getProductsForExport(
 
     const env = environmentMap.get(product.id);
     const weight = weightMap.get(product.id);
-    const lastPublished = lastPublishedMap.get(product.id);
 
     return {
       id: product.id,
@@ -190,8 +180,6 @@ export async function getProductsForExport(
       manufacturerName: product.manufacturerName,
       imagePath: product.imagePath,
       status: product.status ?? "draft",
-      hasUnpublishedChanges: product.hasUnpublishedChanges,
-      lastPublishedAt: lastPublished ?? null,
       categoryPath: categoryPath ? categoryPath.join(" > ") : null,
       seasonName: product.seasonName,
       tags: tagsMap.get(product.id) ?? [],
@@ -208,73 +196,6 @@ export async function getProductsForExport(
 // ============================================================================
 // Helper Functions for Loading Related Data
 // ============================================================================
-
-/**
- * Load last_published_at for products by finding the most recent passport publication
- * across all variants of each product.
- */
-async function loadLastPublishedForProducts(
-  db: Database,
-  productIds: string[],
-): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
-  if (productIds.length === 0) return map;
-
-  // Get all variants for these products
-  const variantRows = await db
-    .select({
-      productId: productVariants.productId,
-      variantId: productVariants.id,
-    })
-    .from(productVariants)
-    .where(inArray(productVariants.productId, productIds));
-
-  if (variantRows.length === 0) return map;
-
-  const variantIds = variantRows.map((v) => v.variantId);
-
-  // Get passports for these variants
-  const passportRows = await db
-    .select({
-      workingVariantId: productPassports.workingVariantId,
-      lastPublishedAt: productPassports.lastPublishedAt,
-    })
-    .from(productPassports)
-    .where(inArray(productPassports.workingVariantId, variantIds));
-
-  // Create variant -> lastPublishedAt map
-  const variantPassportMap = new Map<string, string>();
-  for (const row of passportRows) {
-    if (row.workingVariantId && row.lastPublishedAt) {
-      variantPassportMap.set(row.workingVariantId, row.lastPublishedAt);
-    }
-  }
-
-  // For each product, find the most recent lastPublishedAt across its variants
-  const productVariantMap = new Map<string, string[]>();
-  for (const row of variantRows) {
-    const variants = productVariantMap.get(row.productId) ?? [];
-    variants.push(row.variantId);
-    productVariantMap.set(row.productId, variants);
-  }
-
-  for (const [productId, variantIdList] of productVariantMap) {
-    let latestPublished: string | null = null;
-    for (const variantId of variantIdList) {
-      const published = variantPassportMap.get(variantId);
-      if (published) {
-        if (!latestPublished || published > latestPublished) {
-          latestPublished = published;
-        }
-      }
-    }
-    if (latestPublished) {
-      map.set(productId, latestPublished);
-    }
-  }
-
-  return map;
-}
 
 async function loadTagsForProducts(
   db: Database,

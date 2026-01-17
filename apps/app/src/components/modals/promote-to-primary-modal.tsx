@@ -39,7 +39,7 @@ export function PromoteToPrimaryModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[480px] p-0 gap-0 border border-border">
+      <DialogContent size="md" className="p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">
             Promote to Primary

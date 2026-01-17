@@ -41,25 +41,21 @@ export const summaryRouter = createTRPCRouter({
           ),
         );
 
-      // Get pending changes count (published products with unpublished changes)
-      const [pendingChangesResult] = await db
+      // Get scheduled count
+      const [scheduledResult] = await db
         .select({
           count: sql<number>`COUNT(*)::int`,
         })
         .from(products)
         .where(
-          and(
-            eq(products.brandId, brandId),
-            eq(products.status, "published"),
-            eq(products.hasUnpublishedChanges, true),
-          ),
+          and(eq(products.brandId, brandId), eq(products.status, "scheduled")),
         );
 
       const summary = {
         total: totalResult?.count ?? 0,
         published: publishedResult?.count ?? 0,
         unpublished: unpublishedResult?.count ?? 0,
-        pendingChanges: pendingChangesResult?.count ?? 0,
+        scheduled: scheduledResult?.count ?? 0,
       };
 
       return createEntityResponse(summary);

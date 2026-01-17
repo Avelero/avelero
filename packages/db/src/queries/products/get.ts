@@ -30,7 +30,6 @@ export async function getProduct(db: Database, brandId: string, id: string) {
       image_path: products.imagePath,
       product_handle: products.productHandle,
       status: products.status,
-      has_unpublished_changes: products.hasUnpublishedChanges,
       created_at: products.createdAt,
       updated_at: products.updatedAt,
     })
@@ -59,7 +58,6 @@ export async function getProductByHandle(
       image_path: products.imagePath,
       product_handle: products.productHandle,
       status: products.status,
-      has_unpublished_changes: products.hasUnpublishedChanges,
       created_at: products.createdAt,
       updated_at: products.updatedAt,
     })

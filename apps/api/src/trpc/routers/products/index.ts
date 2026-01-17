@@ -24,6 +24,8 @@ import {
   upsertProductEnvironment,
   upsertProductMaterials,
   upsertProductWeight,
+  publishProduct,
+  bulkPublishProducts,
 } from "@v1/db/queries/products";
 import { productVariants, products } from "@v1/db/schema";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
@@ -212,7 +214,7 @@ export const productsRouter = createTRPCRouter({
           };
 
           // Bulk update based on selection mode
-          let result: { updated: number };
+          let result: { updated: number; productIds?: string[] };
           if (selection.mode === "all") {
             result = await bulkUpdateProductsByFilter(
               brandCtx.db,
@@ -233,9 +235,20 @@ export const productsRouter = createTRPCRouter({
             );
           }
 
-          // Invalidate DPP cache for bulk updates (fire-and-forget)
-          // Note: For large bulk updates, we don't revalidate individual products
-          // The cache will naturally expire or can be manually refreshed
+          // If status changed to "published", trigger publish flow to create passport versions
+          // This ensures QR codes become resolvable when status is set to published
+          if (
+            input.status === "published" &&
+            result.productIds &&
+            result.productIds.length > 0
+          ) {
+            // Trigger bulk publish (fire-and-forget, errors logged but not thrown)
+            bulkPublishProducts(brandCtx.db, result.productIds, brandId).catch(
+              (err) => {
+                console.error("Bulk publish failed after status change:", err);
+              },
+            );
+          }
 
           return {
             success: true,
@@ -274,6 +287,15 @@ export const productsRouter = createTRPCRouter({
           weight: input.weight,
           tag_ids: input.tag_ids,
         });
+
+        // If status changed to "published", trigger publish flow to create passport versions
+        // This ensures QR codes become resolvable when status is set to published
+        if (input.status === "published" && product?.id) {
+          // Trigger publish (fire-and-forget, errors logged but not thrown)
+          publishProduct(brandCtx.db, product.id, brandId).catch((err) => {
+            console.error("Publish failed after status change:", err);
+          });
+        }
 
         // Revalidate DPP cache for this product (fire-and-forget)
         if (product?.id) {

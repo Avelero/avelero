@@ -8,6 +8,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import {
@@ -169,29 +172,25 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       );
     },
   },
-  // 3) Status with icon - simplified to only Published/Unpublished
+  // Status with icon - Published/Unpublished/Scheduled
   {
     id: "status",
     header: "Status",
     cell: ({ row }) => {
-      const { status, hasUnpublishedChanges } = row.original;
+      const { status } = row.original;
 
       const Icon =
         status === "published"
           ? Icons.StatusPublished
-          : Icons.StatusUnpublished;
-
-      // Show "Pending" instead of "Published" if there are unpublished changes
-      const displayStatus =
-        status === "published" && hasUnpublishedChanges
-          ? "Pending changes"
-          : status;
+          : status === "scheduled"
+            ? Icons.StatusScheduled
+            : Icons.StatusUnpublished;
 
       return (
         <div className="flex items-center gap-3">
           <Icon className="h-[16px] w-[16px]" />
           <span className="truncate type-p text-primary capitalize">
-            {displayStatus}
+            {status}
           </span>
         </div>
       );
@@ -268,31 +267,6 @@ export const columns: ColumnDef<PassportTableRow>[] = [
     cell: ({ row }) => {
       const count = row.original.variantCount;
       return <span className="type-p text-primary">{count}</span>;
-    },
-    meta: {
-      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
-      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
-    },
-  },
-  // Last Published At
-  {
-    id: "lastPublishedAt",
-    header: "Last published",
-    cell: ({ row }) => {
-      const lastPublishedAt = row.original.lastPublishedAt;
-      if (!lastPublishedAt) {
-        return null;
-      }
-
-      const date = new Date(lastPublishedAt);
-      // Use explicit locale to prevent hydration mismatch between server/client
-      const formatted = date.toLocaleDateString("en-GB", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-
-      return <span className="type-p text-primary">{formatted}</span>;
     },
     meta: {
       headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
@@ -379,11 +353,14 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       const meta = table.options.meta as
         | {
             onDeleteProduct?: (productId: string) => void;
-            onPublishProduct?: (productId: string) => void;
+            onChangeStatus?: (
+              productId: string,
+              status: "published" | "unpublished" | "scheduled",
+            ) => void;
           }
         | undefined;
       const onDeleteProduct = meta?.onDeleteProduct;
-      const onPublishProduct = meta?.onPublishProduct;
+      const onChangeStatus = meta?.onChangeStatus;
 
       // Build public DPP URL using UPID (new immutable passports URL structure)
       const dppBaseUrl =
@@ -395,16 +372,6 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       // Only show passport button if product is published and has a UPID
       const canViewPassport =
         product.status === "published" && dppUrl !== undefined;
-
-      // Determine if publish action should be enabled:
-      // - Unpublished products can be published
-      // - Published products with unpublished changes can be republished
-      const canPublish =
-        product.status === "unpublished" ||
-        (product.status === "published" && product.hasUnpublishedChanges);
-
-      const publishLabel =
-        product.status === "published" ? "Publish changes" : "Publish";
 
       return (
         <div className="flex items-center justify-end gap-3">
@@ -455,17 +422,50 @@ export const columns: ColumnDef<PassportTableRow>[] = [
               className="w-[220px]"
               onClick={(e) => e.stopPropagation()}
             >
-              <DropdownMenuItem
-                disabled={!canPublish}
-                onSelect={() => {
-                  onPublishProduct?.(product.id);
-                }}
-              >
-                <span className="inline-flex items-center">
-                  <Icons.StatusPublished width={12} height={12} />
-                  <span className="px-1">{publishLabel}</span>
-                </span>
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Change status</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "published");
+                    }}
+                  >
+                    <span className="inline-flex items-center">
+                      <Icons.StatusPublished width={12} height={12} />
+                      <span className="px-1">Published</span>
+                    </span>
+                    {product.status === "published" && (
+                      <Icons.Check className="h-4 w-4" />
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "unpublished");
+                    }}
+                  >
+                    <span className="inline-flex items-center">
+                      <Icons.StatusUnpublished width={12} height={12} />
+                      <span className="px-1">Unpublished</span>
+                    </span>
+                    {product.status === "unpublished" && (
+                      <Icons.Check className="h-4 w-4" />
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "scheduled");
+                    }}
+                  >
+                    <span className="inline-flex items-center">
+                      <Icons.StatusScheduled width={12} height={12} />
+                      <span className="px-1">Scheduled</span>
+                    </span>
+                    {product.status === "scheduled" && (
+                      <Icons.Check className="h-4 w-4" />
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onSelect={() => {

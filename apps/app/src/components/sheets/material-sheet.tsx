@@ -198,6 +198,10 @@ export function MaterialSheet({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { uploadImage, buildPath, isLoading: isUploading } = useImageUpload();
 
+  // Container ref for portal - ensures popovers render inside the sheet
+  const [sheetContainer, setSheetContainer] =
+    React.useState<HTMLDivElement | null>(null);
+
   // API mutations
   const createMaterialMutation = useMutation(
     trpc.catalog.materials.create.mutationOptions(),
@@ -611,6 +615,7 @@ export function MaterialSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        ref={setSheetContainer}
         side="right"
         className="flex flex-col p-0 gap-0 w-full sm:w-[480px] lg:w-[560px] m-6 h-[calc(100vh-48px)]"
         hideDefaultClose
@@ -654,6 +659,7 @@ export function MaterialSheet({
                   placeholder="Select country"
                   value={countryOfOrigin}
                   onChange={(code) => setCountryOfOrigin(code)}
+                  container={sheetContainer}
                 />
 
                 <div className="space-y-1.5">
@@ -976,6 +982,7 @@ export function MaterialSheet({
                   placeholder="Select country"
                   value={certInstituteCountryCode}
                   onChange={(code) => setCertInstituteCountryCode(code)}
+                  container={sheetContainer}
                 />
                 <div className="space-y-1.5">
                   <Label htmlFor="cert-city">City</Label>

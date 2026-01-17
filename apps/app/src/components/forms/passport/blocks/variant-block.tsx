@@ -295,8 +295,17 @@ interface VariantSectionProps {
   isEditMode?: boolean;
   /** Product handle for building variant edit URLs */
   productHandle?: string;
-  /** Saved variants with UPIDs and override status, keyed by the value id key (e.g., "valueId1|valueId2") */
-  savedVariants?: Map<string, { upid: string; hasOverrides: boolean }>;
+  /** Saved variants with UPIDs, override status, and metadata, keyed by the value id key (e.g., "valueId1|valueId2") */
+  savedVariants?: Map<
+    string,
+    {
+      upid: string;
+      hasOverrides: boolean;
+      sku: string | null;
+      barcode: string | null;
+      attributeLabel: string;
+    }
+  >;
   /**
    * Whether this is a new product (no saved variants yet).
    * Used to determine matrix vs reality-based variant display and dimension change behavior.
@@ -307,11 +316,6 @@ interface VariantSectionProps {
    * This allows the parent to intercept navigation and show unsaved changes modal.
    */
   onNavigateToVariant?: (url: string) => void;
-  /**
-   * Product publishing status. When 'published', the attribute selection UI is hidden
-   * (matrix is locked) and only the variants table and "Add variant" button are shown.
-   */
-  publishingStatus?: "published" | "unpublished" | null;
 }
 
 export function VariantSection({
@@ -328,10 +332,7 @@ export function VariantSection({
   savedVariants,
   isNewProduct = false,
   onNavigateToVariant,
-  publishingStatus,
 }: VariantSectionProps) {
-  // Matrix is locked (attribute selection hidden) when product is published
-  const isMatrixLocked = publishingStatus === "published";
   const { taxonomyAttributes, brandAttributes } = useBrandCatalog();
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
@@ -349,7 +350,13 @@ export function VariantSection({
   const effectiveSavedVariants = React.useMemo(() => {
     const effective = new Map<
       string,
-      { upid: string; hasOverrides: boolean }
+      {
+        upid: string;
+        hasOverrides: boolean;
+        sku: string | null;
+        barcode: string | null;
+        attributeLabel: string;
+      }
     >();
     // Add original saved variants
     if (savedVariants) {
@@ -358,9 +365,16 @@ export function VariantSection({
       }
     }
     // Add collapsed mappings (these override if key collision, which shouldn't happen)
+    // Collapsed entries use default values for metadata since they represent
+    // merged variants where the original SKU/barcode don't apply
     for (const [key, value] of collapsedVariantMappings) {
       if (!effective.has(key)) {
-        effective.set(key, value);
+        effective.set(key, {
+          ...value,
+          sku: null,
+          barcode: null,
+          attributeLabel: `Variant ${value.upid.slice(0, 6)}`,
+        });
       }
     }
     return effective;
@@ -814,6 +828,24 @@ export function VariantSection({
       // Simply enable all the new keys - there's nothing to expand from
       if (oldDimensionCount === 0) {
         setEnabledVariantKeys(new Set(newKeys));
+        // Restore metadata from savedVariants for keys that match
+        if (savedVariants && savedVariants.size > 0) {
+          setVariantMetadata((prev) => {
+            const restored = { ...prev };
+            for (const key of newKeys) {
+              if (!restored[key] && savedVariants.has(key)) {
+                const savedData = savedVariants.get(key)!;
+                if (savedData.sku || savedData.barcode) {
+                  restored[key] = {
+                    sku: savedData.sku ?? undefined,
+                    barcode: savedData.barcode ?? undefined,
+                  };
+                }
+              }
+            }
+            return restored;
+          });
+        }
         return;
       }
 
@@ -857,21 +889,45 @@ export function VariantSection({
               hasOverrides: variantInfo.hasOverrides,
             });
           }
-          // Preserve metadata
+          // Preserve metadata from current variantMetadata first
           const originalMeta = variantMetadata[originalKey];
           if (originalMeta) {
             nextMetadata[expandedKey] = originalMeta;
           }
+          // If no metadata from current state, try to restore from savedVariants
+          if (
+            !nextMetadata[expandedKey] &&
+            savedVariants &&
+            savedVariants.has(expandedKey)
+          ) {
+            const savedData = savedVariants.get(expandedKey)!;
+            if (savedData.sku || savedData.barcode) {
+              nextMetadata[expandedKey] = {
+                sku: savedData.sku ?? undefined,
+                barcode: savedData.barcode ?? undefined,
+              };
+            }
+          }
         }
 
-        // For the other new values, create genuinely new variants (no UPID/metadata mapping)
+        // For the other new values, create genuinely new variants
+        // But still check savedVariants for metadata restoration
         for (const otherValue of otherNewValues) {
           const newKeyParts = [...keyParts];
           newKeyParts.splice(keyInsertPosition, 0, otherValue);
           const newKey = newKeyParts.join("|");
           if (newKeysSet.has(newKey)) {
             nextEnabled.add(newKey);
-            // Don't add to mappings or metadata - these are genuinely new variants
+            // Check savedVariants for metadata restoration
+            if (savedVariants?.has(newKey)) {
+              const savedData = savedVariants.get(newKey)!;
+              if (savedData.sku || savedData.barcode) {
+                nextMetadata[newKey] = {
+                  sku: savedData.sku ?? undefined,
+                  barcode: savedData.barcode ?? undefined,
+                };
+              }
+            }
           }
         }
       }
@@ -1077,25 +1133,81 @@ export function VariantSection({
         return nextEnabled;
       });
 
-      // Also update metadata when values are removed
-      if (removedValues.length > 0) {
-        setVariantMetadata((prev) => {
-          const nextMetadata: Record<
-            string,
-            { sku?: string; barcode?: string }
-          > = {};
-          for (const [key, meta] of Object.entries(prev)) {
-            const keyParts = key.split("|");
-            const containsRemovedValue = keyParts.some((part) =>
-              removedValues.includes(part),
-            );
-            if (!containsRemovedValue && newKeysSet.has(key)) {
-              nextMetadata[key] = meta;
+      // Update metadata: remove for removed values, restore from savedVariants for added values
+      setVariantMetadata((prev) => {
+        const nextMetadata: Record<string, { sku?: string; barcode?: string }> =
+          {};
+
+        // Keep existing metadata that's still valid (not containing removed values)
+        for (const [key, meta] of Object.entries(prev)) {
+          const keyParts = key.split("|");
+          const containsRemovedValue = keyParts.some((part) =>
+            removedValues.includes(part),
+          );
+          if (!containsRemovedValue && newKeysSet.has(key)) {
+            nextMetadata[key] = meta;
+          }
+        }
+
+        // For added values: restore metadata from savedVariants if available
+        // This handles the case where a user removes a value and then re-adds it
+        if (addedValues.length > 0 && savedVariants && savedVariants.size > 0) {
+          const dimsWithValues = newDimensions.filter((d) =>
+            dimensionHasValues(d),
+          );
+          const keyPosition = dimsWithValues.findIndex(
+            (d) => d.id === updated.id,
+          );
+
+          if (keyPosition !== -1) {
+            // Get existing variant patterns without the current dimension
+            const existingPatterns = new Set<string>();
+            for (const key of enabledVariantKeys) {
+              const keyParts = key.split("|");
+              // Only use patterns that don't contain removed values
+              const containsRemovedValue = keyParts.some((part) =>
+                removedValues.includes(part),
+              );
+              if (!containsRemovedValue) {
+                const patternParts = keyParts.filter(
+                  (_, i) => i !== keyPosition,
+                );
+                if (patternParts.length > 0) {
+                  existingPatterns.add(patternParts.join("|"));
+                }
+              }
+            }
+
+            // For each existing pattern, check if new keys exist in savedVariants
+            for (const pattern of existingPatterns) {
+              const patternParts = pattern.split("|");
+              for (const newValue of addedValues) {
+                const newKeyParts = [...patternParts];
+                newKeyParts.splice(keyPosition, 0, newValue);
+                const newKey = newKeyParts.join("|");
+
+                // If this key exists in savedVariants and we don't already have metadata for it,
+                // restore the original SKU/barcode
+                if (
+                  newKeysSet.has(newKey) &&
+                  !nextMetadata[newKey] &&
+                  savedVariants.has(newKey)
+                ) {
+                  const savedData = savedVariants.get(newKey)!;
+                  if (savedData.sku || savedData.barcode) {
+                    nextMetadata[newKey] = {
+                      sku: savedData.sku ?? undefined,
+                      barcode: savedData.barcode ?? undefined,
+                    };
+                  }
+                }
+              }
             }
           }
-          return nextMetadata;
-        });
-      }
+        }
+
+        return nextMetadata;
+      });
     }
   };
 
@@ -1273,157 +1385,152 @@ export function VariantSection({
           )}
       </div>
 
-      {/* Attribute selection area - hidden when matrix is locked (product is published) */}
-      {!isMatrixLocked && (
-        <div className="px-4 pb-4 flex flex-col gap-3">
-          {hasDimensions ? (
-            // Has dimensions: show rows + add button
-            <div className="border border-border divide-y divide-border">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
+      {/* Attribute selection area */}
+      <div className="px-4 pb-4 flex flex-col gap-3">
+        {hasDimensions ? (
+          // Has dimensions: show rows + add button
+          <div className="border border-border divide-y divide-border">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={dimensions.map((d) => d.id)}
+                strategy={verticalListSortingStrategy}
               >
-                <SortableContext
-                  items={dimensions.map((d) => d.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {dimensions.map((dim, idx) => (
-                    <SortableAttributeRow
-                      key={dim.id}
-                      dimension={dim}
-                      onChange={(updated) =>
-                        handleUpdateDimension(idx, updated)
-                      }
-                      onDelete={() => handleDeleteDimension(idx)}
-                      isExpanded={expandedId === dim.id}
-                      setExpanded={(expanded) =>
-                        setExpandedId(expanded ? dim.id : null)
-                      }
-                    />
-                  ))}
-                </SortableContext>
+                {dimensions.map((dim, idx) => (
+                  <SortableAttributeRow
+                    key={dim.id}
+                    dimension={dim}
+                    onChange={(updated) => handleUpdateDimension(idx, updated)}
+                    onDelete={() => handleDeleteDimension(idx)}
+                    isExpanded={expandedId === dim.id}
+                    setExpanded={(expanded) =>
+                      setExpandedId(expanded ? dim.id : null)
+                    }
+                  />
+                ))}
+              </SortableContext>
 
-                {typeof document !== "undefined" &&
-                  createPortal(
-                    <DragOverlay>
-                      {activeDimension && (
-                        <div className="border border-border bg-background shadow-lg p-4">
-                          <p className="type-p !font-medium text-primary">
-                            {activeDimension.isCustomInline
-                              ? activeDimension.customAttributeName ||
-                                "Custom attribute"
-                              : activeDimension.attributeName ||
-                                "New attribute"}
-                          </p>
-                        </div>
-                      )}
-                    </DragOverlay>,
-                    document.body,
-                  )}
-              </DndContext>
+              {typeof document !== "undefined" &&
+                createPortal(
+                  <DragOverlay>
+                    {activeDimension && (
+                      <div className="border border-border bg-background shadow-lg p-4">
+                        <p className="type-p !font-medium text-primary">
+                          {activeDimension.isCustomInline
+                            ? activeDimension.customAttributeName ||
+                              "Custom attribute"
+                            : activeDimension.attributeName || "New attribute"}
+                        </p>
+                      </div>
+                    )}
+                  </DragOverlay>,
+                  document.body,
+                )}
+            </DndContext>
 
-              {/* Add attribute button with popover - only when less than 3 */}
-              {dimensions.length < 3 && (
-                <Select open={addPopoverOpen} onOpenChange={setAddPopoverOpen}>
-                  <SelectTrigger asChild>
-                    <button
-                      type="button"
-                      className="w-full flex items-center gap-1.5 px-4 py-3 text-left hover:bg-accent data-[state=open]:bg-accent transition-colors"
-                    >
-                      <Icons.Plus className="h-4 w-4 text-tertiary" />
-                      <span className="px-1 type-p text-secondary">
-                        Add attribute
-                      </span>
-                    </button>
-                  </SelectTrigger>
-                  <SelectContent className="w-[280px]" shouldFilter={false}>
-                    <SelectSearch
-                      placeholder="Search attributes..."
-                      value={addSearchTerm}
-                      onValueChange={setAddSearchTerm}
-                    />
-                    <SelectList>
-                      {/* Custom attributes first */}
-                      {filteredCustomAttrs.length > 0 && (
-                        <SelectGroup heading="Custom">
-                          {filteredCustomAttrs.map((attr) => (
+            {/* Add attribute button with popover - only when less than 3 */}
+            {dimensions.length < 3 && (
+              <Select open={addPopoverOpen} onOpenChange={setAddPopoverOpen}>
+                <SelectTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-1.5 px-4 py-3 text-left hover:bg-accent data-[state=open]:bg-accent transition-colors"
+                  >
+                    <Icons.Plus className="h-4 w-4 text-tertiary" />
+                    <span className="px-1 type-p text-secondary">
+                      Add attribute
+                    </span>
+                  </button>
+                </SelectTrigger>
+                <SelectContent className="w-[280px]" shouldFilter={false}>
+                  <SelectSearch
+                    placeholder="Search attributes..."
+                    value={addSearchTerm}
+                    onValueChange={setAddSearchTerm}
+                  />
+                  <SelectList>
+                    {/* Custom attributes first */}
+                    {filteredCustomAttrs.length > 0 && (
+                      <SelectGroup heading="Custom">
+                        {filteredCustomAttrs.map((attr) => (
+                          <SelectItem
+                            key={attr.id}
+                            value={attr.id}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onSelect={() => handleSelectAttribute(attr.id)}
+                          >
+                            {attr.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
+
+                    {/* Standard taxonomy attributes */}
+                    {filteredTaxonomyAttrs.length > 0 && (
+                      <SelectGroup
+                        heading={
+                          filteredCustomAttrs.length > 0
+                            ? "Standard"
+                            : undefined
+                        }
+                      >
+                        {filteredTaxonomyAttrs.map((attr) => {
+                          const brandAttr = brandAttributes.find(
+                            (a) => a.taxonomyAttributeId === attr.id,
+                          );
+                          return (
                             <SelectItem
                               key={attr.id}
-                              value={attr.id}
+                              value={brandAttr?.id ?? `tax:${attr.id}`}
                               onMouseDown={(e) => e.preventDefault()}
-                              onSelect={() => handleSelectAttribute(attr.id)}
+                              onSelect={() =>
+                                handleSelectAttribute(
+                                  brandAttr?.id ?? `tax:${attr.id}`,
+                                )
+                              }
                             >
                               {attr.name}
                             </SelectItem>
-                          ))}
-                        </SelectGroup>
+                          );
+                        })}
+                      </SelectGroup>
+                    )}
+
+                    {filteredTaxonomyAttrs.length === 0 &&
+                      filteredCustomAttrs.length === 0 && (
+                        <SelectEmpty>No attributes found</SelectEmpty>
                       )}
+                  </SelectList>
 
-                      {/* Standard taxonomy attributes */}
-                      {filteredTaxonomyAttrs.length > 0 && (
-                        <SelectGroup
-                          heading={
-                            filteredCustomAttrs.length > 0
-                              ? "Standard"
-                              : undefined
-                          }
-                        >
-                          {filteredTaxonomyAttrs.map((attr) => {
-                            const brandAttr = brandAttributes.find(
-                              (a) => a.taxonomyAttributeId === attr.id,
-                            );
-                            return (
-                              <SelectItem
-                                key={attr.id}
-                                value={brandAttr?.id ?? `tax:${attr.id}`}
-                                onMouseDown={(e) => e.preventDefault()}
-                                onSelect={() =>
-                                  handleSelectAttribute(
-                                    brandAttr?.id ?? `tax:${attr.id}`,
-                                  )
-                                }
-                              >
-                                {attr.name}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectGroup>
-                      )}
-
-                      {filteredTaxonomyAttrs.length === 0 &&
-                        filteredCustomAttrs.length === 0 && (
-                          <SelectEmpty>No attributes found</SelectEmpty>
-                        )}
-                    </SelectList>
-
-                    {/* Add custom button - always visible at bottom */}
-                    <SelectFooter>
-                      <SelectAction
-                        onMouseDown={(e) => e.preventDefault()}
-                        onSelect={handleAddCustomAttribute}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icons.Plus className="h-3.5 w-3.5" />
-                          <span>Add custom attribute</span>
-                        </div>
-                      </SelectAction>
-                    </SelectFooter>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          ) : (
-            // Empty state: show simple attribute select with label
-            <EmptyStateAttributeSelect
-              groups={selectGroups}
-              onSelectAttribute={handleSelectAttribute}
-              onAddCustomAttribute={handleAddCustomAttribute}
-            />
-          )}
-        </div>
-      )}
+                  {/* Add custom button - always visible at bottom */}
+                  <SelectFooter>
+                    <SelectAction
+                      onMouseDown={(e) => e.preventDefault()}
+                      onSelect={handleAddCustomAttribute}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icons.Plus className="h-3.5 w-3.5" />
+                        <span>Add custom attribute</span>
+                      </div>
+                    </SelectAction>
+                  </SelectFooter>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        ) : (
+          // Empty state: show simple attribute select with label
+          <EmptyStateAttributeSelect
+            groups={selectGroups}
+            onSelectAttribute={handleSelectAttribute}
+            onAddCustomAttribute={handleAddCustomAttribute}
+          />
+        )}
+      </div>
 
       {/* Variant table */}
       {hasVariants && (

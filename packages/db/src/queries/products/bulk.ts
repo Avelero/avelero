@@ -142,6 +142,7 @@ export async function bulkUpdateProductsByFilter(
 
   return {
     updated: updated.length,
+    productIds: updated.map((row) => row.id),
   };
 }
 
@@ -181,6 +182,7 @@ export async function bulkUpdateProductsByIds(
 
   return {
     updated: updated.length,
+    productIds: updated.map((row) => row.id),
   };
 }
 

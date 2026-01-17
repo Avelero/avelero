@@ -454,8 +454,6 @@ export async function loadCategoryPathsForProducts(
  * Passport data for a product (aggregated from all variant passports).
  */
 export interface ProductPassportData {
-  /** When the product was last published (most recent across all variants) */
-  lastPublishedAt: string | null;
   /** UPID of the first variant's passport (for viewing the public passport) */
   firstVariantUpid: string | null;
 }
@@ -493,7 +491,7 @@ export async function loadPassportDataForProducts(
   if (variantRows.length === 0) {
     // No variants = no passport data, return empty entries
     for (const productId of productIds) {
-      map.set(productId, { lastPublishedAt: null, firstVariantUpid: null });
+      map.set(productId, { firstVariantUpid: null });
     }
     return map;
   }
@@ -513,51 +511,27 @@ export async function loadPassportDataForProducts(
     .select({
       workingVariantId: productPassports.workingVariantId,
       upid: productPassports.upid,
-      lastPublishedAt: productPassports.lastPublishedAt,
     })
     .from(productPassports)
     .where(inArray(productPassports.workingVariantId, variantIds));
 
-  // Build a map of variantId -> passport data
-  const passportByVariant = new Map<
-    string,
-    { upid: string; lastPublishedAt: string | null }
-  >();
+  // Build a map of variantId -> passport upid
+  const passportByVariant = new Map<string, string>();
   for (const row of passportRows) {
     if (row.workingVariantId) {
-      passportByVariant.set(row.workingVariantId, {
-        upid: row.upid,
-        lastPublishedAt: row.lastPublishedAt ?? null,
-      });
+      passportByVariant.set(row.workingVariantId, row.upid);
     }
   }
 
-  // Now build the result map - aggregate passport data per product
+  // Now build the result map - get first variant's passport UPID per product
   for (const productId of productIds) {
-    // Get all variant IDs for this product
-    const productVariantIds = variantRows
-      .filter((v) => v.productId === productId)
-      .map((v) => v.id);
-
-    // Find the most recent lastPublishedAt across all variant passports
-    let lastPublishedAt: string | null = null;
-    for (const variantId of productVariantIds) {
-      const passport = passportByVariant.get(variantId);
-      if (passport?.lastPublishedAt) {
-        if (!lastPublishedAt || passport.lastPublishedAt > lastPublishedAt) {
-          lastPublishedAt = passport.lastPublishedAt;
-        }
-      }
-    }
-
     // Get the first variant's passport UPID
     const firstVariantId = firstVariantByProduct.get(productId);
-    const firstVariantPassport = firstVariantId
-      ? passportByVariant.get(firstVariantId)
+    const firstVariantUpid = firstVariantId
+      ? passportByVariant.get(firstVariantId) ?? null
       : null;
-    const firstVariantUpid = firstVariantPassport?.upid ?? null;
 
-    map.set(productId, { lastPublishedAt, firstVariantUpid });
+    map.set(productId, { firstVariantUpid });
   }
 
   return map;

@@ -1699,34 +1699,43 @@ export type Database = {
       };
       product_passports: {
         Row: {
+          barcode: string | null;
           brand_id: string;
           created_at: string;
           current_version_id: string | null;
           first_published_at: string;
           id: string;
-          last_published_at: string;
+          orphaned_at: string | null;
+          sku: string | null;
+          status: string;
           updated_at: string;
           upid: string;
           working_variant_id: string | null;
         };
         Insert: {
+          barcode?: string | null;
           brand_id: string;
           created_at?: string;
           current_version_id?: string | null;
           first_published_at: string;
           id?: string;
-          last_published_at: string;
+          orphaned_at?: string | null;
+          sku?: string | null;
+          status?: string;
           updated_at?: string;
           upid: string;
           working_variant_id?: string | null;
         };
         Update: {
+          barcode?: string | null;
           brand_id?: string;
           created_at?: string;
           current_version_id?: string | null;
           first_published_at?: string;
           id?: string;
-          last_published_at?: string;
+          orphaned_at?: string | null;
+          sku?: string | null;
+          status?: string;
           updated_at?: string;
           upid?: string;
           working_variant_id?: string | null;
@@ -1917,7 +1926,6 @@ export type Database = {
           category_id: string | null;
           created_at: string;
           description: string | null;
-          has_unpublished_changes: boolean;
           id: string;
           image_path: string | null;
           manufacturer_id: string | null;
@@ -1934,7 +1942,6 @@ export type Database = {
           category_id?: string | null;
           created_at?: string;
           description?: string | null;
-          has_unpublished_changes?: boolean;
           id?: string;
           image_path?: string | null;
           manufacturer_id?: string | null;
@@ -1951,7 +1958,6 @@ export type Database = {
           category_id?: string | null;
           created_at?: string;
           description?: string | null;
-          has_unpublished_changes?: boolean;
           id?: string;
           image_path?: string | null;
           manufacturer_id?: string | null;

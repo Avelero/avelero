@@ -78,6 +78,10 @@ export function OperatorSheet({
     ValidationErrors<OperatorFormValues>
   >({});
 
+  // Container ref for portal - ensures popovers render inside the sheet
+  const [sheetContainer, setSheetContainer] =
+    React.useState<HTMLDivElement | null>(null);
+
   // Operators are production plants in the supply chain
   const createOperatorMutation = useMutation(
     trpc.catalog.operators.create.mutationOptions(),
@@ -314,6 +318,7 @@ export function OperatorSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        ref={setSheetContainer}
         side="right"
         className="flex flex-col p-0 gap-0 w-full sm:w-[480px] lg:w-[560px] m-6 h-[calc(100vh-48px)]"
         hideDefaultClose
@@ -455,6 +460,7 @@ export function OperatorSheet({
                 placeholder="Select country"
                 value={countryCode}
                 onChange={(code) => setCountryCode(code)}
+                container={sheetContainer}
               />
               <div className="space-y-1.5">
                 <Label htmlFor="operator-city">City</Label>

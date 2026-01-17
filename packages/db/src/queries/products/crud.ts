@@ -111,9 +111,6 @@ export async function updateProduct(
       return;
     }
 
-    // Always set hasUnpublishedChanges = true when any content field is modified
-    // This ensures the publishing state correctly tracks pending changes
-    updateData.hasUnpublishedChanges = true;
     updateData.updatedAt = new Date().toISOString();
 
     const [row] = await tx

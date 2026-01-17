@@ -14,7 +14,7 @@ import { productVariants } from "./product-variants";
 /**
  * Product Passports Table
  *
- * The permanent identity record for a published passport. Once created, this record
+ * The permanent identity record for a passport. Once created, this record
  * persists regardless of changes to the underlying working data. This is the immutable
  * publishing layer that ensures QR codes remain resolvable indefinitely.
  *
@@ -22,6 +22,8 @@ import { productVariants } from "./product-variants";
  * - brand_id does NOT have cascade delete - passports persist even if brand is deleted
  * - working_variant_id uses ON DELETE SET NULL - link severed when variant deleted
  * - current_version_id will be set after first publish (references dpp_versions)
+ * - status tracks whether passport is 'active' (linked to variant) or 'orphaned' (variant deleted)
+ * - Orphaned passports retain their UPID and version history, but sku/barcode are cleared
  */
 export const productPassports = pgTable(
   "product_passports",
@@ -63,18 +65,35 @@ export const productPassports = pgTable(
      */
     currentVersionId: uuid("current_version_id"),
     /**
+     * Passport lifecycle status.
+     * - 'active': Passport is linked to a working variant
+     * - 'orphaned': Working variant was deleted; passport persists for QR code resolution
+     */
+    status: text("status").default("active").notNull(),
+    /**
+     * Timestamp when the passport became orphaned.
+     * Set when working_variant_id becomes NULL due to variant deletion.
+     * NULL for active passports.
+     */
+    orphanedAt: timestamp("orphaned_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    /**
+     * SKU preserved from the variant.
+     * Copied on passport creation, cleared when passport is orphaned.
+     */
+    sku: text("sku"),
+    /**
+     * Barcode preserved from the variant.
+     * Copied on passport creation, cleared when passport is orphaned.
+     */
+    barcode: text("barcode"),
+    /**
      * Timestamp when the passport was first published.
      * Set once and never modified.
      */
     firstPublishedAt: timestamp("first_published_at", {
-      withTimezone: true,
-      mode: "string",
-    }).notNull(),
-    /**
-     * Timestamp when the passport was most recently published.
-     * Updated on each new version publish.
-     */
-    lastPublishedAt: timestamp("last_published_at", {
       withTimezone: true,
       mode: "string",
     }).notNull(),
@@ -97,6 +116,15 @@ export const productPassports = pgTable(
     index("idx_product_passports_working_variant_id")
       .using("btree", table.workingVariantId.asc().nullsLast().op("uuid_ops"))
       .where(sql`working_variant_id IS NOT NULL`),
+    // Index for filtering passports by status (active vs orphaned)
+    index("idx_product_passports_status").using(
+      "btree",
+      table.status.asc().nullsLast().op("text_ops"),
+    ),
+    // Index for querying orphaned passports by orphan date
+    index("idx_product_passports_orphaned_at")
+      .using("btree", table.orphanedAt.desc().nullsLast().op("timestamptz_ops"))
+      .where(sql`status = 'orphaned'`),
     // RLS policies - brand members can manage their brand's passports
     pgPolicy("product_passports_select_for_brand_members", {
       as: "permissive",
@@ -123,11 +151,26 @@ export const productPassports = pgTable(
       using: sql`is_brand_member(brand_id)`,
     }),
     // Public read access for published passports (anyone can view via UPID)
+    // Visibility is controlled by the product's status:
+    // - Orphaned passports (variant deleted): always visible if they have a version
+    // - Active passports: only visible if the product's status is 'published'
     pgPolicy("product_passports_select_public", {
       as: "permissive",
       for: "select",
       to: ["anon"],
-      using: sql`current_version_id IS NOT NULL`,
+      using: sql`
+        current_version_id IS NOT NULL
+        AND (
+          working_variant_id IS NULL
+          OR
+          EXISTS (
+            SELECT 1 FROM product_variants pv
+            JOIN products p ON p.id = pv.product_id
+            WHERE pv.id = working_variant_id
+            AND p.status = 'published'
+          )
+        )
+      `,
     }),
   ],
 );

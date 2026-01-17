@@ -31,12 +31,10 @@ import {
   batchUpsertVariantDisplayOverrides,
   batchUpsertVariantLinks,
 } from "@v1/db/queries/integrations";
-import { productVariants, products } from "@v1/db/schema";
-import {
-  generateUniqueUpids,
-  sendBulkBroadcast,
-  slugifyProductName,
-} from "@v1/db/utils";
+import { batchCreatePassportsForVariants } from "@v1/db/queries/products";
+import { productPassports, productVariants, products } from "@v1/db/schema";
+import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
+import { sendBulkBroadcast, slugifyProductName } from "@v1/db/utils";
 import {
   downloadAndUploadImage,
   isExternalImageUrl,
@@ -599,8 +597,6 @@ async function processBatch(
           description: p.description,
           imagePath: null,
           status: "unpublished" as const,
-          // Mark as having unpublished changes - user must manually publish
-          hasUnpublishedChanges: true,
           categoryId: p.categoryId,
           source: p.source,
           sourceIntegrationId: p.sourceIntegrationId,
@@ -670,25 +666,9 @@ async function processBatch(
   if (allPendingOps.variantCreates.length > 0) {
     const variantCreates = allPendingOps.variantCreates;
 
-    // Generate UPIDs for all new variants
-    const upids = await generateUniqueUpids({
-      count: variantCreates.length,
-      isTaken: async (c) => {
-        const [r] = await db
-          .select({ id: productVariants.id })
-          .from(productVariants)
-          .where(eq(productVariants.upid, c))
-          .limit(1);
-        return Boolean(r);
-      },
-      fetchTakenSet: async (candidates) => {
-        const rows = await db
-          .select({ upid: productVariants.upid })
-          .from(productVariants)
-          .where(inArray(productVariants.upid, candidates as string[]));
-        return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
-      },
-    });
+    // Generate UPIDs using the centralized function that checks both
+    // product_variants AND product_passports tables
+    const upids = await generateGloballyUniqueUpids(db, variantCreates.length);
 
     // Batch insert all variants
     const inserted = await db
@@ -729,6 +709,19 @@ async function processBatch(
         });
       }
     }
+
+    // Create passports for all newly created variants
+    await batchCreatePassportsForVariants(
+      db,
+      ctx.brandId,
+      inserted.map((v, i) => ({
+        variantId: v.id,
+        upid: upids[i]!,
+        sku: variantCreates[i]?.sku,
+        barcode: variantCreates[i]?.barcode,
+      })),
+    );
+    result.queries.variantCreates += 1; // One more query for passport creation
   }
 
   // GROUP 4: Variant links and attributes (SEQUENTIAL to avoid deadlocks)

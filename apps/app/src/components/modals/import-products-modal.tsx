@@ -318,7 +318,7 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="rounded-none sm:rounded-none p-0 gap-0 border border-border focus:outline-none focus-visible:outline-none max-w-xl">
+      <DialogContent size="xl" className="p-0 gap-0">
         {/* Step 1: Method Selection */}
         {step === "method" && (
           <>

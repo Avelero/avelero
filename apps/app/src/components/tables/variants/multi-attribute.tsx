@@ -42,7 +42,16 @@ interface MultiAttributeTableProps {
   /** Whether in edit mode */
   isEditMode: boolean;
   /** Saved variants map */
-  savedVariants?: Map<string, { upid: string; hasOverrides: boolean }>;
+  savedVariants?: Map<
+    string,
+    {
+      upid: string;
+      hasOverrides: boolean;
+      sku: string | null;
+      barcode: string | null;
+      attributeLabel: string;
+    }
+  >;
   /** Navigate to variant callback */
   navigateToVariant: (key: string) => void;
 }

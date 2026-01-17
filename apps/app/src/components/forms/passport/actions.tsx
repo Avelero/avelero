@@ -9,24 +9,12 @@
  * - FormActionsWrapper: Conditionally renders correct actions based on context
  */
 
-import {
-  FirstPublishModal,
-  shouldShowFirstPublishModal,
-} from "@/components/modals/first-publish-modal";
 import { UnsavedChangesModal } from "@/components/modals/unsaved-changes-modal";
 import { usePassportFormContext } from "@/contexts/passport-form-context";
 import { useNavigationBlocker } from "@/hooks/use-navigation-blocker";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@v1/ui/dropdown-menu";
-import { Icons } from "@v1/ui/icons";
-import { toast } from "@v1/ui/sonner";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
@@ -42,97 +30,10 @@ export function ProductFormActions() {
     pendingNavigationUrl,
     setPendingNavigationUrl,
     formResetCallbackRef,
-    productId,
-    publishingStatus,
-    hasDbUnpublishedChanges,
-    setPublishingStatus,
-    setHasDbUnpublishedChanges,
   } = usePassportFormContext();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
-
-  // Publishing mutation
-  const publishProductMutation = useMutation(
-    trpc.products.publish.product.mutationOptions(),
-  );
-
-  // First publish modal state
-  const [showFirstPublishModal, setShowFirstPublishModal] =
-    React.useState(false);
-
-  // Actual publish logic
-  const executePublish = React.useCallback(async () => {
-    if (!productId) {
-      toast.error("Cannot publish: product has not been saved yet");
-      return;
-    }
-
-    try {
-      const result = await publishProductMutation.mutateAsync({ productId });
-      if (result.success) {
-        toast.success("Product published successfully");
-
-        // Update publishing status immediately in context so UI updates without page refresh
-        setPublishingStatus("published");
-        setHasDbUnpublishedChanges(false);
-
-        // Invalidate queries to refresh data
-        if (productHandle) {
-          await queryClient.invalidateQueries({
-            queryKey: trpc.products.get.queryKey({ handle: productHandle }),
-          });
-        }
-        await queryClient.invalidateQueries({
-          queryKey: trpc.products.list.queryKey(),
-        });
-      }
-    } catch (err) {
-      console.error("Publish failed:", err);
-      toast.error("Failed to publish product");
-    }
-  }, [
-    productId,
-    productHandle,
-    publishProductMutation,
-    queryClient,
-    trpc,
-    setPublishingStatus,
-    setHasDbUnpublishedChanges,
-  ]);
-
-  // Handle publish button click - show modal on first publish if preference not set
-  const handlePublish = React.useCallback(() => {
-    if (!productId) {
-      toast.error("Cannot publish: product has not been saved yet");
-      return;
-    }
-
-    // On first publish, show warning modal (unless user dismissed it before)
-    const isFirstPublish = publishingStatus === "unpublished";
-    if (isFirstPublish && shouldShowFirstPublishModal()) {
-      setShowFirstPublishModal(true);
-    } else {
-      void executePublish();
-    }
-  }, [productId, publishingStatus, executePublish]);
-
-  // First publish modal handlers
-  const handleFirstPublishConfirm = React.useCallback(() => {
-    setShowFirstPublishModal(false);
-    void executePublish();
-  }, [executePublish]);
-
-  const handleFirstPublishCancel = React.useCallback(() => {
-    setShowFirstPublishModal(false);
-  }, []);
-
-  // Determine publish button state
-  const isPublished = publishingStatus === "published";
-  const canPublish =
-    productId &&
-    (publishingStatus === "unpublished" || hasDbUnpublishedChanges);
-  const publishButtonText = isPublished ? "Publish changes" : "Publish";
 
   // Callback to reset form and invalidate cache when discarding changes
   const handleDiscard = React.useCallback(async () => {
@@ -197,7 +98,7 @@ export function ProductFormActions() {
         variant="outline"
         type="button"
         onClick={handleCancel}
-        disabled={isSubmitting || publishProductMutation.isPending}
+        disabled={isSubmitting}
       >
         Cancel
       </Button>
@@ -205,41 +106,10 @@ export function ProductFormActions() {
         variant="brand"
         type="submit"
         form="passport-form"
-        disabled={isSubmitting || publishProductMutation.isPending}
+        disabled={isSubmitting}
       >
         {isSubmitting ? "Saving..." : "Save"}
       </Button>
-      {/* Publish dropdown - only shown when product exists */}
-      {productId && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              type="button"
-              aria-label="More actions"
-              disabled={isSubmitting || publishProductMutation.isPending}
-            >
-              <Icons.EllipsisVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={handlePublish}
-              disabled={!canPublish || publishProductMutation.isPending}
-            >
-              <div className="flex items-center">
-                <Icons.StatusPublished width={12} height={12} />
-                <span className="px-2">
-                  {publishProductMutation.isPending
-                    ? "Publishing..."
-                    : publishButtonText}
-                </span>
-              </div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
 
       <UnsavedChangesModal
         open={effectivePendingUrl !== null}
@@ -248,14 +118,6 @@ export function ProductFormActions() {
         }}
         onDiscard={handleConfirmDiscard}
         onKeepEditing={handleCancelNavigation}
-      />
-
-      <FirstPublishModal
-        open={showFirstPublishModal}
-        onOpenChange={setShowFirstPublishModal}
-        onConfirm={handleFirstPublishConfirm}
-        onCancel={handleFirstPublishCancel}
-        isPublishing={publishProductMutation.isPending}
       />
     </>
   );

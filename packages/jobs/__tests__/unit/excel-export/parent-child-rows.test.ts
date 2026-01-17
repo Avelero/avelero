@@ -50,8 +50,6 @@ function createTestProduct(
     manufacturerName: null,
     imagePath: null,
     status: "published",
-    hasUnpublishedChanges: false,
-    lastPublishedAt: null,
     categoryPath: null,
     seasonName: null,
     tags: [],

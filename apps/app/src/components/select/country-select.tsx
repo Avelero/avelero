@@ -24,6 +24,12 @@ interface CountrySelectProps {
   value: string;
   onChange: (code: string, name?: string) => void;
   className?: string;
+  /**
+   * Container element for the portal. When specified, the popover will be portaled
+   * into this container instead of document.body. Useful when the select is inside
+   * a Sheet/Dialog to ensure proper scroll behavior.
+   */
+  container?: HTMLElement | null;
 }
 
 export function CountrySelect({
@@ -33,6 +39,7 @@ export function CountrySelect({
   value,
   onChange,
   className,
+  container,
 }: CountrySelectProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -81,7 +88,7 @@ export function CountrySelect({
             <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
           </Button>
         </SelectTrigger>
-        <SelectContent shouldFilter={false}>
+        <SelectContent shouldFilter={false} container={container}>
           <SelectSearch
             placeholder="Search..."
             value={searchTerm}

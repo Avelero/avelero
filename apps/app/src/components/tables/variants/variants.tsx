@@ -26,8 +26,17 @@ interface VariantTableProps {
   isEditMode?: boolean;
   /** Product handle for building variant edit URLs */
   productHandle?: string;
-  /** Saved variants with UPIDs and override status, keyed by the value id key (e.g., "valueId1|valueId2") */
-  savedVariants?: Map<string, { upid: string; hasOverrides: boolean }>;
+  /** Saved variants with UPIDs, override status, and metadata, keyed by the value id key (e.g., "valueId1|valueId2") */
+  savedVariants?: Map<
+    string,
+    {
+      upid: string;
+      hasOverrides: boolean;
+      sku: string | null;
+      barcode: string | null;
+      attributeLabel: string;
+    }
+  >;
   /**
    * Whether this is a new product (no saved variants yet).
    * - New product: Shows all enabled combinations from matrix (creation flow)

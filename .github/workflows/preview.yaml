@@ -338,9 +338,38 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # NOTE: Database migrations are handled automatically by the Supabase GitHub Integration
-      # when it creates the preview branch. Running 'supabase db push' here would cause
-      # duplicate key errors because the migrations are already applied by the Integration.
+      - name: 🗄️ Apply Pending Migrations
+        # The Supabase GitHub Integration applies migrations at branch CREATION time only.
+        # If new migrations are added after the branch was created, they won't be applied
+        # automatically. Running 'db push' here ensures any new migrations are applied.
+        #
+        # This is safe because:
+        # 1. We wait for ACTIVE_HEALTHY + 30s stabilization, so the Integration is done
+        # 2. 'db push' is idempotent - it only applies migrations not in supabase_migrations table
+        run: |
+          set -a
+          source .env.supabase
+          set +a
+
+          # Create .env file for Supabase CLI's env() function in config.toml
+          {
+            echo "APP_URL=https://temp-placeholder.vercel.app"
+            echo "ADDITIONAL_REDIRECT_URL=https://temp-placeholder.vercel.app"
+            echo "SEND_EMAIL_HOOK_URI=${SUPABASE_URL}/functions/v1/send-email"
+            echo "SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}"
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
+            echo "GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}"
+            echo "GOOGLE_REDIRECT_URI=${SUPABASE_URL}/auth/v1/callback"
+          } > .env
+
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "Applying any pending migrations..."
+          supabase db push --db-url "$DATABASE_URL"
+
+          # Clean up .env file
+          rm -f .env
+          echo "✅ Migrations applied successfully"
+        working-directory: ./apps/api
 
       - name: 📚 Sync Taxonomy Data
         # Sync categories, attributes, and Shopify-to-Avelero mappings required for integration tests

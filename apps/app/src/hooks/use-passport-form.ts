@@ -1441,24 +1441,30 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
         // Cache seeding: Fetch the complete product and seed the cache before navigation.
         // This ensures the edit page renders instantly without showing loading skeletons.
+        // Best-effort: if this fails, navigation still proceeds (edit page will fetch data itself).
         if (targetProductHandle) {
-          const fullProductData = await queryClient.fetchQuery(
-            trpc.products.get.queryOptions({
-              handle: targetProductHandle,
-              includeVariants: true,
-              includeAttributes: true,
-            }),
-          );
+          try {
+            const fullProductData = await queryClient.fetchQuery(
+              trpc.products.get.queryOptions({
+                handle: targetProductHandle,
+                includeVariants: true,
+                includeAttributes: true,
+              }),
+            );
 
-          // Seed the cache with the fetched data - edit page will find it instantly
-          queryClient.setQueryData(
-            trpc.products.get.queryKey({
-              handle: targetProductHandle,
-              includeVariants: true,
-              includeAttributes: true,
-            }),
-            fullProductData,
-          );
+            // Seed the cache with the fetched data - edit page will find it instantly
+            queryClient.setQueryData(
+              trpc.products.get.queryKey({
+                handle: targetProductHandle,
+                includeVariants: true,
+                includeAttributes: true,
+              }),
+              fullProductData,
+            );
+          } catch (cacheError) {
+            // Cache seeding failed - not critical, edit page will fetch data normally
+            console.warn("Cache seeding failed:", cacheError);
+          }
 
           // Navigate immediately for seamless transition
           router.push(`/passports/edit/${targetProductHandle}`);

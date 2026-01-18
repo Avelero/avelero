@@ -29,6 +29,7 @@
     "@v1/integrations": "workspace:*",
     "@v1/kv": "workspace:*",
     "@v1/logger": "workspace:*",
+    "pino": "^9.14.0",
     "@v1/selections": "workspace:*",
     "@v1/supabase": "workspace:*",
     "@v1/ui": "workspace:*",

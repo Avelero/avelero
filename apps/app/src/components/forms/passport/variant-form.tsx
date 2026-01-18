@@ -396,15 +396,26 @@ function VariantFormInner({
           attributeValueIds: resolvedAttributeValueIds,
         });
 
-        // If product is published, publish this new variant to create its snapshot
+        // If product is published, publish this new variant to create its snapshot.
+        // Best-effort: if publish fails, variant was still created successfully.
+        let publishFailed = false;
         if (productStatus === "published" && result.data?.id) {
-          await publishVariantMutation.mutateAsync({
-            variantId: result.data.id,
-          });
+          try {
+            await publishVariantMutation.mutateAsync({
+              variantId: result.data.id,
+            });
+          } catch (publishError) {
+            console.error("Failed to publish variant:", publishError);
+            publishFailed = true;
+          }
         }
 
         // Navigate first, then invalidate in background (prevents flash of duplicate warning)
-        toast.success("Variant created successfully");
+        if (publishFailed) {
+          toast.success("Variant created, but failed to publish");
+        } else {
+          toast.success("Variant created successfully");
+        }
 
         if (result.data?.upid) {
           // Navigate immediately

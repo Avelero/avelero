@@ -6,8 +6,7 @@
     "@v1/tsconfig": "workspace:*",
     "bun-types": "^1.3.5",
     "dotenv": "^17.2.3",
-    "entities": "^6.0.1",
-    "next-devtools-mcp": "^0.3.2",
+    "knip": "^5.82.0",
     "turbo": "2.5.6",
     "typescript": "^5.9.2"
   },
@@ -17,6 +16,7 @@
     "build": "turbo build",
     "build:app": "turbo build --filter=@v1/app",
     "build:dpp": "turbo build --filter=@v1/dpp",
+    "knip": "knip",
     "clean": "git clean -xdf node_modules",
     "clean:workspaces": "turbo clean",
     "dev": "turbo dev jobs --parallel",
@@ -39,5 +39,8 @@
     "typecheck": "turbo typecheck",
     "seed:shopify": "bun run scripts/seed-shopify-integration.ts"
   },
-  "workspaces": ["packages/*", "apps/*"]
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ]
 }

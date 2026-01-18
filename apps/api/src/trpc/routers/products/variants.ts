@@ -130,6 +130,7 @@ const syncVariantInputSchema = z.object({
   attributeValueIds: z.array(z.string().uuid()).optional().default([]),
   sku: z.string().max(100).optional(),
   barcode: z.string().max(100).optional(),
+  isGhost: z.boolean().optional(),
 });
 
 // =============================================================================
@@ -1098,6 +1099,7 @@ export const productVariantsRouter = createTRPCRouter({
                 upid,
                 sku: variantInput.sku ?? null,
                 barcode: variantInput.barcode ?? null,
+                isGhost: variantInput.isGhost ?? false,
               })
               .returning({
                 id: productVariants.id,
@@ -1129,6 +1131,8 @@ export const productVariantsRouter = createTRPCRouter({
               updatePayload.sku = variantInput.sku;
             if (variantInput.barcode !== undefined)
               updatePayload.barcode = variantInput.barcode;
+            if (variantInput.isGhost !== undefined)
+              updatePayload.isGhost = variantInput.isGhost;
 
             if (Object.keys(updatePayload).length > 1) {
               await tx
@@ -1169,6 +1173,10 @@ export const productVariantsRouter = createTRPCRouter({
             })),
           );
         }
+
+        // NOTE: Publishing is handled explicitly by the form after all mutations complete.
+        // This keeps publish logic in ONE place and avoids complex conditional publish triggers.
+        // The form calls publish.product at the end of the save flow if the product is published.
 
         // Revalidate product cache
         revalidateProduct(input.productHandle).catch(() => {});
@@ -1220,4 +1228,4 @@ export const productVariantsRouter = createTRPCRouter({
     }),
 });
 
-export type ProductVariantsRouter = typeof productVariantsRouter;
+type ProductVariantsRouter = typeof productVariantsRouter;

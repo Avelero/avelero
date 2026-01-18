@@ -213,7 +213,7 @@ export interface FilterActions {
 // Query Builder Types (for future backend integration)
 // ============================================================================
 
-export interface PassportFilterQuery {
+interface PassportFilterQuery {
   groups: QueryGroup[];
   groupOperator: "AND";
 }
@@ -234,7 +234,7 @@ export interface QueryCondition {
 // UI Component Props
 // ============================================================================
 
-export interface FilterRowProps {
+interface FilterRowProps {
   groupId: string;
   condition: FilterCondition;
   onUpdate: (updates: Partial<FilterCondition>) => void;
@@ -243,7 +243,7 @@ export interface FilterRowProps {
   isNested?: boolean;
 }
 
-export interface FilterGroupProps {
+interface FilterGroupProps {
   group: FilterGroup;
   onAddCondition: () => void;
   onUpdateCondition: (
@@ -255,13 +255,13 @@ export interface FilterGroupProps {
   availableFields: FilterFieldConfig[];
 }
 
-export interface QuickFiltersPopoverProps {
+interface QuickFiltersPopoverProps {
   filterState: FilterState;
   filterActions: FilterActions;
   onOpenAdvanced: () => void;
 }
 
-export interface AdvancedFilterPanelProps {
+interface AdvancedFilterPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   filterState: FilterState;

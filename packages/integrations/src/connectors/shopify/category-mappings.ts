@@ -87,7 +87,7 @@ export async function initShopifyToAveleroCategoryMapping(
 /**
  * Reset the cached mapping (useful for testing).
  */
-export function resetShopifyToAveleroCategoryMapping(): void {
+function resetShopifyToAveleroCategoryMapping(): void {
   mapping = null;
   branchKeys = [];
 }

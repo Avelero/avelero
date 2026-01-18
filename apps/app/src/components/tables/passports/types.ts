@@ -12,7 +12,7 @@ export type {
 
 export type PassportStatus = "published" | "unpublished" | "scheduled";
 
-export const PASSPORT_STATUS_LABELS: Record<PassportStatus, string> = {
+const PASSPORT_STATUS_LABELS: Record<PassportStatus, string> = {
   published: "Published",
   unpublished: "Unpublished",
   scheduled: "Scheduled",
@@ -52,10 +52,10 @@ export interface SelectionState {
   excludeIds: string[]; // used when mode === 'all'
 }
 
-export type BulkSelection =
+type BulkSelection =
   | { mode: "all"; excludeIds: string[] }
   | { mode: "explicit"; includeIds: string[] };
 
-export type BulkChanges = {
+type BulkChanges = {
   status?: PassportStatus;
 };

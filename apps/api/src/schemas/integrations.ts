@@ -278,30 +278,30 @@ export const shopifyCallbackSchema = z.object({
 // Type Exports
 // =============================================================================
 
-export type IntegrationSlug = z.infer<typeof integrationSlugSchema>;
-export type BrandIntegrationStatus = z.infer<
+type IntegrationSlug = z.infer<typeof integrationSlugSchema>;
+type BrandIntegrationStatus = z.infer<
   typeof brandIntegrationStatusSchema
 >;
-export type SyncJobStatus = z.infer<typeof syncJobStatusSchema>;
-export type TriggerType = z.infer<typeof triggerTypeSchema>;
+type SyncJobStatus = z.infer<typeof syncJobStatusSchema>;
+type TriggerType = z.infer<typeof triggerTypeSchema>;
 
-export type ConnectApiKeyInput = z.infer<typeof connectApiKeySchema>;
-export type UpdateIntegrationInput = z.infer<typeof updateIntegrationSchema>;
-export type DisconnectInput = z.infer<typeof disconnectSchema>;
-export type TestConnectionInput = z.infer<typeof testConnectionSchema>;
-export type PromoteToPrimaryInput = z.infer<typeof promoteToPrimarySchema>;
-export type GetPromotionStatusInput = z.infer<typeof getPromotionStatusSchema>;
+type ConnectApiKeyInput = z.infer<typeof connectApiKeySchema>;
+type UpdateIntegrationInput = z.infer<typeof updateIntegrationSchema>;
+type DisconnectInput = z.infer<typeof disconnectSchema>;
+type TestConnectionInput = z.infer<typeof testConnectionSchema>;
+type PromoteToPrimaryInput = z.infer<typeof promoteToPrimarySchema>;
+type GetPromotionStatusInput = z.infer<typeof getPromotionStatusSchema>;
 
-export type ListFieldMappingsInput = z.infer<typeof listFieldMappingsSchema>;
-export type UpdateFieldMappingInput = z.infer<typeof updateFieldMappingSchema>;
-export type UpdateFieldMappingsBatchInput = z.infer<
+type ListFieldMappingsInput = z.infer<typeof listFieldMappingsSchema>;
+type UpdateFieldMappingInput = z.infer<typeof updateFieldMappingSchema>;
+type UpdateFieldMappingsBatchInput = z.infer<
   typeof updateFieldMappingsBatchSchema
 >;
 
-export type TriggerSyncInput = z.infer<typeof triggerSyncSchema>;
-export type ListSyncHistoryInput = z.infer<typeof listSyncHistorySchema>;
-export type GetSyncStatusInput = z.infer<typeof getSyncStatusSchema>;
-export type GetSyncJobInput = z.infer<typeof getSyncJobSchema>;
+type TriggerSyncInput = z.infer<typeof triggerSyncSchema>;
+type ListSyncHistoryInput = z.infer<typeof listSyncHistorySchema>;
+type GetSyncStatusInput = z.infer<typeof getSyncStatusSchema>;
+type GetSyncJobInput = z.infer<typeof getSyncJobSchema>;
 
-export type ShopifyInstallInput = z.infer<typeof shopifyInstallSchema>;
-export type ShopifyCallbackInput = z.infer<typeof shopifyCallbackSchema>;
+type ShopifyInstallInput = z.infer<typeof shopifyInstallSchema>;
+type ShopifyCallbackInput = z.infer<typeof shopifyCallbackSchema>;

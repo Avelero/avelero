@@ -582,9 +582,14 @@ export function JourneySection({
       })
       .filter((s): s is NonNullable<typeof s> => s !== null);
 
-    // Preserve any incomplete local steps (steps that don't have a step type)
+    // Preserve any incomplete local steps (steps missing step type OR operators)
     setDisplaySteps((prev) => {
-      const incompleteSteps = prev.filter((localStep) => !localStep.step);
+      const enrichedIds = new Set(enriched.map((s) => s.id));
+      const incompleteSteps = prev.filter(
+        (localStep) =>
+          !enrichedIds.has(localStep.id) &&
+          (!localStep.step || localStep.operators.length === 0),
+      );
 
       // Check if we have a just-created operator that needs to be preserved
       if (justCreatedOperator) {

@@ -145,7 +145,7 @@ export interface ImportProgressMetadata extends JobProgressMetadata {
 /**
  * Hook to subscribe to import job progress via Trigger.dev native realtime.
  */
-export function useTriggerImportProgress(
+function useTriggerImportProgress(
   runId: string | null,
   accessToken: string | null,
 ) {

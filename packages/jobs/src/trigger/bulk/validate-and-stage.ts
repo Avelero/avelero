@@ -143,8 +143,9 @@ const BATCH_SIZE = 250;
  * Valid status values for products (new publishing model)
  * - 'unpublished': Draft, never been published (default)
  * - 'published': Has been published at least once
+ * - 'scheduled': Scheduled for future publication
  */
-const VALID_STATUSES = ["unpublished", "published"] as const;
+const VALID_STATUSES = ["unpublished", "published", "scheduled"] as const;
 type ValidStatus = (typeof VALID_STATUSES)[number];
 
 // ============================================================================

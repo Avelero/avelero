@@ -69,6 +69,24 @@ export interface BulkPublishResult {
 // =============================================================================
 
 /**
+ * Recursively sort all object keys for canonical JSON serialization.
+ * This ensures deterministic hashing regardless of property order.
+ */
+function sortObjectKeys(obj: unknown): unknown {
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sortObjectKeys);
+  }
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(obj).sort()) {
+    sorted[key] = sortObjectKeys((obj as Record<string, unknown>)[key]);
+  }
+  return sorted;
+}
+
+/**
  * Calculate a content-only hash for deduplication.
  * This excludes metadata (publishedAt, versionNumber, schemaVersion) which change on every publish.
  * Used to determine if content has actually changed since the last version.
@@ -85,10 +103,9 @@ function calculateContentOnlyHash(snapshot: DppSnapshot): string {
     materials: snapshot.materials,
     supplyChain: snapshot.supplyChain,
   };
-  const canonicalJson = JSON.stringify(
-    contentOnly,
-    Object.keys(contentOnly).sort(),
-  );
+  // Recursively sort all keys for deterministic serialization
+  const sortedContent = sortObjectKeys(contentOnly);
+  const canonicalJson = JSON.stringify(sortedContent);
   return createHash("sha256").update(canonicalJson, "utf8").digest("hex");
 }
 
@@ -225,14 +242,12 @@ export async function publishVariant(
     // Compare the content-only hash with the latest version's content
     const latestVersion = await getLatestVersion(db, passport.id);
     if (latestVersion) {
+      const existingSnapshot = latestVersion.dataSnapshot as DppSnapshot;
       const newContentHash = calculateContentOnlyHash(snapshot);
-      const existingContentHash = calculateContentOnlyHash(
-        latestVersion.dataSnapshot as DppSnapshot,
-      );
+      const existingContentHash = calculateContentOnlyHash(existingSnapshot);
 
       if (newContentHash === existingContentHash) {
         // Content hasn't changed, skip creating a new version
-        // But still return success with the existing version info
         return {
           success: true,
           variantId,
@@ -248,7 +263,6 @@ export async function publishVariant(
 
     // Step 3: Create new version record (content has changed or no previous version)
     const version = await createDppVersion(db, passport.id, snapshot, "1.0");
-
     if (!version) {
       return {
         success: false,
@@ -276,6 +290,7 @@ export async function publishVariant(
       },
     };
   } catch (error) {
+    console.error("[PUBLISH DEBUG] publishVariant error:", error);
     return {
       success: false,
       variantId,

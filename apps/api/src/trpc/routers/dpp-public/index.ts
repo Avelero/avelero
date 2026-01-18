@@ -217,4 +217,4 @@ export const dppPublicRouter = createTRPCRouter({
     }),
 });
 
-export type DppPublicRouter = typeof dppPublicRouter;
+type DppPublicRouter = typeof dppPublicRouter;

@@ -288,37 +288,24 @@ export const productsRouter = createTRPCRouter({
           tag_ids: input.tag_ids,
         });
 
-        // If the product is published, trigger publish flow to create passport versions
-        // This ensures a new snapshot is captured whenever a published product is saved.
-        // We check the product's current status from the database, not just the input,
-        // to handle cases where the user is editing an already-published product.
-        if (product?.id) {
-          // Get the current product status from the database
-          const [currentProduct] = await brandCtx.db
-            .select({ status: products.status })
-            .from(products)
-            .where(
-              and(eq(products.id, product.id), eq(products.brandId, brandId)),
-            )
-            .limit(1);
-
-          if (currentProduct?.status === "published") {
-            // Await publish to ensure any errors are caught and logged properly
-            try {
-              const publishResult = await publishProduct(
-                brandCtx.db,
-                product.id,
-                brandId,
+        // Trigger publish when status is explicitly changed to "published"
+        // This handles the case when user toggles status from the passports table
+        // (The form handles publish explicitly after all mutations complete)
+        if (input.status === "published" && product?.id) {
+          try {
+            const publishResult = await publishProduct(
+              brandCtx.db,
+              product.id,
+              brandId,
+            );
+            if (!publishResult.success) {
+              console.error(
+                "Publish failed after status change:",
+                publishResult.error,
               );
-              if (!publishResult.success) {
-                console.error(
-                  "Publish failed after update:",
-                  publishResult.error,
-                );
-              }
-            } catch (err) {
-              console.error("Publish threw an exception after update:", err);
             }
+          } catch (err) {
+            console.error("Publish threw an exception after status change:", err);
           }
         }
 
@@ -431,7 +418,7 @@ export const productsRouter = createTRPCRouter({
   publish: publishRouter,
 });
 
-export type ProductsRouter = typeof productsRouter;
+type ProductsRouter = typeof productsRouter;
 
 async function applyProductAttributes(
   ctx: BrandContext,

@@ -422,4 +422,4 @@ export const compositeRouter = createTRPCRouter({
   }),
 });
 
-export type CompositeRouter = typeof compositeRouter;
+type CompositeRouter = typeof compositeRouter;

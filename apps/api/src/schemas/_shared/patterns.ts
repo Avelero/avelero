@@ -250,4 +250,4 @@ export function createFieldSelection<T extends readonly string[]>(
  * // Result: { id: string; name: string }
  * ```
  */
-export type SelectFields<T, K extends keyof T> = Pick<T, K>;
+type SelectFields<T, K extends keyof T> = Pick<T, K>;

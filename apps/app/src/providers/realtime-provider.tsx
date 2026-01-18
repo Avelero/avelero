@@ -27,7 +27,7 @@ const RealtimeContext = createContext<RealtimeContextValue>({
   isConnected: false,
 });
 
-export function useRealtime() {
+function useRealtime() {
   return useContext(RealtimeContext);
 }
 

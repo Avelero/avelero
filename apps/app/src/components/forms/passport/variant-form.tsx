@@ -162,6 +162,11 @@ function VariantFormInner({
     trpc.products.variants.create.mutationOptions(),
   );
 
+  // Publish variant mutation (for publishing newly created variants on published products)
+  const publishVariantMutation = useMutation(
+    trpc.products.publish.variant.mutationOptions(),
+  );
+
   // Create attribute value mutation (for resolving pending taxonomy values)
   const createAttributeValueMutation = useMutation(
     trpc.catalog.attributeValues.create.mutationOptions(),
@@ -391,6 +396,13 @@ function VariantFormInner({
           attributeValueIds: resolvedAttributeValueIds,
         });
 
+        // If product is published, publish this new variant to create its snapshot
+        if (productStatus === "published" && result.data?.id) {
+          await publishVariantMutation.mutateAsync({
+            variantId: result.data.id,
+          });
+        }
+
         // Navigate first, then invalidate in background (prevents flash of duplicate warning)
         toast.success("Variant created successfully");
 
@@ -599,4 +611,4 @@ export function CreateVariantForm({
 }
 
 // Legacy export for backward compatibility
-export { EditVariantForm as VariantForm, EditVariantForm as VariantEditForm };
+export { EditVariantForm as VariantForm };

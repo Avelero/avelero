@@ -18,11 +18,11 @@ export type Integration =
   RouterOutputs["integrations"]["connections"]["list"]["data"][number];
 
 /** Sync job from history */
-export type SyncJob =
+type SyncJob =
   RouterOutputs["integrations"]["sync"]["history"]["data"][number];
 
 /** Field mapping configuration */
-export type FieldMapping =
+type FieldMapping =
   RouterOutputs["integrations"]["mappings"]["list"]["data"][number];
 
 // Re-export types from integrations module
@@ -38,7 +38,7 @@ export type {
 /**
  * Fetches all integrations with connection status.
  */
-export function useIntegrationsQuery() {
+function useIntegrationsQuery() {
   const trpc = useTRPC();
   const opts = trpc.integrations.connections.list.queryOptions({});
   return useQuery({
@@ -152,7 +152,7 @@ export function useFieldMappingsQuery(brandIntegrationId: string | null) {
  * Suspense version of useFieldMappingsQuery.
  * Use this when you want the component to suspend until field mappings are loaded.
  */
-export function useFieldMappingsQuerySuspense(brandIntegrationId: string) {
+function useFieldMappingsQuerySuspense(brandIntegrationId: string) {
   const trpc = useTRPC();
   const opts = trpc.integrations.mappings.list.queryOptions({
     brand_integration_id: brandIntegrationId,

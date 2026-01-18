@@ -27,6 +27,3 @@ export { IdentifiersSidebar } from "./sidebars/identifiers-sidebar";
 export { StatusSidebar } from "./sidebars/status-sidebar";
 export { VariantsOverview } from "./sidebars/variants-overview";
 
-// Skeleton components
-export { ProductFormSkeleton } from "./skeletons/product-skeleton";
-export { VariantFormSkeleton } from "./skeletons/variant-skeleton";

@@ -13,7 +13,6 @@ export { CarouselTableSkeleton } from "./table-skeleton";
 export type {
   CarouselProductRow,
   CarouselSelectionState,
-  FilterState,
   FilterCondition,
   FilterGroup,
 } from "./types";

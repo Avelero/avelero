@@ -209,10 +209,6 @@ export const t = initTRPC.context<TRPCContext>().create({
  * Convenience export for defining routers across the codebase.
  */
 export const createTRPCRouter = t.router;
-/**
- * Convenience export for merging modular routers.
- */
-export const mergeTRPCRouters = t.mergeRouters;
 
 /**
  * Resolves brand membership information and attaches it to the context.

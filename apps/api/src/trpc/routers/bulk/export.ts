@@ -194,4 +194,4 @@ export const exportRouter = createTRPCRouter({
     }),
 });
 
-export type ExportRouter = typeof exportRouter;
+type ExportRouter = typeof exportRouter;

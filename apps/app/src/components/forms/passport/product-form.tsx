@@ -507,7 +507,10 @@ function ProductFormInner({
 }
 
 export function CreateProductForm() {
-  return <ProductFormInner mode="create" />;
+  // Generate unique key on every mount to guarantee fresh state
+  // This ensures the form is always empty when visiting the create page
+  const [key] = React.useState(() => `create-${Date.now()}`);
+  return <ProductFormInner key={key} mode="create" />;
 }
 
 export function EditProductForm({
@@ -526,15 +529,13 @@ export function EditProductForm({
     staleTime: 0,
     refetchOnMount: "always",
   });
+  // Key includes handle to ensure fresh state when switching between different products
   return (
     <ProductFormInner
+      key={`edit-${productHandle}`}
       mode="edit"
       productHandle={productHandle}
       initialData={data}
     />
   );
 }
-
-// Legacy exports for backward compatibility during migration
-export { CreateProductForm as CreatePassportForm };
-export { EditProductForm as EditPassportForm };

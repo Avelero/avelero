@@ -509,4 +509,4 @@ export const themePreviewRouter = createTRPCRouter({
     }),
 });
 
-export type ThemePreviewRouter = typeof themePreviewRouter;
+type ThemePreviewRouter = typeof themePreviewRouter;

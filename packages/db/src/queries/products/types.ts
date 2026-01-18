@@ -58,6 +58,8 @@ export interface ProductVariantSummary {
   upid: string | null;
   created_at: string;
   updated_at: string;
+  /** Whether this is a ghost variant (system-created, invisible to users) */
+  isGhost: boolean;
 }
 
 /**

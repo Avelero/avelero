@@ -613,4 +613,4 @@ function extractStoragePath(url: string | null | undefined): string | null {
   return url;
 }
 
-export type UserRouter = typeof userRouter;
+type UserRouter = typeof userRouter;

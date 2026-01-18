@@ -298,27 +298,27 @@ export const exportJobStatusSchema = z.enum([
 ]);
 
 // Export types
-export type StartExportInput = z.infer<typeof startExportSchema>;
-export type GetExportStatusInput = z.infer<typeof getExportStatusSchema>;
-export type ExportJobStatus = z.infer<typeof exportJobStatusSchema>;
+type StartExportInput = z.infer<typeof startExportSchema>;
+type GetExportStatusInput = z.infer<typeof getExportStatusSchema>;
+type ExportJobStatus = z.infer<typeof exportJobStatusSchema>;
 
-export type BulkSelectionInput = z.infer<typeof bulkSelectionSchema>;
-export type BulkImportInput = z.infer<typeof bulkImportSchema>;
-export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
-export type StartImportInput = z.infer<typeof startImportSchema>;
-export type PreviewImportInput = z.infer<typeof previewImportSchema>;
-export type GetImportStatusInput = z.infer<typeof getImportStatusSchema>;
-export type GetImportErrorsInput = z.infer<typeof getImportErrorsSchema>;
-export type GetStagingPreviewInput = z.infer<typeof getStagingPreviewSchema>;
-export type GetUnmappedValuesInput = z.infer<typeof getUnmappedValuesSchema>;
-export type ExportFailedRowsInput = z.infer<typeof exportFailedRowsSchema>;
-export type ImportJobStatus = z.infer<typeof importJobStatusSchema>;
+type BulkSelectionInput = z.infer<typeof bulkSelectionSchema>;
+type BulkImportInput = z.infer<typeof bulkImportSchema>;
+type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
+type StartImportInput = z.infer<typeof startImportSchema>;
+type PreviewImportInput = z.infer<typeof previewImportSchema>;
+type GetImportStatusInput = z.infer<typeof getImportStatusSchema>;
+type GetImportErrorsInput = z.infer<typeof getImportErrorsSchema>;
+type GetStagingPreviewInput = z.infer<typeof getStagingPreviewSchema>;
+type GetUnmappedValuesInput = z.infer<typeof getUnmappedValuesSchema>;
+type ExportFailedRowsInput = z.infer<typeof exportFailedRowsSchema>;
+type ImportJobStatus = z.infer<typeof importJobStatusSchema>;
 
 // New types for fire-and-forget flow
-export type ImportMode = z.infer<typeof importModeSchema>;
-export type DismissFailedImportInput = z.infer<
+type ImportMode = z.infer<typeof importModeSchema>;
+type DismissFailedImportInput = z.infer<
   typeof dismissFailedImportSchema
 >;
-export type ExportCorrectionsInput = z.infer<typeof exportCorrectionsSchema>;
-export type GetRecentImportsInput = z.infer<typeof getRecentImportsSchema>;
-export type StagingRowStatus = z.infer<typeof stagingRowStatusSchema>;
+type ExportCorrectionsInput = z.infer<typeof exportCorrectionsSchema>;
+type GetRecentImportsInput = z.infer<typeof getRecentImportsSchema>;
+type StagingRowStatus = z.infer<typeof stagingRowStatusSchema>;

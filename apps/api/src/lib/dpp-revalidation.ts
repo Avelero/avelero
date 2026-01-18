@@ -103,26 +103,6 @@ export function revalidateProduct(productHandle: string): Promise<void> {
 }
 
 /**
- * Revalidate DPP cache for a specific variant.
- *
- * Call this when a variant is created, updated, or deleted.
- * Also invalidates the parent product's cache.
- *
- * @param variantUpid - The variant's UPID (16-character identifier)
- * @param productHandle - The parent product's handle (optional, for additional invalidation)
- */
-export function revalidateVariant(
-  variantUpid: string,
-  productHandle?: string,
-): Promise<void> {
-  const tags: string[] = [];
-  if (variantUpid) tags.push(`dpp-variant-${variantUpid}`);
-  if (productHandle) tags.push(`dpp-product-${productHandle}`);
-  if (tags.length === 0) return Promise.resolve();
-  return revalidateDppCache(tags);
-}
-
-/**
  * Revalidate DPP cache for an entire brand.
  *
  * Call this when:
@@ -135,19 +115,4 @@ export function revalidateVariant(
 export function revalidateBrand(brandSlug: string): Promise<void> {
   if (!brandSlug) return Promise.resolve();
   return revalidateDppCache([`dpp-brand-${brandSlug}`]);
-}
-
-/**
- * Revalidate DPP cache for multiple products at once.
- *
- * Useful for bulk operations like imports.
- *
- * @param productHandles - Array of product handles to invalidate
- */
-export function revalidateProducts(productHandles: string[]): Promise<void> {
-  const validHandles = productHandles.filter(Boolean);
-  if (validHandles.length === 0) return Promise.resolve();
-  return revalidateDppCache(
-    validHandles.map((handle) => `dpp-product-${handle}`),
-  );
 }

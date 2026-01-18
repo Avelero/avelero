@@ -178,4 +178,4 @@ export const publishRouter = createTRPCRouter({
     }),
 });
 
-export type PublishRouter = typeof publishRouter;
+type PublishRouter = typeof publishRouter;

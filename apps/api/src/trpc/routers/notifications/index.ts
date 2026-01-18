@@ -184,4 +184,4 @@ export const notificationsRouter = createTRPCRouter({
     }),
 });
 
-export type NotificationsRouter = typeof notificationsRouter;
+type NotificationsRouter = typeof notificationsRouter;

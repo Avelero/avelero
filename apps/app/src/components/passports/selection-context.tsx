@@ -68,7 +68,7 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
 // Hook
 // ============================================================================
 
-export function useSelectionContext() {
+function useSelectionContext() {
   const context = useContext(SelectionContext);
   if (!context) {
     throw new Error(

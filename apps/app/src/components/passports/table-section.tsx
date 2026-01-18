@@ -471,6 +471,11 @@ function TableContent({
       const variants: any[] = Array.isArray(p.variants) ? p.variants : [];
       const attributes = p.attributes ?? {};
       const tags = Array.isArray(attributes.tags) ? attributes.tags : [];
+
+      // Filter out ghost variants using the explicit isGhost flag.
+      // Ghost variants exist for publishing purposes but should be invisible to users.
+      const visibleVariants = variants.filter((v: any) => !v.isGhost);
+
       return {
         id: p.id,
         passportIds: [p.id],
@@ -484,7 +489,7 @@ function TableContent({
         imagePath: p.image_path ?? (p as any).imagePath ?? null,
         createdAt: p.created_at ?? p.createdAt ?? "",
         updatedAt: p.updated_at ?? p.updatedAt ?? "",
-        variantCount: variants.length,
+        variantCount: visibleVariants.length,
         tags: tags.map((t: any) => ({
           id: t.id ?? t.tag_id ?? "",
           name: t.name ?? null,

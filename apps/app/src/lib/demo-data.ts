@@ -117,7 +117,7 @@ export const DEMO_DPP_DATA: DppData = {
 /**
  * Demo content (non-compliance data) for the theme editor preview.
  */
-export const DEMO_DPP_CONTENT: DppContent = {
+const DEMO_DPP_CONTENT: DppContent = {
   similarProducts: [
     {
       image:

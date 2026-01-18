@@ -96,7 +96,7 @@ const SKELETON_ROW_IDS = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 /**
  * Loading skeleton for field sections.
  */
-export function FieldSectionSkeleton({ rowCount = 4 }: { rowCount?: number }) {
+function FieldSectionSkeleton({ rowCount = 4 }: { rowCount?: number }) {
   const rows = SKELETON_ROW_IDS.slice(0, rowCount);
 
   return (

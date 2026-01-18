@@ -34,4 +34,4 @@ export const brandRouter = createTRPCRouter({
   collections: brandCollectionsRouter,
 });
 
-export type BrandRouter = typeof brandRouter;
+type BrandRouter = typeof brandRouter;

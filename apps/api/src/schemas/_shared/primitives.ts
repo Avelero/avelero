@@ -140,18 +140,6 @@ export const countryCodeSchema = z.string().length(2).toUpperCase();
 export const intSchema = z.number().int();
 
 /**
- * Validates avatar hue values (1-359 degrees).
- * Used for generating avatar colors in the UI.
- */
-export const avatarHueSchema = z.number().int().min(1).max(359);
-
-/**
- * Validates percentage values (0-100).
- * Used for material composition, progress indicators, etc.
- */
-export const percentageSchema = z.number().min(0).max(100);
-
-/**
  * Validates non-negative integers (>= 0).
  * Used for counts, indices, sort orders, etc.
  */

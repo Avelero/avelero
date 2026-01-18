@@ -158,4 +158,4 @@ export const brandThemeRouter = createTRPCRouter({
   update: updateConfigProcedure,
 });
 
-export type BrandThemeRouter = typeof brandThemeRouter;
+type BrandThemeRouter = typeof brandThemeRouter;

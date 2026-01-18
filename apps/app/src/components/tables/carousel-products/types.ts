@@ -54,6 +54,6 @@ export interface FilterGroup {
   asGroup?: boolean;
 }
 
-export interface FilterState {
+interface FilterState {
   groups: FilterGroup[];
 }

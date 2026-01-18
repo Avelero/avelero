@@ -96,7 +96,7 @@ export function createEmptyAttributes(): ProductAttributesBundle {
  * Security check to prevent cross-brand product access. Throws an error
  * if the product doesn't exist or belongs to a different brand.
  */
-export async function ensureProductBelongsToBrand(
+async function ensureProductBelongsToBrand(
   db: Database,
   brandId: string,
   productId: string,
@@ -141,6 +141,8 @@ export async function loadVariantsForProducts(
       name: productVariants.name,
       description: productVariants.description,
       imagePath: productVariants.imagePath,
+      // Ghost variant flag
+      isGhost: productVariants.isGhost,
     })
     .from(productVariants)
     .where(inArray(productVariants.productId, [...productIds]))
@@ -233,6 +235,7 @@ export async function loadVariantsForProducts(
       updated_at: row.updated_at,
       attributes: attributesByVariant.get(row.id) ?? [],
       hasOverrides,
+      isGhost: row.isGhost,
     });
     map.set(row.product_id, collection);
   }

@@ -438,4 +438,4 @@ export const connectionsRouter = createTRPCRouter({
     }),
 });
 
-export type ConnectionsRouter = typeof connectionsRouter;
+type ConnectionsRouter = typeof connectionsRouter;

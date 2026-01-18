@@ -37,4 +37,4 @@ integrationRoutes.get("/health", (c) => {
   return c.json({ status: "ok", service: "integrations" });
 });
 
-export type IntegrationRoutes = typeof integrationRoutes;
+type IntegrationRoutes = typeof integrationRoutes;

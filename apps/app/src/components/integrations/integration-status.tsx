@@ -101,7 +101,7 @@ interface PrimaryBadgeProps {
 /**
  * Badge indicating this is the primary integration.
  */
-export function PrimaryBadge({ className }: PrimaryBadgeProps) {
+function PrimaryBadge({ className }: PrimaryBadgeProps) {
   return (
     <span
       className={cn(
@@ -429,7 +429,7 @@ export function formatFullDateTime(date: string | Date | null): string {
 /**
  * Formats sync duration in human readable format.
  */
-export function formatDuration(
+function formatDuration(
   startedAt: string | null,
   finishedAt: string | null,
 ): string {

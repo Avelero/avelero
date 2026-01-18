@@ -130,7 +130,7 @@ export function applyRangeSelection(
  * return ids;
  * ```
  */
-export async function fetchRowIdsByRange(
+async function fetchRowIdsByRange(
   startIndex: number,
   endIndex: number,
   // Add any additional params needed (filters, sorting, etc.)

@@ -5,7 +5,7 @@
  * Each publish action creates a new version; versions are NEVER updated or deleted.
  */
 
-import { and, asc, desc, eq, max, sql } from "drizzle-orm";
+import { desc, eq, max } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import type { Database } from "../../client";
 import { productPassportVersions } from "../../schema";
@@ -16,7 +16,6 @@ import { productPassportVersions } from "../../schema";
 
 /**
  * The JSON-LD snapshot structure for a DPP version.
- * This matches the structure defined in immutable-passports-plan.md Section 3.
  */
 export interface DppSnapshot {
   "@context": {
@@ -109,13 +108,9 @@ export interface DppSnapshot {
 
 /**
  * Calculate SHA-256 hash of the canonical JSON representation.
- * Used for integrity verification and detecting content changes.
- *
- * @param data - The data to hash
- * @returns SHA-256 hash as hex string
+ * Used for integrity verification.
  */
 function calculateContentHash(data: unknown): string {
-  // Use canonical JSON (sorted keys) for consistent hashing
   const canonicalJson = JSON.stringify(
     data,
     Object.keys(data as object).sort(),
@@ -217,131 +212,4 @@ export async function getLatestVersion(db: Database, passportId: string) {
     .limit(1);
 
   return version ?? null;
-}
-
-/**
- * Get a specific version by ID.
- *
- * @param db - Database instance
- * @param versionId - The version ID
- * @returns The version, or null if not found
- */
-export async function getVersionById(db: Database, versionId: string) {
-  const [version] = await db
-    .select({
-      id: productPassportVersions.id,
-      passportId: productPassportVersions.passportId,
-      versionNumber: productPassportVersions.versionNumber,
-      dataSnapshot: productPassportVersions.dataSnapshot,
-      contentHash: productPassportVersions.contentHash,
-      schemaVersion: productPassportVersions.schemaVersion,
-      publishedAt: productPassportVersions.publishedAt,
-    })
-    .from(productPassportVersions)
-    .where(eq(productPassportVersions.id, versionId))
-    .limit(1);
-
-  return version ?? null;
-}
-
-/**
- * Get a specific version by passport ID and version number.
- *
- * @param db - Database instance
- * @param passportId - The passport ID
- * @param versionNumber - The version number
- * @returns The version, or null if not found
- */
-export async function getVersionByNumber(
-  db: Database,
-  passportId: string,
-  versionNumber: number,
-) {
-  const [version] = await db
-    .select({
-      id: productPassportVersions.id,
-      passportId: productPassportVersions.passportId,
-      versionNumber: productPassportVersions.versionNumber,
-      dataSnapshot: productPassportVersions.dataSnapshot,
-      contentHash: productPassportVersions.contentHash,
-      schemaVersion: productPassportVersions.schemaVersion,
-      publishedAt: productPassportVersions.publishedAt,
-    })
-    .from(productPassportVersions)
-    .where(
-      and(
-        eq(productPassportVersions.passportId, passportId),
-        eq(productPassportVersions.versionNumber, versionNumber),
-      ),
-    )
-    .limit(1);
-
-  return version ?? null;
-}
-
-/**
- * Get all versions for a passport (for audit UI / version history).
- *
- * @param db - Database instance
- * @param passportId - The passport ID
- * @returns Array of versions in descending order (newest first)
- */
-export async function getVersionHistory(db: Database, passportId: string) {
-  const versions = await db
-    .select({
-      id: productPassportVersions.id,
-      passportId: productPassportVersions.passportId,
-      versionNumber: productPassportVersions.versionNumber,
-      contentHash: productPassportVersions.contentHash,
-      schemaVersion: productPassportVersions.schemaVersion,
-      publishedAt: productPassportVersions.publishedAt,
-      // Omit dataSnapshot for performance - use getVersionById when needed
-    })
-    .from(productPassportVersions)
-    .where(eq(productPassportVersions.passportId, passportId))
-    .orderBy(desc(productPassportVersions.versionNumber));
-
-  return versions;
-}
-
-/**
- * Get the total number of versions for a passport.
- *
- * @param db - Database instance
- * @param passportId - The passport ID
- * @returns The count of versions
- */
-export async function getVersionCount(db: Database, passportId: string) {
-  const [result] = await db
-    .select({
-      count: sql<number>`count(*)::int`,
-    })
-    .from(productPassportVersions)
-    .where(eq(productPassportVersions.passportId, passportId));
-
-  return result?.count ?? 0;
-}
-
-// =============================================================================
-// VERIFICATION
-// =============================================================================
-
-/**
- * Verify the integrity of a version's data snapshot.
- *
- * @param db - Database instance
- * @param versionId - The version ID to verify
- * @returns True if the content hash matches, false otherwise
- */
-export async function verifyVersionIntegrity(
-  db: Database,
-  versionId: string,
-): Promise<boolean> {
-  const version = await getVersionById(db, versionId);
-  if (!version) {
-    return false;
-  }
-
-  const calculatedHash = calculateContentHash(version.dataSnapshot);
-  return calculatedHash === version.contentHash;
 }

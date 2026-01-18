@@ -588,4 +588,4 @@ export const catalogRouter = createTRPCRouter({
   ),
 });
 
-export type CatalogRouter = typeof catalogRouter;
+type CatalogRouter = typeof catalogRouter;

@@ -506,7 +506,7 @@ export const importRouter = createTRPCRouter({
     }),
 });
 
-export type ImportRouter = typeof importRouter;
+type ImportRouter = typeof importRouter;
 
 // ============================================================================
 // Helper: Download File from Supabase

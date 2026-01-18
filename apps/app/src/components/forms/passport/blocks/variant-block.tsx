@@ -1106,25 +1106,35 @@ export function VariantSection({
           );
           if (keyPosition === -1) return nextEnabled;
 
-          // Get existing variant patterns without the current dimension
-          const existingPatterns = new Set<string>();
-          for (const key of prevEnabled) {
-            const keyParts = key.split("|");
-            const patternParts = keyParts.filter((_, i) => i !== keyPosition);
-            if (patternParts.length > 0) {
-              existingPatterns.add(patternParts.join("|"));
-            }
-          }
-
-          // For each existing pattern, create combinations with new values
-          for (const pattern of existingPatterns) {
-            const patternParts = pattern.split("|");
+          // SPECIAL CASE: Single dimension - just add the new values directly
+          // With only one dimension, there are no other dimensions to combine with
+          if (dimsWithValues.length === 1) {
             for (const newValue of addedValues) {
-              const newKeyParts = [...patternParts];
-              newKeyParts.splice(keyPosition, 0, newValue);
-              const newKey = newKeyParts.join("|");
-              if (newKeysSet.has(newKey)) {
-                nextEnabled.add(newKey);
+              if (newKeysSet.has(newValue)) {
+                nextEnabled.add(newValue);
+              }
+            }
+          } else {
+            // Get existing variant patterns without the current dimension
+            const existingPatterns = new Set<string>();
+            for (const key of prevEnabled) {
+              const keyParts = key.split("|");
+              const patternParts = keyParts.filter((_, i) => i !== keyPosition);
+              if (patternParts.length > 0) {
+                existingPatterns.add(patternParts.join("|"));
+              }
+            }
+
+            // For each existing pattern, create combinations with new values
+            for (const pattern of existingPatterns) {
+              const patternParts = pattern.split("|");
+              for (const newValue of addedValues) {
+                const newKeyParts = [...patternParts];
+                newKeyParts.splice(keyPosition, 0, newValue);
+                const newKey = newKeyParts.join("|");
+                if (newKeysSet.has(newKey)) {
+                  nextEnabled.add(newKey);
+                }
               }
             }
           }

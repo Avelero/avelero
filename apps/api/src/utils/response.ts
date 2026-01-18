@@ -48,7 +48,7 @@ export interface EntityResponse<T> {
 /**
  * Batch operation response with affected count.
  */
-export interface BatchResponse {
+interface BatchResponse {
   readonly affected: number;
 }
 
@@ -57,7 +57,7 @@ export interface BatchResponse {
  *
  * @template T - The type of items that would be returned
  */
-export interface EmptyListResponse<T> {
+interface EmptyListResponse<T> {
   data: T[];
 }
 
@@ -77,22 +77,6 @@ export interface EmptyListResponse<T> {
  */
 export function createListResponse<T>(data: T[]): ListResponse<T> {
   return { data };
-}
-
-/**
- * Creates an empty list response (e.g., when no active brand).
- *
- * @template T - The type of items that would be in the array
- * @returns Empty immutable list response
- *
- * @example
- * ```ts
- * if (!brandId) return createEmptyListResponse<Color>();
- * // Returns: { data: [] }
- * ```
- */
-export function createEmptyListResponse<T>(): EmptyListResponse<T> {
-  return { data: [] };
 }
 
 /**
@@ -118,22 +102,6 @@ export function createPaginatedResponse<T>(
   meta: { total: number; cursor?: string | null; hasMore?: boolean },
 ): PaginatedResponse<T> {
   return { data, meta };
-}
-
-/**
- * Creates an empty paginated response.
- *
- * @template T - The type of items that would be in the array
- * @returns Empty paginated response with zero total
- *
- * @example
- * ```ts
- * if (!brandId) return createEmptyPaginatedResponse<Product>();
- * // Returns: { data: [], meta: { total: 0 } }
- * ```
- */
-export function createEmptyPaginatedResponse<T>(): PaginatedResponse<T> {
-  return { data: [], meta: { total: 0 } } as const;
 }
 
 /**
@@ -192,19 +160,3 @@ export function createEntityResponse<T>(entity: T): EntityResponse<T> {
   return { data: entity } as const;
 }
 
-/**
- * Creates a batch operation response with affected count.
- *
- * @param affected - Number of records affected
- * @returns Immutable batch response
- *
- * @example
- * ```ts
- * const count = await deletePassports(db, passportIds);
- * return createBatchResponse(count);
- * // Returns: { affected: number }
- * ```
- */
-export function createBatchResponse(affected: number): BatchResponse {
-  return { affected } as const;
-}

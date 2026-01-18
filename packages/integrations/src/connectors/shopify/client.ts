@@ -327,7 +327,7 @@ export async function getProductCount(
 // HELPERS
 // =============================================================================
 
-export function extractNumericId(gid: string): string {
+function extractNumericId(gid: string): string {
   const match = gid.match(/\/(\d+)$/);
   return match?.[1] ?? gid;
 }

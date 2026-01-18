@@ -268,18 +268,27 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }
   }, [productHandle]);
 
-  // Reset form when entering create mode to ensure a fresh start
-  // This prevents old local values from persisting after navigation
-  const lastModeRef = React.useRef<string | null>(null);
-  React.useEffect(() => {
-    if (!isEditMode && lastModeRef.current !== mode) {
+  // Reset form when in create mode on mount
+  // useLayoutEffect runs synchronously before paint, ensuring the form is empty before user sees it
+  // We use a ref to only reset once per mount to avoid resetting on every render
+  const hasMountedRef = React.useRef(false);
+  React.useLayoutEffect(() => {
+    if (!isEditMode && !hasMountedRef.current) {
+      // First render in create mode - reset everything
       resetFormValues();
       setValidationErrors({});
       setHasAttemptedSubmit(false);
       setInitialSnapshot(null);
+      hasHydratedRef.current = false;
+      lastHydratedDataVersionRef.current = null;
     }
-    lastModeRef.current = mode;
-  }, [isEditMode, mode, resetFormValues]);
+    hasMountedRef.current = true;
+
+    // Cleanup on unmount - reset the flag for next mount
+    return () => {
+      hasMountedRef.current = false;
+    };
+  }, [isEditMode, resetFormValues]);
 
   const createProductMutation = useMutation(
     trpc.products.create.mutationOptions(),
@@ -289,6 +298,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   );
   const syncVariantsMutation = useMutation(
     trpc.products.variants.sync.mutationOptions(),
+  );
+  const publishProductMutation = useMutation(
+    trpc.products.publish.product.mutationOptions(),
   );
   const createAttributeMutation = useMutation(
     trpc.catalog.attributes.create.mutationOptions(),
@@ -311,18 +323,21 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   });
 
   // Track the last data version we hydrated from, to detect when data changes
-  // This allows re-hydration when navigating back after external changes (e.g., variant deletion)
+  // This allows re-hydration when navigating back after external changes (e.g., variant deletion, status change)
   const lastHydratedDataVersionRef = React.useRef<string | null>(null);
   const currentDataVersion = React.useMemo(() => {
     if (!passportFormQuery.data) return null;
     const data = passportFormQuery.data as any;
-    // Use a combination of fields that would change when variants are modified
+    // Use a combination of fields that would change when the product is modified
+    // Include status and updated_at to catch external changes (e.g., status toggle from list view)
     const variants = data.variants ?? [];
     const variantKeys = variants
       .map((v: any) => v.upid || v.id)
       .sort()
       .join(",");
-    return `${data.id}:${variants.length}:${variantKeys}`;
+    const status = data.status ?? "unpublished";
+    const updatedAt = data.updated_at ?? data.updatedAt ?? "";
+    return `${data.id}:${status}:${updatedAt}:${variants.length}:${variantKeys}`;
   }, [passportFormQuery.data]);
 
   const state: PassportFormState = React.useMemo(
@@ -333,6 +348,28 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   // Compute a map of variant value keys -> variant info for navigation in edit mode
   // The key is pipe-separated value IDs matching the format used in variantMetadata
   // Includes all variant data needed for delete warnings and navigation
+  // Track the ghost variant (system-created default variant) separately.
+  // This is used to preserve the UPID when transitioning from 0 to 1 attribute value.
+  const defaultVariantUpid = React.useMemo(() => {
+    if (!isEditMode || !passportFormQuery.data) return null;
+
+    const payload = passportFormQuery.data as any;
+    const variants = Array.isArray(payload?.variants) ? payload.variants : [];
+
+    // Find the ghost variant using the explicit isGhost flag
+    for (const variant of variants) {
+      const upid = variant.upid ?? variant.unique_product_id;
+      if (!upid) continue;
+
+      // Use explicit isGhost flag to identify ghost variants
+      if (variant.isGhost) {
+        return upid;
+      }
+    }
+
+    return null;
+  }, [isEditMode, passportFormQuery.data]);
+
   const savedVariantsMap = React.useMemo(() => {
     if (!isEditMode || !passportFormQuery.data)
       return new Map<
@@ -585,13 +622,15 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }
 
     // Handle explicit variants (no attributes)
+    // Filter out ghost variants using the explicit isGhost flag.
+    // Ghost variants exist in the database for publishing purposes but should be invisible to users.
     const explicitVariants: Array<{ sku: string; barcode: string }> = [];
     if (variantDimensions.length === 0 && variants.length > 0) {
       for (const v of variants) {
-        explicitVariants.push({
-          sku: v.sku ?? "",
-          barcode: v.barcode ?? "",
-        });
+        // Use explicit isGhost flag instead of heuristic
+        if (!v.isGhost) {
+          explicitVariants.push({ sku: v.sku ?? "", barcode: v.barcode ?? "" });
+        }
       }
     }
 
@@ -1138,6 +1177,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               attributeValueIds: string[];
               sku?: string;
               barcode?: string;
+              isGhost?: boolean;
             }> = [];
 
             for (const key of formValues.enabledVariantKeys) {
@@ -1164,8 +1204,22 @@ export function usePassportForm(options?: UsePassportFormOptions) {
                   attributeValueIds: resolvedValueIds,
                   sku: metadata?.sku || undefined,
                   barcode: metadata?.barcode || undefined,
+                  isGhost: false, // Variants with attributes are always real (non-ghost)
                 });
               }
+            }
+
+            // If there's exactly one variant being synced without a UPID (new variant), and we have
+            // a ghost variant, reuse its UPID. This preserves the UPID when transitioning from 0 to 1
+            // attribute value (e.g., adding "Black" to a product that had no color attribute - the
+            // ghost variant becomes the "Black" variant and is converted from ghost to real).
+            if (
+              variantsForSync.length === 1 &&
+              !variantsForSync[0]!.upid &&
+              defaultVariantUpid
+            ) {
+              variantsForSync[0]!.upid = defaultVariantUpid;
+              variantsForSync[0]!.isGhost = false; // Convert ghost to real
             }
 
             if (variantsForSync.length > 0) {
@@ -1181,7 +1235,36 @@ export function usePassportForm(options?: UsePassportFormOptions) {
                 attributeValueIds: [],
                 sku: v.sku || undefined,
                 barcode: v.barcode || undefined,
+                isGhost: false, // Explicit variants are always real (non-ghost)
               })),
+            });
+          } else {
+            // No dimensions and no explicit variants - create/update a ghost variant.
+            // Every product must have at least one variant (even without attribute values) to be publishable.
+            // This ghost variant will be converted to a real variant if the user later adds attributes.
+            // Preserve the existing ghost variant's UPID if it exists to avoid unnecessary recreation.
+            await syncVariantsMutation.mutateAsync({
+              productHandle: effectiveProductHandle,
+              variants: [
+                {
+                  attributeValueIds: [],
+                  upid: defaultVariantUpid ?? undefined,
+                  isGhost: true,
+                },
+              ],
+            });
+          }
+
+          // EXPLICIT PUBLISH: After all data changes are saved, trigger publish if product is published.
+          // This is the ONLY place where publish is called during save - keeps logic simple and predictable.
+          // The content hash deduplication in publishVariant will skip creating versions if nothing changed.
+          const currentStatus = formValues.status ?? dbPublishingStatus;
+          if (
+            currentStatus === "published" &&
+            metadataRef.current.productId
+          ) {
+            await publishProductMutation.mutateAsync({
+              productId: metadataRef.current.productId,
             });
           }
 
@@ -1298,6 +1381,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             attributeValueIds: string[];
             sku?: string;
             barcode?: string;
+            isGhost?: boolean;
           }> = [];
 
           for (const key of formValues.enabledVariantKeys) {
@@ -1321,6 +1405,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
                 attributeValueIds: resolvedValueIds,
                 sku: metadata?.sku || undefined,
                 barcode: metadata?.barcode || undefined,
+                isGhost: false, // Variants with attributes are always real (non-ghost)
               });
             }
           }
@@ -1341,10 +1426,49 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               attributeValueIds: [],
               sku: v.sku || undefined,
               barcode: v.barcode || undefined,
+              isGhost: false, // Explicit variants are always real (non-ghost)
             })),
+          });
+        } else if (targetProductHandle) {
+          // No dimensions and no explicit variants - create a ghost variant.
+          // Every product must have at least one variant (even without attribute values) to be publishable.
+          // This ghost variant will be converted to a real variant if the user later adds attributes.
+          await syncVariantsMutation.mutateAsync({
+            productHandle: targetProductHandle,
+            variants: [{ attributeValueIds: [], isGhost: true }],
           });
         }
 
+        // Cache seeding: Fetch the complete product and seed the cache before navigation.
+        // This ensures the edit page renders instantly without showing loading skeletons.
+        if (targetProductHandle) {
+          const fullProductData = await queryClient.fetchQuery(
+            trpc.products.get.queryOptions({
+              handle: targetProductHandle,
+              includeVariants: true,
+              includeAttributes: true,
+            }),
+          );
+
+          // Seed the cache with the fetched data - edit page will find it instantly
+          queryClient.setQueryData(
+            trpc.products.get.queryKey({
+              handle: targetProductHandle,
+              includeVariants: true,
+              includeAttributes: true,
+            }),
+            fullProductData,
+          );
+
+          // Navigate immediately for seamless transition
+          router.push(`/passports/edit/${targetProductHandle}`);
+          toast.success("Passport created successfully");
+        } else {
+          router.push("/passports");
+          toast.success("Passport created successfully");
+        }
+
+        // Invalidate other caches in background (fire-and-forget)
         void Promise.allSettled([
           queryClient.invalidateQueries({
             queryKey: trpc.products.list.queryKey(),
@@ -1355,27 +1479,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           queryClient.invalidateQueries({
             queryKey: trpc.products.get.queryKey({ id: productId }),
           }),
-          targetProductHandle &&
-            queryClient.invalidateQueries({
-              queryKey: trpc.products.get.queryKey({
-                handle: targetProductHandle,
-              }),
-            }),
           queryClient.invalidateQueries({
             queryKey: trpc.summary.productStatus.queryKey(),
           }),
         ]);
-
-        toast.success("Passport created successfully");
-        if (targetProductHandle) {
-          router.push(`/passports/edit/${targetProductHandle}`);
-        } else {
-          router.push("/passports");
-        }
-
-        setValidationErrors({});
-        setHasAttemptedSubmit(false);
-        resetFormValues();
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to create passport";

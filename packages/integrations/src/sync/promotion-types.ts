@@ -126,7 +126,7 @@ export interface ExternalVariantData {
 /**
  * Variant assignment computed during promotion.
  */
-export interface VariantAssignment {
+interface VariantAssignment {
   /** Avelero variant ID */
   aveleroVariantId: string;
   /** Current parent product ID */
@@ -138,7 +138,7 @@ export interface VariantAssignment {
 /**
  * Main product mapping (which Avelero product represents each external product).
  */
-export interface MainProductMapping {
+interface MainProductMapping {
   /** External product ID from new primary */
   targetExternalProductId: string;
   /** Avelero product that will be the "main" one (null = needs creation) */
@@ -162,7 +162,7 @@ export interface VariantMove {
 /**
  * An orphaned variant (barcode not found in new primary).
  */
-export interface OrphanedVariant {
+interface OrphanedVariant {
   /** Variant ID */
   variantId: string;
   /** Product ID the variant belongs to */
@@ -198,7 +198,7 @@ export interface PromotionContext {
 /**
  * Batch processing configuration.
  */
-export const PROMOTION_CONFIG = {
+const PROMOTION_CONFIG = {
   /** Number of products to fetch per API request */
   FETCH_BATCH_SIZE: 250,
   /** Number of products to process per database transaction */

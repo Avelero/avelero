@@ -128,7 +128,7 @@ async function trpcQuery<T>(
  * @param brandSlug - URL-friendly brand identifier
  * @returns ThemePreviewResponse or null if brand not found
  */
-export async function fetchThemePreview(
+async function fetchThemePreview(
   brandSlug: string,
 ): Promise<ThemePreviewResponse | null> {
   return trpcQuery<ThemePreviewResponse>(

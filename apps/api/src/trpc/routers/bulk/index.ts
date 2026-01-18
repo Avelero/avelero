@@ -50,4 +50,4 @@ export const bulkRouter = createTRPCRouter({
   values: valuesRouter,
 });
 
-export type BulkRouter = typeof bulkRouter;
+type BulkRouter = typeof bulkRouter;

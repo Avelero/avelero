@@ -15,7 +15,7 @@ import type {
 /**
  * Get all quick filter field IDs (Tier 1 fields)
  */
-export function getQuickFilterFieldIds(): string[] {
+function getQuickFilterFieldIds(): string[] {
   return getQuickFilterFields().map((field) => field.id);
 }
 

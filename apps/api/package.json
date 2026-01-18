@@ -25,7 +25,6 @@
     "@v1/dpp-components": "workspace:*",
     "@v1/integrations": "workspace:*",
     "@v1/jobs": "workspace:*",
-    "@v1/kv": "workspace:*",
     "@v1/logger": "workspace:*",
     "@v1/selections": "workspace:*",
     "@v1/supabase": "workspace:*",
@@ -33,21 +32,15 @@
     "dataloader": "^2.2.3",
     "drizzle-orm": "^0.44.7",
     "hono": "^4.5.10",
-    "jschardet": "^3.1.4",
-    "papaparse": "^5.5.3",
     "supabase": "^2.34.3",
     "superjson": "^2.2.1",
     "ws": "^8.18.3",
-    "xlsx": "^0.18.5",
     "zod": "3.25.64"
   },
   "devDependencies": {
     "@types/bun": "^1.2.16",
-    "@types/papaparse": "^5.5.0",
-    "@types/supertest": "^6.0.3",
     "@types/ws": "^8.18.1",
     "@v1/testing": "workspace:*",
-    "dotenv": "^17.2.3",
-    "supertest": "^7.1.4"
+    "dotenv": "^17.2.3"
   }
 }

@@ -16,7 +16,7 @@ import { notInArray, inArray, type SQL } from "drizzle-orm";
  * @param currentId - Optional current item ID to always exclude
  * @returns Normalized arrays
  */
-export function normalizeSelection(
+function normalizeSelection(
   includeIds: string[] = [],
   excludeIds: string[] = [],
   currentId?: string,
@@ -47,7 +47,7 @@ export function normalizeSelection(
  * @param column - Column to filter
  * @param values - Array of values (empty array returns null)
  */
-export function safeInArray(
+function safeInArray(
   column: Parameters<typeof inArray>[0],
   values: string[],
 ): ReturnType<typeof inArray> | null {

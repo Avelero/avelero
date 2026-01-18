@@ -32,4 +32,4 @@ export const summaryRouter = createTRPCRouter({
     }),
 });
 
-export type SummaryRouter = typeof summaryRouter;
+type SummaryRouter = typeof summaryRouter;

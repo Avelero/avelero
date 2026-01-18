@@ -63,7 +63,7 @@ export function IntegrationCard({
 /**
  * Loading skeleton for integration cards.
  */
-export function IntegrationCardSkeleton() {
+function IntegrationCardSkeleton() {
   return (
     <div className="border border-border p-6 flex items-center gap-4 animate-pulse">
       <div className="h-10 w-10 bg-accent" />

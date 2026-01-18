@@ -121,7 +121,7 @@ export function normalizeToDisplayUrl(
  * Extract the storage path from a value that could be a full URL or path.
  * Returns the path portion only.
  */
-export function extractPath(
+function extractPath(
   value: string | null | undefined,
   bucket: string,
 ): string | null {

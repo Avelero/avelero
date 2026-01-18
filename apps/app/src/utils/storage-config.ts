@@ -94,7 +94,7 @@ export const UPLOAD_CONFIGS = {
 } as const;
 
 export type UploadConfigKey = keyof typeof UPLOAD_CONFIGS;
-export type UploadConfig = (typeof UPLOAD_CONFIGS)[UploadConfigKey];
+type UploadConfig = (typeof UPLOAD_CONFIGS)[UploadConfigKey];
 
 // ============================================================================
 // Path Builders
@@ -129,7 +129,7 @@ export const buildStoragePath = {
  * Example input: https://xxx.supabase.co/storage/v1/object/public/dpp-assets/brand-123/logo.png
  * Returns: brand-123/logo.png
  */
-export function extractPathFromUrl(url: string, bucket: string): string | null {
+function extractPathFromUrl(url: string, bucket: string): string | null {
   try {
     const regex = new RegExp(`/${bucket}/(.+)$`);
     const match = url.match(regex);

@@ -297,4 +297,4 @@ export const syncRouter = createTRPCRouter({
     }),
 });
 
-export type SyncRouter = typeof syncRouter;
+type SyncRouter = typeof syncRouter;

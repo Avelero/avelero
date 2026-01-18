@@ -25,22 +25,15 @@
     "@v1/email": "workspace:*",
     "@v1/integrations": "workspace:*",
     "@v1/supabase": "workspace:*",
-    "@v1/utils": "workspace:*",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
     "exceljs": "^4.4.0",
-    "import-in-the-middle": "^2.0.0",
-    "jschardet": "^3.1.4",
-    "p-map": "^7.0.2",
-    "papaparse": "^5.5.3",
     "react": "19.2.1",
-    "resend": "^6.4.2",
-    "xlsx": "^0.18.5"
+    "resend": "^6.4.2"
   },
   "devDependencies": {
     "@trigger.dev/build": "4.0.6",
     "@types/bun": "^1.2.16",
-    "@types/papaparse": "^5.5.0",
     "@v1/testing": "workspace:*",
     "trigger.dev": "4.0.6",
     "typescript": "^5.9.2"
@@ -48,9 +41,6 @@
   "exports": {
     "./lib/excel": "./src/lib/excel.ts",
     "./trigger": "./src/trigger/index.ts",
-    "./trigger/validate-and-stage": "./src/trigger/validate-and-stage.ts",
-    "./trigger/commit-to-production": "./src/trigger/commit-to-production.ts",
-    "./trigger/capture-theme-screenshot": "./src/trigger/capture-theme-screenshot.ts",
     "./trigger/delete-brand": "./src/trigger/delete-brand.ts",
     "./trigger/integrations": "./src/trigger/integrations/index.ts",
     "./trigger/integrations/sync": "./src/trigger/integrations/sync.ts",

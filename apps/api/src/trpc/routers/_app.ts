@@ -59,5 +59,5 @@ export const appRouter = createTRPCRouter({
 /** Convenience alias for the root router's runtime shape. */
 export type AppRouter = typeof appRouter;
 /** Type helpers used by the front end when interacting with procedures. */
-export type RouterOutputs = inferRouterOutputs<AppRouter>;
-export type RouterInputs = inferRouterInputs<AppRouter>;
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type RouterInputs = inferRouterInputs<AppRouter>;

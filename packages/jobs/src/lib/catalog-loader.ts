@@ -442,7 +442,7 @@ export function lookupOperatorId(
  * @param catalog - Brand catalog
  * @returns Catalog statistics
  */
-export function getCatalogStats(catalog: BrandCatalog): {
+function getCatalogStats(catalog: BrandCatalog): {
   materials: number;
   seasons: number;
   categories: number;

@@ -290,4 +290,4 @@ export const valuesRouter = createTRPCRouter({
     }),
 });
 
-export type ValuesRouter = typeof valuesRouter;
+type ValuesRouter = typeof valuesRouter;

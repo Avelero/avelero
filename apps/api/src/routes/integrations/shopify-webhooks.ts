@@ -272,4 +272,4 @@ shopifyWebhooksRouter.post("/", async (c) => {
   }
 });
 
-export type ShopifyWebhooksRouter = typeof shopifyWebhooksRouter;
+type ShopifyWebhooksRouter = typeof shopifyWebhooksRouter;

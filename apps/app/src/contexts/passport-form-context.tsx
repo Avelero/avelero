@@ -32,8 +32,6 @@ interface PassportFormContextType {
   // Publishing state (from database)
   publishingStatus: "published" | "unpublished" | null;
   setPublishingStatus: (status: "published" | "unpublished" | null) => void;
-  hasDbUnpublishedChanges: boolean;
-  setHasDbUnpublishedChanges: (value: boolean) => void;
 
   // Submission state
   isSubmitting: boolean;
@@ -81,8 +79,6 @@ export function PassportFormProvider({
   const [publishingStatus, setPublishingStatus] = React.useState<
     "published" | "unpublished" | null
   >(null);
-  const [hasDbUnpublishedChanges, setHasDbUnpublishedChanges] =
-    React.useState(false);
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -122,8 +118,6 @@ export function PassportFormProvider({
       setProductId,
       publishingStatus,
       setPublishingStatus,
-      hasDbUnpublishedChanges,
-      setHasDbUnpublishedChanges,
       isSubmitting,
       setIsSubmitting,
       hasUnsavedChanges,
@@ -139,7 +133,6 @@ export function PassportFormProvider({
       variantUpid,
       productId,
       publishingStatus,
-      hasDbUnpublishedChanges,
       isSubmitting,
       hasUnsavedChanges,
       pendingNavigationUrl,

@@ -253,8 +253,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const [dbPublishingStatus, setDbPublishingStatus] = React.useState<
     "published" | "unpublished" | null
   >(null);
-  const [dbHasUnpublishedChanges, setDbHasUnpublishedChanges] =
-    React.useState(false);
 
   const metadataRef = React.useRef<{
     productId?: string;
@@ -683,9 +681,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     // Set database publishing state
     const status = payload.status as "published" | "unpublished" | undefined;
     setDbPublishingStatus(status ?? "unpublished");
-    setDbHasUnpublishedChanges(
-      payload.has_unpublished_changes ?? payload.hasUnpublishedChanges ?? false,
-    );
 
     hasHydratedRef.current = true;
     lastHydratedDataVersionRef.current = currentDataVersion;
@@ -1560,7 +1555,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     // Publishing support
     productId: metadataRef.current.productId ?? null,
     dbPublishingStatus,
-    dbHasUnpublishedChanges,
     // Variant deletion detection
     getVariantsToDelete,
   };

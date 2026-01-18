@@ -1,0 +1,1 @@
+DROP INDEX "idx_product_passports_upid";

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "@v1/db/queries";
+import { eq, sql } from "@v1/db/queries";
 import { products } from "@v1/db/schema";
 import { summaryProductStatusSchema } from "../../../schemas/summary.js";
 import { createEntityResponse } from "../../../utils/response.js";
@@ -10,52 +10,22 @@ export const summaryRouter = createTRPCRouter({
     .query(async ({ ctx }) => {
       const { db, brandId } = ctx;
 
-      // Get total count
-      const [totalResult] = await db
+      // Single query with conditional counts for consistency and efficiency
+      const [result] = await db
         .select({
-          count: sql<number>`COUNT(*)::int`,
+          total: sql<number>`COUNT(*)::int`,
+          published: sql<number>`COUNT(*) FILTER (WHERE ${products.status} = 'published')::int`,
+          unpublished: sql<number>`COUNT(*) FILTER (WHERE ${products.status} = 'unpublished')::int`,
+          scheduled: sql<number>`COUNT(*) FILTER (WHERE ${products.status} = 'scheduled')::int`,
         })
         .from(products)
         .where(eq(products.brandId, brandId));
 
-      // Get published count
-      const [publishedResult] = await db
-        .select({
-          count: sql<number>`COUNT(*)::int`,
-        })
-        .from(products)
-        .where(
-          and(eq(products.brandId, brandId), eq(products.status, "published")),
-        );
-
-      // Get unpublished count
-      const [unpublishedResult] = await db
-        .select({
-          count: sql<number>`COUNT(*)::int`,
-        })
-        .from(products)
-        .where(
-          and(
-            eq(products.brandId, brandId),
-            eq(products.status, "unpublished"),
-          ),
-        );
-
-      // Get scheduled count
-      const [scheduledResult] = await db
-        .select({
-          count: sql<number>`COUNT(*)::int`,
-        })
-        .from(products)
-        .where(
-          and(eq(products.brandId, brandId), eq(products.status, "scheduled")),
-        );
-
       const summary = {
-        total: totalResult?.count ?? 0,
-        published: publishedResult?.count ?? 0,
-        unpublished: unpublishedResult?.count ?? 0,
-        scheduled: scheduledResult?.count ?? 0,
+        total: result?.total ?? 0,
+        published: result?.published ?? 0,
+        unpublished: result?.unpublished ?? 0,
+        scheduled: result?.scheduled ?? 0,
       };
 
       return createEntityResponse(summary);

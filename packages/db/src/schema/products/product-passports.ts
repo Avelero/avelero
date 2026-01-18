@@ -5,7 +5,6 @@ import {
   pgTable,
   text,
   timestamp,
-  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
@@ -105,8 +104,8 @@ export const productPassports = pgTable(
       .notNull(),
   },
   (table) => [
-    // Unique index on UPID for fast lookups (primary public access pattern)
-    uniqueIndex("idx_product_passports_upid").on(table.upid),
+    // Note: UPID already has a unique constraint (line 37) which creates an index.
+    // No need for an explicit uniqueIndex here.
     // Index for finding passports by brand
     index("idx_product_passports_brand_id").using(
       "btree",

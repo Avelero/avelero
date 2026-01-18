@@ -642,7 +642,8 @@ export function JourneySection({
   const syncToParent = React.useCallback(
     (steps: JourneyStep[]) => {
       const parentSteps = steps
-        .filter((s) => s.step) // Only include steps with a step type
+        // Only include complete steps (has step type AND at least one operator)
+        .filter((s) => s.step && s.operators.length > 0)
         .map((s, index) => ({
           stepType: s.step,
           operatorIds: s.operators.map((op) => op.id),

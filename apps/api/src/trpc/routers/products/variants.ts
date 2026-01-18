@@ -597,18 +597,14 @@ export const productVariantsRouter = createTRPCRouter({
             );
           }
 
-          // Apply overrides (note: applyVariantOverrides uses db, not tx)
-          // For full transactionality, we'd need to refactor applyVariantOverrides
-          // to accept a transaction context. For now, core variant + attributes are atomic.
+          // Create passport for the new variant (inside transaction for consistency)
+          await createPassportForVariant(tx, newVariant.id, brandId, {
+            upid: newVariant.upid!,
+            sku: input.sku,
+            barcode: input.barcode,
+          });
 
           return newVariant;
-        });
-
-        // Create passport for the new variant
-        await createPassportForVariant(db, variant.id, brandId, {
-          upid: variant.upid!,
-          sku: input.sku,
-          barcode: input.barcode,
         });
 
         // Apply overrides outside transaction (existing pattern)
@@ -1070,15 +1066,15 @@ export const productVariantsRouter = createTRPCRouter({
         let updatedCount = 0;
         let deletedCount = 0;
 
-        // Orphan passports for variants being deleted (before the transaction)
-        if (toDelete.length > 0) {
-          await batchOrphanPassportsByVariantIds(
-            db,
-            toDelete.map((v) => v.id),
-          );
-        }
-
         await db.transaction(async (tx) => {
+          // Orphan passports for variants being deleted (inside transaction for consistency)
+          if (toDelete.length > 0) {
+            await batchOrphanPassportsByVariantIds(
+              tx,
+              toDelete.map((v) => v.id),
+            );
+          }
+
           // Delete variants
           if (toDelete.length > 0) {
             await tx.delete(productVariants).where(

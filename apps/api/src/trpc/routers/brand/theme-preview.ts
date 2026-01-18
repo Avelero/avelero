@@ -258,7 +258,9 @@ function buildDppData(
 ): DppData {
   return {
     productIdentifiers: {
-      productId: Number(core.productId) || 0,
+      // Preview uses placeholder numeric IDs since DppData expects numbers
+      // but our data uses UUIDs. The numeric IDs are only used for component keys.
+      productId: 0,
       productName: core.productName,
       productImage: core.productImage ?? "",
       articleNumber: "", // Not shown for product-level preview
@@ -268,7 +270,8 @@ function buildDppData(
       brand: core.brandName,
       category: core.categoryId
         ? {
-            categoryId: Number(core.categoryId) || 0,
+            // Preview uses placeholder numeric ID for category
+            categoryId: 0,
             category: core.categoryName ?? "",
           }
         : undefined,

@@ -7,7 +7,7 @@
  */
 
 import { eq, inArray } from "drizzle-orm";
-import type { Database } from "../../client";
+import type { Database, DatabaseOrTransaction } from "../../client";
 import {
   productPassports,
   productPassportVersions,
@@ -355,7 +355,7 @@ export async function orphanPassport(db: Database, passportId: string) {
  * @returns Object with count of orphaned passports
  */
 export async function batchOrphanPassportsByVariantIds(
-  db: Database,
+  db: DatabaseOrTransaction,
   variantIds: string[],
 ) {
   if (variantIds.length === 0) {
@@ -394,7 +394,7 @@ export async function batchOrphanPassportsByVariantIds(
  * @returns The created passport
  */
 export async function createPassportForVariant(
-  db: Database,
+  db: DatabaseOrTransaction,
   variantId: string,
   brandId: string,
   variantData: {

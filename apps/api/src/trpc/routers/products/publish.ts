@@ -158,10 +158,10 @@ export const publishRouter = createTRPCRouter({
   state: brandRequiredProcedure
     .input(getPublishingStateSchema)
     .query(async ({ ctx, input }) => {
-      const { db } = ctx as BrandContext;
+      const { db, brandId } = ctx as BrandContext;
 
       try {
-        const state = await getPublishingState(db, input.productId);
+        const state = await getPublishingState(db, input.productId, brandId);
 
         if (!state) {
           throw badRequest("Product not found");

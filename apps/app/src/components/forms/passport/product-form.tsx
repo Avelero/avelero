@@ -112,7 +112,6 @@ function ProductFormInner({
     setProductId,
     publishingStatus,
     setPublishingStatus,
-    setHasDbUnpublishedChanges,
   } = usePassportFormContext();
   const isEditMode = mode === "edit";
 
@@ -136,7 +135,6 @@ function ProductFormInner({
     productHandle: savedProductHandle,
     productId,
     dbPublishingStatus,
-    dbHasUnpublishedChanges,
     getVariantsToDelete,
   } = usePassportForm({ mode, productHandle, initialData });
 
@@ -152,15 +150,7 @@ function ProductFormInner({
   React.useEffect(() => {
     setProductId(productId);
     setPublishingStatus(dbPublishingStatus);
-    setHasDbUnpublishedChanges(dbHasUnpublishedChanges);
-  }, [
-    productId,
-    setProductId,
-    dbPublishingStatus,
-    setPublishingStatus,
-    dbHasUnpublishedChanges,
-    setHasDbUnpublishedChanges,
-  ]);
+  }, [productId, setProductId, dbPublishingStatus, setPublishingStatus]);
 
   // Clear errors when fields change (after first submit attempt)
   React.useEffect(() => {

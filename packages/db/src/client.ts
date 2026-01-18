@@ -165,3 +165,12 @@ export const serviceDb: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
 ) as ReturnType<typeof drizzle<typeof schema>>;
 
 export type Database = typeof db;
+
+/**
+ * Type that accepts both a full database instance and a transaction.
+ * Use this for functions that need to work inside transactions.
+ */
+export type DatabaseOrTransaction = Pick<
+  Database,
+  "select" | "insert" | "update" | "delete" | "execute" | "query"
+>;

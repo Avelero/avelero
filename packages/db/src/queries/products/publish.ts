@@ -440,15 +440,20 @@ export async function hasPublishedVariants(
  *
  * @param db - Database instance
  * @param productId - The product ID
+ * @param brandId - The brand ID (for authorization verification)
  * @returns The product's publishing state
  */
-export async function getPublishingState(db: Database, productId: string) {
+export async function getPublishingState(
+  db: Database,
+  productId: string,
+  brandId: string,
+) {
   const [product] = await db
     .select({
       status: products.status,
     })
     .from(products)
-    .where(eq(products.id, productId))
+    .where(and(eq(products.id, productId), eq(products.brandId, brandId)))
     .limit(1);
 
   if (!product) return null;

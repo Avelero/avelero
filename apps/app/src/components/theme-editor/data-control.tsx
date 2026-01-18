@@ -149,7 +149,7 @@ function DataSourceToggle({ value, onChange, loading }: DataSourceToggleProps) {
         <p
           className={cn(
             "type-small !leading-[24px]",
-            value === "mock" ? "text-foreground" : "text-foreground",
+            "text-foreground",
           )}
         >
           Mock
@@ -165,7 +165,7 @@ function DataSourceToggle({ value, onChange, loading }: DataSourceToggleProps) {
         <p
           className={cn(
             "type-small !leading-[24px]",
-            value === "real" ? "text-foreground" : "text-foreground",
+            "text-foreground",
             loading && value === "real" && "opacity-70",
           )}
         >

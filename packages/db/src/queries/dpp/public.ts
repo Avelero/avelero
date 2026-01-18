@@ -13,7 +13,7 @@
  * - Handles inactive passports (variant deleted but snapshot preserved)
  */
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
   productPassports,
@@ -310,7 +310,12 @@ export async function getPublicDppVersion(
       publishedAt: productPassportVersions.publishedAt,
     })
     .from(productPassportVersions)
-    .where(eq(productPassportVersions.passportId, passport.id))
+    .where(
+      and(
+        eq(productPassportVersions.passportId, passport.id),
+        eq(productPassportVersions.versionNumber, versionNumber),
+      ),
+    )
     .limit(1);
 
   if (!version) {

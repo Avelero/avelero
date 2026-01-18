@@ -134,6 +134,10 @@ export const publishRouter = createTRPCRouter({
       try {
         const result = await bulkPublishProducts(db, input.productIds, brandId);
 
+        if (!result.success) {
+          throw badRequest("Failed to bulk publish products");
+        }
+
         return {
           success: result.success,
           totalProductsPublished: result.totalProductsPublished,

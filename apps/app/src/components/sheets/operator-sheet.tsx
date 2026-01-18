@@ -195,7 +195,6 @@ export function OperatorSheet({
       const mutationResult = await toast.loading(
         "Creating operator...",
         (async () => {
-          // Combine address lines into single address field
           // Create operator via API
           const result = await createOperatorMutation.mutateAsync({
             display_name: name.trim(),

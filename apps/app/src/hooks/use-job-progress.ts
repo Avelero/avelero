@@ -80,14 +80,9 @@ export function useTriggerJobProgress<
         return "failed";
       case "CANCELED":
         return "cancelled";
-      case "QUEUED":
-      case "DEQUEUED":
-      case "WAITING":
-      case "DELAYED":
-      case "PENDING_VERSION":
-        return "pending";
       default:
-        return String(run.status).toLowerCase() as JobProgressStatus;
+        // QUEUED, DEQUEUED, WAITING, DELAYED, PENDING_VERSION, and unknown statuses
+        return "pending";
     }
   }, [run?.status]);
 

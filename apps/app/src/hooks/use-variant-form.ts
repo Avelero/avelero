@@ -160,6 +160,7 @@ export function useVariantForm(options: UseVariantFormOptions) {
       description: initialData.description,
       imagePath: initialData.imagePath,
       env: initialData.environment,
+      weight: initialData.weight,
       mat: initialData.materials,
       journey: initialData.journey,
     });

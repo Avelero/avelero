@@ -6,7 +6,7 @@ export default async function IntegrationsPage() {
   await connection();
 
   // Single query, use prefetch instead of batchPrefetch
-  prefetch(trpc.integrations.connections.list.queryOptions({}));
+  await prefetch(trpc.integrations.connections.list.queryOptions({}));
 
   return (
     <HydrateClient>

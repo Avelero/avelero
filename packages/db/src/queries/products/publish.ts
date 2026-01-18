@@ -342,12 +342,10 @@ export async function publishProduct(
       };
     }
 
-    // Publish each variant
-    const results: PublishVariantResult[] = [];
-    for (const variant of variants) {
-      const result = await publishVariant(db, variant.id, brandId);
-      results.push(result);
-    }
+    // Publish each variant concurrently
+    const results = await Promise.all(
+      variants.map((variant) => publishVariant(db, variant.id, brandId)),
+    );
 
     const totalPublished = results.filter((r) => r.success).length;
     const totalFailed = results.filter((r) => !r.success).length;

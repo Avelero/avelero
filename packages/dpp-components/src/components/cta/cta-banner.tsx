@@ -17,7 +17,9 @@ export function CTABanner({ themeConfig }: Props) {
   // Use unoptimized for local development URLs
   const bannerImage = cta?.bannerBackgroundImage;
   const isLocalDev =
-    bannerImage?.includes("127.0.0.1") || bannerImage?.includes("localhost:");
+    bannerImage?.includes("127.0.0.1") ||
+    bannerImage?.includes("localhost:") ||
+    bannerImage?.includes("localhost/");
 
   return (
     <div className="mt-3x mb-xl @3xl:mb-2x">

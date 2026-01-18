@@ -297,27 +297,43 @@ jobs:
           set -a
           source .env.supabase
           set +a
-          
+
           # Use placeholder values - the real APP_URL will be set by configure-supabase-auth
           # after deploy-app completes and we know the actual Vercel URL
           TEMP_APP_URL="https://temp-placeholder.vercel.app"
           TEMP_HOOK_URI="${SUPABASE_URL}/functions/v1/send-email"
           TEMP_REDIRECT_URI="${SUPABASE_URL}/auth/v1/callback"
-          
+
           echo "Setting temporary secrets for branch: $BRANCH_PROJECT_REF"
-          
-          supabase secrets set \
-            APP_URL="$TEMP_APP_URL" \
-            ADDITIONAL_REDIRECT_URL="$TEMP_APP_URL" \
-            SEND_EMAIL_HOOK_URI="$TEMP_HOOK_URI" \
-            SEND_EMAIL_HOOK_SECRET="${{ secrets.SEND_EMAIL_HOOK_SECRET }}" \
-            GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
-            GOOGLE_SECRET="${{ secrets.GOOGLE_SECRET }}" \
-            GOOGLE_REDIRECT_URI="$TEMP_REDIRECT_URI" \
-            RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
-            --project-ref "$BRANCH_PROJECT_REF"
-          
-          echo "✅ Temporary secrets set (will be overwritten with real values later)"
+
+          # Retry logic for transient API errors (502, 503, etc.)
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if supabase secrets set \
+              APP_URL="$TEMP_APP_URL" \
+              ADDITIONAL_REDIRECT_URL="$TEMP_APP_URL" \
+              SEND_EMAIL_HOOK_URI="$TEMP_HOOK_URI" \
+              SEND_EMAIL_HOOK_SECRET="${{ secrets.SEND_EMAIL_HOOK_SECRET }}" \
+              GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              GOOGLE_SECRET="${{ secrets.GOOGLE_SECRET }}" \
+              GOOGLE_REDIRECT_URI="$TEMP_REDIRECT_URI" \
+              RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
+              --project-ref "$BRANCH_PROJECT_REF" 2>&1; then
+              echo "✅ Temporary secrets set (will be overwritten with real values later)"
+              exit 0
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "⚠️ Failed to set secrets (attempt $RETRY_COUNT/$MAX_RETRIES). Retrying in 15s..."
+              sleep 15
+            fi
+          done
+
+          echo "❌ Failed to set secrets after $MAX_RETRIES attempts"
+          exit 1
 
       - name: Install dependencies
         run: bun install

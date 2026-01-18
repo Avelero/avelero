@@ -2,7 +2,7 @@
  * Integration Tests: CREATE_AND_ENRICH Mode - Entity Auto-Creation
  *
  * Tests CREATE_AND_ENRICH mode with automatic entity creation.
- * When an entity (manufacturer, season, tag, material, facility) is not
+ * When an entity (manufacturer, season, tag, material, operator) is not
  * found in the catalog, it should be auto-created.
  *
  * Categories are the ONLY exception - they must exist.

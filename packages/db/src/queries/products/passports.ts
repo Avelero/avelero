@@ -216,16 +216,9 @@ export async function getPassportsForProduct(db: Database, productId: string) {
       updatedAt: productPassports.updatedAt,
     })
     .from(productPassports)
-    .where(
-      // Check if workingVariantId is in the list of variant IDs
-      // Using a manual filter since the list is typically small
-      eq(productPassports.brandId, productPassports.brandId), // placeholder - we'll filter in JS
-    );
+    .where(inArray(productPassports.workingVariantId, variantIds));
 
-  // Filter to only passports whose workingVariantId is in our list
-  return passports.filter(
-    (p) => p.workingVariantId && variantIds.includes(p.workingVariantId),
-  );
+  return passports;
 }
 
 // =============================================================================

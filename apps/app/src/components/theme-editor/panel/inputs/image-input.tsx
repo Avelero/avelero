@@ -101,9 +101,10 @@ export function ImageInput({
         height={dimensions.height}
         initialUrl={getDisplayUrl(value)}
         buildPath={(file) => {
+          if (!brandId) throw new Error("Brand ID is required for image upload");
           const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
           const timestamp = Date.now();
-          return [brandId!, folder, `${timestamp}-${safeName}`];
+          return [brandId, folder, `${timestamp}-${safeName}`];
         }}
         uploadOnSelect={true}
         onChange={handleImageChange}

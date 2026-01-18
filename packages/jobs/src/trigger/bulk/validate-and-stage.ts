@@ -662,7 +662,7 @@ async function autoCreateEntities(
   const uniqueSeasons = new Set<string>();
   const uniqueTags = new Set<string>();
   const uniqueMaterials = new Set<string>();
-  const uniqueFacilities = new Set<string>();
+  const uniqueOperators = new Set<string>();
   const uniqueAttributes = new Set<string>();
   const uniqueAttributeValues = new Map<string, Set<string>>(); // attrName -> values
 
@@ -686,7 +686,7 @@ async function autoCreateEntities(
     for (const operatorValue of Object.values(product.journeySteps)) {
       const operatorNames = parseSemicolonSeparated(operatorValue);
       for (const operatorName of operatorNames) {
-        uniqueFacilities.add(operatorName.trim());
+        uniqueOperators.add(operatorName.trim());
       }
     }
 
@@ -700,7 +700,7 @@ async function autoCreateEntities(
       for (const operatorValue of Object.values(variant.journeyStepsOverride)) {
         const operatorNames = parseSemicolonSeparated(operatorValue);
         for (const operatorName of operatorNames) {
-          uniqueFacilities.add(operatorName.trim());
+          uniqueOperators.add(operatorName.trim());
         }
       }
       // Attributes (always variant-level)
@@ -786,15 +786,15 @@ async function autoCreateEntities(
     logger.info("Auto-created materials", { count: inserted.length });
   }
 
-  // Facilities
-  const missingFacilities = [...uniqueFacilities].filter(
+  // Operators
+  const missingOperators = [...uniqueOperators].filter(
     (name) => !catalog.operators.has(normalizeKey(name)),
   );
-  if (missingFacilities.length > 0) {
+  if (missingOperators.length > 0) {
     const inserted = await database
       .insert(brandOperators)
       .values(
-        missingFacilities.map((name) => ({
+        missingOperators.map((name) => ({
           brandId,
           displayName: name,
           type: "MANUFACTURER" as const,
@@ -810,7 +810,7 @@ async function autoCreateEntities(
         catalog.operators.set(normalizeKey(f.displayName), f.id);
       }
     }
-    logger.info("Auto-created facilities", { count: inserted.length });
+    logger.info("Auto-created operators", { count: inserted.length });
   }
 
   // Attributes - Match to taxonomy first, then create with taxonomy reference

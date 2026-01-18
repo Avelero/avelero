@@ -1,5 +1,4 @@
 import { updateSession } from "@v1/supabase/proxy";
-import { createClient } from "@v1/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 
 export async function proxy(request: NextRequest) {
@@ -9,22 +8,17 @@ export async function proxy(request: NextRequest) {
   // Check if pathname is an API route: /api or /api/...
   const isApiRoute = pathname === "/api" || pathname.startsWith("/api/");
 
-  const response = NextResponse.next();
+  // Update Supabase session and get the authenticated client.
+  // updateSession creates a response with request headers containing the auth token,
+  // making it available to server components via headers().
+  const { response: updatedResponse, supabase } = await updateSession(request);
 
-  // Update Supabase session
-  const updatedResponse = await updateSession(request, response);
-
-  // Set pathname in headers for server components
-  updatedResponse.headers.set("x-pathname", pathname);
-
-  const supabase = await createClient();
-  const encodedSearchParams = `${pathname.substring(1)}${nextUrl.search}`;
-
-  // Use getUser() to validate the token with Supabase auth server
-  // Note: getSession() only reads cookies without validation - don't use for security-critical paths
+  // Get the user from the already-validated session (no extra API call needed)
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const encodedSearchParams = `${pathname.substring(1)}${nextUrl.search}`;
 
   // Check if pathname is login route: /login or /login/...
   const isLoginRoute = pathname === "/login" || pathname.startsWith("/login/");

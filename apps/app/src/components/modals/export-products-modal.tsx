@@ -1,7 +1,8 @@
 "use client";
 
+import { useTriggerExportProgress } from "@/hooks/use-job-progress";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import {
   Dialog,
@@ -19,7 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@v1/ui/tooltip";
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   FilterState,
   SelectionState,
@@ -37,6 +38,11 @@ interface ExportProductsModalProps {
   disabled?: boolean;
 }
 
+interface ActiveExportRun {
+  runId: string;
+  accessToken: string;
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -50,28 +56,31 @@ export function ExportProductsModal({
 }: ExportProductsModalProps) {
   const trpc = useTRPC();
   const [open, setOpen] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [activeExportRun, setActiveExportRun] =
+    useState<ActiveExportRun | null>(null);
   const downloadTriggeredRef = useRef(false);
 
   const hasSelection = selectedCount > 0;
   const isButtonDisabled = disabled || !hasSelection;
 
-  // Reset state when modal closes
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      setTimeout(() => {
-        setJobId(null);
-        downloadTriggeredRef.current = false;
-      }, 350);
-    }
-    setOpen(newOpen);
-  };
+  // Subscribe to real-time updates (only to detect completion)
+  const { progress: exportProgress, runStatus: exportRunStatus } =
+    useTriggerExportProgress(
+      activeExportRun?.runId ?? null,
+      activeExportRun?.accessToken ?? null,
+    );
 
   // Start export mutation
   const startExportMutation = useMutation(
     trpc.bulk.export.start.mutationOptions({
       onSuccess: (data) => {
-        setJobId(data.jobId);
+        if (data.runId && data.publicAccessToken) {
+          setActiveExportRun({
+            runId: data.runId,
+            accessToken: data.publicAccessToken,
+          });
+          downloadTriggeredRef.current = false;
+        }
       },
       onError: (error) => {
         toast.error(error.message || "Failed to start export");
@@ -79,38 +88,48 @@ export function ExportProductsModal({
     }),
   );
 
-  // Poll for export status
-  const statusQuery = useQuery({
-    ...trpc.bulk.export.status.queryOptions({ jobId: jobId ?? "" }),
-    enabled: !!jobId,
-    refetchInterval: (data) => {
-      if (!data?.state?.data) return 2000;
-      const status = data.state.data.status;
-      // Stop polling when complete or failed
-      if (status === "COMPLETED" || status === "FAILED") return false;
-      return 2000; // Poll every 2 seconds
-    },
-  });
+  // Auto-download when export completes
+  const triggerDownload = useCallback((url: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, []);
 
-  // Auto-download when complete (only once)
+  // Watch for completion and trigger download
+  // Guards: modal must be open AND we must have an active export run started this session
   useEffect(() => {
     if (
-      statusQuery.data?.status === "COMPLETED" &&
-      statusQuery.data?.downloadUrl &&
+      open &&
+      activeExportRun &&
+      exportProgress?.status === "completed" &&
+      exportProgress.downloadUrl &&
       !downloadTriggeredRef.current
     ) {
       downloadTriggeredRef.current = true;
-      // Trigger download
-      const a = document.createElement("a");
-      a.href = statusQuery.data.downloadUrl;
-      a.download = `product-export-${Date.now()}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      toast.success("Export downloaded successfully");
+      triggerDownload(exportProgress.downloadUrl);
     }
-  }, [statusQuery.data?.status, statusQuery.data?.downloadUrl]);
+  }, [
+    open,
+    activeExportRun,
+    exportProgress?.status,
+    exportProgress?.downloadUrl,
+    triggerDownload,
+  ]);
+
+  // Reset state when modal closes
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setTimeout(() => {
+        setActiveExportRun(null);
+        startExportMutation.reset();
+        downloadTriggeredRef.current = false;
+      }, 350);
+    }
+    setOpen(newOpen);
+  };
 
   const handleStartExport = () => {
     if (!hasSelection) return;
@@ -127,25 +146,23 @@ export function ExportProductsModal({
     });
   };
 
-  const handleManualDownload = () => {
-    if (!statusQuery.data?.downloadUrl) return;
-    const a = document.createElement("a");
-    a.href = statusQuery.data.downloadUrl;
-    a.download = `product-export-${Date.now()}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
+  // Simple state machine: initial -> exporting -> completed
+  const isExporting =
+    startExportMutation.isPending ||
+    (activeExportRun &&
+      exportProgress?.status !== "completed" &&
+      exportRunStatus !== "completed" &&
+      exportProgress?.status !== "failed" &&
+      exportRunStatus !== "failed");
+  const isCompleted =
+    exportProgress?.status === "completed" || exportRunStatus === "completed";
+  const isFailed =
+    exportProgress?.status === "failed" ||
+    exportRunStatus === "failed" ||
+    startExportMutation.isError;
+  const isInitial = !isExporting && !isCompleted && !isFailed;
 
-  // Determine state - use explicit state tracking to avoid gaps
-  const isComplete = statusQuery.data?.status === "COMPLETED";
-  const isFailed = statusQuery.data?.status === "FAILED";
-  // Processing state: from when we start the mutation until we get a terminal status
-  const isProcessing = !!jobId && !isComplete && !isFailed;
-  // Initial state: before any export has been started
-  const isInitial = !jobId && !startExportMutation.isPending;
-
-  // The button element used for both enabled and disabled states
+  // The button element
   const buttonElement = (
     <Button variant="outline" size="default" disabled={isButtonDisabled}>
       <Icons.Download className="h-[14px] w-[14px]" />
@@ -160,12 +177,10 @@ export function ExportProductsModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {/* Show tooltip when disabled due to no selection */}
       {isButtonDisabled && !hasSelection ? (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              {/* Wrapper div needed for tooltip to work on disabled button */}
               <span className="inline-block">{buttonElement}</span>
             </TooltipTrigger>
             <TooltipContent side="top">
@@ -182,7 +197,7 @@ export function ExportProductsModal({
         </DialogHeader>
 
         <div className="px-6 py-6">
-          {/* State 1: Initial - Before export starts */}
+          {/* Initial state */}
           {isInitial && (
             <div className="space-y-4">
               <p className="type-p text-foreground">
@@ -194,24 +209,23 @@ export function ExportProductsModal({
                 .
               </p>
               <p className="type-small text-secondary">
-                Your export will be prepared in the background. You can wait
-                here for the download to complete automatically, or close this
-                dialog and continue working — we'll send you an email with the
-                download link when it's ready.
+                You can wait here for the export to complete and it will
+                auto-download, or close this dialog and we'll send you an email
+                when it's ready.
               </p>
             </div>
           )}
 
-          {/* State 2: Processing - Export in progress (includes mutation pending) */}
-          {(startExportMutation.isPending || isProcessing) && (
+          {/* Exporting state */}
+          {isExporting && (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <Icons.Loader className="w-5 h-5 animate-spin text-tertiary" />
               <p className="type-small text-secondary">Exporting...</p>
             </div>
           )}
 
-          {/* State 3: Complete */}
-          {isComplete && (
+          {/* Completed state */}
+          {isCompleted && (
             <div className="flex flex-col items-center justify-center py-8 gap-4">
               <div className="w-12 h-12 rounded-full bg-brand/10 flex items-center justify-center">
                 <Icons.Check className="w-6 h-6 text-brand" />
@@ -221,36 +235,38 @@ export function ExportProductsModal({
                   Export complete!
                 </p>
                 <p className="type-small text-secondary mt-1">
-                  Your download should start automatically. A copy has also been
-                  sent to your email.
+                  Your download should start automatically. If it doesn't,{" "}
+                  {exportProgress?.downloadUrl ? (
+                    <a
+                      href={exportProgress.downloadUrl}
+                      className="text-brand underline"
+                      download
+                    >
+                      click here to download
+                    </a>
+                  ) : (
+                    "check your email for the download link"
+                  )}
+                  .
                 </p>
               </div>
-              {statusQuery.data?.downloadUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleManualDownload}
-                >
-                  <Icons.Download className="w-4 h-4 mr-2" />
-                  Download again
-                </Button>
-              )}
             </div>
           )}
 
-          {/* State: Failed */}
+          {/* Failed state */}
           {isFailed && (
             <div className="flex flex-col items-center justify-center py-8 gap-4">
               <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                <Icons.X className="w-6 h-6 text-destructive" />
+                <Icons.AlertCircle className="w-6 h-6 text-destructive" />
               </div>
               <div className="text-center">
                 <p className="type-p text-foreground font-medium">
                   Export failed
                 </p>
-                <p className="type-small text-destructive mt-1">
-                  {((statusQuery.data?.summary as Record<string, unknown>)
-                    ?.error as string) || "An unexpected error occurred"}
+                <p className="type-small text-secondary mt-1">
+                  {exportProgress?.errorMessage ||
+                    startExportMutation.error?.message ||
+                    "An error occurred while preparing your export. Please try again."}
                 </p>
               </div>
             </div>
@@ -258,7 +274,6 @@ export function ExportProductsModal({
         </div>
 
         <DialogFooter className="px-6 py-4 border-t border-border">
-          {/* Initial state: Cancel + Export buttons */}
           {isInitial && (
             <>
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
@@ -268,21 +283,50 @@ export function ExportProductsModal({
             </>
           )}
 
-          {/* Processing state: Close button */}
-          {(startExportMutation.isPending || isProcessing) && (
+          {isExporting && (
             <Button variant="outline" onClick={() => handleOpenChange(false)}>
               Close
             </Button>
           )}
 
-          {/* Complete/Failed state: Done button */}
-          {(isComplete || isFailed) && (
+          {isCompleted && (
             <Button variant="outline" onClick={() => handleOpenChange(false)}>
               Done
             </Button>
           )}
+
+          {isFailed && (
+            <>
+              <Button variant="outline" onClick={() => handleOpenChange(false)}>
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  setActiveExportRun(null);
+                  startExportMutation.reset();
+                  downloadTriggeredRef.current = false;
+                  handleStartExport();
+                }}
+              >
+                Try again
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Skeleton that matches the Export button appearance.
+ * Shown in loading states - visually identical to the disabled Export button.
+ */
+export function ExportProductsModalSkeleton() {
+  return (
+    <Button variant="outline" size="default" disabled>
+      <Icons.Download className="h-[14px] w-[14px]" />
+      <span className="px-1">Export</span>
+    </Button>
   );
 }

@@ -16,9 +16,15 @@ import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
 import { createClient } from "@v1/supabase/client";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useUserQuery } from "@/hooks/use-user";
-import { useNotifications } from "@/hooks/use-notifications";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useUserQuerySuspense } from "@/hooks/use-user";
+import { useNotificationsSuspense } from "@/hooks/use-notifications";
 
 // ============================================================================
 // Types & Constants
@@ -34,13 +40,17 @@ const TEMPLATE_URL = "/templates/avelero-bulk-import-template.xlsx";
 // Component
 // ============================================================================
 
-export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
+function ImportProductsModalContent({
+  onSuccess,
+}: {
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: user } = useUserQuery();
+  const { data: user } = useUserQuerySuspense();
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<ImportStep>("method");
@@ -52,8 +62,8 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
   const [isDragging, setIsDragging] = useState(false);
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
-  // Use the new notifications system for the badge
-  const { unreadCount, notifications, markAsSeen } = useNotifications();
+  // Use the suspense notifications hook
+  const { notifications, markAsSeen } = useNotificationsSuspense();
 
   // Find import failure notification (if any)
   const importFailureNotification = useMemo(() => {
@@ -809,4 +819,26 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * Skeleton that matches the Import button appearance.
+ * Shown while user/notification data loads.
+ * Exported for use in layout-level Suspense boundaries.
+ */
+export function ImportProductsModalSkeleton() {
+  return (
+    <Button variant="outline" size="default" className="relative" disabled>
+      <Icons.Upload className="h-[14px] w-[14px]" />
+      <span className="px-1">Import</span>
+    </Button>
+  );
+}
+
+/**
+ * Import Products Modal.
+ * Uses suspense queries - must be wrapped in a Suspense boundary by the parent.
+ */
+export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
+  return <ImportProductsModalContent onSuccess={onSuccess} />;
 }

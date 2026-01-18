@@ -1,5 +1,6 @@
 import { getQueryClient, trpc } from "@/trpc/server";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 /**
  * Main App Layout - Redirect Logic
@@ -16,6 +17,9 @@ export default async function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Signal that this component needs request-time data.
+  await connection();
+
   const queryClient = getQueryClient();
 
   // Fetch data (will use cached result from parent layout's bootstrap)

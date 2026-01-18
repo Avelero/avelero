@@ -1411,6 +1411,28 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     ],
   );
 
+  // Helper: Generate all combinations of k indices from 0 to n-1
+  // Used to check all possible ways to reduce an enabled key to a saved key
+  const generateIndexCombinations = (n: number, k: number): number[][] => {
+    if (k === 0) return [[]];
+    if (k > n) return [];
+
+    const result: number[][] = [];
+    const combine = (start: number, combo: number[]) => {
+      if (combo.length === k) {
+        result.push([...combo]);
+        return;
+      }
+      for (let i = start; i < n; i++) {
+        combo.push(i);
+        combine(i + 1, combo);
+        combo.pop();
+      }
+    };
+    combine(0, []);
+    return result;
+  };
+
   // Detect variants that would be deleted on save (exist in DB but not in enabledVariantKeys)
   const getVariantsToDelete = React.useCallback(() => {
     if (!isEditMode || savedVariantsMap.size === 0) return [];
@@ -1422,18 +1444,73 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       barcode?: string;
     }> = [];
 
+    // Get dimension counts to detect expansion scenarios
+    const enabledKeysArray = [...formValues.enabledVariantKeys];
+    const firstEnabledKey = enabledKeysArray[0];
+    const enabledDimCount = firstEnabledKey
+      ? firstEnabledKey.split("|").length
+      : 0;
+
     // Check each saved variant to see if it's still in enabledVariantKeys
     for (const [key, variantInfo] of savedVariantsMap) {
-      if (!formValues.enabledVariantKeys.has(key)) {
-        // This variant will be deleted - use data from savedVariantsMap
-        // which stores the original API response data including attribute labels
-        variantsToDelete.push({
-          upid: variantInfo.upid,
-          attributeSummary: variantInfo.attributeLabel,
-          sku: variantInfo.sku ?? undefined,
-          barcode: variantInfo.barcode ?? undefined,
-        });
+      // Direct match - variant still exists with same key
+      if (formValues.enabledVariantKeys.has(key)) {
+        continue;
       }
+
+      const savedParts = key.split("|");
+      const savedDimCount = savedParts.length;
+
+      // If the form has MORE dimensions than saved data, check if this variant
+      // was "expanded" rather than deleted. This happens when adding a new
+      // attribute dimension - existing variants get the first value of the new
+      // dimension added to their key.
+      if (enabledDimCount > savedDimCount) {
+        let isExpanded = false;
+        const segmentsToRemove = enabledDimCount - savedDimCount;
+
+        // Check if any enabled key, when the extra segments are removed, matches the saved key.
+        // The new dimension values could be inserted at any positions, so we need to try
+        // all combinations of segment removal.
+        for (const enabledKey of enabledKeysArray) {
+          const enabledParts = enabledKey.split("|");
+
+          // Only consider keys with the correct number of segments
+          if (enabledParts.length !== enabledDimCount) continue;
+
+          // Generate all combinations of indices to remove
+          const indicesToRemove = generateIndexCombinations(
+            enabledParts.length,
+            segmentsToRemove,
+          );
+
+          for (const indices of indicesToRemove) {
+            const reducedParts = enabledParts.filter(
+              (_, idx) => !indices.includes(idx),
+            );
+            if (reducedParts.join("|") === key) {
+              isExpanded = true;
+              break;
+            }
+          }
+
+          if (isExpanded) break;
+        }
+
+        if (isExpanded) {
+          // Variant was expanded with new dimension value, not deleted
+          continue;
+        }
+      }
+
+      // This variant will be deleted - use data from savedVariantsMap
+      // which stores the original API response data including attribute labels
+      variantsToDelete.push({
+        upid: variantInfo.upid,
+        attributeSummary: variantInfo.attributeLabel,
+        sku: variantInfo.sku ?? undefined,
+        barcode: variantInfo.barcode ?? undefined,
+      });
     }
 
     return variantsToDelete;

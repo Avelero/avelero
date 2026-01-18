@@ -11,7 +11,7 @@
  */
 
 import "../configure-trigger";
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, metadata, task } from "@trigger.dev/sdk/v3";
 import { serviceDb as db } from "@v1/db/client";
 import {
   getBrandIntegration,
@@ -52,6 +52,22 @@ export const promoteIntegration = task({
       brandIntegrationId,
       brandId,
     });
+
+    const promotionStartedAt = new Date().toISOString();
+
+    // Helper to update progress via Trigger.dev metadata (native realtime)
+    const updateProgress = (data: {
+      status: "running" | "completed" | "failed";
+      processed: number;
+      total: number | null;
+      errorMessage?: string | null;
+    }) => {
+      metadata.set("promotionProgress", {
+        ...data,
+        startedAt: promotionStartedAt,
+        context: { brandIntegrationId },
+      });
+    };
 
     try {
       // Get brand integration details
@@ -108,7 +124,7 @@ export const promoteIntegration = task({
       // Get current primary integration (if any)
       const currentPrimary = await getCurrentPrimaryIntegration(db, brandId);
 
-      // Progress callback
+      // Progress callback - updates both logger and Trigger.dev metadata for realtime UI
       const onProgress = async (progress: PromotionProgress) => {
         logger.info("Promotion progress", {
           phase: progress.phase,
@@ -118,6 +134,13 @@ export const promoteIntegration = task({
           productsCreated: progress.productsCreated,
           variantsMoved: progress.variantsMoved,
           variantsOrphaned: progress.variantsOrphaned,
+        });
+
+        // Update Trigger.dev metadata for real-time UI updates
+        updateProgress({
+          status: "running",
+          processed: progress.variantsProcessed,
+          total: progress.totalVariants ?? null,
         });
       };
 
@@ -140,6 +163,14 @@ export const promoteIntegration = task({
         operationId: result.operationId,
         stats: result.stats,
         error: result.error,
+      });
+
+      // Update metadata with completion status
+      updateProgress({
+        status: result.success ? "completed" : "failed",
+        processed: result.stats.variantsMoved,
+        total: result.stats.variantsMoved,
+        errorMessage: result.error ?? null,
       });
 
       // Update integration status if successful
@@ -165,6 +196,14 @@ export const promoteIntegration = task({
       logger.error("Promotion failed with error", {
         error: error instanceof Error ? error.message : String(error),
         brandIntegrationId,
+      });
+
+      // Update metadata with failure status
+      updateProgress({
+        status: "failed",
+        processed: 0,
+        total: null,
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
 
       throw error;

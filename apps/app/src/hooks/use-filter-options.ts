@@ -8,18 +8,17 @@ import * as React from "react";
 /**
  * Hook for loading filter options using proper tRPC queries.
  * This hook uses the standard tRPC query keys, allowing prefetching to work correctly.
+ *
+ * All data comes from composite.catalogContent which should be prefetched
+ * on pages that use filters.
  */
 export function useFilterOptions() {
   const trpc = useTRPC();
 
   // Fetch the main passport form references using proper tRPC query
-  const { data: formData, isLoading: isFormDataLoading } = useQuery(
+  // All filter data (including tags) comes from this single composite query
+  const { data: formData, isLoading } = useQuery(
     trpc.composite.catalogContent.queryOptions(),
-  );
-
-  // Fetch additional endpoints that aren't in the composite
-  const { data: tagsData, isLoading: isTagsLoading } = useQuery(
-    trpc.catalog.tags.list.queryOptions(undefined),
   );
 
   // Transform and memoize all options
@@ -72,18 +71,15 @@ export function useFilterOptions() {
           }),
         ) ?? [],
 
+      // Tags are included in brandCatalog from catalogContent
       tags:
-        tagsData?.data?.map(
-          (t: { id: string; name: string; hex?: string }) => ({
-            value: t.id,
-            label: t.name,
-            hex: t.hex ?? undefined,
-          }),
-        ) ?? [],
+        formData?.brandCatalog?.tags?.map((t) => ({
+          value: t.id,
+          label: t.name,
+          hex: t.hex ?? undefined,
+        })) ?? [],
     };
-  }, [formData, tagsData]);
-
-  const isLoading = isFormDataLoading || isTagsLoading;
+  }, [formData]);
 
   return {
     options,

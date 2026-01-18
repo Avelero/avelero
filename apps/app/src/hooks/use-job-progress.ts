@@ -166,6 +166,7 @@ export function useTriggerImportProgress(
  */
 export interface ExportProgressMetadata extends JobProgressMetadata {
   context?: { exportJobId?: string };
+  downloadUrl?: string | null;
 }
 
 /**

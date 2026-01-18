@@ -37,6 +37,14 @@ export function makeQueryClient(): QueryClient {
       },
       dehydrate: {
         serializeData: superjson.serialize,
+        /**
+         * Include pending queries in dehydration for streaming SSR.
+         * This matches the official TanStack Query example:
+         * @see https://tanstack.com/query/latest/docs/framework/react/examples/nextjs-app-prefetching
+         *
+         * With HydrateClient at the page level (after prefetches start),
+         * pending queries will stream their results to the client.
+         */
         shouldDehydrateQuery: (query) =>
           defaultShouldDehydrateQuery(query) ||
           query.state.status === "pending",

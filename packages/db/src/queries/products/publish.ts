@@ -11,7 +11,11 @@ import { createHash } from "node:crypto";
 import type { Database } from "../../client";
 import { products, productVariants } from "../../schema";
 import { getOrCreatePassport, updatePassportCurrentVersion } from "./passports";
-import { createDppVersion, getLatestVersion, type DppSnapshot } from "./dpp-versions";
+import {
+  createDppVersion,
+  getLatestVersion,
+  type DppSnapshot,
+} from "./dpp-versions";
 import { generateDppSnapshot } from "./snapshot";
 
 // =============================================================================
@@ -81,7 +85,10 @@ function calculateContentOnlyHash(snapshot: DppSnapshot): string {
     materials: snapshot.materials,
     supplyChain: snapshot.supplyChain,
   };
-  const canonicalJson = JSON.stringify(contentOnly, Object.keys(contentOnly).sort());
+  const canonicalJson = JSON.stringify(
+    contentOnly,
+    Object.keys(contentOnly).sort(),
+  );
   return createHash("sha256").update(canonicalJson, "utf8").digest("hex");
 }
 

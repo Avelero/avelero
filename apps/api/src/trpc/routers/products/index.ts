@@ -288,13 +288,38 @@ export const productsRouter = createTRPCRouter({
           tag_ids: input.tag_ids,
         });
 
-        // If status changed to "published", trigger publish flow to create passport versions
-        // This ensures QR codes become resolvable when status is set to published
-        if (input.status === "published" && product?.id) {
-          // Trigger publish (fire-and-forget, errors logged but not thrown)
-          publishProduct(brandCtx.db, product.id, brandId).catch((err) => {
-            console.error("Publish failed after status change:", err);
-          });
+        // If the product is published, trigger publish flow to create passport versions
+        // This ensures a new snapshot is captured whenever a published product is saved.
+        // We check the product's current status from the database, not just the input,
+        // to handle cases where the user is editing an already-published product.
+        if (product?.id) {
+          // Get the current product status from the database
+          const [currentProduct] = await brandCtx.db
+            .select({ status: products.status })
+            .from(products)
+            .where(
+              and(eq(products.id, product.id), eq(products.brandId, brandId)),
+            )
+            .limit(1);
+
+          if (currentProduct?.status === "published") {
+            // Await publish to ensure any errors are caught and logged properly
+            try {
+              const publishResult = await publishProduct(
+                brandCtx.db,
+                product.id,
+                brandId,
+              );
+              if (!publishResult.success) {
+                console.error(
+                  "Publish failed after update:",
+                  publishResult.error,
+                );
+              }
+            } catch (err) {
+              console.error("Publish threw an exception after update:", err);
+            }
+          }
         }
 
         // Revalidate DPP cache for this product (fire-and-forget)

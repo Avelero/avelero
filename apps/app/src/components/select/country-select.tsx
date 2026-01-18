@@ -15,7 +15,7 @@ import {
   SelectSearch,
   SelectTrigger,
 } from "@v1/ui/select";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface CountrySelectProps {
   id: string;
@@ -43,6 +43,16 @@ export function CountrySelect({
 }: CountrySelectProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when popover opens
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 0);
+    } else {
+      setSearchTerm("");
+    }
+  }, [open]);
 
   const options = useMemo(
     () =>
@@ -90,6 +100,7 @@ export function CountrySelect({
         </SelectTrigger>
         <SelectContent shouldFilter={false} container={container}>
           <SelectSearch
+            ref={inputRef}
             placeholder="Search..."
             value={searchTerm}
             onValueChange={setSearchTerm}

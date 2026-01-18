@@ -5,22 +5,23 @@ import { createClient } from "@v1/supabase/client";
 import { ImageUploader } from "@/components/image-upload";
 import { FieldWrapper } from "./field-wrapper";
 import type { ContentField } from "../../registry/types";
-import {
-  BUCKETS,
-  extractPathFromUrl,
-  UPLOAD_CONFIGS,
-} from "@/utils/storage-config";
+import { BUCKETS, UPLOAD_CONFIGS } from "@/utils/storage-config";
+import { buildPublicUrl } from "@/utils/storage-urls";
 
 interface ImageInputProps {
   field: ContentField;
   value: string;
-  onChange: (url: string | null) => void;
+  onChange: (path: string | null) => void;
   brandId?: string;
 }
 
 /**
  * Image uploader input for content fields.
  * Handles upload, deletion of old images, and storage path management.
+ *
+ * IMPORTANT: This component stores STORAGE PATHS (not full URLs) in themeConfig.
+ * Paths are resolved to full URLs at query time by the API endpoints.
+ * This ensures URLs work correctly across different environments (dev/prod).
  */
 export function ImageInput({
   field,
@@ -28,32 +29,37 @@ export function ImageInput({
   onChange,
   brandId,
 }: ImageInputProps) {
-  // Track the previous URL for deletion when image changes
-  const previousUrlRef = useRef<string | null>(value || null);
+  // Track the previous path for deletion when image changes
+  const previousPathRef = useRef<string | null>(value || null);
 
   const handleImageChange = useCallback(
-    async (url: string | null, _path: string[] | null) => {
+    async (_url: string | null, pathArray: string[] | null) => {
+      const storagePath = pathArray ? pathArray.join("/") : null;
+
       // Delete old image if we're replacing it
-      if (previousUrlRef.current && previousUrlRef.current !== url) {
+      if (previousPathRef.current && previousPathRef.current !== storagePath) {
         try {
           const supabase = createClient();
-          const oldPath = extractPathFromUrl(
-            previousUrlRef.current,
-            BUCKETS.DPP_ASSETS,
-          );
-          if (oldPath) {
-            await supabase.storage.from(BUCKETS.DPP_ASSETS).remove([oldPath]);
-          }
+          await supabase.storage
+            .from(BUCKETS.DPP_ASSETS)
+            .remove([previousPathRef.current]);
         } catch (error) {
           console.error("Failed to delete old image:", error);
         }
       }
 
-      previousUrlRef.current = url;
-      onChange(url);
+      previousPathRef.current = storagePath;
+      // Store the path, not the URL - URLs are resolved at query time
+      onChange(storagePath);
     },
     [onChange],
   );
+
+  // Convert stored path to display URL for the uploader preview
+  const getDisplayUrl = (path: string | undefined): string | undefined => {
+    if (!path) return undefined;
+    return buildPublicUrl(BUCKETS.DPP_ASSETS, path) ?? undefined;
+  };
 
   // Determine the folder based on the field path
   const getStorageFolder = (fieldPath: string): string => {
@@ -93,7 +99,7 @@ export function ImageInput({
         mode="public"
         width={dimensions.width}
         height={dimensions.height}
-        initialUrl={value || undefined}
+        initialUrl={getDisplayUrl(value)}
         buildPath={(file) => {
           const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
           const timestamp = Date.now();

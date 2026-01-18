@@ -311,21 +311,21 @@ export function ImageUploader({
             />
           </div>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[140px]">
+        <PopoverContent align="start" className="w-[140px] p-1">
           <button
             type="button"
             onClick={handleChangeImage}
-            className="w-full flex items-center gap-2 px-3 py-2 type-p text-primary hover:bg-accent transition-colors"
+            className="relative flex w-full cursor-pointer select-none items-center px-2 h-[30px] !type-small text-primary hover:bg-accent transition-colors outline-none"
           >
-            <Icons.Upload className="h-4 w-4" />
+            <Icons.Upload className="h-3.5 w-3.5" />
             <span className="px-1">Change</span>
           </button>
           <button
             type="button"
             onClick={handleDeleteImage}
-            className="w-full flex items-center gap-2 px-3 py-2 type-p text-destructive hover:bg-accent transition-colors"
+            className="relative flex w-full cursor-pointer select-none items-center px-2 h-[30px] !type-small text-destructive hover:bg-accent transition-colors outline-none"
           >
-            <Icons.Trash2 className="h-4 w-4" />
+            <Icons.Trash2 className="h-3.5 w-3.5" />
             <span className="px-1">Delete</span>
           </button>
         </PopoverContent>

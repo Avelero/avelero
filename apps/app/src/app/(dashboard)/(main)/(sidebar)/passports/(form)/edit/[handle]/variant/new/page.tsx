@@ -1,11 +1,7 @@
-import {
-  CreateVariantForm,
-  VariantFormSkeleton,
-} from "@/components/forms/passport";
+import { CreateVariantForm } from "@/components/forms/passport";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Create Variant | Avelero",
@@ -20,7 +16,7 @@ export default async function VariantCreatePage({
 
   const { handle } = await params;
 
-  batchPrefetch([
+  await batchPrefetch([
     trpc.products.get.queryOptions({
       handle,
       includeVariants: true,
@@ -31,9 +27,7 @@ export default async function VariantCreatePage({
 
   return (
     <HydrateClient>
-      <Suspense fallback={<VariantFormSkeleton />}>
-        <CreateVariantForm productHandle={handle} />
-      </Suspense>
+      <CreateVariantForm productHandle={handle} />
     </HydrateClient>
   );
 }

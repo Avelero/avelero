@@ -1,16 +1,24 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { PreviewThemeInjector } from "./preview-theme-injector";
 import { ContentFrame, Header, Footer } from "@v1/dpp-components";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { SaveBar } from "./save-bar";
 import { useSelectableDetection } from "@/hooks/use-selectable-detection";
+import { resolveThemeConfigImageUrls } from "@/utils/storage-urls";
 
 export function DesignPreview() {
   const { previewData, themeConfigDraft, themeStylesDraft } = useDesignEditor();
   const containerRef = useRef<HTMLDivElement>(null);
   const brandName = previewData.productAttributes.brand;
+
+  // Resolve storage paths to full URLs for preview display
+  // The draft stores paths, but preview components expect full URLs
+  const resolvedThemeConfig = useMemo(
+    () => resolveThemeConfigImageUrls(themeConfigDraft),
+    [themeConfigDraft],
+  );
 
   const { handleMouseMove, handleMouseLeave, handleClick } =
     useSelectableDetection(containerRef);
@@ -27,12 +35,12 @@ export function DesignPreview() {
         <PreviewThemeInjector themeStyles={themeStylesDraft} />
         <div className="dpp-root min-h-full flex flex-col @container">
           <Header
-            themeConfig={themeConfigDraft}
+            themeConfig={resolvedThemeConfig}
             brandName={brandName}
             position="sticky"
           />
-          <ContentFrame data={previewData} themeConfig={themeConfigDraft} />
-          <Footer themeConfig={themeConfigDraft} brandName={brandName} />
+          <ContentFrame data={previewData} themeConfig={resolvedThemeConfig} />
+          <Footer themeConfig={resolvedThemeConfig} brandName={brandName} />
         </div>
       </div>
       <SaveBar />

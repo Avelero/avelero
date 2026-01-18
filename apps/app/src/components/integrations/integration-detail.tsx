@@ -138,6 +138,12 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     accessToken: string;
   } | null>(null);
 
+  // Track active promotion run for Trigger.dev realtime
+  const [activePromotionRun, setActivePromotionRun] = useState<{
+    runId: string;
+    accessToken: string;
+  } | null>(null);
+
   // Auto-hide progress bar state
   const [showProgress, setShowProgress] = useState(true);
 
@@ -181,17 +187,17 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       activeSyncRun?.runId ?? null,
       activeSyncRun?.accessToken ?? null,
     );
-  // Promotion progress (not yet using Trigger.dev realtime - relies on polling below)
-  // TODO: Add activePromotionRun state and track runId/accessToken when promotion is triggered
-  const { progress: promotionProgress } = useTriggerPromotionProgress(
-    null,
-    null,
-  );
 
-  // Promotion status (uses polling since promotion doesn't have Trigger.dev realtime set up yet)
+  // Promotion progress via Trigger.dev native realtime
+  const { progress: promotionProgress, runStatus: promotionRunStatus } =
+    useTriggerPromotionProgress(
+      activePromotionRun?.runId ?? null,
+      activePromotionRun?.accessToken ?? null,
+    );
+
+  // Promotion status (initial load only - realtime handled via Trigger.dev)
   const { data: promotionStatusData } = usePromotionStatusQuery(
     connection?.id ?? null,
-    { refetchInterval: isPromoting ? 2000 : false },
   );
 
   // Get connector fields
@@ -267,22 +273,36 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     }
   }, [syncRunStatus, syncProgress?.processed]);
 
+  // Clear activePromotionRun when promotion job completes
+  useEffect(() => {
+    if (
+      promotionRunStatus === "completed" ||
+      promotionRunStatus === "failed" ||
+      promotionRunStatus === "cancelled"
+    ) {
+      // Keep the activePromotionRun for a bit so the completion state is visible
+      const timer = setTimeout(() => setActivePromotionRun(null), 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [promotionRunStatus]);
+
   // Auto-hide progress bar after job completion (5 second delay)
   const isJobRunning =
     syncRunStatus === "running" ||
     syncProgress?.status === "running" ||
-    promotionProgress?.status === "running" ||
-    promotionStatusData?.data?.status === "running";
+    promotionRunStatus === "running" ||
+    promotionProgress?.status === "running";
   const isJobCompleted =
     syncRunStatus === "completed" ||
     syncRunStatus === "failed" ||
     syncRunStatus === "cancelled" ||
     syncProgress?.status === "completed" ||
     syncProgress?.status === "failed" ||
+    promotionRunStatus === "completed" ||
+    promotionRunStatus === "failed" ||
+    promotionRunStatus === "cancelled" ||
     promotionProgress?.status === "completed" ||
-    promotionProgress?.status === "failed" ||
-    promotionStatusData?.data?.status === "completed" ||
-    promotionStatusData?.data?.status === "failed";
+    promotionProgress?.status === "failed";
 
   useEffect(() => {
     if (isJobCompleted && !isJobRunning) {
@@ -379,11 +399,24 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
             toast.success("Integration promoted to primary");
           } else {
             toast.success("Promotion started. This may take a few minutes.");
+            // Store runId and accessToken for Trigger.dev realtime subscription
+            if (
+              "taskId" in data &&
+              data.taskId &&
+              "publicAccessToken" in data &&
+              data.publicAccessToken
+            ) {
+              setActivePromotionRun({
+                runId: data.taskId as string,
+                accessToken: data.publicAccessToken as string,
+              });
+            }
           }
           setPromoteModalOpen(false);
         },
         onError: (error) => {
           toast.error(error.message || "Failed to start promotion");
+          setActivePromotionRun(null);
         },
       },
     );
@@ -494,8 +527,11 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
 
   // Determine active job type (sync vs promotion)
   const activeJobType: JobType | null = useMemo(() => {
-    // Check WebSocket progress first
-    if (promotionProgress?.status === "running") {
+    // Check Trigger.dev realtime progress first
+    if (
+      promotionRunStatus === "running" ||
+      promotionProgress?.status === "running"
+    ) {
       return "promotion";
     }
     if (
@@ -506,8 +542,10 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       return "sync";
     }
 
-    // Check for completed WebSocket jobs
+    // Check for completed Trigger.dev jobs
     if (
+      promotionRunStatus === "completed" ||
+      promotionRunStatus === "failed" ||
       promotionProgress?.status === "completed" ||
       promotionProgress?.status === "failed"
     ) {
@@ -522,15 +560,6 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       return "sync";
     }
 
-    // Fallback to polling data for promotion
-    if (
-      promotionStatusData?.data?.status === "running" ||
-      promotionStatusData?.data?.status === "completed" ||
-      promotionStatusData?.data?.status === "failed"
-    ) {
-      return "promotion";
-    }
-
     // Fallback to initial sync data
     if (latestJob) {
       return "sync";
@@ -541,7 +570,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     syncProgress,
     syncRunStatus,
     promotionProgress,
-    promotionStatusData?.data?.status,
+    promotionRunStatus,
     latestJob,
   ]);
 
@@ -641,16 +670,15 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
         (optimisticSyncStarted ||
           syncProgress ||
           promotionProgress ||
-          latestJob ||
-          promotionStatusData?.data) && (
+          latestJob) && (
           <SyncProgressBlock
             jobType={activeJobType ?? "sync"}
             status={
               optimisticSyncStarted
                 ? "running"
                 : activeJobType === "promotion"
-                  ? promotionProgress?.status ??
-                    (promotionStatusData?.data?.status as SyncJobStatus) ??
+                  ? (promotionRunStatus as SyncJobStatus) ??
+                    promotionProgress?.status ??
                     null
                   : syncJobStatus ?? null
             }
@@ -664,30 +692,20 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
                           promotionProgress.total) *
                           100,
                       )
-                    : promotionStatusData?.data?.totalVariants &&
-                        promotionStatusData?.data?.totalVariants > 0
-                      ? Math.round(
-                          ((promotionStatusData?.data?.variantsProcessed ?? 0) /
-                            promotionStatusData?.data?.totalVariants) *
-                            100,
-                        )
-                      : undefined
+                    : undefined
                   : progress
             }
             startedAt={
               optimisticSyncStarted?.toISOString() ??
               (activeJobType === "promotion"
-                ? promotionProgress?.startedAt ??
-                  promotionStatusData?.data?.startedAt ??
-                  null
+                ? promotionProgress?.startedAt ?? null
                 : syncProgress?.startedAt ?? latestJob?.startedAt ?? null)
             }
             errorMessage={
               optimisticSyncStarted
                 ? null
                 : activeJobType === "promotion"
-                  ? promotionProgress?.errorMessage ??
-                    promotionStatusData?.data?.errorMessage
+                  ? promotionProgress?.errorMessage ?? null
                   : syncProgress?.errorMessage ?? latestJob?.errorSummary
             }
           />

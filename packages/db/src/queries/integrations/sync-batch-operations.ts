@@ -143,9 +143,6 @@ export async function batchUpdateProducts(
   if (hasName) setClauses.push("name = COALESCE(v.name, p.name)");
   if (hasDescription) setClauses.push("description = v.description");
   if (hasCategoryId) setClauses.push("category_id = v.category_id");
-  // Always mark products as having unpublished changes after sync
-  // User must manually publish to make changes public
-  setClauses.push("has_unpublished_changes = true");
   setClauses.push(`updated_at = '${now}'`);
 
   if (setClauses.length === 1) {

@@ -1,11 +1,7 @@
-import {
-  EditProductForm,
-  ProductFormSkeleton,
-} from "@/components/forms/passport";
+import { EditProductForm } from "@/components/forms/passport";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Edit passport | Avelero",
@@ -20,7 +16,7 @@ export default async function EditPassportPage({
 
   const { handle } = await params;
 
-  batchPrefetch([
+  await batchPrefetch([
     trpc.products.get.queryOptions({
       handle,
       includeVariants: true,
@@ -31,9 +27,7 @@ export default async function EditPassportPage({
 
   return (
     <HydrateClient>
-      <Suspense fallback={<ProductFormSkeleton title="Edit passport" />}>
-        <EditProductForm productHandle={handle} />
-      </Suspense>
+      <EditProductForm productHandle={handle} />
     </HydrateClient>
   );
 }

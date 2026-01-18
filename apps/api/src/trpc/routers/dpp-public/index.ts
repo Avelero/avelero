@@ -1,6 +1,7 @@
 import { getBrandBySlug, getBrandTheme } from "@v1/db/queries";
 import { getPublicDppByUpid } from "@v1/db/queries/dpp";
 import { getPublicUrl } from "@v1/supabase/storage";
+import type { SupabaseClient } from "@supabase/supabase-js";
 /**
  * Public DPP (Digital Product Passport) router.
  *
@@ -13,6 +14,67 @@ import { getPublicUrl } from "@v1/supabase/storage";
  * - Input validation on all parameters
  */
 import { z } from "zod";
+
+// ============================================================================
+// Helper: Resolve themeConfig image paths to full URLs
+// ============================================================================
+
+/**
+ * Resolve image paths in themeConfig to full public URLs.
+ *
+ * ThemeConfig stores storage PATHS (not full URLs) for images.
+ * This function converts those paths to full URLs using the current
+ * environment's Supabase URL.
+ */
+function resolveThemeConfigImageUrls<T extends Record<string, unknown> | null>(
+  supabase: SupabaseClient,
+  themeConfig: T,
+): T {
+  if (!themeConfig) return themeConfig;
+
+  // Deep clone to avoid mutating the original
+  const resolved = JSON.parse(JSON.stringify(themeConfig)) as Record<
+    string,
+    unknown
+  >;
+
+  // Resolve branding.headerLogoUrl
+  if (
+    resolved.branding &&
+    typeof resolved.branding === "object" &&
+    resolved.branding !== null
+  ) {
+    const branding = resolved.branding as Record<string, unknown>;
+    if (typeof branding.headerLogoUrl === "string" && branding.headerLogoUrl) {
+      branding.headerLogoUrl = getPublicUrl(
+        supabase,
+        "dpp-assets",
+        branding.headerLogoUrl,
+      );
+    }
+  }
+
+  // Resolve cta.bannerBackgroundImage
+  if (
+    resolved.cta &&
+    typeof resolved.cta === "object" &&
+    resolved.cta !== null
+  ) {
+    const cta = resolved.cta as Record<string, unknown>;
+    if (
+      typeof cta.bannerBackgroundImage === "string" &&
+      cta.bannerBackgroundImage
+    ) {
+      cta.bannerBackgroundImage = getPublicUrl(
+        supabase,
+        "dpp-assets",
+        cta.bannerBackgroundImage,
+      );
+    }
+  }
+
+  return resolved as T;
+}
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
 import { createTRPCRouter, publicProcedure } from "../../init.js";
 
@@ -61,9 +123,15 @@ export const dppPublicRouter = createTRPCRouter({
         ? getPublicUrl(ctx.supabase, "dpp-themes", theme.stylesheetPath)
         : null;
 
+      // Resolve image paths in themeConfig to full URLs
+      const resolvedThemeConfig = resolveThemeConfigImageUrls(
+        ctx.supabase,
+        (theme?.themeConfig as Record<string, unknown>) ?? null,
+      );
+
       return {
         brandName: brand.name,
-        themeConfig: theme?.themeConfig ?? null,
+        themeConfig: resolvedThemeConfig,
         themeStyles: theme?.themeStyles ?? null,
         stylesheetUrl,
         googleFontsUrl: theme?.googleFontsUrl ?? null,
@@ -121,6 +189,12 @@ export const dppPublicRouter = createTRPCRouter({
         }
       }
 
+      // Resolve image paths in themeConfig to full URLs
+      const resolvedThemeConfig = resolveThemeConfigImageUrls(
+        ctx.supabase,
+        (result.theme?.config as Record<string, unknown>) ?? null,
+      );
+
       // Return the snapshot data with theme information
       return {
         dppData: {
@@ -130,7 +204,7 @@ export const dppPublicRouter = createTRPCRouter({
             image: productImageUrl ?? "",
           },
         },
-        themeConfig: result.theme?.config ?? null,
+        themeConfig: resolvedThemeConfig,
         themeStyles: result.theme?.styles ?? null,
         stylesheetUrl,
         googleFontsUrl: result.theme?.googleFontsUrl ?? null,

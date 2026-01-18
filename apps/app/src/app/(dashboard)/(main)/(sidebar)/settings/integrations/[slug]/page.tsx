@@ -1,10 +1,6 @@
-import {
-  IntegrationDetail,
-  IntegrationDetailSkeleton,
-} from "@/components/integrations/integration-detail";
+import { IntegrationDetail } from "@/components/integrations/integration-detail";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { connection } from "next/server";
-import { Suspense } from "react";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -22,9 +18,7 @@ export default async function IntegrationDetailPage({ params }: PageProps) {
   return (
     <HydrateClient>
       <div className="w-full max-w-[700px]">
-        <Suspense fallback={<IntegrationDetailSkeleton />}>
-          <IntegrationDetail slug={slug} />
-        </Suspense>
+        <IntegrationDetail slug={slug} />
       </div>
     </HydrateClient>
   );

@@ -74,7 +74,7 @@ export function VariantDeletionModal({
           {/* Variant table */}
           <div className="border border-border max-h-[200px] overflow-y-auto">
             {/* Header */}
-            <div className="grid grid-cols-3 bg-muted/50 border-b border-border sticky top-0">
+            <div className="grid grid-cols-3 bg-accent-light border-b border-border sticky top-0">
               <div className="px-3 py-2">
                 <span className="type-xsmall text-secondary font-medium">
                   Variant

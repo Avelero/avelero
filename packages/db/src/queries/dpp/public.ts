@@ -117,7 +117,7 @@ export async function getPublicDppByUpid(
       workingVariantId: productPassports.workingVariantId,
       currentVersionId: productPassports.currentVersionId,
       firstPublishedAt: productPassports.firstPublishedAt,
-          })
+    })
     .from(productPassports)
     .where(eq(productPassports.upid, upid))
     .limit(1);
@@ -146,7 +146,7 @@ export async function getPublicDppByUpid(
         brandId: passport.brandId,
         workingVariantId: passport.workingVariantId,
         firstPublishedAt: passport.firstPublishedAt,
-              },
+      },
       snapshot: null,
       version: null,
       theme: null,
@@ -178,7 +178,7 @@ export async function getPublicDppByUpid(
         brandId: passport.brandId,
         workingVariantId: passport.workingVariantId,
         firstPublishedAt: passport.firstPublishedAt,
-              },
+      },
       snapshot: null,
       version: null,
       theme: null,
@@ -201,7 +201,7 @@ export async function getPublicDppByUpid(
       brandId: passport.brandId,
       workingVariantId: passport.workingVariantId,
       firstPublishedAt: passport.firstPublishedAt,
-          },
+    },
     snapshot: version.dataSnapshot as DppSnapshot,
     version: {
       id: version.id,
@@ -281,7 +281,7 @@ export async function getPublicDppVersion(
       brandId: productPassports.brandId,
       workingVariantId: productPassports.workingVariantId,
       firstPublishedAt: productPassports.firstPublishedAt,
-          })
+    })
     .from(productPassports)
     .where(eq(productPassports.upid, upid))
     .limit(1);
@@ -323,7 +323,7 @@ export async function getPublicDppVersion(
         brandId: passport.brandId,
         workingVariantId: passport.workingVariantId,
         firstPublishedAt: passport.firstPublishedAt,
-              },
+      },
       snapshot: null,
       version: null,
       theme: null,
@@ -344,7 +344,7 @@ export async function getPublicDppVersion(
       brandId: passport.brandId,
       workingVariantId: passport.workingVariantId,
       firstPublishedAt: passport.firstPublishedAt,
-          },
+    },
     snapshot: version.dataSnapshot as DppSnapshot,
     version: {
       id: version.id,

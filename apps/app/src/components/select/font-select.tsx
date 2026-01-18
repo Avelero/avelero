@@ -262,46 +262,41 @@ function FontList({
     );
   }, [filteredCustomFonts, selectedValue]);
 
-  // Calculate initial offset for virtualizer to prevent flicker
-  const initialOffset = React.useMemo(() => {
-    if (searchTerm.trim()) return 0;
-    // Only calculate offset for Google fonts (virtualized section)
-    if (selectedGoogleFontIndex < 0 || selectedCustomFontIndex >= 0) return 0;
-
-    const itemHeight = 32;
-    const headerHeight = 28; // Section header height
-    const viewportHeight = 300;
-
-    // Account for custom fonts section height when scrolling to Google fonts
-    const hasCustomFontsVisible = customFonts.length > 0;
-    const customSectionHeight = hasCustomFontsVisible
-      ? customFonts.length * itemHeight + headerHeight // Custom fonts items + "Custom fonts" header
-      : 0;
-    const googleFontsHeaderOffset = hasCustomFontsVisible ? headerHeight : 0; // "Default fonts" header
-
-    // Center the selected item in the viewport, accounting for sections above
-    const targetOffset =
-      customSectionHeight +
-      googleFontsHeaderOffset +
-      selectedGoogleFontIndex * itemHeight -
-      viewportHeight / 2 +
-      itemHeight / 2;
-    return Math.max(0, targetOffset);
-  }, [
-    selectedGoogleFontIndex,
-    selectedCustomFontIndex,
-    searchTerm,
-    customFonts.length,
-  ]);
-
   // Virtual list for Google fonts
   const virtualizer = useVirtualizer({
     count: filteredGoogleFonts.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 32,
     overscan: 10,
-    initialOffset,
   });
+
+  // Track if we've done the initial scroll to selected item
+  const hasScrolledToSelected = React.useRef(false);
+
+  // Scroll to selected Google font when opening (deferred to avoid flushSync during render)
+  React.useEffect(() => {
+    if (!isOpen || searchTerm.trim()) {
+      hasScrolledToSelected.current = false;
+      return;
+    }
+    // Skip if custom font is selected or no Google font selected
+    if (selectedCustomFontIndex >= 0 || selectedGoogleFontIndex < 0) return;
+    // Only scroll once per open
+    if (hasScrolledToSelected.current) return;
+
+    hasScrolledToSelected.current = true;
+
+    // Use queueMicrotask to defer the scroll outside of React's render cycle
+    queueMicrotask(() => {
+      virtualizer.scrollToIndex(selectedGoogleFontIndex, { align: "center" });
+    });
+  }, [
+    isOpen,
+    searchTerm,
+    selectedGoogleFontIndex,
+    selectedCustomFontIndex,
+    virtualizer,
+  ]);
 
   // Scroll to selected custom font when opening (non-virtualized)
   React.useEffect(() => {
@@ -346,12 +341,6 @@ function FontList({
       </div>
     );
   }
-
-  // Calculate heights for proper scroll container sizing
-  const customFontsHeight = hasCustomFonts
-    ? filteredCustomFonts.length * 32 + (showSectionHeaders ? 28 : 0) // items + header
-    : 0;
-  const googleFontsHeaderHeight = showSectionHeaders && hasGoogleFonts ? 28 : 0;
 
   return (
     <div

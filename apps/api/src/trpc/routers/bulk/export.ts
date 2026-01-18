@@ -5,7 +5,7 @@
  * - start: Create export job and trigger background processing
  * - status: Get real-time job progress and download URL when complete
  */
-import { tasks } from "@trigger.dev/sdk/v3";
+import { auth, tasks } from "@trigger.dev/sdk/v3";
 import {
   createExportJob,
   getExportJobStatus,
@@ -82,7 +82,7 @@ export const exportRouter = createTRPCRouter({
 
         try {
           // Trigger background job
-          await tasks.trigger("export-products", {
+          const handle = await tasks.trigger("export-products", {
             jobId: job.id,
             brandId,
             userEmail,
@@ -92,6 +92,21 @@ export const exportRouter = createTRPCRouter({
             filterState: input.filterState ?? null,
             searchQuery: input.search ?? null,
           });
+
+          // Generate a public access token for the client to subscribe to realtime updates
+          const publicToken = await auth.createPublicToken({
+            scopes: {
+              read: { runs: [handle.id] },
+            },
+          });
+
+          return {
+            jobId: job.id,
+            status: job.status,
+            createdAt: job.startedAt,
+            runId: handle.id,
+            publicAccessToken: publicToken,
+          };
         } catch (triggerError) {
           // Update job status to FAILED immediately
           await updateExportJobStatus(brandCtx.db, {
@@ -114,12 +129,6 @@ export const exportRouter = createTRPCRouter({
             }`,
           );
         }
-
-        return {
-          jobId: job.id,
-          status: job.status,
-          createdAt: job.startedAt,
-        };
       } catch (error) {
         throw wrapError(error, "Failed to start export job");
       }

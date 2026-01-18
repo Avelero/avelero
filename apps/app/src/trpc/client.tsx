@@ -2,11 +2,10 @@
 
 import type { QueryClient } from "@tanstack/react-query";
 import { QueryClientProvider, isServer } from "@tanstack/react-query";
-import { createTRPCClient, httpBatchLink, loggerLink } from "@trpc/client";
+import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { createClient as createSupabaseClient } from "@v1/supabase/client";
-// API base URL is configured via NEXT_PUBLIC_API_URL per environment
 import { useState } from "react";
 import superjson from "superjson";
 import { makeQueryClient } from "./query-client";
@@ -23,10 +22,24 @@ function getQueryClient(): QueryClient {
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL as string;
 
-export function TRPCReactProvider(props: { children: React.ReactNode }) {
+interface TRPCReactProviderProps {
+  children: React.ReactNode;
+}
+
+/**
+ * tRPC + React Query provider for client components.
+ *
+ * This provider sets up QueryClient and tRPC client. It does NOT handle
+ * hydration - that's done per-page via HydrateClient wrapper around
+ * client components that consume prefetched data.
+ *
+ * @see https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
+ */
+export function TRPCReactProvider({ children }: TRPCReactProviderProps) {
   const queryClient = getQueryClient();
-  const [trpcClient] = useState(() =>
-    createTRPCClient<AppRouter>({
+
+  const [trpcClient] = useState(() => {
+    return createTRPCClient<AppRouter>({
       links: [
         httpBatchLink({
           url: `${apiUrl}/trpc`,
@@ -37,6 +50,8 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
            */
           maxURLLength: 2083,
           async headers() {
+            // During SSR of client components, Supabase browser client has no session
+            // (no cookies/localStorage on server). Data should come from hydrated cache.
             const supabase = createSupabaseClient();
             const {
               data: { session },
@@ -47,19 +62,14 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
               : ({} as Record<string, string>);
           },
         }),
-        loggerLink({
-          enabled: (opts) =>
-            process.env.NODE_ENV === "development" ||
-            (opts.direction === "down" && opts.result instanceof Error),
-        }),
       ],
-    }),
-  );
+    });
+  });
 
   return (
     <QueryClientProvider client={queryClient}>
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
-        {props.children}
+        {children}
       </TRPCProvider>
     </QueryClientProvider>
   );

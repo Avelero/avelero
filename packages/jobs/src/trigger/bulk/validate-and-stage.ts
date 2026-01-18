@@ -1027,12 +1027,55 @@ function computeNormalizedRowData(
     });
   }
 
+  // Validate image URL format (product-level)
+  if (product.imagePath?.trim()) {
+    const imagePath = product.imagePath.trim();
+
+    // Check if it looks like a partial storage URL (common mistake)
+    // These are paths that look like they should be full URLs but are missing the base
+    if (
+      imagePath.startsWith("v1/") ||
+      imagePath.startsWith("/v1/") ||
+      imagePath.startsWith("storage/") ||
+      imagePath.startsWith("/storage/")
+    ) {
+      warningErrors.push({
+        field: "Image",
+        message: `Invalid image path: "${imagePath}". This looks like a partial storage URL. Use either a full URL (https://...) or just the file path. Field skipped.`,
+      });
+    } else if (imagePath.includes("://")) {
+      // External URL - must be http or https
+      if (
+        !imagePath.startsWith("http://") &&
+        !imagePath.startsWith("https://")
+      ) {
+        warningErrors.push({
+          field: "Image",
+          message: `Invalid image URL: "${imagePath}". External URLs must start with http:// or https://. Field skipped.`,
+        });
+      } else {
+        // Valid URL format - try to parse it
+        try {
+          new URL(imagePath);
+        } catch {
+          warningErrors.push({
+            field: "Image",
+            message: `Invalid image URL format: "${imagePath}". Field skipped.`,
+          });
+        }
+      }
+    }
+    // Non-URL paths (storage references like "brand-id/image.jpg") are allowed
+  }
+
   // Track errors per variant (by row number) for error reporting
   const variantErrorsByRow = new Map<number, RowError[]>();
   let hasVariantErrors = false; // Track if any variant has errors (for product status)
 
   // Check for duplicate UPIDs within the file and validate variant-level fields
-  for (const variant of product.variants) {
+  for (let variantIdx = 0; variantIdx < product.variants.length; variantIdx++) {
+    const variant = product.variants[variantIdx]!;
+    const isFirstVariant = variantIdx === 0;
     const variantErrors: RowError[] = [];
 
     if (variant.upid) {
@@ -1064,38 +1107,42 @@ function computeNormalizedRowData(
     }
 
     // Validate variant-level numeric overrides (child rows only)
-    // Check if raw data has values but parsed override is undefined
-    if (
-      variant.carbonKgOverride === undefined &&
-      variant.rawData["Kilograms CO2"]?.trim()
-    ) {
-      variantErrors.push({
-        field: "kgCO2e Carbon Footprint",
-        message: `Invalid number: "${variant.rawData["Kilograms CO2"]}". Field skipped.`,
-      });
-    }
+    // Skip for first variant - it uses product-level values, not overrides
+    // The override fields are intentionally undefined for first variant by design
+    if (!isFirstVariant) {
+      if (
+        variant.carbonKgOverride === undefined &&
+        variant.rawData["Kilograms CO2"]?.trim()
+      ) {
+        variantErrors.push({
+          field: "kgCO2e Carbon Footprint",
+          message: `Invalid number: "${variant.rawData["Kilograms CO2"]}". Field skipped.`,
+        });
+      }
 
-    if (
-      variant.waterLitersOverride === undefined &&
-      variant.rawData["Liters Water Used"]?.trim()
-    ) {
-      variantErrors.push({
-        field: "Liters Water Used",
-        message: `Invalid number: "${variant.rawData["Liters Water Used"]}". Field skipped.`,
-      });
-    }
+      if (
+        variant.waterLitersOverride === undefined &&
+        variant.rawData["Liters Water Used"]?.trim()
+      ) {
+        variantErrors.push({
+          field: "Liters Water Used",
+          message: `Invalid number: "${variant.rawData["Liters Water Used"]}". Field skipped.`,
+        });
+      }
 
-    if (
-      variant.weightGramsOverride === undefined &&
-      variant.rawData["Grams Weight"]?.trim()
-    ) {
-      variantErrors.push({
-        field: "Grams Weight",
-        message: `Invalid number: "${variant.rawData["Grams Weight"]}". Field skipped.`,
-      });
+      if (
+        variant.weightGramsOverride === undefined &&
+        variant.rawData["Grams Weight"]?.trim()
+      ) {
+        variantErrors.push({
+          field: "Grams Weight",
+          message: `Invalid number: "${variant.rawData["Grams Weight"]}". Field skipped.`,
+        });
+      }
     }
 
     // Validate percentages column (semicolon-delimited numbers)
+    // This applies to all variants including the first one
     const rawPercentages = variant.rawData.Percentages?.trim();
     if (rawPercentages) {
       const percentageValues = rawPercentages.split(";").map((v) => v.trim());
@@ -1109,6 +1156,44 @@ function computeNormalizedRowData(
           field: "Percentages",
           message: `Invalid percentage values: "${invalidPercentages.join(", ")}". Must be semicolon-separated numbers.`,
         });
+      }
+    }
+
+    // Validate variant-level image URL override (child rows only)
+    if (!isFirstVariant && variant.imagePathOverride) {
+      const imagePath = variant.imagePathOverride.trim();
+      if (imagePath) {
+        // Check if it looks like a partial storage URL (common mistake)
+        if (
+          imagePath.startsWith("v1/") ||
+          imagePath.startsWith("/v1/") ||
+          imagePath.startsWith("storage/") ||
+          imagePath.startsWith("/storage/")
+        ) {
+          variantErrors.push({
+            field: "Image",
+            message: `Invalid image path: "${imagePath}". This looks like a partial storage URL. Use either a full URL (https://...) or just the file path. Field skipped.`,
+          });
+        } else if (imagePath.includes("://")) {
+          if (
+            !imagePath.startsWith("http://") &&
+            !imagePath.startsWith("https://")
+          ) {
+            variantErrors.push({
+              field: "Image",
+              message: `Invalid image URL: "${imagePath}". External URLs must start with http:// or https://. Field skipped.`,
+            });
+          } else {
+            try {
+              new URL(imagePath);
+            } catch {
+              variantErrors.push({
+                field: "Image",
+                message: `Invalid image URL format: "${imagePath}". Field skipped.`,
+              });
+            }
+          }
+        }
       }
     }
 

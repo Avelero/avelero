@@ -78,12 +78,8 @@
           "tableFrom": "users",
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsFrom": [
-            "id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -93,9 +89,7 @@
         "users_email_key": {
           "name": "users_email_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {
@@ -103,30 +97,21 @@
           "name": "users_select_own_profile",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "auth.uid() = id"
         },
         "users_select_for_brand_members": {
           "name": "users_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "shares_brand_with(id)"
         },
         "users_update_own_profile": {
           "name": "users_update_own_profile",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "auth.uid() = id",
           "withCheck": "\n        auth.uid() = id\n        AND (\n          brand_id IS NULL\n          OR EXISTS (\n            SELECT 1\n            FROM brand_members bm\n            WHERE bm.brand_id = users.brand_id\n              AND bm.user_id = auth.uid()\n          )\n        )\n      "
         },
@@ -134,10 +119,7 @@
           "name": "users_insert_own_profile",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "auth.uid() = id"
         }
       },
@@ -264,49 +246,34 @@
           "name": "brands_update_by_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(id)"
         },
         "brands_delete_by_owner": {
           "name": "brands_delete_by_owner",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_owner(id)"
         },
         "brands_select_for_invite_recipients": {
           "name": "brands_select_for_invite_recipients",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ]
+          "to": ["authenticated", "service_role"]
         },
         "brands_select_for_members": {
           "name": "brands_select_for_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(id)"
         },
         "brands_insert_by_authenticated": {
           "name": "brands_insert_by_authenticated",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ]
+          "to": ["authenticated", "service_role"]
         }
       },
       "checkConstraints": {},
@@ -391,12 +358,8 @@
           "name": "brand_collections_brand_id_brands_id_fk",
           "tableFrom": "brand_collections",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -408,40 +371,28 @@
           "name": "brand_collections_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_collections_insert_by_brand_member": {
           "name": "brand_collections_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_collections_update_by_brand_member": {
           "name": "brand_collections_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_collections_delete_by_brand_member": {
           "name": "brand_collections_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -554,12 +505,8 @@
           "name": "brand_members_user_id_users_id_fk",
           "tableFrom": "brand_members",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -567,12 +514,8 @@
           "name": "brand_members_brand_id_brands_id_fk",
           "tableFrom": "brand_members",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -582,10 +525,7 @@
         "brand_members_user_id_brand_id_key": {
           "name": "brand_members_user_id_brand_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id",
-            "brand_id"
-          ]
+          "columns": ["user_id", "brand_id"]
         }
       },
       "policies": {
@@ -593,48 +533,33 @@
           "name": "brand_members_update_by_owner",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_owner(brand_id)"
         },
         "brand_members_select_for_members": {
           "name": "brand_members_select_for_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_members_delete_self": {
           "name": "brand_members_delete_self",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ]
+          "to": ["authenticated", "service_role"]
         },
         "brand_members_delete_owner_non_owner": {
           "name": "brand_members_delete_owner_non_owner",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ]
+          "to": ["authenticated", "service_role"]
         },
         "brand_members_insert_first_owner_self": {
           "name": "brand_members_insert_first_owner_self",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ]
+          "to": ["authenticated", "service_role"]
         }
       },
       "checkConstraints": {
@@ -841,12 +766,8 @@
           "name": "brand_invites_brand_id_brands_id_fk",
           "tableFrom": "brand_invites",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -858,58 +779,40 @@
           "name": "brand_invites_update_by_owner",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_owner(brand_id)"
         },
         "brand_invites_insert_by_owner": {
           "name": "brand_invites_insert_by_owner",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_owner(brand_id)"
         },
         "brand_invites_delete_by_owner": {
           "name": "brand_invites_delete_by_owner",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_owner(brand_id)"
         },
         "brand_invites_select_for_recipient": {
           "name": "brand_invites_select_for_recipient",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ]
+          "to": ["authenticated", "service_role"]
         },
         "brand_invites_delete_by_recipient": {
           "name": "brand_invites_delete_by_recipient",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ]
+          "to": ["authenticated", "service_role"]
         },
         "brand_invites_select_for_members": {
           "name": "brand_invites_select_for_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ]
+          "to": ["authenticated", "service_role"]
         }
       },
       "checkConstraints": {
@@ -992,12 +895,8 @@
           "name": "brand_tags_brand_id_brands_id_fk",
           "tableFrom": "brand_tags",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1009,40 +908,28 @@
           "name": "brand_tags_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_tags_insert_by_brand_members": {
           "name": "brand_tags_insert_by_brand_members",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_tags_update_by_brand_members": {
           "name": "brand_tags_update_by_brand_members",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_tags_delete_by_brand_members": {
           "name": "brand_tags_delete_by_brand_members",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -1122,12 +1009,8 @@
           "name": "brand_theme_brand_id_brands_id_fk",
           "tableFrom": "brand_theme",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1135,9 +1018,7 @@
       "compositePrimaryKeys": {
         "brand_theme_brand_id_pkey": {
           "name": "brand_theme_brand_id_pkey",
-          "columns": [
-            "brand_id"
-          ]
+          "columns": ["brand_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1146,30 +1027,21 @@
           "name": "brand_theme_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_theme_insert_by_brand_member": {
           "name": "brand_theme_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_theme_update_by_brand_member": {
           "name": "brand_theme_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)",
           "withCheck": "is_brand_member(brand_id)"
         },
@@ -1177,10 +1049,7 @@
           "name": "brand_theme_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -1259,12 +1128,8 @@
           "name": "brand_attributes_brand_id_brands_id_fk",
           "tableFrom": "brand_attributes",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -1272,12 +1137,8 @@
           "name": "brand_attributes_taxonomy_attribute_id_taxonomy_attributes_id_fk",
           "tableFrom": "brand_attributes",
           "tableTo": "taxonomy_attributes",
-          "columnsFrom": [
-            "taxonomy_attribute_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["taxonomy_attribute_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1289,40 +1150,28 @@
           "name": "brand_attributes_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_attributes_insert_by_brand_member": {
           "name": "brand_attributes_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_attributes_update_by_brand_member": {
           "name": "brand_attributes_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_attributes_delete_by_brand_member": {
           "name": "brand_attributes_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -1413,12 +1262,8 @@
           "name": "brand_attribute_values_brand_id_brands_id_fk",
           "tableFrom": "brand_attribute_values",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -1426,12 +1271,8 @@
           "name": "brand_attribute_values_attribute_id_brand_attributes_id_fk",
           "tableFrom": "brand_attribute_values",
           "tableTo": "brand_attributes",
-          "columnsFrom": [
-            "attribute_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["attribute_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -1439,12 +1280,8 @@
           "name": "brand_attribute_values_taxonomy_value_id_taxonomy_values_id_fk",
           "tableFrom": "brand_attribute_values",
           "tableTo": "taxonomy_values",
-          "columnsFrom": [
-            "taxonomy_value_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["taxonomy_value_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1456,40 +1293,28 @@
           "name": "brand_attribute_values_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_attribute_values_insert_by_brand_member": {
           "name": "brand_attribute_values_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_attribute_values_update_by_brand_member": {
           "name": "brand_attribute_values_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_attribute_values_delete_by_brand_member": {
           "name": "brand_attribute_values_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -1618,12 +1443,8 @@
           "name": "brand_certifications_brand_id_brands_id_fk",
           "tableFrom": "brand_certifications",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1635,40 +1456,28 @@
           "name": "brand_certifications_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_certifications_insert_by_brand_member": {
           "name": "brand_certifications_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_certifications_update_by_brand_member": {
           "name": "brand_certifications_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_certifications_delete_by_brand_member": {
           "name": "brand_certifications_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -1779,12 +1588,8 @@
           "name": "brand_operators_brand_id_brands_id_fk",
           "tableFrom": "brand_operators",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1796,40 +1601,28 @@
           "name": "brand_operators_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_operators_insert_by_brand_member": {
           "name": "brand_operators_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_operators_update_by_brand_member": {
           "name": "brand_operators_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_operators_delete_by_brand_member": {
           "name": "brand_operators_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -1962,12 +1755,8 @@
           "name": "brand_manufacturers_brand_id_brands_id_fk",
           "tableFrom": "brand_manufacturers",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1979,40 +1768,28 @@
           "name": "brand_manufacturers_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_manufacturers_insert_by_brand_member": {
           "name": "brand_manufacturers_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_manufacturers_update_by_brand_member": {
           "name": "brand_manufacturers_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_manufacturers_delete_by_brand_member": {
           "name": "brand_manufacturers_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -2081,12 +1858,8 @@
           "name": "brand_materials_brand_id_brands_id_fk",
           "tableFrom": "brand_materials",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -2094,12 +1867,8 @@
           "name": "brand_materials_certification_id_brand_certifications_id_fk",
           "tableFrom": "brand_materials",
           "tableTo": "brand_certifications",
-          "columnsFrom": [
-            "certification_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["certification_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -2111,40 +1880,28 @@
           "name": "brand_materials_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_materials_insert_by_brand_member": {
           "name": "brand_materials_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_materials_update_by_brand_member": {
           "name": "brand_materials_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_materials_delete_by_brand_member": {
           "name": "brand_materials_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -2236,12 +1993,8 @@
           "name": "brand_seasons_brand_id_brands_id_fk",
           "tableFrom": "brand_seasons",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -2253,40 +2006,28 @@
           "name": "brand_seasons_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_seasons_insert_by_brand_members": {
           "name": "brand_seasons_insert_by_brand_members",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_seasons_update_by_brand_members": {
           "name": "brand_seasons_update_by_brand_members",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_seasons_delete_by_brand_members": {
           "name": "brand_seasons_delete_by_brand_members",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -2585,12 +2326,8 @@
           "name": "products_brand_id_brands_id_fk",
           "tableFrom": "products",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -2598,12 +2335,8 @@
           "name": "products_manufacturer_id_brand_manufacturers_id_fk",
           "tableFrom": "products",
           "tableTo": "brand_manufacturers",
-          "columnsFrom": [
-            "manufacturer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["manufacturer_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -2611,12 +2344,8 @@
           "name": "products_category_id_taxonomy_categories_id_fk",
           "tableFrom": "products",
           "tableTo": "taxonomy_categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -2624,12 +2353,8 @@
           "name": "products_season_id_brand_seasons_id_fk",
           "tableFrom": "products",
           "tableTo": "brand_seasons",
-          "columnsFrom": [
-            "season_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["season_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -2637,12 +2362,8 @@
           "name": "products_source_integration_id_brand_integrations_id_fk",
           "tableFrom": "products",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "source_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2654,40 +2375,28 @@
           "name": "products_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "products_insert_by_brand_members": {
           "name": "products_insert_by_brand_members",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "products_update_by_brand_members": {
           "name": "products_update_by_brand_members",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "products_delete_by_brand_members": {
           "name": "products_delete_by_brand_members",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -2859,12 +2568,8 @@
           "name": "product_variants_product_id_products_id_fk",
           "tableFrom": "product_variants",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -2876,40 +2581,28 @@
           "name": "product_variants_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_variants_insert_by_brand_member": {
           "name": "product_variants_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_variants_update_by_brand_member": {
           "name": "product_variants_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_variants_delete_by_brand_member": {
           "name": "product_variants_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         }
       },
@@ -3027,12 +2720,8 @@
           "name": "product_materials_product_id_products_id_fk",
           "tableFrom": "product_materials",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -3040,12 +2729,8 @@
           "name": "product_materials_brand_material_id_brand_materials_id_fk",
           "tableFrom": "product_materials",
           "tableTo": "brand_materials",
-          "columnsFrom": [
-            "brand_material_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_material_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "cascade"
         }
@@ -3057,40 +2742,28 @@
           "name": "product_materials_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM products \n        WHERE products.id = product_id \n        AND is_brand_member(products.brand_id)\n      )"
         },
         "product_materials_insert_by_brand_member": {
           "name": "product_materials_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM products \n        WHERE products.id = product_id \n        AND is_brand_member(products.brand_id)\n      )"
         },
         "product_materials_update_by_brand_member": {
           "name": "product_materials_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM products \n        WHERE products.id = product_id \n        AND is_brand_member(products.brand_id)\n      )"
         },
         "product_materials_delete_by_brand_member": {
           "name": "product_materials_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM products \n        WHERE products.id = product_id \n        AND is_brand_member(products.brand_id)\n      )"
         }
       },
@@ -3220,12 +2893,8 @@
           "name": "product_journey_steps_product_id_products_id_fk",
           "tableFrom": "product_journey_steps",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -3233,12 +2902,8 @@
           "name": "product_journey_steps_operator_id_brand_operators_id_fk",
           "tableFrom": "product_journey_steps",
           "tableTo": "brand_operators",
-          "columnsFrom": [
-            "operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "cascade"
         }
@@ -3250,40 +2915,28 @@
           "name": "product_journey_steps_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM products \n        WHERE products.id = product_id \n        AND is_brand_member(products.brand_id)\n      )"
         },
         "product_journey_steps_insert_by_brand_member": {
           "name": "product_journey_steps_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM products \n        WHERE products.id = product_id \n        AND is_brand_member(products.brand_id)\n      )"
         },
         "product_journey_steps_update_by_brand_member": {
           "name": "product_journey_steps_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM products \n        WHERE products.id = product_id \n        AND is_brand_member(products.brand_id)\n      )"
         },
         "product_journey_steps_delete_by_brand_member": {
           "name": "product_journey_steps_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM products \n        WHERE products.id = product_id \n        AND is_brand_member(products.brand_id)\n      )"
         }
       },
@@ -3339,12 +2992,8 @@
           "name": "product_environment_product_id_products_id_fk",
           "tableFrom": "product_environment",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -3352,10 +3001,7 @@
       "compositePrimaryKeys": {
         "product_environment_pkey": {
           "name": "product_environment_pkey",
-          "columns": [
-            "product_id",
-            "metric"
-          ]
+          "columns": ["product_id", "metric"]
         }
       },
       "uniqueConstraints": {},
@@ -3364,40 +3010,28 @@
           "name": "product_environment_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_environment_insert_by_brand_member": {
           "name": "product_environment_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_environment_update_by_brand_member": {
           "name": "product_environment_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_environment_delete_by_brand_member": {
           "name": "product_environment_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         }
       },
@@ -3500,12 +3134,8 @@
           "name": "product_tags_tag_id_brand_tags_id_fk",
           "tableFrom": "product_tags",
           "tableTo": "brand_tags",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -3513,12 +3143,8 @@
           "name": "product_tags_product_id_products_id_fk",
           "tableFrom": "product_tags",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -3530,30 +3156,21 @@
           "name": "tags_on_product_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "tags_on_product_insert_by_brand_members": {
           "name": "tags_on_product_insert_by_brand_members",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "tags_on_product_delete_by_brand_members": {
           "name": "tags_on_product_delete_by_brand_members",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         }
       },
@@ -3620,12 +3237,8 @@
           "name": "product_variant_attributes_variant_id_product_variants_id_fk",
           "tableFrom": "product_variant_attributes",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -3633,12 +3246,8 @@
           "name": "product_variant_attributes_attribute_value_id_brand_attribute_values_id_fk",
           "tableFrom": "product_variant_attributes",
           "tableTo": "brand_attribute_values",
-          "columnsFrom": [
-            "attribute_value_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["attribute_value_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -3646,10 +3255,7 @@
       "compositePrimaryKeys": {
         "product_variant_attributes_pkey": {
           "name": "product_variant_attributes_pkey",
-          "columns": [
-            "variant_id",
-            "attribute_value_id"
-          ]
+          "columns": ["variant_id", "attribute_value_id"]
         }
       },
       "uniqueConstraints": {},
@@ -3658,40 +3264,28 @@
           "name": "product_variant_attributes_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "product_variant_attributes_insert_by_brand_member": {
           "name": "product_variant_attributes_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "product_variant_attributes_update_by_brand_member": {
           "name": "product_variant_attributes_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "product_variant_attributes_delete_by_brand_member": {
           "name": "product_variant_attributes_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         }
       },
@@ -3741,12 +3335,8 @@
           "name": "product_weight_product_id_products_id_fk",
           "tableFrom": "product_weight",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -3758,40 +3348,28 @@
           "name": "product_weight_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_weight_insert_by_brand_member": {
           "name": "product_weight_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_weight_update_by_brand_member": {
           "name": "product_weight_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_weight_delete_by_brand_member": {
           "name": "product_weight_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         }
       },
@@ -3853,12 +3431,8 @@
           "name": "product_commercial_product_id_products_id_fk",
           "tableFrom": "product_commercial",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -3870,40 +3444,28 @@
           "name": "product_commercial_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_commercial_insert_by_brand_member": {
           "name": "product_commercial_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_commercial_update_by_brand_member": {
           "name": "product_commercial_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         },
         "product_commercial_delete_by_brand_member": {
           "name": "product_commercial_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
         }
       },
@@ -3977,12 +3539,8 @@
           "name": "variant_commercial_variant_id_product_variants_id_fk",
           "tableFrom": "variant_commercial",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -3994,40 +3552,28 @@
           "name": "variant_commercial_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_commercial_insert_by_brand_member": {
           "name": "variant_commercial_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_commercial_update_by_brand_member": {
           "name": "variant_commercial_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_commercial_delete_by_brand_member": {
           "name": "variant_commercial_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         }
       },
@@ -4089,12 +3635,8 @@
           "name": "variant_environment_variant_id_product_variants_id_fk",
           "tableFrom": "variant_environment",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -4106,40 +3648,28 @@
           "name": "variant_environment_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_environment_insert_by_brand_member": {
           "name": "variant_environment_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_environment_update_by_brand_member": {
           "name": "variant_environment_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_environment_delete_by_brand_member": {
           "name": "variant_environment_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         }
       },
@@ -4239,12 +3769,8 @@
           "name": "variant_materials_variant_id_product_variants_id_fk",
           "tableFrom": "variant_materials",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -4252,12 +3778,8 @@
           "name": "variant_materials_brand_material_id_brand_materials_id_fk",
           "tableFrom": "variant_materials",
           "tableTo": "brand_materials",
-          "columnsFrom": [
-            "brand_material_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_material_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "cascade"
         }
@@ -4269,30 +3791,21 @@
           "name": "variant_materials_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_materials_insert_by_brand_member": {
           "name": "variant_materials_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_materials_update_by_brand_member": {
           "name": "variant_materials_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )",
           "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
@@ -4300,10 +3813,7 @@
           "name": "variant_materials_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         }
       },
@@ -4365,12 +3875,8 @@
           "name": "variant_weight_variant_id_product_variants_id_fk",
           "tableFrom": "variant_weight",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -4382,40 +3888,28 @@
           "name": "variant_weight_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_weight_insert_by_brand_member": {
           "name": "variant_weight_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_weight_update_by_brand_member": {
           "name": "variant_weight_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_weight_delete_by_brand_member": {
           "name": "variant_weight_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         }
       },
@@ -4566,12 +4060,8 @@
           "name": "variant_journey_steps_variant_id_product_variants_id_fk",
           "tableFrom": "variant_journey_steps",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -4579,12 +4069,8 @@
           "name": "variant_journey_steps_operator_id_brand_operators_id_fk",
           "tableFrom": "variant_journey_steps",
           "tableTo": "brand_operators",
-          "columnsFrom": [
-            "operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "cascade"
         }
@@ -4596,30 +4082,21 @@
           "name": "variant_journey_steps_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_journey_steps_insert_by_brand_member": {
           "name": "variant_journey_steps_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
         "variant_journey_steps_update_by_brand_member": {
           "name": "variant_journey_steps_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )",
           "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         },
@@ -4627,10 +4104,7 @@
           "name": "variant_journey_steps_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         }
       },
@@ -4806,12 +4280,8 @@
           "name": "product_passports_brand_id_brands_id_fk",
           "tableFrom": "product_passports",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "cascade"
         },
@@ -4819,12 +4289,8 @@
           "name": "product_passports_working_variant_id_product_variants_id_fk",
           "tableFrom": "product_passports",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "working_variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["working_variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -4834,9 +4300,7 @@
         "product_passports_upid_unique": {
           "name": "product_passports_upid_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "upid"
-          ]
+          "columns": ["upid"]
         }
       },
       "policies": {
@@ -4844,49 +4308,35 @@
           "name": "product_passports_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "product_passports_insert_by_brand_members": {
           "name": "product_passports_insert_by_brand_members",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "product_passports_update_by_brand_members": {
           "name": "product_passports_update_by_brand_members",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "product_passports_delete_by_brand_members": {
           "name": "product_passports_delete_by_brand_members",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "product_passports_select_public": {
           "name": "product_passports_select_public",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "anon"
-          ],
+          "to": ["anon"],
           "using": "\n        current_version_id IS NOT NULL\n        AND (\n          working_variant_id IS NULL\n          OR\n          EXISTS (\n            SELECT 1 FROM product_variants pv\n            JOIN products p ON p.id = pv.product_id\n            WHERE pv.id = working_variant_id\n            AND p.status = 'published'\n          )\n        )\n      "
         }
       },
@@ -5009,12 +4459,8 @@
           "name": "product_passport_versions_passport_id_product_passports_id_fk",
           "tableFrom": "product_passport_versions",
           "tableTo": "product_passports",
-          "columnsFrom": [
-            "passport_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["passport_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "cascade"
         }
@@ -5026,29 +4472,21 @@
           "name": "product_passport_versions_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM product_passports\n        WHERE product_passports.id = passport_id\n        AND is_brand_member(product_passports.brand_id)\n      )"
         },
         "product_passport_versions_insert_by_brand_members": {
           "name": "product_passport_versions_insert_by_brand_members",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM product_passports\n        WHERE product_passports.id = passport_id\n        AND is_brand_member(product_passports.brand_id)\n      )"
         },
         "product_passport_versions_select_public": {
           "name": "product_passport_versions_select_public",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "anon"
-          ],
+          "to": ["anon"],
           "using": "EXISTS (\n        SELECT 1 FROM product_passports\n        WHERE product_passports.id = passport_id\n        AND product_passports.current_version_id IS NOT NULL\n      )"
         }
       },
@@ -5132,12 +4570,8 @@
           "name": "file_assets_brand_id_brands_id_fk",
           "tableFrom": "file_assets",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -5149,40 +4583,28 @@
           "name": "file_assets_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "(brand_id IS NULL) OR is_brand_member(brand_id)"
         },
         "file_assets_insert_by_brand_member_or_system": {
           "name": "file_assets_insert_by_brand_member_or_system",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "(brand_id IS NULL) OR is_brand_member(brand_id)"
         },
         "file_assets_update_by_brand_member_or_system": {
           "name": "file_assets_update_by_brand_member_or_system",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "(brand_id IS NULL) OR is_brand_member(brand_id)"
         },
         "file_assets_delete_by_brand_member_or_system": {
           "name": "file_assets_delete_by_brand_member_or_system",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "(brand_id IS NULL) OR is_brand_member(brand_id)"
         }
       },
@@ -5302,12 +4724,8 @@
           "name": "import_jobs_brand_id_brands_id_fk",
           "tableFrom": "import_jobs",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -5319,40 +4737,28 @@
           "name": "import_jobs_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "import_jobs_insert_by_brand_member": {
           "name": "import_jobs_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "import_jobs_update_by_brand_member": {
           "name": "import_jobs_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "import_jobs_delete_by_brand_member": {
           "name": "import_jobs_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -5443,12 +4849,8 @@
           "name": "import_rows_job_id_import_jobs_id_fk",
           "tableFrom": "import_rows",
           "tableTo": "import_jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -5460,40 +4862,28 @@
           "name": "import_rows_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM import_jobs \n        WHERE import_jobs.id = job_id \n        AND is_brand_member(import_jobs.brand_id)\n      )"
         },
         "import_rows_insert_by_brand_member": {
           "name": "import_rows_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM import_jobs \n        WHERE import_jobs.id = job_id \n        AND is_brand_member(import_jobs.brand_id)\n      )"
         },
         "import_rows_update_by_brand_member": {
           "name": "import_rows_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM import_jobs \n        WHERE import_jobs.id = job_id \n        AND is_brand_member(import_jobs.brand_id)\n      )"
         },
         "import_rows_delete_by_brand_member": {
           "name": "import_rows_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM import_jobs \n        WHERE import_jobs.id = job_id \n        AND is_brand_member(import_jobs.brand_id)\n      )"
         }
       },
@@ -5624,12 +5014,8 @@
           "name": "export_jobs_brand_id_brands_id_fk",
           "tableFrom": "export_jobs",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -5637,12 +5023,8 @@
           "name": "export_jobs_user_id_users_id_fk",
           "tableFrom": "export_jobs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -5654,40 +5036,28 @@
           "name": "export_jobs_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "export_jobs_insert_by_brand_member": {
           "name": "export_jobs_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "export_jobs_update_by_brand_member": {
           "name": "export_jobs_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "export_jobs_delete_by_brand_member": {
           "name": "export_jobs_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -5852,12 +5222,8 @@
           "name": "user_notifications_user_id_users_id_fk",
           "tableFrom": "user_notifications",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -5865,12 +5231,8 @@
           "name": "user_notifications_brand_id_brands_id_fk",
           "tableFrom": "user_notifications",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -5882,39 +5244,28 @@
           "name": "user_notifications_select_own",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "auth.uid() = user_id"
         },
         "user_notifications_insert_service": {
           "name": "user_notifications_insert_service",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "withCheck": "true"
         },
         "user_notifications_update_own": {
           "name": "user_notifications_update_own",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "auth.uid() = user_id"
         },
         "user_notifications_delete_own": {
           "name": "user_notifications_delete_own",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "auth.uid() = user_id"
         }
       },
@@ -6007,12 +5358,8 @@
           "name": "value_mappings_brand_id_brands_id_fk",
           "tableFrom": "value_mappings",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -6024,40 +5371,28 @@
           "name": "value_mappings_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "value_mappings_insert_by_brand_member": {
           "name": "value_mappings_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "value_mappings_select_for_brand_members": {
           "name": "value_mappings_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "value_mappings_update_by_brand_member": {
           "name": "value_mappings_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -6234,12 +5569,8 @@
           "name": "brand_integrations_brand_id_brands_id_fk",
           "tableFrom": "brand_integrations",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -6247,12 +5578,8 @@
           "name": "brand_integrations_integration_id_integrations_id_fk",
           "tableFrom": "brand_integrations",
           "tableTo": "integrations",
-          "columnsFrom": [
-            "integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -6264,40 +5591,28 @@
           "name": "brand_integrations_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_integrations_insert_by_brand_member": {
           "name": "brand_integrations_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "brand_integrations_update_by_brand_member": {
           "name": "brand_integrations_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "brand_integrations_delete_by_brand_member": {
           "name": "brand_integrations_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -6398,12 +5713,8 @@
           "name": "integration_field_configs_brand_integration_id_brand_integrations_id_fk",
           "tableFrom": "integration_field_configs",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "brand_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -6415,40 +5726,28 @@
           "name": "integration_field_configs_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         },
         "integration_field_configs_insert_by_brand_member": {
           "name": "integration_field_configs_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         },
         "integration_field_configs_update_by_brand_member": {
           "name": "integration_field_configs_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         },
         "integration_field_configs_delete_by_brand_member": {
           "name": "integration_field_configs_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         }
       },
@@ -6537,37 +5836,28 @@
           "name": "integrations_select_for_authenticated",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "true"
         },
         "integrations_insert_by_service_role": {
           "name": "integrations_insert_by_service_role",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "withCheck": "true"
         },
         "integrations_update_by_service_role": {
           "name": "integrations_update_by_service_role",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "using": "true"
         },
         "integrations_delete_by_service_role": {
           "name": "integrations_delete_by_service_role",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "using": "true"
         }
       },
@@ -6660,12 +5950,8 @@
           "name": "oauth_states_brand_id_brands_id_fk",
           "tableFrom": "oauth_states",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -6677,36 +5963,28 @@
           "name": "oauth_states_select_by_service_role",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "using": "true"
         },
         "oauth_states_insert_by_service_role": {
           "name": "oauth_states_insert_by_service_role",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "withCheck": "true"
         },
         "oauth_states_update_by_service_role": {
           "name": "oauth_states_update_by_service_role",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "using": "true"
         },
         "oauth_states_delete_by_service_role": {
           "name": "oauth_states_delete_by_service_role",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "using": "true"
         }
       },
@@ -6918,12 +6196,8 @@
           "name": "integration_sync_jobs_brand_integration_id_brand_integrations_id_fk",
           "tableFrom": "integration_sync_jobs",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "brand_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -6935,40 +6209,28 @@
           "name": "integration_sync_jobs_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         },
         "integration_sync_jobs_insert_by_brand_member": {
           "name": "integration_sync_jobs_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         },
         "integration_sync_jobs_update_by_brand_member": {
           "name": "integration_sync_jobs_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         },
         "integration_sync_jobs_delete_by_brand_member": {
           "name": "integration_sync_jobs_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         }
       },
@@ -7138,12 +6400,8 @@
           "name": "promotion_operations_brand_id_brands_id_fk",
           "tableFrom": "promotion_operations",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -7151,12 +6409,8 @@
           "name": "promotion_operations_new_primary_integration_id_brand_integrations_id_fk",
           "tableFrom": "promotion_operations",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "new_primary_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["new_primary_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -7164,12 +6418,8 @@
           "name": "promotion_operations_old_primary_integration_id_brand_integrations_id_fk",
           "tableFrom": "promotion_operations",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "old_primary_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["old_primary_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -7181,40 +6431,28 @@
           "name": "promotion_operations_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "promotion_operations_insert_by_brand_member": {
           "name": "promotion_operations_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "is_brand_member(brand_id)"
         },
         "promotion_operations_update_by_brand_member": {
           "name": "promotion_operations_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         },
         "promotion_operations_delete_by_brand_member": {
           "name": "promotion_operations_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "is_brand_member(brand_id)"
         }
       },
@@ -7341,12 +6579,8 @@
           "name": "integration_certification_links_brand_integration_id_brand_integrations_id_fk",
           "tableFrom": "integration_certification_links",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "brand_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -7354,12 +6588,8 @@
           "name": "integration_certification_links_certification_id_brand_certifications_id_fk",
           "tableFrom": "integration_certification_links",
           "tableTo": "brand_certifications",
-          "columnsFrom": [
-            "certification_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["certification_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -7371,40 +6601,28 @@
           "name": "integration_certification_links_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_certification_links_insert_by_brand_member": {
           "name": "integration_certification_links_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_certification_links_update_by_brand_member": {
           "name": "integration_certification_links_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_certification_links_delete_by_brand_member": {
           "name": "integration_certification_links_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         }
       },
@@ -7531,12 +6749,8 @@
           "name": "integration_manufacturer_links_brand_integration_id_brand_integrations_id_fk",
           "tableFrom": "integration_manufacturer_links",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "brand_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -7544,12 +6758,8 @@
           "name": "integration_manufacturer_links_manufacturer_id_brand_manufacturers_id_fk",
           "tableFrom": "integration_manufacturer_links",
           "tableTo": "brand_manufacturers",
-          "columnsFrom": [
-            "manufacturer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["manufacturer_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -7561,40 +6771,28 @@
           "name": "integration_manufacturer_links_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_manufacturer_links_insert_by_brand_member": {
           "name": "integration_manufacturer_links_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_manufacturer_links_update_by_brand_member": {
           "name": "integration_manufacturer_links_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_manufacturer_links_delete_by_brand_member": {
           "name": "integration_manufacturer_links_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         }
       },
@@ -7721,12 +6919,8 @@
           "name": "integration_material_links_brand_integration_id_brand_integrations_id_fk",
           "tableFrom": "integration_material_links",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "brand_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -7734,12 +6928,8 @@
           "name": "integration_material_links_material_id_brand_materials_id_fk",
           "tableFrom": "integration_material_links",
           "tableTo": "brand_materials",
-          "columnsFrom": [
-            "material_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["material_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -7751,40 +6941,28 @@
           "name": "integration_material_links_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_material_links_insert_by_brand_member": {
           "name": "integration_material_links_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_material_links_update_by_brand_member": {
           "name": "integration_material_links_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_material_links_delete_by_brand_member": {
           "name": "integration_material_links_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         }
       },
@@ -7911,12 +7089,8 @@
           "name": "integration_operator_links_brand_integration_id_brand_integrations_id_fk",
           "tableFrom": "integration_operator_links",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "brand_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -7924,12 +7098,8 @@
           "name": "integration_operator_links_operator_id_brand_operators_id_fk",
           "tableFrom": "integration_operator_links",
           "tableTo": "brand_operators",
-          "columnsFrom": [
-            "operator_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["operator_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -7941,40 +7111,28 @@
           "name": "integration_operator_links_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_operator_links_insert_by_brand_member": {
           "name": "integration_operator_links_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_operator_links_update_by_brand_member": {
           "name": "integration_operator_links_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_operator_links_delete_by_brand_member": {
           "name": "integration_operator_links_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         }
       },
@@ -8101,12 +7259,8 @@
           "name": "integration_season_links_brand_integration_id_brand_integrations_id_fk",
           "tableFrom": "integration_season_links",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "brand_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -8114,12 +7268,8 @@
           "name": "integration_season_links_season_id_brand_seasons_id_fk",
           "tableFrom": "integration_season_links",
           "tableTo": "brand_seasons",
-          "columnsFrom": [
-            "season_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["season_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -8131,40 +7281,28 @@
           "name": "integration_season_links_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_season_links_insert_by_brand_member": {
           "name": "integration_season_links_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_season_links_update_by_brand_member": {
           "name": "integration_season_links_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_season_links_delete_by_brand_member": {
           "name": "integration_season_links_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         }
       },
@@ -8291,12 +7429,8 @@
           "name": "integration_tag_links_brand_integration_id_brand_integrations_id_fk",
           "tableFrom": "integration_tag_links",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "brand_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -8304,12 +7438,8 @@
           "name": "integration_tag_links_tag_id_brand_tags_id_fk",
           "tableFrom": "integration_tag_links",
           "tableTo": "brand_tags",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -8321,40 +7451,28 @@
           "name": "integration_tag_links_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_tag_links_insert_by_brand_member": {
           "name": "integration_tag_links_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_tag_links_update_by_brand_member": {
           "name": "integration_tag_links_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         },
         "integration_tag_links_delete_by_brand_member": {
           "name": "integration_tag_links_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n      SELECT 1 FROM brand_integrations bi\n      WHERE bi.id = brand_integration_id\n      AND is_brand_member(bi.brand_id)\n    )"
         }
       },
@@ -8495,12 +7613,8 @@
           "name": "integration_product_links_brand_integration_id_brand_integrations_id_fk",
           "tableFrom": "integration_product_links",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "brand_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -8508,12 +7622,8 @@
           "name": "integration_product_links_product_id_products_id_fk",
           "tableFrom": "integration_product_links",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -8525,40 +7635,28 @@
           "name": "integration_product_links_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         },
         "integration_product_links_insert_by_brand_member": {
           "name": "integration_product_links_insert_by_brand_member",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "withCheck": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         },
         "integration_product_links_update_by_brand_member": {
           "name": "integration_product_links_update_by_brand_member",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         },
         "integration_product_links_delete_by_brand_member": {
           "name": "integration_product_links_delete_by_brand_member",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         }
       },
@@ -8697,12 +7795,8 @@
           "name": "integration_variant_links_brand_integration_id_brand_integrations_id_fk",
           "tableFrom": "integration_variant_links",
           "tableTo": "brand_integrations",
-          "columnsFrom": [
-            "brand_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -8710,12 +7804,8 @@
           "name": "integration_variant_links_variant_id_product_variants_id_fk",
           "tableFrom": "integration_variant_links",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -8727,37 +7817,28 @@
           "name": "integration_variant_links_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "EXISTS (\n        SELECT 1 FROM brand_integrations bi\n        WHERE bi.id = brand_integration_id\n        AND is_brand_member(bi.brand_id)\n      )"
         },
         "integration_variant_links_insert_by_service": {
           "name": "integration_variant_links_insert_by_service",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "withCheck": "true"
         },
         "integration_variant_links_update_by_service": {
           "name": "integration_variant_links_update_by_service",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "using": "true"
         },
         "integration_variant_links_delete_by_service": {
           "name": "integration_variant_links_delete_by_service",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "using": "true"
         }
       },
@@ -8851,12 +7932,8 @@
           "name": "taxonomy_categories_parent_id_taxonomy_categories_id_fk",
           "tableFrom": "taxonomy_categories",
           "tableTo": "taxonomy_categories",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -8866,9 +7943,7 @@
         "taxonomy_categories_public_id_unique": {
           "name": "taxonomy_categories_public_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "public_id"
-          ]
+          "columns": ["public_id"]
         }
       },
       "policies": {
@@ -8876,20 +7951,14 @@
           "name": "categories_select_for_authenticated",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "true"
         },
         "categories_modify_system_only": {
           "name": "categories_modify_system_only",
           "as": "RESTRICTIVE",
           "for": "ALL",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "false",
           "withCheck": "false"
         }
@@ -8970,16 +8039,12 @@
         "taxonomy_attributes_friendly_id_unique": {
           "name": "taxonomy_attributes_friendly_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "friendly_id"
-          ]
+          "columns": ["friendly_id"]
         },
         "taxonomy_attributes_public_id_unique": {
           "name": "taxonomy_attributes_public_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "public_id"
-          ]
+          "columns": ["public_id"]
         }
       },
       "policies": {
@@ -8987,10 +8052,7 @@
           "name": "taxonomy_attributes_select_for_authenticated",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "true"
         }
       },
@@ -9104,12 +8166,8 @@
           "name": "taxonomy_values_attribute_id_taxonomy_attributes_id_fk",
           "tableFrom": "taxonomy_values",
           "tableTo": "taxonomy_attributes",
-          "columnsFrom": [
-            "attribute_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["attribute_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -9119,16 +8177,12 @@
         "taxonomy_values_friendly_id_unique": {
           "name": "taxonomy_values_friendly_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "friendly_id"
-          ]
+          "columns": ["friendly_id"]
         },
         "taxonomy_values_public_id_unique": {
           "name": "taxonomy_values_public_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "public_id"
-          ]
+          "columns": ["public_id"]
         }
       },
       "policies": {
@@ -9136,10 +8190,7 @@
           "name": "taxonomy_values_select_for_authenticated",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "true"
         }
       },
@@ -9254,10 +8305,7 @@
           "name": "taxonomy_external_mappings_select_for_authenticated",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated",
-            "service_role"
-          ],
+          "to": ["authenticated", "service_role"],
           "using": "true"
         }
       },
@@ -9269,10 +8317,7 @@
     "public.user_role": {
       "name": "user_role",
       "schema": "public",
-      "values": [
-        "owner",
-        "member"
-      ]
+      "values": ["owner", "member"]
     }
   },
   "schemas": {},

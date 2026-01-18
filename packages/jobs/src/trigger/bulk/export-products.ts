@@ -17,7 +17,7 @@
 import "../configure-trigger";
 import { render } from "@react-email/render";
 import { createClient } from "@supabase/supabase-js";
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, metadata, task } from "@trigger.dev/sdk/v3";
 import { serviceDb as db } from "@v1/db/client";
 import { updateExportJobStatus } from "@v1/db/queries/bulk";
 import {
@@ -72,11 +72,35 @@ export const exportProducts = task({
 
     logger.info("Starting product export", { jobId, brandId });
 
+    const exportStartedAt = new Date().toISOString();
+
+    // Helper to update progress via Trigger.dev metadata (native realtime)
+    const updateProgress = (data: {
+      status: "running" | "completed" | "failed";
+      processed: number;
+      total: number | null;
+      downloadUrl?: string | null;
+      errorMessage?: string | null;
+    }) => {
+      metadata.set("exportProgress", {
+        ...data,
+        startedAt: exportStartedAt,
+        context: { exportJobId: jobId },
+      });
+    };
+
     try {
       // 1. Update job status to PROCESSING
       await updateExportJobStatus(db, {
         jobId,
         status: "PROCESSING",
+      });
+
+      // Initial progress update
+      updateProgress({
+        status: "running",
+        processed: 0,
+        total: null,
       });
 
       // 2. Resolve product IDs based on selection + filters
@@ -108,6 +132,13 @@ export const exportProducts = task({
         totalProducts: productIds.length,
       });
 
+      // Update progress with total
+      updateProgress({
+        status: "running",
+        processed: 0,
+        total: productIds.length,
+      });
+
       if (productIds.length === 0) {
         throw new Error("No products to export");
       }
@@ -126,6 +157,13 @@ export const exportProducts = task({
         await updateExportJobStatus(db, {
           jobId,
           productsProcessed: processed,
+        });
+
+        // Update progress during batch loading
+        updateProgress({
+          status: "running",
+          processed,
+          total: productIds.length,
         });
 
         logger.info("Loaded product batch", {
@@ -195,6 +233,14 @@ export const exportProducts = task({
         },
       });
 
+      // Update progress with completion and download URL
+      updateProgress({
+        status: "completed",
+        processed: allProductData.length,
+        total: allProductData.length,
+        downloadUrl,
+      });
+
       // 8. Send email notification
       logger.info("Sending notification email", { to: userEmail });
 
@@ -243,6 +289,14 @@ export const exportProducts = task({
         summary: {
           error: error instanceof Error ? error.message : String(error),
         },
+      });
+
+      // Update progress with failure
+      updateProgress({
+        status: "failed",
+        processed: 0,
+        total: null,
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
 
       throw error;

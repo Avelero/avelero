@@ -141,6 +141,53 @@ export function extractPath(
 }
 
 // ============================================================================
+// Theme Config Image Resolution
+// ============================================================================
+
+/**
+ * Resolve image paths in themeConfig to full public URLs.
+ *
+ * ThemeConfig stores storage PATHS (not full URLs) for images.
+ * This function converts those paths to full URLs for display.
+ *
+ * This is the client-side equivalent of resolveThemeConfigImageUrls in the API router.
+ * Used during live preview editing where themeConfigDraft contains raw paths.
+ */
+export function resolveThemeConfigImageUrls<T>(themeConfig: T): T {
+  if (!themeConfig || typeof themeConfig !== "object") return themeConfig;
+
+  // Deep clone to avoid mutating the original
+  const resolved = JSON.parse(JSON.stringify(themeConfig)) as T & {
+    branding?: { headerLogoUrl?: string };
+    cta?: { bannerBackgroundImage?: string };
+  };
+
+  // Resolve branding.headerLogoUrl
+  if (resolved.branding?.headerLogoUrl) {
+    // Only resolve if it's a path (not already a full URL)
+    if (!isFullUrl(resolved.branding.headerLogoUrl)) {
+      resolved.branding.headerLogoUrl =
+        buildPublicUrl(BUCKETS.DPP_ASSETS, resolved.branding.headerLogoUrl) ??
+        "";
+    }
+  }
+
+  // Resolve cta.bannerBackgroundImage
+  if (resolved.cta?.bannerBackgroundImage) {
+    // Only resolve if it's a path (not already a full URL)
+    if (!isFullUrl(resolved.cta.bannerBackgroundImage)) {
+      resolved.cta.bannerBackgroundImage =
+        buildPublicUrl(
+          BUCKETS.DPP_ASSETS,
+          resolved.cta.bannerBackgroundImage,
+        ) ?? "";
+    }
+  }
+
+  return resolved;
+}
+
+// ============================================================================
 // Environment Helpers
 // ============================================================================
 

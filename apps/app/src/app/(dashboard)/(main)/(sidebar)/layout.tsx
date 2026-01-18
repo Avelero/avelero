@@ -1,7 +1,8 @@
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { RealtimeWrapper } from "@/providers/realtime-wrapper";
-import { getQueryClient, trpc } from "@/trpc/server";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
+import { connection } from "next/server";
 
 /**
  * Sidebar Layout - Chrome Rendering
@@ -20,6 +21,9 @@ export default async function SidebarLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Signal that this component needs request-time data.
+  await connection();
+
   const queryClient = getQueryClient();
 
   // Fetch data (will use cached result from parent layouts)
@@ -43,15 +47,19 @@ export default async function SidebarLayout({
     workflowInit.myInvites,
   );
 
+  // HydrateClient transfers seeded cache data to Header/Sidebar client components.
+  // Note: children (page content) has its own HydrateClient for page-specific data.
   return (
-    <div className="relative h-full">
-      <Header />
-      <div className="flex flex-row justify-start h-[calc(100%_-_56px)]">
-        <Sidebar />
-        <div className="relative w-[calc(100%_-_56px)] h-full ml-[56px]">
-          <RealtimeWrapper>{children}</RealtimeWrapper>
+    <HydrateClient>
+      <div className="relative h-full">
+        <Header />
+        <div className="flex flex-row justify-start h-[calc(100%_-_56px)]">
+          <Sidebar />
+          <div className="relative w-[calc(100%_-_56px)] h-full ml-[56px]">
+            <RealtimeWrapper>{children}</RealtimeWrapper>
+          </div>
         </div>
       </div>
-    </div>
+    </HydrateClient>
   );
 }

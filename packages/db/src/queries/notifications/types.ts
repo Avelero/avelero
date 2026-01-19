@@ -6,6 +6,7 @@
  * Known notification types
  */
 export type NotificationType =
+  | "import_success"
   | "import_failure"
   | "export_ready"
   | "sync_complete"

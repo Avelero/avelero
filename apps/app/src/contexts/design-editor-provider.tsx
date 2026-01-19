@@ -2,7 +2,7 @@
 
 import { saveThemeAction } from "@/actions/design/save-theme-action";
 import { useTRPC } from "@/trpc/client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   DppData,
   ThemeConfig,
@@ -222,6 +222,7 @@ export function DesignEditorProvider({
 
   // tRPC client for config updates
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const updateConfigMutation = useMutation(
     trpc.brand.theme.update.mutationOptions(),
   );
@@ -331,6 +332,10 @@ export function DesignEditorProvider({
       }
 
       await Promise.all(promises);
+      // Invalidate theme cache so re-entering the editor fetches fresh data
+      await queryClient.invalidateQueries({
+        queryKey: trpc.brand.theme.get.queryKey(),
+      });
       toast.success("Changes saved");
     } catch (error) {
       toast.error(
@@ -346,6 +351,8 @@ export function DesignEditorProvider({
     hasUnsavedStyleChanges,
     hasUnsavedConfigChanges,
     updateConfigMutation,
+    queryClient,
+    trpc,
   ]);
 
   const updateTypographyScale = useCallback(

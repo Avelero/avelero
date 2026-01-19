@@ -30,6 +30,7 @@ import type {
 } from "@v1/db/queries/bulk";
 import { createNotification } from "@v1/db/queries/notifications";
 import * as schema from "@v1/db/schema";
+import { sendNotificationBroadcast } from "@v1/db/utils";
 import { type BrandCatalog, loadBrandCatalog } from "../../lib/catalog-loader";
 import {
   type ParsedProduct,
@@ -500,7 +501,7 @@ export const validateAndStage = task({
           blockedCount,
         });
 
-        // 10b. Create user notification for import failure
+        // 10b. Create user notification for import failure and broadcast for toast
         if (payload.userId) {
           const notificationTitle =
             blockedCount > 0 && warningsCount > 0
@@ -509,7 +510,7 @@ export const validateAndStage = task({
                 ? `${blockedCount} products failed during import`
                 : `${warningsCount} products had warnings during import`;
 
-          await createNotification(db, {
+          const notification = await createNotification(db, {
             userId: payload.userId,
             brandId,
             type: "import_failure",
@@ -527,6 +528,9 @@ export const validateAndStage = task({
             expiresInMs: 24 * 60 * 60 * 1000, // 24 hours
           });
 
+          // Broadcast notification for toast display
+          await sendNotificationBroadcast(db, payload.userId, notification);
+
           logger.info("Created import failure notification", {
             jobId,
             userId: payload.userId,
@@ -541,6 +545,7 @@ export const validateAndStage = task({
         await tasks.trigger("commit-to-production", {
           jobId,
           brandId,
+          userId: payload.userId ?? null,
           userEmail: payload.userEmail ?? null,
           // Pass validation errors flag so commit-to-production can preserve it
           hasValidationErrors: hasErrors,

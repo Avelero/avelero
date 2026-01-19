@@ -24,9 +24,10 @@ import { logger, task } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
 import type { NormalizedRowData, NormalizedVariant } from "@v1/db/queries/bulk";
+import { createNotification } from "@v1/db/queries/notifications";
 import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
 import * as schema from "@v1/db/schema";
-import { sendBulkBroadcast } from "@v1/db/utils";
+import { sendBulkBroadcast, sendNotificationBroadcast } from "@v1/db/utils";
 import {
   downloadAndUploadImage,
   isExternalImageUrl,
@@ -40,6 +41,8 @@ import { revalidateBrand } from "../../lib/dpp-revalidation";
 interface CommitToProductionPayload {
   jobId: string;
   brandId: string;
+  /** User ID who initiated the import (for notifications) */
+  userId?: string | null;
   /** User email for error report notifications (optional) */
   userEmail?: string | null;
   /** Whether validation found errors (to preserve hasExportableFailures) */
@@ -418,6 +421,36 @@ export const commitToProduction = task({
 
       // Note: Error report is triggered in validate-and-stage.ts, not here
       // This ensures the error report includes ALL errors (validation + commit failures)
+
+      // Create success notification and broadcast for toast
+      if (payload.userId && finalStatus === "COMPLETED") {
+        const totalProcessed =
+          totalStats.productsCreated + totalStats.productsUpdated;
+
+        try {
+          const notification = await createNotification(db, {
+            userId: payload.userId,
+            brandId,
+            type: "import_success",
+            title: `Import completed: ${totalProcessed} products processed`,
+            message: `${totalStats.productsCreated} created, ${totalStats.productsUpdated} updated`,
+            resourceType: "import_job",
+            resourceId: jobId,
+            actionUrl: "/products",
+            expiresInMs: 24 * 60 * 60 * 1000, // 24 hours
+          });
+
+          await sendNotificationBroadcast(db, payload.userId, notification);
+        } catch (notificationError) {
+          // Log but don't throw - the import succeeded
+          logger.warn("Failed to send success notification", {
+            error:
+              notificationError instanceof Error
+                ? notificationError.message
+                : "Unknown error",
+          });
+        }
+      }
 
       const duration = Date.now() - startTime;
       logger.info("Commit-to-production completed", {

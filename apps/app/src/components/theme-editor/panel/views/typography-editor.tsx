@@ -1,8 +1,11 @@
 "use client";
 
+import { saveThemeAction } from "@/actions/design/save-theme-action";
 import { CustomFontsModal } from "@/components/modals/custom-fonts-modal";
 import { FontSelect } from "@/components/select/font-select";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
+import { useTRPC } from "@/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 import type { CustomFont, TypographyScale } from "@v1/dpp-components";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -256,6 +259,8 @@ export function TypographyEditor() {
   } = useDesignEditor();
   const [openItem, setOpenItem] = React.useState<string | null>(null);
   const [customFontsModalOpen, setCustomFontsModalOpen] = React.useState(false);
+  const queryClient = useQueryClient();
+  const trpc = useTRPC();
 
   const toggleItem = (key: string) => {
     setOpenItem((prev) => (prev === key ? null : key));
@@ -268,15 +273,29 @@ export function TypographyEditor() {
   // Get custom fonts from theme styles
   const customFonts = themeStylesDraft.customFonts ?? [];
 
-  // Update custom fonts in theme styles
+  // Update custom fonts in theme styles and auto-save to database
   const handleCustomFontsChange = React.useCallback(
-    (fonts: CustomFont[]) => {
-      setThemeStylesDraft({
+    async (fonts: CustomFont[]) => {
+      // Update local state immediately for UI
+      const updatedThemeStyles = {
         ...themeStylesDraft,
         customFonts: fonts,
-      });
+      };
+      setThemeStylesDraft(updatedThemeStyles);
+
+      // Auto-save to database so fonts persist without clicking Save
+      if (brandId) {
+        await saveThemeAction({
+          brandId,
+          themeStyles: updatedThemeStyles,
+        });
+        // Invalidate cache so re-entering the editor shows the fonts
+        await queryClient.invalidateQueries({
+          queryKey: trpc.brand.theme.get.queryKey(),
+        });
+      }
     },
-    [themeStylesDraft, setThemeStylesDraft],
+    [themeStylesDraft, setThemeStylesDraft, brandId, queryClient, trpc],
   );
 
   const handleManageCustomFonts = React.useCallback(() => {

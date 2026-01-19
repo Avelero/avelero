@@ -7,6 +7,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
+import { toast } from "@v1/ui/sonner";
 import { useEffect, useMemo } from "react";
 import { useUserQuerySuspense } from "./use-user";
 
@@ -72,10 +73,43 @@ export function useNotifications() {
     }),
   );
 
-  // Mutations
+  // Mutations with optimistic updates for instant UI feedback
   const markAsSeen = useMutation(
     trpc.notifications.markAsSeen.mutationOptions({
-      onSuccess: () => {
+      onMutate: async ({ id }) => {
+        // Cancel outgoing refetches
+        await queryClient.cancelQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+
+        // Snapshot previous value
+        const previousNotifications = queryClient.getQueryData(
+          trpc.notifications.getRecent.queryKey(),
+        );
+
+        // Optimistically update the cache - mark notification as seen immediately
+        queryClient.setQueryData(
+          trpc.notifications.getRecent.queryKey(),
+          (old: { notifications: Notification[] } | undefined) => ({
+            notifications: (old?.notifications ?? []).map((n) =>
+              n.id === id ? { ...n, seenAt: new Date().toISOString() } : n,
+            ),
+          }),
+        );
+
+        return { previousNotifications };
+      },
+      onError: (_err, _variables, context) => {
+        // Rollback on error
+        if (context?.previousNotifications) {
+          queryClient.setQueryData(
+            trpc.notifications.getRecent.queryKey(),
+            context.previousNotifications,
+          );
+        }
+      },
+      onSettled: () => {
+        // Always refetch after mutation settles to ensure consistency
         queryClient.invalidateQueries({
           queryKey: trpc.notifications.getUnreadCount.queryKey(),
         });
@@ -118,7 +152,18 @@ export function useNotifications() {
 
     const channel = supabase
       .channel(`notifications:${user.id}`, { config: { private: true } })
-      .on("broadcast", { event: "INSERT" }, () => {
+      .on("broadcast", { event: "INSERT" }, (payload) => {
+        // Show toast for import notifications
+        const data = payload.payload as
+          | { type?: string; title?: string }
+          | undefined;
+        if (data?.type === "import_success" && data.title) {
+          toast.success(data.title);
+        } else if (data?.type === "import_failure" && data.title) {
+          toast.error(data.title);
+        }
+
+        // Invalidate queries to update UI
         queryClient.invalidateQueries({
           queryKey: trpc.notifications.getUnreadCount.queryKey(),
         });

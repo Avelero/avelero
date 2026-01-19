@@ -13,7 +13,7 @@ permissions:
 jobs:
   sync:
     name: 🏷️ Sync Taxonomy to Database
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency: taxonomy-sync
     steps:
       - uses: actions/checkout@v4

@@ -25,7 +25,7 @@ jobs:
   # ============================================
   detect-changes:
     name: 🔍 Detect Changes
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       app_changed: ${{ steps.filter.outputs.app }}
       api_changed: ${{ steps.filter.outputs.api }}
@@ -75,7 +75,7 @@ jobs:
     name: 🧪 Lint & Type Check (App)
     needs: detect-changes
     if: needs.detect-changes.outputs.app_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -94,7 +94,7 @@ jobs:
     name: 🧪 Lint & Type Check (API)
     needs: detect-changes
     if: needs.detect-changes.outputs.api_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -113,7 +113,7 @@ jobs:
     name: 🧪 Lint & Type Check (Jobs)
     needs: detect-changes
     if: needs.detect-changes.outputs.jobs_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -132,7 +132,7 @@ jobs:
     name: 🧪 Lint & Type Check (DPP)
     needs: detect-changes
     if: needs.detect-changes.outputs.dpp_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -151,7 +151,7 @@ jobs:
     name: 🧪 Lint & Type Check (Web)
     needs: detect-changes
     if: needs.detect-changes.outputs.web_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -178,7 +178,7 @@ jobs:
        needs.detect-changes.outputs.jobs_changed == 'true' || 
        needs.detect-changes.outputs.integrations_changed == 'true') && 
        github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     # No outputs - each downstream job fetches its own credentials
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -365,7 +365,7 @@ jobs:
     name: 🧪 Integration Tests
     needs: [detect-changes]
     if: needs.detect-changes.outputs.integrations_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
@@ -489,7 +489,7 @@ jobs:
     name: ✅ All Tests Passed
     needs: [test-app, test-api, test-jobs, test-dpp, test-web, test-integrations]
     if: always() && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Check test results
         run: |
@@ -533,7 +533,7 @@ jobs:
       (needs.test-web.result == 'success' || needs.test-web.result == 'skipped') &&
       needs.detect-changes.outputs.web_changed == 'true' &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency:
       group: pr-${{ github.event.number }}-web
       cancel-in-progress: true
@@ -575,7 +575,7 @@ jobs:
       (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
       (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency:
       group: pr-${{ github.event.number }}-app
       cancel-in-progress: true
@@ -646,7 +646,7 @@ jobs:
       needs.deploy-app.result == 'success' &&
       (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency:
       group: pr-${{ github.event.number }}-api
       cancel-in-progress: true
@@ -746,7 +746,7 @@ jobs:
       needs.deploy-app.result == 'success' &&
       needs.setup-database.result == 'success' &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
@@ -874,7 +874,7 @@ jobs:
       (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
       (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency:
       group: pr-${{ github.event.number }}-jobs
       cancel-in-progress: true
@@ -955,7 +955,7 @@ jobs:
       needs.detect-changes.outputs.dpp_changed == 'true' &&
       (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency:
       group: pr-${{ github.event.number }}-dpp
       cancel-in-progress: true
@@ -997,7 +997,7 @@ jobs:
     name: 📝 Post Summary
     needs: [detect-changes, deploy-web, deploy-app, deploy-api, deploy-jobs, deploy-dpp]
     if: always() && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: 💬 Comment Summary
         uses: actions/github-script@v6
@@ -1053,7 +1053,7 @@ jobs:
   cleanup:
     name: 🗑️ Cleanup Previews
     if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}

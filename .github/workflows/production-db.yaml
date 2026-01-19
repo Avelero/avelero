@@ -17,7 +17,7 @@ env:
 jobs:
   migrate:
     name: 🗄️ Apply Migrations to Production
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency: production-db-migrate
     steps:
       - uses: actions/checkout@v4

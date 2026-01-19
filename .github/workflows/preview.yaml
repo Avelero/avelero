@@ -424,11 +424,12 @@ jobs:
           bun run sync
         working-directory: ./packages/taxonomy
 
-      - name: 🧪 Run integration tests
+      - name: 🧪 Run all tests
+        # Runs tests for all packages: db, integrations, jobs, api
+        # Uses turbo with --concurrency=1 (defined in root package.json)
         run: |
           export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           bun run test
-        working-directory: ./packages/integrations
 
       - name: 🛑 Stop Supabase Local
         if: always()

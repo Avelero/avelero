@@ -402,6 +402,18 @@ jobs:
         # Runs full Supabase stack in Docker (Postgres, Auth, Storage, etc.)
         # Migrations are automatically applied from supabase/migrations
         run: |
+          # Create .env with placeholder values for config.toml env() references
+          # Tests don't use auth hooks or OAuth - they use direct DB connections
+          {
+            echo "APP_URL=http://localhost:3000"
+            echo "ADDITIONAL_REDIRECT_URL=http://localhost:3000"
+            echo "SEND_EMAIL_HOOK_URI=http://localhost:54321/functions/v1/send-email"
+            echo "SEND_EMAIL_HOOK_SECRET=test-secret-key-for-ci"
+            echo "GOOGLE_CLIENT_ID=test-google-client-id"
+            echo "GOOGLE_SECRET=test-google-secret"
+            echo "GOOGLE_REDIRECT_URI=http://localhost:54321/auth/v1/callback"
+          } > .env
+
           supabase start
           supabase status
         working-directory: ./apps/api
@@ -420,7 +432,7 @@ jobs:
 
       - name: 🛑 Stop Supabase Local
         if: always()
-        run: supabase stop --no-backup
+        run: supabase stop --no-backup || true
         working-directory: ./apps/api
 
   # ============================================

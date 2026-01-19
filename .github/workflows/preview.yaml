@@ -387,11 +387,6 @@ jobs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.integrations_changed == 'true' && github.event.action != 'closed'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-      # Unique branch name for this test run (deleted after tests complete)
-      TEST_BRANCH_NAME: test-pr-${{ github.event.number }}-${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -403,105 +398,30 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: 🌿 Create Temporary Test Branch
-        id: create-branch
+      - name: 🚀 Start Supabase Local
+        # Runs full Supabase stack in Docker (Postgres, Auth, Storage, etc.)
+        # Migrations are automatically applied from supabase/migrations
         run: |
-          echo "Creating temporary Supabase branch: $TEST_BRANCH_NAME"
-          supabase branches create "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID
-          echo "branch_created=true" >> $GITHUB_OUTPUT
-
-      - name: ⏳ Wait for Test Branch to be Ready
-        run: |
-          echo "Waiting for branch $TEST_BRANCH_NAME to become ACTIVE_HEALTHY..."
-
-          MAX_RETRIES=30
-          RETRY_COUNT=0
-
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            STATUS=$(supabase branches get "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID 2>/dev/null | grep -oE 'ACTIVE_HEALTHY|CREATING_PROJECT|COMING_UP|UNKNOWN' | head -1 || echo "UNKNOWN")
-            echo "Branch status: $STATUS (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES})"
-
-            if [ "$STATUS" = "ACTIVE_HEALTHY" ]; then
-              echo "✅ Test branch is ready!"
-              break
-            fi
-
-            if [ $RETRY_COUNT -ge $((MAX_RETRIES - 1)) ]; then
-              echo "❌ Test branch did not become ready after $((MAX_RETRIES * 10)) seconds"
-              exit 1
-            fi
-
-            sleep 10
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-          done
-
-          # Supabase branches need additional time to fully stabilize
-          # even after reporting ACTIVE_HEALTHY
-          echo "Waiting 30s for branch to fully stabilize..."
-          sleep 30
-
-      - name: 🔗 Fetch Test Branch Credentials
-        run: |
-          supabase branches get "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
-
-          # Add DATABASE_URL with correct port
-          set -a
-          source $GITHUB_WORKSPACE/.env.supabase
-          set +a
-          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
-
-      - name: 🗄️ Sync Database Schema
-        # Apply pending Supabase migrations to the test branch
-        # Test branches are clean clones, so migrations must be applied before taxonomy sync
-        run: |
-          set -a
-          source $GITHUB_WORKSPACE/.env.supabase
-          set +a
-
-          # Create .env file for Supabase CLI's env() function in config.toml
-          {
-            echo "APP_URL=https://temp-placeholder.vercel.app"
-            echo "ADDITIONAL_REDIRECT_URL=https://temp-placeholder.vercel.app"
-            echo "SEND_EMAIL_HOOK_URI=${SUPABASE_URL}/functions/v1/send-email"
-            echo "SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}"
-            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
-            echo "GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}"
-            echo "GOOGLE_REDIRECT_URI=${SUPABASE_URL}/auth/v1/callback"
-          } > .env
-
-          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          supabase db push --db-url "$DATABASE_URL"
-
-          # Clean up .env file after db push
-          rm -f .env
+          supabase start
+          supabase status
         working-directory: ./apps/api
 
       - name: 📚 Sync Taxonomy Data
         run: |
-          set -a
-          source $GITHUB_WORKSPACE/.env.supabase
-          set +a
-          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          export DATABASE_URL
+          export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           bun run sync
         working-directory: ./packages/taxonomy
 
       - name: 🧪 Run integration tests
         run: |
-          set -a
-          source $GITHUB_WORKSPACE/.env.supabase
-          set +a
-          export DATABASE_URL
+          export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           bun run test
         working-directory: ./packages/integrations
 
-      - name: 🗑️ Delete Temporary Test Branch
-        if: always() && steps.create-branch.outputs.branch_created == 'true'
-        run: |
-          echo "Cleaning up temporary test branch: $TEST_BRANCH_NAME"
-          supabase branches delete "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID || true
-          echo "✅ Temporary test branch deleted"
+      - name: 🛑 Stop Supabase Local
+        if: always()
+        run: supabase stop --no-backup
+        working-directory: ./apps/api
 
   # ============================================
   # Gate Job: Reports single status for branch protection

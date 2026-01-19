@@ -408,7 +408,7 @@ jobs:
             echo "APP_URL=http://localhost:3000"
             echo "ADDITIONAL_REDIRECT_URL=http://localhost:3000"
             echo "SEND_EMAIL_HOOK_URI=http://localhost:54321/functions/v1/send-email"
-            echo "SEND_EMAIL_HOOK_SECRET=test-secret-key-for-ci"
+            echo "SEND_EMAIL_HOOK_SECRET=v1,whsec_dGVzdHNlY3JldGtleWZvcmNpdGVzdGluZ2Vudmlyb25tZW50"
             echo "GOOGLE_CLIENT_ID=test-google-client-id"
             echo "GOOGLE_SECRET=test-google-secret"
             echo "GOOGLE_REDIRECT_URI=http://localhost:54321/auth/v1/callback"

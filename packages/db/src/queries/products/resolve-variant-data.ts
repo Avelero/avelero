@@ -11,20 +11,20 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  products,
-  productVariants,
-  productCommercial,
-  productEnvironment,
-  productMaterials,
-  productWeight,
-  productJourneySteps,
-  variantCommercial,
-  variantEnvironment,
-  variantMaterials,
-  variantWeight,
-  variantJourneySteps,
   brandMaterials,
   brandOperators,
+  productCommercial,
+  productEnvironment,
+  productJourneySteps,
+  productMaterials,
+  productVariants,
+  productWeight,
+  products,
+  variantCommercial,
+  variantEnvironment,
+  variantJourneySteps,
+  variantMaterials,
+  variantWeight,
 } from "../../schema";
 
 // =============================================================================

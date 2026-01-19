@@ -1,7 +1,7 @@
 "use client";
 
-import { Icons } from "@v1/ui/icons";
 import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
 
 interface PanelHeaderProps {
   title: string;

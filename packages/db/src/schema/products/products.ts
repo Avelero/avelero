@@ -8,11 +8,11 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brandSeasons } from "../catalog/brand-seasons";
-import { taxonomyCategories } from "../taxonomy/taxonomy-categories";
 import { brandManufacturers } from "../catalog/brand-manufacturers";
+import { brandSeasons } from "../catalog/brand-seasons";
 import { brands } from "../core/brands";
 import { brandIntegrations } from "../integrations/brand-integrations";
+import { taxonomyCategories } from "../taxonomy/taxonomy-categories";
 
 export const products = pgTable(
   "products",

@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { AveleroLogo } from "@v1/ui/avelero-logo";
-import { Button } from "./button";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Button } from "./button";
 
 export function Header() {
   const [scrollProgress, setScrollProgress] = useState(0);

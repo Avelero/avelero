@@ -4,8 +4,8 @@
  * Provides create, update, and delete functions for products.
  */
 
-import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { and, eq } from "drizzle-orm";
 import type { Database } from "../../client";
 import { products } from "../../schema";
 

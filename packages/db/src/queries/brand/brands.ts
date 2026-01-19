@@ -1,10 +1,10 @@
 import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "../../client";
-import { brandMembers, brands, users, brandTheme } from "../../schema";
 import {
   DEFAULT_THEME_CONFIG,
   DEFAULT_THEME_STYLES,
 } from "../../defaults/theme-defaults";
+import { brandMembers, brandTheme, brands, users } from "../../schema";
 
 // Type for database operations that works with both regular db and transactions
 type DatabaseLike = Pick<Database, "select">;

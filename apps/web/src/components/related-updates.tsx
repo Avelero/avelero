@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { getAllUpdates } from "@/lib/updates";
+import Link from "next/link";
 import { UpdateCard } from "./update-card";
 
 interface RelatedUpdatesProps {

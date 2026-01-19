@@ -1,21 +1,21 @@
 "use client";
 
-import { useState } from "react";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { PanelHeader } from "./panel-header";
-import { TypographyEditor } from "./views/typography-editor";
-import { ColorsEditor } from "./views/colors-editor";
-import { StylesSection } from "./views/styles-section";
-import { ContentSection } from "./views/content-section";
-import { StyleContentTabs, type TabType } from "./views/style-content-tabs";
-import { LayoutTree } from "./views/layout-tree";
-import { MenuItemEditor } from "./views/menu-item-editor";
+import type { NavigationSection } from "@/contexts/design-editor-provider";
+import { useState } from "react";
 import {
   findComponentById,
-  hasEditableContent,
   hasConfigContent,
+  hasEditableContent,
 } from "../registry";
-import type { NavigationSection } from "@/contexts/design-editor-provider";
+import { PanelHeader } from "./panel-header";
+import { ColorsEditor } from "./views/colors-editor";
+import { ContentSection } from "./views/content-section";
+import { LayoutTree } from "./views/layout-tree";
+import { MenuItemEditor } from "./views/menu-item-editor";
+import { StyleContentTabs, type TabType } from "./views/style-content-tabs";
+import { StylesSection } from "./views/styles-section";
+import { TypographyEditor } from "./views/typography-editor";
 
 // Get display title for navigation state
 function getNavigationTitle(

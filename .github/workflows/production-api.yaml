@@ -18,7 +18,7 @@ env:
 jobs:
   deploy:
     name: 🚀 Deploy to Production
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency: production-api
     steps:
       - uses: actions/checkout@v4

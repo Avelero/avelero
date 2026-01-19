@@ -1,7 +1,10 @@
 "use client";
 
+import { useNotificationsSuspense } from "@/hooks/use-notifications";
+import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -14,17 +17,8 @@ import {
 } from "@v1/ui/dialog";
 import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
-import { createClient } from "@v1/supabase/client";
 import { useRouter } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { useUserQuerySuspense } from "@/hooks/use-user";
-import { useNotificationsSuspense } from "@/hooks/use-notifications";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // ============================================================================
 // Types & Constants

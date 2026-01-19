@@ -32,8 +32,8 @@ import {
   batchUpsertVariantLinks,
 } from "@v1/db/queries/integrations";
 import { batchCreatePassportsForVariants } from "@v1/db/queries/products";
-import { productPassports, productVariants, products } from "@v1/db/schema";
 import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
+import { productPassports, productVariants, products } from "@v1/db/schema";
 import { sendBulkBroadcast, slugifyProductName } from "@v1/db/utils";
 import {
   downloadAndUploadImage,

@@ -8,21 +8,21 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../../client";
 import {
-  brandAttributes,
   brandAttributeValues,
-  brandOperators,
+  brandAttributes,
   brandMaterials,
+  brandOperators,
   brandSeasons,
   brandTags,
-  taxonomyCategories,
   productEnvironment,
   productJourneySteps,
   productMaterials,
+  productTags,
   productVariantAttributes,
   productVariants,
-  products,
-  productTags,
   productWeight,
+  products,
+  taxonomyCategories,
   // Variant override tables
   variantEnvironment,
   variantJourneySteps,

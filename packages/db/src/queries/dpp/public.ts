@@ -16,10 +16,10 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  productPassports,
-  productPassportVersions,
   brandTheme,
   brands,
+  productPassportVersions,
+  productPassports,
 } from "../../schema";
 import type { DppSnapshot } from "../products/dpp-versions";
 

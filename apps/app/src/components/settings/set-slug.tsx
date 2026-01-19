@@ -1,7 +1,7 @@
 "use client";
 
-import { useDebounce } from "@/hooks/use-debounce";
 import { useBrandUpdateMutation, useUserBrandsQuery } from "@/hooks/use-brand";
+import { useDebounce } from "@/hooks/use-debounce";
 import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";

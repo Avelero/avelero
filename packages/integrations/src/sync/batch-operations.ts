@@ -7,27 +7,27 @@
 
 import type { Database } from "@v1/db/client";
 import {
-  batchCreateTags,
-  batchCreateBrandAttributes,
   batchCreateBrandAttributeValues,
+  batchCreateBrandAttributes,
+  batchCreateTags,
   ensureBrandAttributeForTaxonomy,
 } from "@v1/db/queries/catalog";
 import {
   getTaxonomyAttributeByFriendlyId,
   listTaxonomyValuesByAttribute,
 } from "@v1/db/queries/taxonomy";
-import type { FetchedProductBatch } from "../types";
 import { parseSelectedOptions } from "../connectors/shopify/schema";
-import type { EffectiveFieldMapping } from "./processor";
-import { extractValues } from "./processor";
+import type { FetchedProductBatch } from "../types";
 import type { SyncCaches } from "./caches";
 import {
-  bulkCacheTags,
-  bulkCacheAttributes,
   bulkCacheAttributeValues,
+  bulkCacheAttributes,
+  bulkCacheTags,
   getCachedAttributeId,
   getCachedAttributeValueId,
 } from "./caches";
+import type { EffectiveFieldMapping } from "./processor";
+import { extractValues } from "./processor";
 
 // =============================================================================
 // TYPES

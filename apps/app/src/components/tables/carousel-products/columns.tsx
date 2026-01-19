@@ -1,10 +1,10 @@
 "use client";
 
+import { buildPublicUrl } from "@/utils/storage-urls";
 import type { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@v1/ui/cn";
 import Image from "next/image";
 import type { CarouselProductRow } from "./types";
-import { buildPublicUrl } from "@/utils/storage-urls";
 
 const CELL_PADDING_X = "px-4";
 const CELL_HEIGHT = "h-14";

@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import { PreviewThemeInjector } from "./preview-theme-injector";
-import { ContentFrame, Header, Footer } from "@v1/dpp-components";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { SaveBar } from "./save-bar";
 import { useSelectableDetection } from "@/hooks/use-selectable-detection";
 import { resolveThemeConfigImageUrls } from "@/utils/storage-urls";
+import { ContentFrame, Footer, Header } from "@v1/dpp-components";
+import { useMemo, useRef } from "react";
+import { PreviewThemeInjector } from "./preview-theme-injector";
+import { SaveBar } from "./save-bar";
 
 export function DesignPreview() {
   const { previewData, themeConfigDraft, themeStylesDraft } = useDesignEditor();

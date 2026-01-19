@@ -5,10 +5,10 @@
  */
 
 import { and, asc, count, eq } from "drizzle-orm";
-import type { Database } from "../../../client";
-import { importRows } from "../../../schema";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
+import type { Database } from "../../../client";
+import { importRows } from "../../../schema";
 import type {
   CreateImportRowParams,
   FailedRowExport,
@@ -242,7 +242,7 @@ export async function getImportRowStatusCounts(
 // New Architecture: Normalized JSONB functions
 // ============================================================================
 
-import { sql, inArray } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import type { NormalizedRowData, RowStatus } from "./normalized-types";
 
 /**

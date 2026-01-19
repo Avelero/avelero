@@ -11,8 +11,6 @@ import type { Database } from "@v1/db/client";
  * - brand.themePreview.list - List products sorted by updatedAt for navigation
  */
 import { and, asc, desc, eq, sql } from "@v1/db/queries";
-import type { DppData } from "@v1/dpp-components";
-import { countries, type CountryCode } from "@v1/selections";
 import {
   brandCertifications,
   brandManufacturers,
@@ -25,6 +23,8 @@ import {
   products,
   taxonomyCategories,
 } from "@v1/db/schema";
+import type { DppData } from "@v1/dpp-components";
+import { type CountryCode, countries } from "@v1/selections";
 import { getPublicUrl } from "@v1/supabase/storage";
 import { z } from "zod";
 import { wrapError } from "../../../utils/errors.js";

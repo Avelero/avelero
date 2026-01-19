@@ -10,27 +10,27 @@
  * - DATA-002: Product source tracked correctly
  */
 
-import { describe, it, expect, beforeEach } from "bun:test";
-import { eq } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "bun:test";
 import {
-  products,
-  productVariants,
   integrationVariantLinks,
+  productVariants,
+  products,
 } from "@v1/db/schema";
-import { syncProducts } from "../../../src/sync/engine";
 import {
-  testDb,
+  createDefaultFieldConfigs,
   createTestBrand,
   createTestBrandIntegration,
-  createDefaultFieldConfigs,
+  testDb,
 } from "@v1/db/testing";
 import { createTestSyncContext } from "@v1/db/testing";
 import {
-  setMockProducts,
   clearMockProducts,
   createMockProduct,
   createMockVariant,
+  setMockProducts,
 } from "@v1/testing/mocks/shopify";
+import { eq } from "drizzle-orm";
+import { syncProducts } from "../../../src/sync/engine";
 
 // =============================================================================
 // HELPER FUNCTIONS

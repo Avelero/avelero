@@ -6,16 +6,16 @@
  * of the working layer.
  */
 
-import { and, eq, inArray } from "drizzle-orm";
 import { createHash } from "node:crypto";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
-import { products, productVariants } from "../../schema";
-import { getOrCreatePassport, updatePassportCurrentVersion } from "./passports";
+import { productVariants, products } from "../../schema";
 import {
+  type DppSnapshot,
   createDppVersion,
   getLatestVersion,
-  type DppSnapshot,
 } from "./dpp-versions";
+import { getOrCreatePassport, updatePassportCurrentVersion } from "./passports";
 import { generateDppSnapshot } from "./snapshot";
 
 // =============================================================================

@@ -1,19 +1,19 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import {
-  CarouselProductsDataTable,
-  CarouselTableSkeleton,
-  type CarouselSelectionState,
-  type CarouselProductRow,
-} from "@/components/tables/carousel-products";
-import { QuickFiltersPopover } from "@/components/select/filter-select";
-import { SortPopover } from "@/components/select/sort-select";
-import { useFilterState } from "@/hooks/use-filter-state";
 import type {
   FilterActions,
   FilterState,
 } from "@/components/passports/filter-types";
+import { QuickFiltersPopover } from "@/components/select/filter-select";
+import { SortPopover } from "@/components/select/sort-select";
+import {
+  type CarouselProductRow,
+  CarouselProductsDataTable,
+  type CarouselSelectionState,
+  CarouselTableSkeleton,
+} from "@/components/tables/carousel-products";
+import { useFilterState } from "@/hooks/use-filter-state";
+import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";

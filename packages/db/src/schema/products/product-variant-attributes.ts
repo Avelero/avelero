@@ -8,8 +8,8 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { productVariants } from "./product-variants";
 import { brandAttributeValues } from "../catalog/brand-attribute-values";
+import { productVariants } from "./product-variants";
 
 export const productVariantAttributes = pgTable(
   "product_variant_attributes",

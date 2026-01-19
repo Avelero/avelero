@@ -1,3 +1,14 @@
+import { demoThemeConfig } from "@/demo-data/config";
+import { fetchPassportDpp } from "@/lib/api";
+import { isValidUpid } from "@/lib/validation";
+import {
+  ContentFrame,
+  Footer,
+  Header,
+  type ThemeConfig,
+  type ThemeStyles,
+  generateFontFaceCSS,
+} from "@v1/dpp-components";
 /**
  * Passport DPP Route - UPID-based URL structure.
  * URL: /{upid}
@@ -8,17 +19,6 @@
  */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { demoThemeConfig } from "@/demo-data/config";
-import { isValidUpid } from "@/lib/validation";
-import { fetchPassportDpp } from "@/lib/api";
-import {
-  Header,
-  ContentFrame,
-  Footer,
-  generateFontFaceCSS,
-  type ThemeConfig,
-  type ThemeStyles,
-} from "@v1/dpp-components";
 
 interface PageProps {
   params: Promise<{

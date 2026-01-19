@@ -1,7 +1,7 @@
+import { ThemeEditorPage } from "@/components/theme-editor";
+import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { HydrateClient, prefetch, trpc } from "@/trpc/server";
-import { ThemeEditorPage } from "@/components/theme-editor";
 import "@v1/dpp-components/globals.css";
 
 export const metadata: Metadata = {

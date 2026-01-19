@@ -15,32 +15,32 @@
  * - S-STRUCT-003: Secondary cannot modify attribute assignments
  */
 
-import { describe, it, expect, beforeEach } from "bun:test";
-import { eq } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "bun:test";
 import {
-  products,
-  productVariants,
-  productVariantAttributes,
-  brandAttributes,
   brandAttributeValues,
+  brandAttributes,
   integrationProductLinks,
   integrationVariantLinks,
   productCommercial,
+  productVariantAttributes,
+  productVariants,
+  products,
 } from "@v1/db/schema";
-import { syncProducts } from "../../../src/sync/engine";
 import {
-  testDb,
+  createDefaultFieldConfigs,
   createTestBrand,
   createTestBrandIntegration,
-  createDefaultFieldConfigs,
+  testDb,
 } from "@v1/db/testing";
 import { createTestSyncContext } from "@v1/db/testing";
 import {
-  setMockProducts,
   clearMockProducts,
   createMockProduct,
   createMockVariant,
+  setMockProducts,
 } from "@v1/testing/mocks/shopify";
+import { eq } from "drizzle-orm";
+import { syncProducts } from "../../../src/sync/engine";
 
 // =============================================================================
 // HELPER FUNCTIONS

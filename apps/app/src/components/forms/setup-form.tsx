@@ -1,17 +1,17 @@
 "use client";
 
 import { AvatarUpload } from "@/components/avatar-upload";
-import { Skeleton } from "@v1/ui/skeleton";
 import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { SmartAvatar } from "@v1/ui/avatar";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
-import { useRouter, usePathname } from "next/navigation";
+import { Skeleton } from "@v1/ui/skeleton";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { SmartAvatar } from "@v1/ui/avatar";
 
 const schema = z.object({
   full_name: z.string().min(2, "Please enter your full name"),

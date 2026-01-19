@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
-import { getAllUpdates } from "@/lib/updates";
-import { UpdateCard } from "@/components/update-card";
 import { Headline } from "@/components/headline";
+import { UpdateCard } from "@/components/update-card";
+import { getAllUpdates } from "@/lib/updates";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Updates",

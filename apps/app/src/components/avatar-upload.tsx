@@ -3,13 +3,13 @@
 import { useBrandUpdateMutation } from "@/hooks/use-brand";
 import { useImageUpload } from "@/hooks/use-upload";
 import { useUserMutation } from "@/hooks/use-user";
+import { getAvatarColor } from "@/utils/avatar-color";
+import { removeFolderContents, validateImageFile } from "@/utils/upload";
 import { createClient } from "@v1/supabase/client";
 import { SmartAvatar as Avatar } from "@v1/ui/avatar";
 import { cn } from "@v1/ui/cn";
 import { toast } from "@v1/ui/sonner";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
-import { removeFolderContents, validateImageFile } from "@/utils/upload";
-import { getAvatarColor } from "@/utils/avatar-color";
 
 type Entity = "user" | "brand";
 

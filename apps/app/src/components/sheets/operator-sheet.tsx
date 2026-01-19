@@ -1,15 +1,15 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import {
+  type ValidationErrors,
+  type ValidationSchema,
   getFirstInvalidField,
   isFormValid,
   rules,
-  type ValidationErrors,
-  type ValidationSchema,
   validateForm,
 } from "@/hooks/use-form-validation";
+import { useTRPC } from "@/trpc/client";
 import { formatPhone } from "@/utils/validation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";

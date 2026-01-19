@@ -1,15 +1,15 @@
 "use server";
 
-import React from "react";
-import { contactFormRateLimit } from "../lib/ratelimit";
-import { getResend } from "../lib/resend";
-import { render } from "@v1/email/render";
 import ContactConfirmation from "@v1/email/emails/contact-confirmation";
 import ContactNotification from "@v1/email/emails/contact-notification";
-import { getLeadsTable } from "../lib/airtable";
-import { headers } from "next/headers";
-import validator from "validator";
+import { render } from "@v1/email/render";
 import * as CompanyEmailValidator from "company-email-validator";
+import { headers } from "next/headers";
+import React from "react";
+import validator from "validator";
+import { getLeadsTable } from "../lib/airtable";
+import { contactFormRateLimit } from "../lib/ratelimit";
+import { getResend } from "../lib/resend";
 
 interface ContactFormData {
   email: string;

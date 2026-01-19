@@ -8,18 +8,18 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "../../../client";
 import {
-  integrationMaterialLinks,
-  integrationOperatorLinks,
-  integrationManufacturerLinks,
-  integrationSeasonLinks,
-  integrationTagLinks,
-  integrationCertificationLinks,
+  brandCertifications,
+  brandManufacturers,
   brandMaterials,
   brandOperators,
-  brandManufacturers,
   brandSeasons,
   brandTags,
-  brandCertifications,
+  integrationCertificationLinks,
+  integrationManufacturerLinks,
+  integrationMaterialLinks,
+  integrationOperatorLinks,
+  integrationSeasonLinks,
+  integrationTagLinks,
 } from "../../../schema";
 
 // Material Links

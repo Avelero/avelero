@@ -13,12 +13,12 @@
  */
 
 import {
+  deleteNotification,
   dismissNotification,
   getRecentNotifications,
   getUnreadNotificationCount,
   markAllNotificationsAsSeen,
   markNotificationAsSeen,
-  deleteNotification,
 } from "@v1/db/queries/notifications";
 import { logger } from "@v1/logger";
 import {

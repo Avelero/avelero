@@ -1,8 +1,8 @@
 "use client";
 
 import { Input } from "@v1/ui/input";
-import { FieldWrapper } from "./field-wrapper";
 import type { ContentField } from "../../registry/types";
+import { FieldWrapper } from "./field-wrapper";
 
 interface UrlInputProps {
   field: ContentField;

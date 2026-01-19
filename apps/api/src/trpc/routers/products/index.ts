@@ -12,20 +12,20 @@ import { and, eq, inArray } from "@v1/db/queries";
 import {
   bulkDeleteProductsByFilter,
   bulkDeleteProductsByIds,
+  bulkPublishProducts,
   bulkUpdateProductsByFilter,
   bulkUpdateProductsByIds,
   createProduct,
   deleteProduct,
   getProductWithIncludes,
   listProductsWithIncludes,
+  publishProduct,
   setProductJourneySteps,
   setProductTags,
   updateProduct,
   upsertProductEnvironment,
   upsertProductMaterials,
   upsertProductWeight,
-  publishProduct,
-  bulkPublishProducts,
 } from "@v1/db/queries/products";
 import { productVariants, products } from "@v1/db/schema";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
@@ -305,7 +305,10 @@ export const productsRouter = createTRPCRouter({
               );
             }
           } catch (err) {
-            console.error("Publish threw an exception after status change:", err);
+            console.error(
+              "Publish threw an exception after status change:",
+              err,
+            );
           }
         }
 

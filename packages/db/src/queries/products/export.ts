@@ -11,22 +11,22 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  brandAttributes,
   brandAttributeValues,
-  brandOperators,
+  brandAttributes,
   brandManufacturers,
   brandMaterials,
+  brandOperators,
   brandSeasons,
   brandTags,
-  taxonomyCategories,
   productEnvironment,
   productJourneySteps,
   productMaterials,
   productTags,
   productVariantAttributes,
   productVariants,
-  products,
   productWeight,
+  products,
+  taxonomyCategories,
   // Variant override tables
   variantEnvironment,
   variantJourneySteps,
@@ -246,9 +246,9 @@ async function loadEnvironmentForProducts(
   for (const row of rows) {
     const env = map.get(row.productId) ?? { carbonKg: null, waterLiters: null };
     if (row.metric === "carbon_kg_co2e" && row.value) {
-      env.carbonKg = parseFloat(row.value);
+      env.carbonKg = Number.parseFloat(row.value);
     } else if (row.metric === "water_liters" && row.value) {
-      env.waterLiters = parseFloat(row.value);
+      env.waterLiters = Number.parseFloat(row.value);
     }
     map.set(row.productId, env);
   }
@@ -274,7 +274,7 @@ async function loadWeightForProducts(
   for (const row of rows) {
     if (row.weight) {
       // Convert to grams if needed
-      let grams = parseFloat(row.weight);
+      let grams = Number.parseFloat(row.weight);
       if (row.weightUnit === "kg") {
         grams *= 1000;
       }
@@ -313,7 +313,7 @@ async function loadMaterialsForProducts(
     if (row.materialName) {
       materials.push({
         name: row.materialName,
-        percentage: row.percentage ? parseFloat(row.percentage) : null,
+        percentage: row.percentage ? Number.parseFloat(row.percentage) : null,
       });
     }
     map.set(row.productId, materials);
@@ -506,8 +506,8 @@ async function loadEnvOverridesForVariants(
 
   for (const row of rows) {
     map.set(row.variantId, {
-      carbonKg: row.carbonKgCo2e ? parseFloat(row.carbonKgCo2e) : null,
-      waterLiters: row.waterLiters ? parseFloat(row.waterLiters) : null,
+      carbonKg: row.carbonKgCo2e ? Number.parseFloat(row.carbonKgCo2e) : null,
+      waterLiters: row.waterLiters ? Number.parseFloat(row.waterLiters) : null,
     });
   }
 
@@ -531,7 +531,7 @@ async function loadWeightOverridesForVariants(
 
   for (const row of rows) {
     if (row.weight) {
-      let grams = parseFloat(row.weight);
+      let grams = Number.parseFloat(row.weight);
       if (row.weightUnit === "kg") {
         grams *= 1000;
       }
@@ -570,7 +570,7 @@ async function loadMaterialsOverridesForVariants(
     if (row.materialName) {
       materials.push({
         name: row.materialName,
-        percentage: row.percentage ? parseFloat(row.percentage) : null,
+        percentage: row.percentage ? Number.parseFloat(row.percentage) : null,
       });
     }
     map.set(row.variantId, materials);

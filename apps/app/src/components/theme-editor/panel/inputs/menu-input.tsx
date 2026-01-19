@@ -1,5 +1,7 @@
 "use client";
 
+import { scrapeUrlTitle } from "@/actions/design/scrape-url-title";
+import { useDesignEditor } from "@/contexts/design-editor-provider";
 import {
   DndContext,
   type DragEndEvent,
@@ -16,8 +18,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { scrapeUrlTitle } from "@/actions/design/scrape-url-title";
 import { Icons } from "@v1/ui/icons";
 import * as React from "react";
 import { createPortal } from "react-dom";

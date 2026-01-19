@@ -2,8 +2,8 @@ import { sql } from "drizzle-orm";
 import { pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
-import { brandAttributes } from "./brand-attributes";
 import { taxonomyValues } from "../taxonomy/taxonomy-values";
+import { brandAttributes } from "./brand-attributes";
 
 export const brandAttributeValues = pgTable(
   "brand_attribute_values",

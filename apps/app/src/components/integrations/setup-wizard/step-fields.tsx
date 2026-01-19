@@ -1,17 +1,17 @@
 "use client";
 
 import {
-  FieldSection,
-  type FieldRowData,
-} from "@/components/integrations/field-section";
-import {
   FIELD_GROUP_LABELS,
   FIELD_GROUP_ORDER,
+  type FieldGroup,
   HIDDEN_FIELDS,
   getFieldGroup,
   getFieldUIInfo,
-  type FieldGroup,
 } from "@/components/integrations/field-config";
+import {
+  type FieldRowData,
+  FieldSection,
+} from "@/components/integrations/field-section";
 import { getConnectorFields } from "@v1/integrations";
 import { Button } from "@v1/ui/button";
 import { useMemo, useState } from "react";

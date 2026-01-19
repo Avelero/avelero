@@ -1,12 +1,20 @@
 "use client";
 
 import { RELATIVE_DATE_OPTIONS } from "@/config/filters";
+import { type SizeOption, useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { useFieldOptions } from "@/hooks/use-filter-options";
-import { useBrandCatalog, type SizeOption } from "@/hooks/use-brand-catalog";
 import { sizeGroups } from "@v1/selections";
 import { BooleanToggle } from "@v1/ui/boolean";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
 import { DatePicker } from "@v1/ui/date-picker";
 import {
   DropdownMenu,
@@ -28,14 +36,6 @@ import {
   SelectSearch,
   SelectTrigger,
 } from "@v1/ui/select";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@v1/ui/command";
 import { format } from "date-fns";
 import * as React from "react";
 import type {

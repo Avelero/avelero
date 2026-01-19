@@ -9,9 +9,9 @@
  * All variant creation code paths MUST use this function to prevent UPID collisions.
  */
 
-import { inArray, eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
-import { productVariants, productPassports } from "../../schema";
+import { productPassports, productVariants } from "../../schema";
 import { generateUniqueUpids as generateUpidsBase } from "../../utils/upid";
 
 /**

@@ -1,17 +1,18 @@
 "use client";
 
 import { getQuickFilterFields } from "@/config/filters";
-import { useFieldOptions } from "@/hooks/use-filter-options";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { useFieldOptions } from "@/hooks/use-filter-options";
+import { useTRPC } from "@/trpc/client";
 import {
   convertQuickFiltersToFilterState,
   extractQuickFiltersFromFilterState,
   hasAdvancedFilters,
   hasQuickFilters,
 } from "@/utils/filter-converter";
-import { useTRPC } from "@/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
 import {
   Command,
   CommandEmpty,
@@ -33,7 +34,6 @@ import {
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
-import { cn } from "@v1/ui/cn";
 import { format } from "date-fns";
 import * as React from "react";
 import { useHotkeys } from "react-hotkeys-hook";

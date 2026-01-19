@@ -1,9 +1,9 @@
 "use client";
 
+import { buildPublicUrl } from "@/utils/storage-urls";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import { Icons } from "@v1/ui/icons";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
+import { Icons } from "@v1/ui/icons";
 import {
   Tooltip,
   TooltipContent,
@@ -23,7 +24,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { PassportTableRow } from "./types";
-import { buildPublicUrl } from "@/utils/storage-urls";
 
 const MAX_COLUMN_WIDTH = 320;
 const CELL_PADDING_X = "px-4";

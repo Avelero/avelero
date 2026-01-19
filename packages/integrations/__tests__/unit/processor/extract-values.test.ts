@@ -7,10 +7,10 @@
 
 import { describe, expect, test } from "bun:test";
 import {
-  getValueByPath,
-  extractValues,
-  buildEffectiveFieldMappings,
   type EffectiveFieldMapping,
+  buildEffectiveFieldMappings,
+  extractValues,
+  getValueByPath,
 } from "../../../src/sync/processor";
 import type { ConnectorSchema, FieldConfig } from "../../../src/types";
 

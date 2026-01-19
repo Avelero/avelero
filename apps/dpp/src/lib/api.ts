@@ -1,3 +1,4 @@
+import type { ThemeConfig, ThemeStyles } from "@v1/dpp-components";
 /**
  * API client for DPP app.
  *
@@ -6,7 +7,6 @@
  */
 import superjson from "superjson";
 import type { SuperJSONResult } from "superjson";
-import type { ThemeConfig, ThemeStyles } from "@v1/dpp-components";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration

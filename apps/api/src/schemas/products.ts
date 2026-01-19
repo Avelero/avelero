@@ -509,9 +509,7 @@ export const productVariantsCreateSchema = z.object({
   barcode: z.string().max(100).optional(),
 });
 
-type ProductVariantsCreateInput = z.infer<
-  typeof productVariantsCreateSchema
->;
+type ProductVariantsCreateInput = z.infer<typeof productVariantsCreateSchema>;
 
 /**
  * Input payload for `products.list` in the reorganized API.
@@ -564,9 +562,7 @@ export const productsDomainCreateSchema = createProductSchema.extend({
   brand_id: uuidSchema,
 });
 
-type ProductsDomainCreateInput = z.infer<
-  typeof productsDomainCreateSchema
->;
+type ProductsDomainCreateInput = z.infer<typeof productsDomainCreateSchema>;
 
 /**
  * Input payload for `products.update`.
@@ -580,9 +576,7 @@ export const productsDomainUpdateSchema = updateProductSchema.extend({
   brand_id: uuidSchema.optional(),
 });
 
-type ProductsDomainUpdateInput = z.infer<
-  typeof productsDomainUpdateSchema
->;
+type ProductsDomainUpdateInput = z.infer<typeof productsDomainUpdateSchema>;
 
 /**
  * Input payload for `products.delete`.
@@ -593,9 +587,7 @@ export const productsDomainDeleteSchema = deleteProductSchema.extend({
   brand_id: uuidSchema.optional(),
 });
 
-type ProductsDomainDeleteInput = z.infer<
-  typeof productsDomainDeleteSchema
->;
+type ProductsDomainDeleteInput = z.infer<typeof productsDomainDeleteSchema>;
 
 /**
  * Input payload for bulk product deletion.
@@ -609,16 +601,12 @@ type BulkDeleteProductsInput = z.infer<typeof bulkDeleteProductsSchema>;
  * - explicit: Provide complete variant definitions with attribute assignments
  * - matrix: Provide dimensions for cartesian product generation
  */
-type ProductVariantsUpsertInput = z.infer<
-  typeof productVariantsUpsertSchema
->;
+type ProductVariantsUpsertInput = z.infer<typeof productVariantsUpsertSchema>;
 
 /**
  * Input payload for `products.variants.delete`.
  */
-type ProductVariantsDeleteInput = z.infer<
-  typeof productVariantsDeleteSchema
->;
+type ProductVariantsDeleteInput = z.infer<typeof productVariantsDeleteSchema>;
 
 // ============================================================================
 // Unified Schemas (API Redesign)

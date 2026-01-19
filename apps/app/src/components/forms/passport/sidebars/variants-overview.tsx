@@ -13,15 +13,15 @@
  * - Hovering prefetches variant data for fast navigation
  */
 
+import {
+  VariantDeletionModal,
+  type VariantToDelete,
+} from "@/components/modals/variant-deletion-modal";
 import { useTRPC } from "@/trpc/client";
 import { BUCKETS } from "@/utils/storage-config";
 import { normalizeToDisplayUrl } from "@/utils/storage-urls";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@v1/ui/cn";
-import {
-  VariantDeletionModal,
-  type VariantToDelete,
-} from "@/components/modals/variant-deletion-modal";
 import {
   DropdownMenu,
   DropdownMenuContent,

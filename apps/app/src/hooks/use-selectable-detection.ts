@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useEffect } from "react";
-import { useDesignEditor } from "@/contexts/design-editor-provider";
 import {
   findComponentById,
   hasEditableContent,
 } from "@/components/theme-editor/registry";
+import { useDesignEditor } from "@/contexts/design-editor-provider";
+import { useCallback, useEffect, useRef } from "react";
 
 /** Debounce delay in ms - hover shows after cursor has been on an item for this duration */
 const HOVER_DEBOUNCE_MS = 20;

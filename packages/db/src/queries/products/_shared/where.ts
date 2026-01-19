@@ -5,13 +5,13 @@
  * filter state conversion, search, and exclusion logic.
  */
 
-import { eq, and, type SQL } from "drizzle-orm";
+import { type SQL, and, eq } from "drizzle-orm";
 import type { Database } from "../../../client";
 import { products } from "../../../schema";
 import { convertFilterStateToWhereClauses } from "../../../utils/filter-converter.js";
+import { safeNotInArray } from "../../_shared/selection.js";
 import type { ListFilters } from "../types.js";
 import { buildProductSearchClause } from "./search";
-import { safeNotInArray } from "../../_shared/selection.js";
 
 /**
  * Builds base WHERE clauses for product queries.

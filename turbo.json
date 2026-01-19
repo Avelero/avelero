@@ -31,13 +31,6 @@
       "cache": false
     },
     "test": {
-      "cache": false
-    },
-    "test:unit": {
-      "cache": true,
-      "dependsOn": ["^topo"]
-    },
-    "test:integration": {
       "cache": false,
       "env": ["DATABASE_URL"]
     },

@@ -1,5 +1,5 @@
-import { Skeleton } from "@v1/ui/skeleton";
 import { Button } from "@v1/ui/button";
+import { Skeleton } from "@v1/ui/skeleton";
 import Link from "next/link";
 
 export function BrandsSkeleton() {

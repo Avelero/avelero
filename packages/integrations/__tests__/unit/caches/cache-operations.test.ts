@@ -5,23 +5,23 @@
  * These are in-memory Map operations for efficient sync lookups.
  */
 
-import { describe, expect, test, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import {
-  type SyncCaches,
-  type CachedTag,
-  type CachedProduct,
   type CachedAttribute,
-  cacheTag,
-  getCachedTag,
+  type CachedProduct,
+  type CachedTag,
+  type SyncCaches,
+  bulkCacheAttributeValues,
+  bulkCacheAttributes,
   bulkCacheTags,
   cacheProduct,
-  getCachedProduct,
-  markProductUpdated,
-  isProductUpdated,
+  cacheTag,
   getCachedAttributeId,
   getCachedAttributeValueId,
-  bulkCacheAttributes,
-  bulkCacheAttributeValues,
+  getCachedProduct,
+  getCachedTag,
+  isProductUpdated,
+  markProductUpdated,
 } from "../../../src/sync/caches";
 
 // =============================================================================

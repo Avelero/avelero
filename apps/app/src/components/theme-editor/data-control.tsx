@@ -146,12 +146,7 @@ function DataSourceToggle({ value, onChange, loading }: DataSourceToggleProps) {
         onClick={() => onChange("mock")}
         className="relative z-10 flex h-6 items-center justify-center rounded-full px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
-        <p
-          className={cn(
-            "type-small !leading-[24px]",
-            "text-foreground",
-          )}
-        >
+        <p className={cn("type-small !leading-[24px]", "text-foreground")}>
           Mock
         </p>
       </button>

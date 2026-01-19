@@ -5,8 +5,8 @@
  * Each publish action creates a new version; versions are NEVER updated or deleted.
  */
 
-import { desc, eq, max } from "drizzle-orm";
 import { createHash } from "node:crypto";
+import { desc, eq, max } from "drizzle-orm";
 import type { Database } from "../../client";
 import { productPassportVersions } from "../../schema";
 
@@ -135,7 +135,7 @@ export async function createDppVersion(
   db: Database,
   passportId: string,
   dataSnapshot: DppSnapshot,
-  schemaVersion: string = "1.0",
+  schemaVersion = "1.0",
 ) {
   // Get the next version number for this passport
   const [result] = await db

@@ -2,9 +2,9 @@
 
 import { cn } from "@v1/ui/cn";
 import { LordIcon, type LottieRefCurrentProps } from "@v1/ui/lord-icon";
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRef } from "react";
-import type { LucideIcon } from "lucide-react";
 
 interface ItemData {
   path?: string;

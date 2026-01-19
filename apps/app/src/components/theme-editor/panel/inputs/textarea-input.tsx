@@ -1,7 +1,7 @@
 "use client";
 
-import { FieldWrapper } from "./field-wrapper";
 import type { ContentField } from "../../registry/types";
+import { FieldWrapper } from "./field-wrapper";
 
 interface TextareaInputProps {
   field: ContentField;

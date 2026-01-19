@@ -5,36 +5,36 @@
  * Covers Tests 1.1-1.6 from the integration test plan.
  */
 
-import { describe, it, expect, beforeEach } from "bun:test";
-import { eq } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "bun:test";
 import {
-  products,
-  productVariants,
-  productVariantAttributes,
-  brandAttributes,
   brandAttributeValues,
-  productTags,
+  brandAttributes,
   brandTags,
+  productTags,
+  productVariantAttributes,
+  productVariants,
+  products,
 } from "@v1/db/schema";
-import { syncProducts } from "../../../src/sync/engine";
 import {
-  testDb,
+  createDefaultFieldConfigs,
   createTestBrand,
   createTestBrandIntegration,
-  createDefaultFieldConfigs,
+  testDb,
 } from "@v1/db/testing";
 import { createTestSyncContext } from "@v1/db/testing";
 import {
-  setMockProducts,
+  createColorSizeVariants,
+  createSizeVariants,
+  createThreeAttributeVariants,
+} from "@v1/testing/fixtures/shopify";
+import {
   clearMockProducts,
   createMockProduct,
   createMockVariant,
+  setMockProducts,
 } from "@v1/testing/mocks/shopify";
-import {
-  createSizeVariants,
-  createColorSizeVariants,
-  createThreeAttributeVariants,
-} from "@v1/testing/fixtures/shopify";
+import { eq } from "drizzle-orm";
+import { syncProducts } from "../../../src/sync/engine";
 
 describe("Phase 1: Basic Product Sync", () => {
   let brandId: string;

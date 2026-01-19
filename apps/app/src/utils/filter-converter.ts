@@ -5,12 +5,12 @@
  * and FilterState format, and for identifying filter types.
  */
 
-import { getQuickFilterFields } from "@/config/filters";
 import type {
   FilterCondition,
   FilterGroup,
   FilterState,
 } from "@/components/passports/filter-types";
+import { getQuickFilterFields } from "@/config/filters";
 
 /**
  * Get all quick filter field IDs (Tier 1 fields)

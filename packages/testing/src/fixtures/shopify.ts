@@ -6,7 +6,7 @@
  * @module @v1/testing/fixtures/shopify
  */
 
-import { createMockVariant, type ShopifyVariantNode } from "../mocks/shopify";
+import { type ShopifyVariantNode, createMockVariant } from "../mocks/shopify";
 
 /**
  * Create variants for a simple size range.

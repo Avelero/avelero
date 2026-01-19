@@ -18,8 +18,7 @@ export type Integration =
   RouterOutputs["integrations"]["connections"]["list"]["data"][number];
 
 /** Sync job from history */
-type SyncJob =
-  RouterOutputs["integrations"]["sync"]["history"]["data"][number];
+type SyncJob = RouterOutputs["integrations"]["sync"]["history"]["data"][number];
 
 /** Field mapping configuration */
 type FieldMapping =

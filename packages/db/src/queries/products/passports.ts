@@ -9,8 +9,8 @@
 import { eq, inArray } from "drizzle-orm";
 import type { Database, DatabaseOrTransaction } from "../../client";
 import {
-  productPassports,
   productPassportVersions,
+  productPassports,
   productVariants,
 } from "../../schema";
 

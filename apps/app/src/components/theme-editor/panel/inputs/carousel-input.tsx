@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
-import { FieldWrapper } from "./field-wrapper";
 import { CarouselProductsModal } from "@/components/modals/carousel-products-modal";
 import type { FilterState } from "@/components/passports/filter-types";
-import type { ContentField } from "../../registry/types";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
+import { Button } from "@v1/ui/button";
+import { Icons } from "@v1/ui/icons";
+import { useCallback, useMemo, useState } from "react";
+import type { ContentField } from "../../registry/types";
+import { FieldWrapper } from "./field-wrapper";
 
 interface CarouselInputProps {
   field: ContentField;

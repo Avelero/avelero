@@ -1,4 +1,4 @@
-import type { ThemeStyles, ThemeConfig } from "@v1/dpp-components";
+import type { ThemeConfig, ThemeStyles } from "@v1/dpp-components";
 
 /**
  * Default ThemeStyles for new brands.

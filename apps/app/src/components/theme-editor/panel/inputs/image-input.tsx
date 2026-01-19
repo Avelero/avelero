@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useRef } from "react";
-import { createClient } from "@v1/supabase/client";
 import { ImageUploader } from "@/components/image-upload";
-import { FieldWrapper } from "./field-wrapper";
-import type { ContentField } from "../../registry/types";
 import { BUCKETS, UPLOAD_CONFIGS } from "@/utils/storage-config";
 import { buildPublicUrl } from "@/utils/storage-urls";
+import { createClient } from "@v1/supabase/client";
+import { useCallback, useRef } from "react";
+import type { ContentField } from "../../registry/types";
+import { FieldWrapper } from "./field-wrapper";
 
 interface ImageInputProps {
   field: ContentField;
@@ -101,7 +101,8 @@ export function ImageInput({
         height={dimensions.height}
         initialUrl={getDisplayUrl(value)}
         buildPath={(file) => {
-          if (!brandId) throw new Error("Brand ID is required for image upload");
+          if (!brandId)
+            throw new Error("Brand ID is required for image upload");
           const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
           const timestamp = Date.now();
           return [brandId, folder, `${timestamp}-${safeName}`];

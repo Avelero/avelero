@@ -200,7 +200,7 @@ export function toFetchedProduct(product: ItsPerfectProduct) {
  * TODO: Update this when the real It's Perfect API format is known.
  */
 export function createItsPerfectHandlers(
-  baseUrl: string = "https://api.its-perfect.example.com",
+  baseUrl = "https://api.its-perfect.example.com",
 ) {
   return [
     // Products list endpoint

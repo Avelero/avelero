@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { AveleroLogo } from "@v1/ui/avelero-logo";
 import { AveleroText } from "@v1/ui/avelero-text";
+import Link from "next/link";
 
 export function Footer() {
   return (

@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { Database } from "../../client";
-import { integrations, brandIntegrations } from "../../schema";
+import { brandIntegrations, integrations } from "../../schema";
 
 // Re-export provider functions
 export {

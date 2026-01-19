@@ -328,8 +328,10 @@
       "name": "@v1/testing",
       "version": "0.0.0",
       "dependencies": {
+        "dotenv": "^17.2.3",
         "exceljs": "^4.4.0",
         "msw": "^2.7.0",
+        "postgres": "^3.4.7",
       },
       "devDependencies": {
         "@types/bun": "^1.2.16",

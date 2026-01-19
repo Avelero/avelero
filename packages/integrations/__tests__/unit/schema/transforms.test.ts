@@ -7,11 +7,11 @@
 
 import { describe, expect, test } from "bun:test";
 import {
-  transformSalesStatus,
   parseShopifyPrice,
-  truncateString,
   stripHtmlTags,
+  transformSalesStatus,
   transformTags,
+  truncateString,
 } from "../../../src/connectors/shopify/schema";
 
 // =============================================================================

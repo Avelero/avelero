@@ -8,9 +8,9 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import {
+  type EffectiveFieldMapping,
   computeHash,
   extractValues,
-  type EffectiveFieldMapping,
 } from "../../../src/sync/processor";
 import type { ExtractedValues } from "../../../src/types";
 

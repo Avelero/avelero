@@ -4,13 +4,13 @@
  * Central registry for all integration connectors.
  */
 
+import type { RegisteredConnector } from "../types";
 import {
   fetchProducts as shopifyFetchProducts,
   getProductCount as shopifyGetProductCount,
   testConnection as shopifyTestConnection,
 } from "./shopify/client";
 import { shopifySchema } from "./shopify/schema";
-import type { RegisteredConnector } from "../types";
 
 const registry = new Map<string, RegisteredConnector>();
 

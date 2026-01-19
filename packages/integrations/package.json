@@ -9,10 +9,7 @@
   "scripts": {
     "lint": "biome lint ./src",
     "typecheck": "tsc --noEmit",
-    "test": "bun run test:unit && bun run test:integration",
-    "test:unit": "bun test ./__tests__/unit --timeout 10000",
-    "test:integration": "bun test ./__tests__/integration --preload ./__tests__/setup.ts --serial --timeout 30000",
-    "test:watch": "bun test --watch ./__tests__/unit"
+    "test": "bun test ./__tests__/unit --timeout 10000 && bun test ./__tests__/integration --preload ./__tests__/setup.ts --serial --timeout 30000"
   },
   "dependencies": {
     "@v1/db": "workspace:*",

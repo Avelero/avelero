@@ -1,7 +1,7 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBrandBySlug, getBrandTheme } from "@v1/db/queries";
 import { getPublicDppByUpid } from "@v1/db/queries/dpp";
 import { getPublicUrl } from "@v1/supabase/storage";
-import type { SupabaseClient } from "@supabase/supabase-js";
 /**
  * Public DPP (Digital Product Passport) router.
  *

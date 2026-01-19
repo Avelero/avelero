@@ -1,12 +1,12 @@
 "use client";
 
-import type { Integration } from "@/hooks/use-integrations";
+import { IntegrationLogo } from "@/components/integrations/integration-logo";
 import {
+  type IntegrationStatus,
   IntegrationStatusBadge,
   formatSyncTime,
-  type IntegrationStatus,
 } from "@/components/integrations/integration-status";
-import { IntegrationLogo } from "@/components/integrations/integration-logo";
+import type { Integration } from "@/hooks/use-integrations";
 import { Button } from "@v1/ui/button";
 import Link from "next/link";
 

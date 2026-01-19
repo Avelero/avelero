@@ -13,8 +13,7 @@
     "generate": "supabase gen types --lang=typescript --project-id ebshgnuavsacpplatsqt --schema public > ../../packages/supabase/src/types/db.ts",
     "lint": "biome lint",
     "typecheck": "tsc --noEmit",
-    "test": "bun test __tests__ --serial --timeout 30000",
-    "test:integration": "bun test __tests__/integration --serial --timeout 30000"
+    "test": "bun test __tests__ --preload ./__tests__/setup.ts --serial --timeout 30000"
   },
   "dependencies": {
     "@hono/trpc-server": "^0.3.0",

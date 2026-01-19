@@ -10,6 +10,7 @@ import {
   listVariantsForProduct,
   orphanPassport,
 } from "@v1/db/queries/products";
+import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
 import {
   productPassports,
   productVariantAttributes,
@@ -21,7 +22,6 @@ import {
   variantMaterials,
   variantWeight,
 } from "@v1/db/schema";
-import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
 /**
  * Unified Product Variants Router
  *

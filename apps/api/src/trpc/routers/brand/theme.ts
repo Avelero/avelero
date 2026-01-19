@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { eq } from "@v1/db/queries";
 /**
  * Brand theme router.
@@ -15,7 +16,6 @@ import { eq } from "@v1/db/queries";
 import { getBrandTheme, updateBrandThemeConfig } from "@v1/db/queries/brand";
 import { brands } from "@v1/db/schema";
 import { getPublicUrl } from "@v1/supabase/storage";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
 import { wrapError } from "../../../utils/errors.js";

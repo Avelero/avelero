@@ -1,5 +1,7 @@
 "use client";
 
+import type { VariantDimension } from "@/components/forms/passport/blocks/variant-block";
+import { CreateValueModal } from "@/components/modals/create-value-modal";
 import { useAttributes } from "@/hooks/use-attributes";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { useTRPC } from "@/trpc/client";
@@ -33,8 +35,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { SelectAction, SelectFooter } from "@v1/ui/select";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
-import { CreateValueModal } from "@/components/modals/create-value-modal";
-import type { VariantDimension } from "@/components/forms/passport/blocks/variant-block";
 
 function ValueChip({
   name,

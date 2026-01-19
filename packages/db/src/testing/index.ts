@@ -8,7 +8,15 @@
  */
 
 // Core utilities
-export { testDb, closeTestDb, type TestDatabaseConnection } from "./connection";
+export {
+  testDb,
+  closeTestDb,
+  initTestDb,
+  getTestClient,
+  beginTestTransaction,
+  rollbackTestTransaction,
+  type TestDatabaseConnection,
+} from "./connection";
 export { cleanupTables, protectedTables } from "./cleanup";
 
 // Brand and integration helpers

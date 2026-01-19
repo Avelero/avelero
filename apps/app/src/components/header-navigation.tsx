@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
-import { NavigationLabel, type BreadcrumbItem } from "./navigation-label";
+import { type BreadcrumbItem, NavigationLabel } from "./navigation-label";
 
 /**
  * Get breadcrumbs for the header based on the current URL.

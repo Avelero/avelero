@@ -8,7 +8,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import { testDb, isConnectionClosed } from "./connection";
+import { isConnectionClosed, testDb } from "./connection";
 
 /**
  * Tables that should NOT be cleaned between tests.

@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  useBrandCatalog,
   type BrandTagOption,
+  useBrandCatalog,
 } from "@/hooks/use-brand-catalog";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";

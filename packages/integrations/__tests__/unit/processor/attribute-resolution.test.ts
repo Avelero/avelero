@@ -5,9 +5,9 @@
  * This function resolves variant option names/values to attribute value UUIDs using cache.
  */
 
-import { describe, expect, test, beforeEach } from "bun:test";
-import { resolveAttributeValueIds } from "../../../src/sync/processor";
+import { beforeEach, describe, expect, test } from "bun:test";
 import type { SyncCaches } from "../../../src/sync/caches";
+import { resolveAttributeValueIds } from "../../../src/sync/processor";
 
 // =============================================================================
 // Test Helpers

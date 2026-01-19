@@ -1,6 +1,9 @@
 "use client";
 
-import * as React from "react";
+import { CustomFontsModal } from "@/components/modals/custom-fonts-modal";
+import { FontSelect } from "@/components/select/font-select";
+import { useDesignEditor } from "@/contexts/design-editor-provider";
+import type { CustomFont, TypographyScale } from "@v1/dpp-components";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
@@ -12,11 +15,8 @@ import {
   SelectList,
   SelectTrigger,
 } from "@v1/ui/select";
-import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { FontSelect } from "@/components/select/font-select";
-import { CustomFontsModal } from "@/components/modals/custom-fonts-modal";
-import { PixelInput, FieldWrapper } from "../inputs";
-import type { TypographyScale, CustomFont } from "@v1/dpp-components";
+import * as React from "react";
+import { FieldWrapper, PixelInput } from "../inputs";
 
 // Typography scale configuration
 const TYPOGRAPHY_SCALES = [

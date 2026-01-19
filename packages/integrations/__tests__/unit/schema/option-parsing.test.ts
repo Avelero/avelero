@@ -7,9 +7,9 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+  type ParsedVariantOption,
   parseSelectedOptions,
   resolveTaxonomyFriendlyId,
-  type ParsedVariantOption,
 } from "../../../src/connectors/shopify/schema";
 
 // =============================================================================

@@ -2,8 +2,6 @@
  * Test Database Connection
  *
  * Creates a Drizzle database instance for testing.
- * This is the foundation for all database test utilities.
- *
  * Uses lazy initialization to allow dotenv to load before
  * the database connection is created.
  *
@@ -16,13 +14,11 @@ import * as schema from "../schema/index";
 
 /**
  * Track whether the connection has been closed.
- * This is used to make closeTestDb() idempotent.
  */
 let connectionClosed = false;
 
 /**
  * Lazily initialized database connection and client.
- * This allows dotenv to load DATABASE_URL before the connection is created.
  */
 let _client: ReturnType<typeof postgres> | undefined;
 let _testDb: ReturnType<typeof drizzle<typeof schema>> | undefined;
@@ -35,7 +31,22 @@ function getClient() {
         "DATABASE_URL environment variable is required for tests",
       );
     }
-    _client = postgres(connectionString);
+    // IMPORTANT: max: 1 ensures all queries use the same connection,
+    // which is required for transaction-based test isolation (BEGIN/ROLLBACK)
+    _client = postgres(connectionString, {
+      max: 1,
+      // Suppress transaction-related warnings that occur when production code
+      // uses db.transaction() inside our test transactions
+      onnotice: (notice) => {
+        // Suppress "there is already a transaction in progress" (25001)
+        // and "there is no transaction in progress" (25P01)
+        if (notice.code === "25001" || notice.code === "25P01") {
+          return;
+        }
+        // Log other notices
+        console.log(notice);
+      },
+    });
   }
   return _client;
 }
@@ -82,8 +93,74 @@ export async function closeTestDb(): Promise<void> {
     return;
   }
   connectionClosed = true;
-  // Only close if a connection was actually created
   if (_client) {
     await _client.end();
   }
+}
+
+/**
+ * Initialize the test database connection.
+ * Call this in beforeAll() to ensure connection is ready.
+ */
+export async function initTestDb(): Promise<void> {
+  // Force connection initialization
+  getClient();
+}
+
+/**
+ * Get the raw postgres client for direct SQL operations.
+ */
+export function getTestClient(): ReturnType<typeof postgres> {
+  return getClient();
+}
+
+/**
+ * Track if we're in a test transaction.
+ * Production code may commit our transaction, so we track state ourselves.
+ */
+let inTestTransaction = false;
+
+/**
+ * Begin a test transaction. Call in beforeEach().
+ * All database operations will be wrapped in this transaction
+ * until rollbackTestTransaction() is called.
+ *
+ * Note: If production code calls db.transaction(), it may commit our
+ * outer transaction. We track state to avoid warnings on rollback.
+ */
+export async function beginTestTransaction(): Promise<void> {
+  if (inTestTransaction) {
+    // Already in a transaction (previous test's commit may have failed to clean up)
+    // Try to rollback any existing transaction first
+    const client = getClient();
+    try {
+      await client.unsafe("ROLLBACK");
+    } catch {
+      // Ignore - may not be in a transaction
+    }
+  }
+  const client = getClient();
+  await client.unsafe("BEGIN");
+  inTestTransaction = true;
+}
+
+/**
+ * Rollback the test transaction. Call in afterEach().
+ * This instantly undoes all database changes made during the test,
+ * without creating dead tuples or touching disk.
+ *
+ * Note: If production code committed the transaction, this will
+ * issue a warning but is otherwise harmless.
+ */
+export async function rollbackTestTransaction(): Promise<void> {
+  if (!inTestTransaction) {
+    return; // Nothing to rollback
+  }
+  const client = getClient();
+  try {
+    await client.unsafe("ROLLBACK");
+  } catch {
+    // Transaction may have been committed by production code
+  }
+  inTestTransaction = false;
 }

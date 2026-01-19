@@ -1,5 +1,6 @@
 "use client";
 
+import { PassportControls } from "@/components/passports/passport-controls";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   getCoreRowModel,
@@ -14,7 +15,6 @@ import { Table, TableBody, TableCell, TableRow } from "@v1/ui/table";
 import { columns } from "./columns";
 import { PassportTableHeader } from "./table-header";
 import type { PassportTableRow } from "./types";
-import { PassportControls } from "@/components/passports/passport-controls";
 
 // Default values matching table-section.tsx
 const DEFAULT_COLUMN_ORDER = [

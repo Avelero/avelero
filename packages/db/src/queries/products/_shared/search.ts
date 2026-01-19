@@ -7,11 +7,11 @@
 
 import { ilike, or, sql } from "drizzle-orm";
 import {
-  products,
   brandSeasons,
-  taxonomyCategories,
-  productTags,
   brandTags,
+  productTags,
+  products,
+  taxonomyCategories,
 } from "../../../schema";
 import type { ListFilters } from "../types.js";
 

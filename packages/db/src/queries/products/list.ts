@@ -10,18 +10,16 @@ import type { Database } from "../../client";
 import {
   brandSeasons,
   brandTags,
-  taxonomyCategories,
-  products,
   productTags,
+  products,
+  taxonomyCategories,
 } from "../../schema";
 import {
+  buildPaginationMeta,
   normalizeLimit,
   parseCursor,
-  buildPaginationMeta,
 } from "../_shared/pagination.js";
-import { PRODUCT_FIELD_MAP, PRODUCT_FIELDS } from "./_shared/fields";
-import { buildProductWhereClauses } from "./_shared/where";
-import { buildProductOrderBy } from "./_shared/sort";
+import { PRODUCT_FIELDS, PRODUCT_FIELD_MAP } from "./_shared/fields";
 import {
   createEmptyAttributes,
   loadAttributesForProducts,
@@ -30,6 +28,8 @@ import {
   loadVariantsForProducts,
   mapProductRow,
 } from "./_shared/helpers";
+import { buildProductOrderBy } from "./_shared/sort";
+import { buildProductWhereClauses } from "./_shared/where";
 import type {
   CarouselProductRow,
   ListFilters,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { ColorInput, parseHexWithAlpha, combineHexWithAlpha } from "../inputs";
+import { ColorInput, combineHexWithAlpha, parseHexWithAlpha } from "../inputs";
 
 // Color tokens configuration - matches globals.css color system
 const COLOR_TOKENS = [

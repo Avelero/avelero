@@ -2,8 +2,8 @@
  * Utility functions for the component registry
  */
 
-import type { ComponentDefinition } from "./types";
 import { COMPONENT_TREE } from "./component-tree";
+import type { ComponentDefinition } from "./types";
 
 // =============================================================================
 // UTILITY FUNCTIONS

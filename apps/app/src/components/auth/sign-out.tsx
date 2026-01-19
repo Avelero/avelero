@@ -1,8 +1,8 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
 import { DropdownMenuItem } from "@v1/ui/dropdown-menu";
-import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 export function SignOut() {

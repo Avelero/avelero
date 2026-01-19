@@ -1,7 +1,7 @@
 "use client";
 
+import { type ThemeStyles, buildThemeStylesheet } from "@v1/dpp-components";
 import { useEffect, useMemo } from "react";
-import { buildThemeStylesheet, type ThemeStyles } from "@v1/dpp-components";
 
 type Props = {
   themeStyles?: ThemeStyles;

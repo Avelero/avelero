@@ -6,7 +6,7 @@
  */
 
 import { asc, desc, sql } from "drizzle-orm";
-import { products, taxonomyCategories, brandSeasons } from "../../../schema";
+import { brandSeasons, products, taxonomyCategories } from "../../../schema";
 
 /**
  * Sort field configuration map.

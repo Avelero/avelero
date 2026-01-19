@@ -13,31 +13,31 @@
 import {
   and,
   eq,
-  ne,
   gt,
   gte,
-  lt,
-  lte,
   ilike,
   inArray,
-  isNull,
   isNotNull,
+  isNull,
+  lt,
+  lte,
+  ne,
   or,
   sql,
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Database } from "../client";
 import {
-  brandOperators,
   brandMaterials,
+  brandOperators,
   brandSeasons,
   brandTags,
   productEnvironment,
   productJourneySteps,
   productMaterials,
+  productTags,
   productVariants,
   products,
-  productTags,
   taxonomyCategories,
 } from "../schema";
 

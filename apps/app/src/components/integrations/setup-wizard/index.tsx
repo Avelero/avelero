@@ -1,16 +1,16 @@
 "use client";
 
-import { StepMode } from "./step-mode";
-import { StepIdentifier } from "./step-identifier";
-import { StepFields } from "./step-fields";
 import {
-  useUpdateIntegrationMutation,
-  useUpdateFieldMappingsBatchMutation,
   useFieldMappingsQuery,
+  useUpdateFieldMappingsBatchMutation,
+  useUpdateIntegrationMutation,
 } from "@/hooks/use-integrations";
 import { getConnectorFields } from "@v1/integrations";
 import { toast } from "@v1/ui/sonner";
 import { useMemo, useState } from "react";
+import { StepFields } from "./step-fields";
+import { StepIdentifier } from "./step-identifier";
+import { StepMode } from "./step-mode";
 
 type WizardStep = 1 | 2 | 3;
 

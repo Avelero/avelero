@@ -5,14 +5,14 @@
  * to minimize database round-trips during sync.
  */
 
-import { sql, inArray, eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  products,
-  productVariants,
-  productTags,
   integrationProductLinks,
   integrationVariantLinks,
+  productTags,
+  productVariants,
+  products,
 } from "../../schema";
 
 // =============================================================================
@@ -504,9 +504,9 @@ export async function batchReplaceVariantAttributes(
 import {
   variantCommercial,
   variantEnvironment,
+  variantJourneySteps,
   variantMaterials,
   variantWeight,
-  variantJourneySteps,
 } from "../../schema";
 
 /**

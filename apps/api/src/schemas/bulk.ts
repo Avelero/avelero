@@ -316,9 +316,7 @@ type ImportJobStatus = z.infer<typeof importJobStatusSchema>;
 
 // New types for fire-and-forget flow
 type ImportMode = z.infer<typeof importModeSchema>;
-type DismissFailedImportInput = z.infer<
-  typeof dismissFailedImportSchema
->;
+type DismissFailedImportInput = z.infer<typeof dismissFailedImportSchema>;
 type ExportCorrectionsInput = z.infer<typeof exportCorrectionsSchema>;
 type GetRecentImportsInput = z.infer<typeof getRecentImportsSchema>;
 type StagingRowStatus = z.infer<typeof stagingRowStatusSchema>;

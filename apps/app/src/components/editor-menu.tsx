@@ -1,12 +1,12 @@
 "use client";
 
-import { SidebarButton } from "./sidebar-button";
 import {
-  useDesignEditor,
   type NavigationSection,
+  useDesignEditor,
 } from "@/contexts/design-editor-provider";
 import { Icons } from "@v1/ui/icons";
 import type { LucideIcon } from "lucide-react";
+import { SidebarButton } from "./sidebar-button";
 
 const items: Array<{ id: NavigationSection; name: string; icon: LucideIcon }> =
   [

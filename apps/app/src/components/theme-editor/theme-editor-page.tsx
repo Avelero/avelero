@@ -1,14 +1,14 @@
 "use client";
 
-import type { DppData, ThemeConfig, ThemeStyles } from "@v1/dpp-components";
-import { DesignEditorProvider } from "@/contexts/design-editor-provider";
-import { DesignPanel } from "./panel";
-import { DesignPreview } from "./design-preview";
-import { useUserQuery } from "@/hooks/use-user";
-import { useThemeQuery } from "@/hooks/use-theme";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
+import { DesignEditorProvider } from "@/contexts/design-editor-provider";
+import { useThemeQuery } from "@/hooks/use-theme";
+import { useUserQuery } from "@/hooks/use-user";
 import { DEMO_DPP_DATA } from "@/lib/demo-data";
+import type { DppData, ThemeConfig, ThemeStyles } from "@v1/dpp-components";
+import { DesignPreview } from "./design-preview";
+import { DesignPanel } from "./panel";
 
 interface ThemeEditorPageProps {
   initialThemeConfig?: ThemeConfig;

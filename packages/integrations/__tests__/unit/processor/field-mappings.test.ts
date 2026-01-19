@@ -7,8 +7,8 @@
 
 import { describe, expect, test } from "bun:test";
 import {
-  buildEffectiveFieldMappings,
   type EffectiveFieldMapping,
+  buildEffectiveFieldMappings,
 } from "../../../src/sync/processor";
 import type { ConnectorSchema, FieldConfig } from "../../../src/types";
 

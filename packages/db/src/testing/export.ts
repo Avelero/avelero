@@ -8,8 +8,8 @@
  * @module @v1/db/testing/export
  */
 
-import * as schema from "../schema/index";
 import { and, eq, sql } from "drizzle-orm";
+import * as schema from "../schema/index";
 import { testDb } from "./connection";
 
 // ============================================================================

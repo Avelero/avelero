@@ -12,12 +12,13 @@
 
 import { createHash, randomInt } from "node:crypto";
 import type {
+  GlobalVariantIndex,
+  PreFetchedVariant,
   ProductLinkData,
   VariantLinkData,
-  PreFetchedVariant,
-  GlobalVariantIndex,
 } from "@v1/db/queries/integrations";
 import { slugifyProductName } from "@v1/db/utils";
+import { parseSelectedOptions } from "../connectors/shopify/schema";
 import type {
   ConnectorFieldDefinition,
   ConnectorSchema,
@@ -27,16 +28,15 @@ import type {
   SourceOption,
   SyncContext,
 } from "../types";
-import { parseSelectedOptions } from "../connectors/shopify/schema";
 import {
   type SyncCaches,
-  getCachedTag,
-  getCachedProduct,
   cacheProduct,
-  markProductUpdated,
-  isProductUpdated,
   getCachedAttributeId,
   getCachedAttributeValueId,
+  getCachedProduct,
+  getCachedTag,
+  isProductUpdated,
+  markProductUpdated,
 } from "./caches";
 
 // =============================================================================

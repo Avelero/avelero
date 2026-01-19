@@ -15,14 +15,14 @@ import {
   and,
   asc,
   eq,
-  ne,
   inArray,
-  notInArray,
   isNotNull,
+  ne,
+  notInArray,
   sql,
 } from "drizzle-orm";
 import type { Database } from "../../client";
-import { products, taxonomyCategories, productCommercial } from "../../schema";
+import { productCommercial, products, taxonomyCategories } from "../../schema";
 import { convertFilterStateToWhereClauses } from "../../utils/filter-converter";
 
 // ============================================================================

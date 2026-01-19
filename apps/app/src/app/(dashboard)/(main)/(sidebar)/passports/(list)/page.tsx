@@ -31,7 +31,7 @@ export default async function PassportsPage() {
       limit: 10,
       unreadOnly: false,
       includeDismissed: false,
-    })
+    }),
   ]);
 
   return (

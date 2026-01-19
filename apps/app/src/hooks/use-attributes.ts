@@ -1,5 +1,5 @@
-import { useBrandCatalog } from "./use-brand-catalog";
 import * as React from "react";
+import { useBrandCatalog } from "./use-brand-catalog";
 
 /**
  * Represents an attribute value option that can be displayed in a select/popover.

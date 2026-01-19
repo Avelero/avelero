@@ -7,7 +7,7 @@
  * @module @v1/testing/bulk-import/test-database
  */
 
-import { eq, and, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "../../client";
 import * as schema from "../../schema/index";
 

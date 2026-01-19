@@ -1,14 +1,14 @@
-import { Hero } from "@/components/hero";
-import { HeroImage } from "@/components/hero-image";
-import { FeatureCards, FeatureCard } from "@/components/feature-cards";
-import { TextBlock } from "@/components/text-block";
+import { BentoBlock } from "@/components/bento-block";
+import { ComplianceBlock } from "@/components/compliance-block";
 import {
   FeatureBlock,
   FeatureBlockContent,
   FeatureBlockImage,
 } from "@/components/feature-block";
-import { ComplianceBlock } from "@/components/compliance-block";
-import { BentoBlock } from "@/components/bento-block";
+import { FeatureCard, FeatureCards } from "@/components/feature-cards";
+import { Hero } from "@/components/hero";
+import { HeroImage } from "@/components/hero-image";
+import { TextBlock } from "@/components/text-block";
 
 export default function Page() {
   const jsonLd = {

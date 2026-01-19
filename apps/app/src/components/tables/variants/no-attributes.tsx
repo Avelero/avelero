@@ -1,8 +1,8 @@
 "use client";
 
+import type { ExplicitVariant } from "@/components/forms/passport/blocks/variant-block";
 import { Input } from "@v1/ui/input";
 import type * as React from "react";
-import type { ExplicitVariant } from "@/components/forms/passport/blocks/variant-block";
 
 interface NoAttributesTableProps {
   explicitVariants: ExplicitVariant[];

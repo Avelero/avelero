@@ -18,50 +18,50 @@
  */
 
 import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  beforeAll,
   afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
 } from "bun:test";
-import { eq, and } from "drizzle-orm";
 import {
-  products,
-  productVariants,
+  brandAttributeValues,
+  brandAttributes,
   brandIntegrations,
   integrationProductLinks,
   integrationVariantLinks,
-  brandAttributes,
-  brandAttributeValues,
   productVariantAttributes,
+  productVariants,
+  products,
 } from "@v1/db/schema";
 import {
-  testDb,
+  createDefaultFieldConfigs,
   createTestBrand,
   createTestBrandIntegration,
-  createDefaultFieldConfigs,
+  testDb,
 } from "@v1/db/testing";
-import { promoteIntegrationToPrimary } from "../../../src/sync/promotion";
+import { createTestSyncContext } from "@v1/db/testing";
+import {
+  clearItsPerfectMockProducts,
+  createItsPerfectMockProduct,
+  createItsPerfectMockVariant,
+  getMockItsPerfectConnector,
+  setItsPerfectMockProducts,
+} from "@v1/testing/mocks/its-perfect";
+import {
+  clearMockProducts,
+  createMockProduct,
+  createMockVariant,
+  setMockProducts,
+} from "@v1/testing/mocks/shopify";
+import { and, eq } from "drizzle-orm";
 import {
   registerConnector,
   unregisterConnector,
 } from "../../../src/connectors/registry";
 import { syncProducts } from "../../../src/sync/engine";
-import { createTestSyncContext } from "@v1/db/testing";
-import {
-  setMockProducts,
-  clearMockProducts,
-  createMockProduct,
-  createMockVariant,
-} from "@v1/testing/mocks/shopify";
-import {
-  setItsPerfectMockProducts,
-  clearItsPerfectMockProducts,
-  createItsPerfectMockProduct,
-  createItsPerfectMockVariant,
-  getMockItsPerfectConnector,
-} from "@v1/testing/mocks/its-perfect";
+import { promoteIntegrationToPrimary } from "../../../src/sync/promotion";
 
 // Register mock It's Perfect connector for promotion tests
 beforeAll(() => {

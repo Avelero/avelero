@@ -1,26 +1,26 @@
 "use client";
 
-import { SetupWizard } from "@/components/integrations/setup-wizard";
-import {
-  FieldSection,
-  type FieldRowData,
-} from "@/components/integrations/field-section";
 import {
   FIELD_GROUP_LABELS,
   FIELD_GROUP_ORDER,
+  type FieldGroup,
   HIDDEN_FIELDS,
   getFieldGroup,
   getFieldUIInfo,
-  type FieldGroup,
 } from "@/components/integrations/field-config";
+import {
+  type FieldRowData,
+  FieldSection,
+} from "@/components/integrations/field-section";
+import { SetupWizard } from "@/components/integrations/setup-wizard";
 
 import { IntegrationLogo } from "@/components/integrations/integration-logo";
 import {
   IntegrationInfoRow,
-  SyncProgressBlock,
   type IntegrationStatus,
-  type SyncJobStatus,
   type JobType,
+  type SyncJobStatus,
+  SyncProgressBlock,
 } from "@/components/integrations/integration-status";
 import { ConnectShopifyModal } from "@/components/modals/connect-shopify-modal";
 import { DisconnectIntegrationModal } from "@/components/modals/disconnect-integration-modal";
@@ -36,8 +36,8 @@ import {
   useUpdateIntegrationMutation,
 } from "@/hooks/use-integrations";
 import {
-  useTriggerSyncProgress,
   useTriggerPromotionProgress,
+  useTriggerSyncProgress,
 } from "@/hooks/use-job-progress";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { getConnectorFields } from "@v1/integrations";

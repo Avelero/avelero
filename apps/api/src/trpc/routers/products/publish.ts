@@ -11,10 +11,10 @@
  * - publish.bulk: Publish multiple products at once
  */
 import {
-  publishVariant,
-  publishProduct,
   bulkPublishProducts,
   getPublishingState,
+  publishProduct,
+  publishVariant,
 } from "@v1/db/queries/products";
 import { z } from "zod";
 import { badRequest, wrapError } from "../../../utils/errors.js";

@@ -27,14 +27,14 @@
  *    menus, social links, etc.) is managed on the /design/content page, not here.
  */
 
-import type { ComponentDefinition } from "./types";
 import {
+  ALIGN_ITEMS_OPTIONS,
   CAPITALIZATION_OPTIONS,
   FLEX_DIRECTION_OPTIONS,
-  ALIGN_ITEMS_OPTIONS,
   JUSTIFY_CONTENT_OPTIONS,
   TEXT_ALIGN_OPTIONS,
 } from "./constants";
+import type { ComponentDefinition } from "./types";
 
 // =============================================================================
 // COMPONENT HIERARCHY

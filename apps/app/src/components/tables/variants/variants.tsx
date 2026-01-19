@@ -1,16 +1,16 @@
 "use client";
 
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
-import { useRouter } from "next/navigation";
-import * as React from "react";
 import type {
   ExplicitVariant,
   VariantDimension,
   VariantMetadata,
 } from "@/components/forms/passport/blocks/variant-block";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { useRouter } from "next/navigation";
+import * as React from "react";
+import { MultiAttributeTable } from "./multi-attribute";
 import { NoAttributesTable } from "./no-attributes";
 import { SingleAttributeTable } from "./single-attribute";
-import { MultiAttributeTable } from "./multi-attribute";
 
 interface VariantTableProps {
   dimensions: VariantDimension[];

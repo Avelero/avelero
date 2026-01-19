@@ -1,11 +1,11 @@
+import { baseUrl } from "@/app/sitemap";
+import { MDXRenderer } from "@/components/mdx-renderer";
+import { RelatedUpdates } from "@/components/related-updates";
+import { UpdateFooter } from "@/components/update-footer";
+import { type Update, getAllUpdateSlugs, getUpdateBySlug } from "@/lib/updates";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getUpdateBySlug, getAllUpdateSlugs, type Update } from "@/lib/updates";
-import { MDXRenderer } from "@/components/mdx-renderer";
-import { UpdateFooter } from "@/components/update-footer";
-import { RelatedUpdates } from "@/components/related-updates";
-import { baseUrl } from "@/app/sitemap";
 
 interface UpdatePageProps {
   params: Promise<{ slug: string }>;

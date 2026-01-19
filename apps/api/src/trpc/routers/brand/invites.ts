@@ -23,7 +23,10 @@ import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
 import { ROLES } from "../../../config/roles.js";
 import { uuidSchema } from "../../../schemas/_shared/primitives.js";
-import { brandIdOptionalSchema, inviteSendSchema } from "../../../schemas/brand.js";
+import {
+  brandIdOptionalSchema,
+  inviteSendSchema,
+} from "../../../schemas/brand.js";
 import { badRequest, forbidden, wrapError } from "../../../utils/errors.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";

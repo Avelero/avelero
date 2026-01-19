@@ -12,18 +12,18 @@
 // Load setup first (loads .env.test and configures cleanup)
 import "../../setup";
 
-import { describe, it, expect, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
+import {
+  createExportJob,
+  getExportJobStatus,
+  updateExportJobStatus,
+} from "@v1/db/queries/bulk";
 import {
   createTestBrand,
   createTestExportJob,
   createTestUser,
   testDb,
 } from "@v1/db/testing";
-import {
-  createExportJob,
-  updateExportJobStatus,
-  getExportJobStatus,
-} from "@v1/db/queries/bulk";
 
 describe("Export Job CRUD", () => {
   let brandId: string;

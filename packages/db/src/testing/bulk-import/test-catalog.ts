@@ -11,11 +11,11 @@
 import type { Database } from "../../client";
 import * as schema from "../../schema/index";
 import {
+  type CatalogFixtures,
+  createAttributeValueFixtures,
+  createEmptyCatalogFixtures,
   createFullCatalogFixtures,
   createMinimalCatalogFixtures,
-  createEmptyCatalogFixtures,
-  createAttributeValueFixtures,
-  type CatalogFixtures,
 } from "./fixtures/catalog-fixtures";
 
 // ============================================================================

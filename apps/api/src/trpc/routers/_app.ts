@@ -18,11 +18,11 @@ import { compositeRouter } from "./composite/index.js";
 import { dppPublicRouter } from "./dpp-public/index.js";
 import { integrationsRouter } from "./integrations/index.js";
 import { internalRouter } from "./internal/index.js";
+import { notificationsRouter } from "./notifications/index.js";
 import { productsRouter } from "./products/index.js";
 import { summaryRouter } from "./summary/index.js";
 import { taxonomyRouter } from "./taxonomy/index.js";
 import { userRouter } from "./user/index.js";
-import { notificationsRouter } from "./notifications/index.js";
 
 /**
  * Main tRPC router containing every API module exposed to clients.

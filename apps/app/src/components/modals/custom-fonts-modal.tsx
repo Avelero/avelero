@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
 import { useUpload } from "@/hooks/use-upload";
-import { parseFontFile, normalizeFontFamily } from "@/utils/font-parser";
-import { validateFontFile, FONT_EXTENSIONS } from "@/utils/upload";
+import { normalizeFontFamily, parseFontFile } from "@/utils/font-parser";
 import { UPLOAD_CONFIGS, buildStoragePath } from "@/utils/storage-config";
+import { FONT_EXTENSIONS, validateFontFile } from "@/utils/upload";
 import type { CustomFont } from "@v1/dpp-components";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -18,6 +17,7 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { toast } from "@v1/ui/sonner";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 // ============================================================================
 // Types

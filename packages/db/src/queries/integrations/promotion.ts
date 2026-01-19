@@ -8,16 +8,16 @@
  * @see integration-refactor-plan.md Section 2.5 for algorithm details
  */
 
-import { and, eq, sql, isNull, inArray, desc, asc, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  promotionOperations,
-  products,
-  productVariants,
   brandIntegrations,
   integrationProductLinks,
   integrationVariantLinks,
   productVariantAttributes,
+  productVariants,
+  products,
+  promotionOperations,
 } from "../../schema";
 
 // =============================================================================

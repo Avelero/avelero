@@ -1,7 +1,7 @@
 "use client";
 
-import { Switch } from "@v1/ui/switch";
 import { Label } from "@v1/ui/label";
+import { Switch } from "@v1/ui/switch";
 import type { ContentField } from "../../registry/types";
 
 interface ToggleInputProps {

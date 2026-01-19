@@ -14,19 +14,19 @@ import {
 } from "@v1/ui/select";
 import * as React from "react";
 import {
-  findComponentById,
   type StyleField,
   TYPESCALE_OPTIONS,
+  findComponentById,
 } from "../../registry";
 import {
+  BorderInput,
   ColorInput,
-  parseHexWithAlpha,
-  combineHexWithAlpha,
+  EditorSection,
+  FieldWrapper,
   PixelInput,
   RadiusInput,
-  BorderInput,
-  FieldWrapper,
-  EditorSection,
+  combineHexWithAlpha,
+  parseHexWithAlpha,
 } from "../inputs";
 
 // =============================================================================

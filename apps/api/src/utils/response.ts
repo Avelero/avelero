@@ -159,4 +159,3 @@ export function createSuccessWithMeta<T extends Record<string, unknown>>(
 export function createEntityResponse<T>(entity: T): EntityResponse<T> {
   return { data: entity } as const;
 }
-

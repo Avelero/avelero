@@ -8,20 +8,20 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  brandAttributes,
   brandAttributeValues,
+  brandAttributes,
   productVariantAttributes,
   productVariants,
   products,
 } from "../../schema";
-import { generateGloballyUniqueUpids } from "./upid-generation";
 import type {
-  VariantAttributeAssignment,
-  VariantWithAttributeAssignments,
   ExplicitVariantInput,
   MatrixDimension,
   ReplaceVariantsResult,
+  VariantAttributeAssignment,
+  VariantWithAttributeAssignments,
 } from "./types";
+import { generateGloballyUniqueUpids } from "./upid-generation";
 
 // =============================================================================
 // CONSTRAINTS

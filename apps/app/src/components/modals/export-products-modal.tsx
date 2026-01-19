@@ -1,5 +1,9 @@
 "use client";
 
+import type {
+  FilterState,
+  SelectionState,
+} from "@/components/tables/passports/types";
 import { useTriggerExportProgress } from "@/hooks/use-job-progress";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
@@ -21,10 +25,6 @@ import {
   TooltipTrigger,
 } from "@v1/ui/tooltip";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  FilterState,
-  SelectionState,
-} from "@/components/tables/passports/types";
 
 // ============================================================================
 // Types

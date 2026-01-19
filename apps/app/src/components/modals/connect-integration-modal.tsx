@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  useConnectIntegrationMutation,
   type Integration,
+  useConnectIntegrationMutation,
 } from "@/hooks/use-integrations";
 import { Button } from "@v1/ui/button";
 import {

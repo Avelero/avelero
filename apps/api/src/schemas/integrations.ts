@@ -279,9 +279,7 @@ export const shopifyCallbackSchema = z.object({
 // =============================================================================
 
 type IntegrationSlug = z.infer<typeof integrationSlugSchema>;
-type BrandIntegrationStatus = z.infer<
-  typeof brandIntegrationStatusSchema
->;
+type BrandIntegrationStatus = z.infer<typeof brandIntegrationStatusSchema>;
 type SyncJobStatus = z.infer<typeof syncJobStatusSchema>;
 type TriggerType = z.infer<typeof triggerTypeSchema>;
 

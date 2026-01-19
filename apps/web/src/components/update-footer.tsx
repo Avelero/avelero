@@ -1,10 +1,10 @@
 "use client";
 
+import { Check, Copy } from "lucide-react";
 import { useState } from "react";
-import { TwitterIcon } from "./icons/twitter-icon";
-import { LinkedInIcon } from "./icons/linkedin-icon";
 import { Button } from "./button";
-import { Copy, Check } from "lucide-react";
+import { LinkedInIcon } from "./icons/linkedin-icon";
+import { TwitterIcon } from "./icons/twitter-icon";
 
 interface UpdateFooterProps {
   title: string;

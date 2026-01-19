@@ -8,12 +8,12 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { brandTags } from "../../brands/brand-tags";
 import { brandCertifications } from "../../catalog/brand-certifications";
-import { brandOperators } from "../../catalog/brand-operators";
 import { brandManufacturers } from "../../catalog/brand-manufacturers";
 import { brandMaterials } from "../../catalog/brand-materials";
+import { brandOperators } from "../../catalog/brand-operators";
 import { brandSeasons } from "../../catalog/brand-seasons";
-import { brandTags } from "../../brands/brand-tags";
 import { brandIntegrations } from "../brand-integrations";
 
 /**

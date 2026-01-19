@@ -12,21 +12,21 @@
  * - LIFE-004: Disconnect only integration
  */
 
-import { describe, it, expect, beforeEach } from "bun:test";
-import { eq, and } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "bun:test";
 import {
-  products,
-  productVariants,
   brandIntegrations,
   integrationProductLinks,
   integrationVariantLinks,
+  productVariants,
+  products,
 } from "@v1/db/schema";
 import {
-  testDb,
+  createDefaultFieldConfigs,
   createTestBrand,
   createTestBrandIntegration,
-  createDefaultFieldConfigs,
+  testDb,
 } from "@v1/db/testing";
+import { and, eq } from "drizzle-orm";
 
 // =============================================================================
 // HELPER FUNCTIONS

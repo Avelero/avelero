@@ -8,8 +8,8 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brandIntegrations } from "../brand-integrations";
 import { productVariants } from "../../products/product-variants";
+import { brandIntegrations } from "../brand-integrations";
 
 /**
  * Integration variant links table

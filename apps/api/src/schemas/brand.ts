@@ -64,7 +64,6 @@ export const memberUpdateSchema = z.object({
   role: roleSchema,
 });
 
-
 /**
  * Payload for sending a brand invite.
  */

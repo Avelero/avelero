@@ -1,10 +1,10 @@
 "use client";
 
+import type { VariantMetadata } from "@/components/forms/passport/blocks/variant-block";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import * as React from "react";
 import { VariantRow } from "./variant-row";
-import type { VariantMetadata } from "@/components/forms/passport/blocks/variant-block";
 
 interface ValueDisplay {
   name: string;

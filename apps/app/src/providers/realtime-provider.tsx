@@ -1,23 +1,23 @@
 "use client";
 
 import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useCallback,
-  useState,
-} from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@v1/supabase/client";
-import { useUserQuerySuspense } from "@/hooks/use-user";
-import {
   REALTIME_DOMAINS,
   REALTIME_DOMAIN_NAMES,
   type RealtimeDomain,
 } from "@/config/realtime-config";
 import { useThrottledCallback } from "@/hooks/use-throttled-callback";
+import { useUserQuerySuspense } from "@/hooks/use-user";
+import { useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@v1/supabase/client";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 interface RealtimeContextValue {
   isConnected: boolean;

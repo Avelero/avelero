@@ -9,32 +9,32 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  products,
-  productVariants,
+  brandAttributeValues,
+  brandAttributes,
+  brandCertifications,
+  brandManufacturers,
+  brandMaterials,
+  brandOperators,
   productCommercial,
   productEnvironment,
-  productMaterials,
-  productWeight,
   productJourneySteps,
+  productMaterials,
   productVariantAttributes,
+  productVariants,
+  productWeight,
+  products,
+  taxonomyCategories,
   variantCommercial,
   variantEnvironment,
+  variantJourneySteps,
   variantMaterials,
   variantWeight,
-  variantJourneySteps,
-  brandMaterials,
-  brandCertifications,
-  brandOperators,
-  brandManufacturers,
-  brandAttributes,
-  brandAttributeValues,
-  taxonomyCategories,
 } from "../../schema";
-import type { DppSnapshot } from "./dpp-versions";
 import {
   buildProductImageUrl,
   getSupabaseUrlFromEnv,
 } from "../../utils/storage-url";
+import type { DppSnapshot } from "./dpp-versions";
 
 // =============================================================================
 // TYPES

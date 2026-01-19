@@ -1,9 +1,9 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  integrations,
   brandIntegrations,
   integrationFieldConfigs,
+  integrations,
 } from "../../schema";
 
 // =============================================================================

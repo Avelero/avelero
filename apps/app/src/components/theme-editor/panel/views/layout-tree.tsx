@@ -1,18 +1,18 @@
 "use client";
 
-import * as React from "react";
-import { useRef, useCallback } from "react";
-import { Icons } from "@v1/ui/icons";
+import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
+import * as React from "react";
+import { useCallback, useRef } from "react";
 import {
   COMPONENT_TREE,
   type ComponentDefinition,
-  getComponentAncestry,
-  hasEditableContent,
-  hasConfigContent,
   findComponentById,
+  getComponentAncestry,
+  hasConfigContent,
+  hasEditableContent,
 } from "../../registry";
-import { useDesignEditor } from "@/contexts/design-editor-provider";
 
 /**
  * Debounce delay for triggering live preview highlight when hovering layout tree items (ms).

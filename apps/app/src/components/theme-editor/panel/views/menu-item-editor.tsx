@@ -1,8 +1,8 @@
 "use client";
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { Input } from "@v1/ui/input";
 import { Button } from "@v1/ui/button";
+import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 
 // =============================================================================

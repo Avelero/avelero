@@ -13,29 +13,29 @@
  * - Attribute re-assignment
  */
 
-import { describe, it, expect, beforeEach } from "bun:test";
-import { eq, and } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "bun:test";
 import {
-  products,
-  productVariants,
   brandIntegrations,
   integrationProductLinks,
   integrationVariantLinks,
+  productVariants,
+  products,
 } from "@v1/db/schema";
 import {
-  testDb,
+  createDefaultFieldConfigs,
   createTestBrand,
   createTestBrandIntegration,
-  createDefaultFieldConfigs,
+  testDb,
 } from "@v1/db/testing";
+import { createTestSyncContext } from "@v1/db/testing";
 import {
-  setMockProducts,
   clearMockProducts,
   createMockProduct,
   createMockVariant,
+  setMockProducts,
 } from "@v1/testing/mocks/shopify";
+import { and, eq } from "drizzle-orm";
 import { syncProducts } from "../../../src/sync/engine";
-import { createTestSyncContext } from "@v1/db/testing";
 
 describe("Promotion: Basic Flow", () => {
   let brandId: string;

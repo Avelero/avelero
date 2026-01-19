@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Input } from "@v1/ui/input";
-import { FieldWrapper } from "./field-wrapper";
+import { useEffect, useState } from "react";
 import type { ContentField } from "../../registry/types";
+import { FieldWrapper } from "./field-wrapper";
 
 interface NumberInputProps {
   field: ContentField;

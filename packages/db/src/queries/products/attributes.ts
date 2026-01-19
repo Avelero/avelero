@@ -14,9 +14,9 @@ import {
   productEnvironment,
   productJourneySteps,
   productMaterials,
-  products,
   productTags,
   productWeight,
+  products,
 } from "../../schema";
 
 /**

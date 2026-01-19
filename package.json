@@ -29,9 +29,7 @@
     "start:app": "turbo start --filter=@v1/app",
     "start:dpp": "turbo start --filter=@v1/dpp",
     "start:api": "turbo start --filter=@v1/api",
-    "test:unit": "turbo test:unit --parallel",
-    "test:integration": "turbo test:integration --concurrency 1",
-    "test": "bun run test:unit && bun run test:integration",
+    "test": "turbo test --concurrency=1",
     "format": "biome format --write .",
     "lint": "turbo lint && bun lint:repo",
     "lint:repo": "bunx sherif@latest",
@@ -39,8 +37,5 @@
     "typecheck": "turbo typecheck",
     "seed:shopify": "bun run scripts/seed-shopify-integration.ts"
   },
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ]
+  "workspaces": ["packages/*", "apps/*"]
 }

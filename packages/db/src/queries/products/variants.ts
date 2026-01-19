@@ -7,8 +7,8 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  brandAttributes,
   brandAttributeValues,
+  brandAttributes,
   productVariantAttributes,
   productVariants,
 } from "../../schema";

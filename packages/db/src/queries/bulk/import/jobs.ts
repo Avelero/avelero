@@ -5,10 +5,10 @@
  */
 
 import { desc, eq } from "drizzle-orm";
-import type { Database } from "../../../client";
-import { importJobs } from "../../../schema";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
+import type { Database } from "../../../client";
+import { importJobs } from "../../../schema";
 import type {
   CreateImportJobParams,
   ImportJobStatus,
@@ -212,7 +212,7 @@ export async function getImportJobStatus(
 export async function getRecentImportJobs(
   db: DbOrTx,
   brandId: string,
-  limit: number = 5,
+  limit = 5,
 ): Promise<ImportJobStatus[]> {
   const results = await db
     .select()

@@ -8,9 +8,9 @@
 
 import type { Database } from "@v1/db/client";
 import {
-  loadTagsMap,
-  loadBrandAttributesMap,
   loadAllBrandAttributeValuesMap,
+  loadBrandAttributesMap,
+  loadTagsMap,
 } from "@v1/db/queries/catalog";
 
 // =============================================================================
@@ -191,7 +191,10 @@ export function bulkCacheAttributes(
   newlyCreated: Set<string>,
 ): void {
   for (const [name, id] of attributeMap) {
-    caches.attributes.set(name.toLowerCase(), { id, created: newlyCreated.has(name) });
+    caches.attributes.set(name.toLowerCase(), {
+      id,
+      created: newlyCreated.has(name),
+    });
   }
 }
 

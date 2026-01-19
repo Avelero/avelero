@@ -7,24 +7,24 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
+  brandCertifications,
+  brandManufacturers,
   brandMaterials,
   brandOperators,
-  brandManufacturers,
-  brandCertifications,
   brandSeasons,
   brandTags,
 } from "../../schema";
+import { createCertification } from "./certifications";
+import { createBrandManufacturer } from "./manufacturers";
+import { createMaterial } from "./materials";
+import { createOperator } from "./operators";
+import { createSeason } from "./seasons";
+import { createBrandTag } from "./tags";
 import type {
   CatalogEntityType,
   ValidationError,
   ValidationResult,
 } from "./types";
-import { createMaterial } from "./materials";
-import { createOperator } from "./operators";
-import { createBrandManufacturer } from "./manufacturers";
-import { createCertification } from "./certifications";
-import { createSeason } from "./seasons";
-import { createBrandTag } from "./tags";
 
 /**
  * Configuration map for duplicate checking by entity type.

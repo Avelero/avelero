@@ -3,8 +3,8 @@ import {
   numeric,
   pgPolicy,
   pgTable,
-  timestamp,
   text,
+  timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
 import { productVariants } from "./product-variants";

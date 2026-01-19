@@ -7,8 +7,8 @@
 
 import { describe, expect, test } from "bun:test";
 import {
-  extractUniqueEntitiesFromBatch,
   type ExtractedEntities,
+  extractUniqueEntitiesFromBatch,
 } from "../../../src/sync/batch-operations";
 import type { EffectiveFieldMapping } from "../../../src/sync/processor";
 import type { FetchedProduct, FetchedProductBatch } from "../../../src/types";

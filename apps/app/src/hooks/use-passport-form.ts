@@ -1,21 +1,21 @@
-import { useTRPC } from "@/trpc/client";
-import { useFormState } from "@/hooks/use-form-state";
-import { useImageUpload } from "@/hooks/use-upload";
-import {
-  rules,
-  validateForm,
-  type ValidationErrors,
-  type ValidationSchema,
-  isFormValid,
-} from "@/hooks/use-form-validation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "@v1/ui/sonner";
-import { useRouter } from "next/navigation";
-import * as React from "react";
 import type {
   VariantDimension,
   VariantMetadata,
 } from "@/components/forms/passport/blocks/variant-block";
+import { useFormState } from "@/hooks/use-form-state";
+import {
+  type ValidationErrors,
+  type ValidationSchema,
+  isFormValid,
+  rules,
+  validateForm,
+} from "@/hooks/use-form-validation";
+import { useImageUpload } from "@/hooks/use-upload";
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "@v1/ui/sonner";
+import { useRouter } from "next/navigation";
+import * as React from "react";
 
 // ============================================================================
 // Types
@@ -1259,10 +1259,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           // This is the ONLY place where publish is called during save - keeps logic simple and predictable.
           // The content hash deduplication in publishVariant will skip creating versions if nothing changed.
           const currentStatus = formValues.status ?? dbPublishingStatus;
-          if (
-            currentStatus === "published" &&
-            metadataRef.current.productId
-          ) {
+          if (currentStatus === "published" && metadataRef.current.productId) {
             await publishProductMutation.mutateAsync({
               productId: metadataRef.current.productId,
             });

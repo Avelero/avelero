@@ -22,6 +22,8 @@ import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
 
+import { AttributeSelect } from "@/components/select/attribute-select";
+import { VariantTable } from "@/components/tables/variants/variants";
 import {
   Select,
   SelectAction,
@@ -37,8 +39,6 @@ import {
 import Link from "next/link";
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { AttributeSelect } from "@/components/select/attribute-select";
-import { VariantTable } from "@/components/tables/variants/variants";
 
 // ============================================================================
 // Types

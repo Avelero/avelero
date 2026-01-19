@@ -3,8 +3,8 @@
 import { ConnectIntegrationModal } from "@/components/modals/connect-integration-modal";
 import { ConnectShopifyModal } from "@/components/modals/connect-shopify-modal";
 import {
-  useIntegrationsQuerySuspense,
   type Integration,
+  useIntegrationsQuerySuspense,
 } from "@/hooks/use-integrations";
 import { useState } from "react";
 import { IntegrationCard } from "./integration-card";

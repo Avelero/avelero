@@ -1,17 +1,17 @@
 "use client";
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { findComponentById, type ContentField } from "../../registry";
+import { type ContentField, findComponentById } from "../../registry";
 import {
-  EditorSection,
-  TextInput,
-  UrlInput,
-  ToggleInput,
-  NumberInput,
-  TextareaInput,
-  ImageInput,
   CarouselInput,
+  EditorSection,
+  ImageInput,
   MenuInput,
+  NumberInput,
+  TextInput,
+  TextareaInput,
+  ToggleInput,
+  UrlInput,
 } from "../inputs";
 
 // =============================================================================

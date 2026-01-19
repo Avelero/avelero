@@ -26,4 +26,3 @@ export {
 export { IdentifiersSidebar } from "./sidebars/identifiers-sidebar";
 export { StatusSidebar } from "./sidebars/status-sidebar";
 export { VariantsOverview } from "./sidebars/variants-overview";
-

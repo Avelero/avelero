@@ -24,43 +24,43 @@
 
 import type { Database } from "@v1/db/client";
 import {
-  createPromotionOperation,
-  getIncompletePromotionOperation,
-  getPromotionOperation,
-  updatePromotionProgress as updatePromotionProgressDb,
-  markPromotionFailed,
-  markPromotionCompleted,
-  getCurrentPrimaryIntegration,
-  updateIntegrationPrimaryStatus,
-  getIntegrationVariants,
-  getIntegrationVariantCount,
-  reParentVariantsBatch,
+  batchCreateBrandAttributeValues,
+  batchCreateBrandAttributes,
+  loadAllBrandAttributeValuesMap,
+  loadBrandAttributesMap,
+} from "@v1/db/queries/catalog";
+import {
   archiveEmptyProducts,
-  createProductForPromotion,
-  updateProductFromExternal,
+  batchInsertVariantAttributes,
   clearCanonicalStatus,
+  clearVariantAttributesForIntegration,
+  createProductForPromotion,
+  createPromotionOperation,
+  getCurrentPrimaryIntegration,
+  getIncompletePromotionOperation,
+  getIntegrationVariantCount,
+  getIntegrationVariants,
+  getPromotionOperation,
+  getVariantsByBarcode,
+  getVariantsForIntegration,
+  markPromotionCompleted,
+  markPromotionFailed,
   promotionUpsertProductLink,
   promotionUpsertVariantLink,
-  getVariantsByBarcode,
-  clearVariantAttributesForIntegration,
-  getVariantsForIntegration,
-  batchInsertVariantAttributes,
+  reParentVariantsBatch,
+  updateIntegrationPrimaryStatus,
+  updateProductFromExternal,
+  updatePromotionProgress as updatePromotionProgressDb,
 } from "@v1/db/queries/integrations";
-import {
-  batchCreateBrandAttributes,
-  batchCreateBrandAttributeValues,
-  loadBrandAttributesMap,
-  loadAllBrandAttributeValuesMap,
-} from "@v1/db/queries/catalog";
 import { getConnector } from "../connectors/registry";
-import type { IntegrationCredentials, FetchedProduct } from "../types";
+import type { FetchedProduct, IntegrationCredentials } from "../types";
 import type {
+  ExternalGrouping,
   PromotionConfig,
+  PromotionContext,
+  PromotionPhase,
   PromotionProgress,
   PromotionResult,
-  PromotionPhase,
-  PromotionContext,
-  ExternalGrouping,
   VariantMove,
 } from "./promotion-types";
 

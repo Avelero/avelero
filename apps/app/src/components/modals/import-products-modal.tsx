@@ -82,9 +82,18 @@ function ImportProductsModalContent({
   // Show notification dot based on unread import failure notifications
   const showNotificationDot = !!importFailureNotification;
 
-  // Mark notification as seen when modal opens
+  // Track which notifications we've already initiated markAsSeen for
+  // This prevents the loop caused by query invalidation + broadcast causing re-renders
+  const markedAsSeenRef = useRef<Set<string>>(new Set());
+
+  // Mark notification as seen when modal opens (only once per notification ID)
   useEffect(() => {
-    if (open && importFailureNotification) {
+    if (
+      open &&
+      importFailureNotification &&
+      !markedAsSeenRef.current.has(importFailureNotification.id)
+    ) {
+      markedAsSeenRef.current.add(importFailureNotification.id);
       markAsSeen.mutate({ id: importFailureNotification.id });
     }
   }, [open, importFailureNotification, markAsSeen]);
@@ -415,13 +424,8 @@ function ImportProductsModalContent({
                             (summary?.blockedProducts as number) ?? 0;
                           const warnings =
                             (summary?.warningProducts as number) ?? 0;
-                          if (blocked > 0 && warnings > 0) {
-                            return `${blocked} products failed and ${warnings} had warnings during your most recent import`;
-                          }
-                          if (blocked > 0) {
-                            return `${blocked} products failed during your most recent import`;
-                          }
-                          return `${warnings} products had warnings during your most recent import`;
+                          const totalIssues = blocked + warnings;
+                          return `${totalIssues} product${totalIssues !== 1 ? "s" : ""} had issues during your most recent import`;
                         })()}
                       </p>
                       <p className="type-small text-secondary mt-1">

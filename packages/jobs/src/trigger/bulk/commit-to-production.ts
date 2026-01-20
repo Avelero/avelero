@@ -20,14 +20,14 @@
 import "../configure-trigger";
 import { createHash } from "node:crypto";
 import { type SupabaseClient, createClient } from "@supabase/supabase-js";
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, task, tasks } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
 import type { NormalizedRowData, NormalizedVariant } from "@v1/db/queries/bulk";
 import { createNotification } from "@v1/db/queries/notifications";
 import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
 import * as schema from "@v1/db/schema";
-import { sendBulkBroadcast, sendNotificationBroadcast } from "@v1/db/utils";
+import { sendBulkBroadcast } from "@v1/db/utils";
 import {
   downloadAndUploadImage,
   isExternalImageUrl,
@@ -69,6 +69,14 @@ interface ImageUploadTask {
   type: "product" | "variant";
   entityId: string;
   imageUrl: string;
+}
+
+/** Image upload failure with error details for reporting */
+interface ImageFailure {
+  type: "product" | "variant";
+  entityId: string;
+  url: string;
+  error: string;
 }
 
 /** Pending production operations (computed phase, no DB calls) */
@@ -246,6 +254,9 @@ export const commitToProduction = task({
       imagesFailed: 0,
     };
 
+    // Track all image failures across batches for error reporting
+    const allImageFailures: ImageFailure[] = [];
+
     let committedCount = 0;
     let failedCount = 0;
     let batchNumber = 0;
@@ -325,6 +336,7 @@ export const commitToProduction = task({
         );
         totalStats.imagesProcessed += imageResults.completed;
         totalStats.imagesFailed += imageResults.failed;
+        allImageFailures.push(...imageResults.failures);
 
         // PHASE 4: Generate UPIDs for new variants in this batch
         const upidMap = await preGenerateUpids(db, batchData);
@@ -388,29 +400,114 @@ export const commitToProduction = task({
         }
       }
 
-      // PHASE 8: Delete committed import_rows
-      logger.info("Cleaning up committed data");
-      await deleteCommittedImportRows(db, jobId);
+      // PHASE 8: Add image errors to import_rows (BEFORE deletion)
+      // This ensures image failures appear in the error report
+      if (allImageFailures.length > 0) {
+        logger.info("Adding image failures to import_rows", {
+          failureCount: allImageFailures.length,
+        });
+        await addImageErrorsToImportRows(db, jobId, allImageFailures);
+      }
+
+      // PHASE 9: Count final row statuses (AFTER image errors are added)
+      // This gives us accurate blocked/warning counts for the summary and notification
+      const rowCounts = await countImportRowStatuses(db, jobId);
+      const blockedProducts = rowCounts.blocked;
+      const warningProducts = rowCounts.pendingWithWarnings;
+
+      logger.info("Final row status counts", {
+        jobId,
+        ...rowCounts,
+      });
 
       // Determine final status
-      // Consider both commit failures AND validation errors from earlier phase
+      // Consider commit failures, validation errors, AND image failures
       const hasCommitFailures = failedCount > 0;
       const hasValidationErrors = payload.hasValidationErrors ?? false;
-      const hasAnyFailures = hasCommitFailures || hasValidationErrors;
+      const hasImageFailures = allImageFailures.length > 0;
+      const hasAnyFailures =
+        hasCommitFailures ||
+        hasValidationErrors ||
+        hasImageFailures ||
+        blockedProducts > 0 ||
+        warningProducts > 0;
       const finalStatus = hasAnyFailures
         ? "COMPLETED_WITH_FAILURES"
         : "COMPLETED";
+
+      // PHASE 10: Generate error report if there are any errors
+      // Must happen BEFORE deleting committed rows
+      if (hasAnyFailures) {
+        logger.info("Generating error report", {
+          jobId,
+          hasValidationErrors,
+          hasImageFailures,
+          imageFailureCount: allImageFailures.length,
+          blockedProducts,
+          warningProducts,
+        });
+
+        await tasks.triggerAndWait("generate-error-report", {
+          jobId,
+          brandId,
+          userEmail: payload.userEmail ?? null,
+        });
+
+        logger.info("Error report generation completed", { jobId });
+
+        // Create failure notification with total issues count
+        if (payload.userId) {
+          const totalIssues = blockedProducts + warningProducts;
+          const title =
+            totalIssues > 0
+              ? `${totalIssues} product${totalIssues !== 1 ? "s" : ""} had issues during import`
+              : "Some products had issues during import";
+
+          try {
+            await createNotification(db, {
+              userId: payload.userId,
+              brandId,
+              type: "import_failure",
+              title,
+              message:
+                "Download the error report to see which products need corrections.",
+              resourceType: "import_job",
+              resourceId: jobId,
+              actionUrl: "/products",
+              actionData: {
+                totalIssues,
+                blockedProducts,
+                warningProducts,
+                jobId,
+              },
+              expiresInMs: 24 * 60 * 60 * 1000, // 24 hours
+            });
+          } catch (notificationError) {
+            logger.warn("Failed to send failure notification", {
+              error:
+                notificationError instanceof Error
+                  ? notificationError.message
+                  : "Unknown error",
+            });
+          }
+        }
+      }
+
+      // PHASE 11: Delete committed import_rows (AFTER error report is generated)
+      logger.info("Cleaning up committed data");
+      await deleteCommittedImportRows(db, jobId);
 
       await db
         .update(importJobs)
         .set({
           status: finalStatus,
           finishedAt: new Date().toISOString(),
-          // Preserve validation errors flag OR set if there are commit failures
           hasExportableFailures: hasAnyFailures,
           summary: {
             committed: committedCount,
             failed: failedCount,
+            blockedProducts,
+            warningProducts,
             ...totalStats,
           },
         })
@@ -419,16 +516,13 @@ export const commitToProduction = task({
       // Revalidate DPP cache for the brand
       await revalidateBrandCache(brandId);
 
-      // Note: Error report is triggered in validate-and-stage.ts, not here
-      // This ensures the error report includes ALL errors (validation + commit failures)
-
-      // Create success notification and broadcast for toast
+      // Create success notification (only if no failures)
       if (payload.userId && finalStatus === "COMPLETED") {
         const totalProcessed =
           totalStats.productsCreated + totalStats.productsUpdated;
 
         try {
-          const notification = await createNotification(db, {
+          await createNotification(db, {
             userId: payload.userId,
             brandId,
             type: "import_success",
@@ -439,10 +533,7 @@ export const commitToProduction = task({
             actionUrl: "/products",
             expiresInMs: 24 * 60 * 60 * 1000, // 24 hours
           });
-
-          await sendNotificationBroadcast(db, payload.userId, notification);
         } catch (notificationError) {
-          // Log but don't throw - the import succeeded
           logger.warn("Failed to send success notification", {
             error:
               notificationError instanceof Error
@@ -1142,14 +1233,21 @@ function isSameImageSource(
 /**
  * Process images for a batch with rate limiting.
  * Works directly with NormalizedRowData.
+ * Returns detailed failure information for error reporting.
  */
 async function processImages(
   storageClient: SupabaseClient,
   brandId: string,
   batchData: NormalizedRowData[],
   existingProductImageMap: Map<string, string | null>,
-): Promise<{ completed: number; failed: number; skipped: number }> {
-  const tasks: ImageUploadTask[] = [];
+): Promise<{
+  completed: number;
+  failed: number;
+  skipped: number;
+  failures: ImageFailure[];
+}> {
+  const uploadTasks: ImageUploadTask[] = [];
+  const failures: ImageFailure[] = [];
   let skipped = 0;
 
   // Collect all image upload tasks for this batch
@@ -1169,7 +1267,7 @@ async function processImages(
           existingImagePath ?? null;
         skipped++;
       } else {
-        tasks.push({
+        uploadTasks.push({
           type: "product",
           entityId: product.id,
           imageUrl: product.imagePath,
@@ -1182,7 +1280,7 @@ async function processImages(
         variant.imagePathOverride &&
         isExternalImageUrl(variant.imagePathOverride)
       ) {
-        tasks.push({
+        uploadTasks.push({
           type: "variant",
           entityId: variant.id,
           imageUrl: variant.imagePathOverride,
@@ -1191,8 +1289,8 @@ async function processImages(
     }
   }
 
-  if (tasks.length === 0) {
-    return { completed: 0, failed: 0, skipped };
+  if (uploadTasks.length === 0) {
+    return { completed: 0, failed: 0, skipped, failures };
   }
 
   // Process with rate limiting
@@ -1203,53 +1301,74 @@ async function processImages(
 
   await new Promise<void>((resolve) => {
     const processNext = async () => {
-      if (currentIndex >= tasks.length) {
-        if (completed + failed === tasks.length) {
+      if (currentIndex >= uploadTasks.length) {
+        if (completed + failed === uploadTasks.length) {
           resolve();
         }
         return;
       }
 
-      const task = tasks[currentIndex++]!;
+      const uploadTask = uploadTasks[currentIndex++]!;
 
       try {
-        const timeoutPromise = new Promise<null>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Image upload timeout")),
-            IMAGE_TIMEOUT_MS,
-          ),
-        );
-
         const pathPrefix =
-          task.type === "product" ? brandId : `${brandId}/variants`;
+          uploadTask.type === "product" ? brandId : `${brandId}/variants`;
 
-        const uploadPromise = downloadAndUploadImage(storageClient, {
-          url: task.imageUrl,
-          bucket: "products",
-          pathPrefix,
-        });
+        const result = await Promise.race([
+          downloadAndUploadImage(storageClient, {
+            url: uploadTask.imageUrl,
+            bucket: "products",
+            pathPrefix,
+          }),
+          new Promise<{ success: false; path: null; error: string }>(
+            (resolve) =>
+              setTimeout(
+                () =>
+                  resolve({
+                    success: false,
+                    path: null,
+                    error: "Request timed out",
+                  }),
+                IMAGE_TIMEOUT_MS,
+              ),
+          ),
+        ]);
 
-        const path = await Promise.race([uploadPromise, timeoutPromise]);
-
-        if (path) {
-          imagePathResults.set(`${task.type}:${task.entityId}`, path as string);
+        if (result.success && result.path) {
+          imagePathResults.set(
+            `${uploadTask.type}:${uploadTask.entityId}`,
+            result.path,
+          );
           completed++;
         } else {
           failed++;
+          failures.push({
+            type: uploadTask.type,
+            entityId: uploadTask.entityId,
+            url: uploadTask.imageUrl,
+            error: result.error || "Unknown error",
+          });
         }
-      } catch {
+      } catch (error) {
         failed++;
+        failures.push({
+          type: uploadTask.type,
+          entityId: uploadTask.entityId,
+          url: uploadTask.imageUrl,
+          error:
+            error instanceof Error ? error.message : "Network error or timeout",
+        });
       } finally {
-        if (currentIndex < tasks.length) {
+        if (currentIndex < uploadTasks.length) {
           processNext();
         }
-        if (completed + failed === tasks.length) {
+        if (completed + failed === uploadTasks.length) {
           resolve();
         }
       }
     };
 
-    const initialBatch = Math.min(IMAGE_CONCURRENCY, tasks.length);
+    const initialBatch = Math.min(IMAGE_CONCURRENCY, uploadTasks.length);
     for (let i = 0; i < initialBatch; i++) {
       processNext();
     }
@@ -1271,7 +1390,146 @@ async function processImages(
     }
   }
 
-  return { completed, failed, skipped };
+  return { completed, failed, skipped, failures };
+}
+
+// ============================================================================
+// Add Image Errors to Import Rows
+// ============================================================================
+
+/**
+ * Add image download errors to import_rows.normalized so they appear in error report.
+ * Must be called BEFORE deleting committed rows.
+ */
+async function addImageErrorsToImportRows(
+  database: Database,
+  jobId: string,
+  failures: ImageFailure[],
+): Promise<void> {
+  if (failures.length === 0) return;
+
+  // Group failures by product/variant ID
+  const productFailures = new Map<string, ImageFailure>();
+  const variantFailures = new Map<string, ImageFailure>();
+
+  for (const failure of failures) {
+    if (failure.type === "product") {
+      productFailures.set(failure.entityId, failure);
+    } else {
+      variantFailures.set(failure.entityId, failure);
+    }
+  }
+
+  // Load all import_rows for this job
+  const rows = await database
+    .select({
+      id: importRows.id,
+      normalized: importRows.normalized,
+      status: importRows.status,
+    })
+    .from(importRows)
+    .where(eq(importRows.jobId, jobId));
+
+  for (const row of rows) {
+    const normalized = row.normalized as NormalizedRowData | null;
+    if (!normalized) continue;
+
+    let needsUpdate = false;
+
+    // Check product-level image failure
+    const productFailure = productFailures.get(normalized.id);
+    if (productFailure) {
+      normalized.errors = normalized.errors || [];
+      normalized.errors.push({
+        field: "Image",
+        message: `Image download failed: ${productFailure.error}. Field skipped.`,
+      });
+      normalized.rowStatus = "PENDING_WITH_WARNINGS";
+      needsUpdate = true;
+    }
+
+    // Check variant-level image failures
+    for (const variant of normalized.variants) {
+      const variantFailure = variantFailures.get(variant.id);
+      if (variantFailure) {
+        variant.errors = variant.errors || [];
+        variant.errors.push({
+          field: "Image",
+          message: `Image download failed: ${variantFailure.error}. Field skipped.`,
+        });
+        variant.rowStatus = "PENDING_WITH_WARNINGS";
+        needsUpdate = true;
+      }
+    }
+
+    if (needsUpdate) {
+      await database
+        .update(importRows)
+        .set({
+          normalized,
+          status: "PENDING_WITH_WARNINGS",
+        })
+        .where(eq(importRows.id, row.id));
+    }
+  }
+
+  logger.info("Added image errors to import_rows", {
+    productFailures: productFailures.size,
+    variantFailures: variantFailures.size,
+  });
+}
+
+// ============================================================================
+// Count Import Row Statuses
+// ============================================================================
+
+interface ImportRowCounts {
+  pending: number;
+  pendingWithWarnings: number;
+  blocked: number;
+}
+
+/**
+ * Count import rows by normalized.rowStatus for the job.
+ * This matches how generate-error-report counts issues.
+ *
+ * Important: We count normalized.rowStatus (inside the JSON), NOT importRows.status (the column).
+ * This is because committed rows still have their original normalized.rowStatus preserved,
+ * which the error report uses to show which products had issues.
+ */
+async function countImportRowStatuses(
+  database: Database,
+  jobId: string,
+): Promise<ImportRowCounts> {
+  const rows = await database
+    .select({ normalized: importRows.normalized })
+    .from(importRows)
+    .where(eq(importRows.jobId, jobId));
+
+  const counts: ImportRowCounts = {
+    pending: 0,
+    pendingWithWarnings: 0,
+    blocked: 0,
+  };
+
+  for (const row of rows) {
+    const normalized = row.normalized as NormalizedRowData | null;
+    if (!normalized) continue;
+
+    switch (normalized.rowStatus) {
+      case "PENDING":
+        counts.pending++;
+        break;
+      case "PENDING_WITH_WARNINGS":
+        counts.pendingWithWarnings++;
+        break;
+      case "BLOCKED":
+        counts.blocked++;
+        break;
+    }
+  }
+
+  return counts;
 }
 
 // ============================================================================

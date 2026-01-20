@@ -28,9 +28,8 @@ import type {
   NormalizedVariant,
   RowError,
 } from "@v1/db/queries/bulk";
-import { createNotification } from "@v1/db/queries/notifications";
 import * as schema from "@v1/db/schema";
-import { sendNotificationBroadcast } from "@v1/db/utils";
+import { validateImageUrl } from "@v1/supabase/utils/external-images";
 import { type BrandCatalog, loadBrandCatalog } from "../../lib/catalog-loader";
 import {
   type ParsedProduct,
@@ -479,68 +478,10 @@ export const validateAndStage = task({
         errorReportNeeded: hasErrors,
       });
 
-      // 10. Generate error report SYNCHRONOUSLY if ANY products have errors
-      // IMPORTANT: Must use triggerAndWait so the report is generated BEFORE
-      // commit-to-production runs (which changes rowStatus and deletes staging data)
-      if (hasErrors) {
-        logger.info("Generating error report (synchronous)", {
-          jobId,
-          warningsCount,
-          blockedCount,
-        });
-
-        await tasks.triggerAndWait("generate-error-report", {
-          jobId,
-          brandId,
-          userEmail: payload.userEmail ?? null,
-        });
-
-        logger.info("Error report generation completed", {
-          jobId,
-          warningsCount,
-          blockedCount,
-        });
-
-        // 10b. Create user notification for import failure and broadcast for toast
-        if (payload.userId) {
-          const notificationTitle =
-            blockedCount > 0 && warningsCount > 0
-              ? `${blockedCount} products failed and ${warningsCount} had warnings`
-              : blockedCount > 0
-                ? `${blockedCount} products failed during import`
-                : `${warningsCount} products had warnings during import`;
-
-          const notification = await createNotification(db, {
-            userId: payload.userId,
-            brandId,
-            type: "import_failure",
-            title: notificationTitle,
-            message:
-              "Download the error report to see which products need corrections.",
-            resourceType: "import_job",
-            resourceId: jobId,
-            actionUrl: "/products",
-            actionData: {
-              blockedCount,
-              warningsCount,
-              jobId,
-            },
-            expiresInMs: 24 * 60 * 60 * 1000, // 24 hours
-          });
-
-          // Broadcast notification for toast display
-          await sendNotificationBroadcast(db, payload.userId, notification);
-
-          logger.info("Created import failure notification", {
-            jobId,
-            userId: payload.userId,
-            blockedCount,
-            warningsCount,
-          });
-        }
-      }
-
-      // 11. Auto-trigger commit-to-production job (only if we have committable products)
+      // 10. Auto-trigger commit-to-production job (only if we have committable products)
+      // Note: Error report generation and failure notifications are handled in commit-to-production
+      // AFTER all images have been processed. This ensures the report includes image failures
+      // and the toast notification appears after the import is fully complete.
       if (hasCommittableProducts) {
         await tasks.trigger("commit-to-production", {
           jobId,
@@ -1034,44 +975,15 @@ function computeNormalizedRowData(
   }
 
   // Validate image URL format (product-level)
-  if (product.imagePath?.trim()) {
-    const imagePath = product.imagePath.trim();
-
-    // Check if it looks like a partial storage URL (common mistake)
-    // These are paths that look like they should be full URLs but are missing the base
-    if (
-      imagePath.startsWith("v1/") ||
-      imagePath.startsWith("/v1/") ||
-      imagePath.startsWith("storage/") ||
-      imagePath.startsWith("/storage/")
-    ) {
+  // Image URLs must ALWAYS be full HTTP/HTTPS URLs
+  if (product.imagePath) {
+    const imageValidation = validateImageUrl(product.imagePath);
+    if (!imageValidation.valid && !imageValidation.skipped) {
       warningErrors.push({
         field: "Image",
-        message: `Invalid image path: "${imagePath}". This looks like a partial storage URL. Use either a full URL (https://...) or just the file path. Field skipped.`,
+        message: imageValidation.error!,
       });
-    } else if (imagePath.includes("://")) {
-      // External URL - must be http or https
-      if (
-        !imagePath.startsWith("http://") &&
-        !imagePath.startsWith("https://")
-      ) {
-        warningErrors.push({
-          field: "Image",
-          message: `Invalid image URL: "${imagePath}". External URLs must start with http:// or https://. Field skipped.`,
-        });
-      } else {
-        // Valid URL format - try to parse it
-        try {
-          new URL(imagePath);
-        } catch {
-          warningErrors.push({
-            field: "Image",
-            message: `Invalid image URL format: "${imagePath}". Field skipped.`,
-          });
-        }
-      }
     }
-    // Non-URL paths (storage references like "brand-id/image.jpg") are allowed
   }
 
   // Track errors per variant (by row number) for error reporting
@@ -1166,40 +1078,14 @@ function computeNormalizedRowData(
     }
 
     // Validate variant-level image URL override (child rows only)
+    // Image URLs must ALWAYS be full HTTP/HTTPS URLs
     if (!isFirstVariant && variant.imagePathOverride) {
-      const imagePath = variant.imagePathOverride.trim();
-      if (imagePath) {
-        // Check if it looks like a partial storage URL (common mistake)
-        if (
-          imagePath.startsWith("v1/") ||
-          imagePath.startsWith("/v1/") ||
-          imagePath.startsWith("storage/") ||
-          imagePath.startsWith("/storage/")
-        ) {
-          variantErrors.push({
-            field: "Image",
-            message: `Invalid image path: "${imagePath}". This looks like a partial storage URL. Use either a full URL (https://...) or just the file path. Field skipped.`,
-          });
-        } else if (imagePath.includes("://")) {
-          if (
-            !imagePath.startsWith("http://") &&
-            !imagePath.startsWith("https://")
-          ) {
-            variantErrors.push({
-              field: "Image",
-              message: `Invalid image URL: "${imagePath}". External URLs must start with http:// or https://. Field skipped.`,
-            });
-          } else {
-            try {
-              new URL(imagePath);
-            } catch {
-              variantErrors.push({
-                field: "Image",
-                message: `Invalid image URL format: "${imagePath}". Field skipped.`,
-              });
-            }
-          }
-        }
+      const imageValidation = validateImageUrl(variant.imagePathOverride);
+      if (!imageValidation.valid && !imageValidation.skipped) {
+        variantErrors.push({
+          field: "Image",
+          message: imageValidation.error!,
+        });
       }
     }
 

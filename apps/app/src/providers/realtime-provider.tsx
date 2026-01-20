@@ -7,8 +7,10 @@ import {
 } from "@/config/realtime-config";
 import { useThrottledCallback } from "@/hooks/use-throttled-callback";
 import { useUserQuerySuspense } from "@/hooks/use-user";
+import { useTRPC } from "@/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
+import { toast } from "@v1/ui/sonner";
 import {
   createContext,
   useCallback,
@@ -57,8 +59,10 @@ function logRealtimeError(message: string, error?: unknown): void {
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
   const queryClient = useQueryClient();
+  const trpc = useTRPC();
   const { data: user } = useUserQuerySuspense();
   const brandId = user?.brand_id;
+  const userId = user?.id;
 
   // Use state for isConnected so UI can react to changes
   const [isConnected, setIsConnected] = useState(false);
@@ -340,6 +344,55 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       setIsConnected(false);
     };
   }, [brandId, supabase, getInvalidator]);
+
+  // =============================================
+  // USER NOTIFICATIONS CHANNEL
+  // =============================================
+  // Separate subscription for user-scoped notifications (not brand-scoped).
+  // Shows toasts when import success/failure notifications arrive.
+  useEffect(() => {
+    if (!userId) return;
+
+    const topicName = `notifications:${userId}`;
+
+    const channel = supabase
+      .channel(topicName, { config: { private: true } })
+      .on("broadcast", { event: "INSERT" }, (payload) => {
+        // Show toast for import notifications
+        // Payload structure from realtime.send(): { id, type, title, message }
+        const data = payload.payload as
+          | { type?: string; title?: string }
+          | undefined;
+
+        if (data?.type === "import_success" && data.title) {
+          toast.success(data.title);
+        } else if (data?.type === "import_failure" && data.title) {
+          toast.error(data.title);
+        }
+
+        // Invalidate notification queries to update UI (badge count, list)
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      })
+      .on("broadcast", { event: "UPDATE" }, () => {
+        // Notification was marked as seen/dismissed - update queries
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, supabase, queryClient, trpc]);
 
   return (
     <RealtimeContext.Provider value={{ isConnected }}>

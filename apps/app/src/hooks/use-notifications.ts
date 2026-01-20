@@ -6,10 +6,6 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { createClient } from "@v1/supabase/client";
-import { toast } from "@v1/ui/sonner";
-import { useEffect, useMemo } from "react";
-import { useUserQuerySuspense } from "./use-user";
 
 /**
  * Notification object shape from the API.
@@ -57,8 +53,6 @@ export interface Notification {
 export function useNotifications() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const supabase = useMemo(() => createClient(), []);
-  const { data: user } = useUserQuerySuspense();
 
   // Suspense queries - will suspend until data is available
   const unreadCountQuery = useSuspenseQuery(
@@ -146,45 +140,8 @@ export function useNotifications() {
     }),
   );
 
-  // Subscribe to realtime notifications channel
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel(`notifications:${user.id}`, { config: { private: true } })
-      .on("broadcast", { event: "INSERT" }, (payload) => {
-        // Show toast for import notifications
-        const data = payload.payload as
-          | { type?: string; title?: string }
-          | undefined;
-        if (data?.type === "import_success" && data.title) {
-          toast.success(data.title);
-        } else if (data?.type === "import_failure" && data.title) {
-          toast.error(data.title);
-        }
-
-        // Invalidate queries to update UI
-        queryClient.invalidateQueries({
-          queryKey: trpc.notifications.getUnreadCount.queryKey(),
-        });
-        queryClient.invalidateQueries({
-          queryKey: trpc.notifications.getRecent.queryKey(),
-        });
-      })
-      .on("broadcast", { event: "UPDATE" }, () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.notifications.getUnreadCount.queryKey(),
-        });
-        queryClient.invalidateQueries({
-          queryKey: trpc.notifications.getRecent.queryKey(),
-        });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, supabase, queryClient, trpc]);
+  // Note: Realtime subscription for notifications is handled globally in RealtimeProvider.
+  // This hook only provides query/mutation access for components that need it.
 
   return {
     /** Number of unread notifications (for badge) */

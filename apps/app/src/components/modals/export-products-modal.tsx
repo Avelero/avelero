@@ -17,7 +17,6 @@ import {
   DialogTrigger,
 } from "@v1/ui/dialog";
 import { Icons } from "@v1/ui/icons";
-import { toast } from "@v1/ui/sonner";
 import {
   Tooltip,
   TooltipContent,
@@ -38,10 +37,7 @@ interface ExportProductsModalProps {
   disabled?: boolean;
 }
 
-interface ActiveExportRun {
-  runId: string;
-  accessToken: string;
-}
+type ExportState = "initial" | "exporting" | "completed" | "failed";
 
 // ============================================================================
 // Component
@@ -56,37 +52,58 @@ export function ExportProductsModal({
 }: ExportProductsModalProps) {
   const trpc = useTRPC();
   const [open, setOpen] = useState(false);
-  const [activeExportRun, setActiveExportRun] =
-    useState<ActiveExportRun | null>(null);
+  const [exportState, setExportState] = useState<ExportState>("initial");
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [activeAccessToken, setActiveAccessToken] = useState<string | null>(
+    null,
+  );
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const downloadTriggeredRef = useRef(false);
 
   const hasSelection = selectedCount > 0;
   const isButtonDisabled = disabled || !hasSelection;
 
-  // Subscribe to real-time updates (only to detect completion)
+  // Subscribe to real-time updates
   const { progress: exportProgress, runStatus: exportRunStatus } =
-    useTriggerExportProgress(
-      activeExportRun?.runId ?? null,
-      activeExportRun?.accessToken ?? null,
-    );
+    useTriggerExportProgress(activeRunId, activeAccessToken);
 
   // Start export mutation
   const startExportMutation = useMutation(
     trpc.bulk.export.start.mutationOptions({
       onSuccess: (data) => {
         if (data.runId && data.publicAccessToken) {
-          setActiveExportRun({
-            runId: data.runId,
-            accessToken: data.publicAccessToken,
-          });
+          setActiveRunId(data.runId);
+          setActiveAccessToken(data.publicAccessToken);
           downloadTriggeredRef.current = false;
         }
       },
       onError: (error) => {
-        toast.error(error.message || "Failed to start export");
+        setErrorMessage(error.message || "Failed to start export");
+        setExportState("failed");
       },
     }),
   );
+
+  // Watch for real-time updates and transition states
+  useEffect(() => {
+    if (exportState !== "exporting") return;
+
+    // Only transition to completed when we have the download URL
+    if (exportProgress?.status === "completed" && exportProgress.downloadUrl) {
+      setDownloadUrl(exportProgress.downloadUrl);
+      setExportState("completed");
+    } else if (
+      exportProgress?.status === "failed" ||
+      exportRunStatus === "failed"
+    ) {
+      setErrorMessage(
+        exportProgress?.errorMessage ||
+          "An error occurred while preparing your export. Please try again.",
+      );
+      setExportState("failed");
+    }
+  }, [exportState, exportProgress, exportRunStatus]);
 
   // Auto-download when export completes
   const triggerDownload = useCallback((url: string) => {
@@ -98,32 +115,28 @@ export function ExportProductsModal({
     document.body.removeChild(link);
   }, []);
 
-  // Watch for completion and trigger download
-  // Guards: modal must be open AND we must have an active export run started this session
+  // Trigger download when completed
   useEffect(() => {
     if (
       open &&
-      activeExportRun &&
-      exportProgress?.status === "completed" &&
-      exportProgress.downloadUrl &&
+      exportState === "completed" &&
+      downloadUrl &&
       !downloadTriggeredRef.current
     ) {
       downloadTriggeredRef.current = true;
-      triggerDownload(exportProgress.downloadUrl);
+      triggerDownload(downloadUrl);
     }
-  }, [
-    open,
-    activeExportRun,
-    exportProgress?.status,
-    exportProgress?.downloadUrl,
-    triggerDownload,
-  ]);
+  }, [open, exportState, downloadUrl, triggerDownload]);
 
   // Reset state when modal closes
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setTimeout(() => {
-        setActiveExportRun(null);
+        setExportState("initial");
+        setActiveRunId(null);
+        setActiveAccessToken(null);
+        setDownloadUrl(null);
+        setErrorMessage(null);
         startExportMutation.reset();
         downloadTriggeredRef.current = false;
       }, 350);
@@ -133,6 +146,8 @@ export function ExportProductsModal({
 
   const handleStartExport = () => {
     if (!hasSelection) return;
+
+    setExportState("exporting");
 
     const selectionInput =
       selection.mode === "all"
@@ -146,21 +161,17 @@ export function ExportProductsModal({
     });
   };
 
-  // Simple state machine: initial -> exporting -> completed
-  const isExporting =
-    startExportMutation.isPending ||
-    (activeExportRun &&
-      exportProgress?.status !== "completed" &&
-      exportRunStatus !== "completed" &&
-      exportProgress?.status !== "failed" &&
-      exportRunStatus !== "failed");
-  const isCompleted =
-    exportProgress?.status === "completed" || exportRunStatus === "completed";
-  const isFailed =
-    exportProgress?.status === "failed" ||
-    exportRunStatus === "failed" ||
-    startExportMutation.isError;
-  const isInitial = !isExporting && !isCompleted && !isFailed;
+  const handleRetry = () => {
+    setExportState("initial");
+    setActiveRunId(null);
+    setActiveAccessToken(null);
+    setDownloadUrl(null);
+    setErrorMessage(null);
+    startExportMutation.reset();
+    downloadTriggeredRef.current = false;
+    // Small delay to ensure state is reset before starting again
+    setTimeout(handleStartExport, 0);
+  };
 
   // The button element
   const buttonElement = (
@@ -198,7 +209,7 @@ export function ExportProductsModal({
 
         <div className="px-6 py-6">
           {/* Initial state */}
-          {isInitial && (
+          {exportState === "initial" && (
             <div className="space-y-4">
               <p className="type-p text-foreground">
                 You are about to export{" "}
@@ -217,7 +228,7 @@ export function ExportProductsModal({
           )}
 
           {/* Exporting state */}
-          {isExporting && (
+          {exportState === "exporting" && (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <Icons.Loader className="w-5 h-5 animate-spin text-tertiary" />
               <p className="type-small text-secondary">Exporting...</p>
@@ -225,7 +236,7 @@ export function ExportProductsModal({
           )}
 
           {/* Completed state */}
-          {isCompleted && (
+          {exportState === "completed" && (
             <div className="flex flex-col items-center justify-center py-8 gap-4">
               <div className="w-12 h-12 rounded-full bg-brand/10 flex items-center justify-center">
                 <Icons.Check className="w-6 h-6 text-brand" />
@@ -235,26 +246,31 @@ export function ExportProductsModal({
                   Export complete!
                 </p>
                 <p className="type-small text-secondary mt-1">
-                  Your download should start automatically. If it doesn't,{" "}
-                  {exportProgress?.downloadUrl ? (
-                    <a
-                      href={exportProgress.downloadUrl}
-                      className="text-brand underline"
-                      download
-                    >
-                      click here to download
-                    </a>
-                  ) : (
-                    "check your email for the download link"
+                  Your download should start automatically.
+                  {downloadUrl && (
+                    <>
+                      {" "}
+                      If it doesn't,{" "}
+                      <a
+                        href={downloadUrl}
+                        className="text-brand underline"
+                        download
+                      >
+                        click here to download
+                      </a>
+                      .
+                    </>
                   )}
-                  .
+                </p>
+                <p className="type-small text-secondary mt-1">
+                  We've also sent you an email with the download link.
                 </p>
               </div>
             </div>
           )}
 
           {/* Failed state */}
-          {isFailed && (
+          {exportState === "failed" && (
             <div className="flex flex-col items-center justify-center py-8 gap-4">
               <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
                 <Icons.AlertCircle className="w-6 h-6 text-destructive" />
@@ -264,8 +280,7 @@ export function ExportProductsModal({
                   Export failed
                 </p>
                 <p className="type-small text-secondary mt-1">
-                  {exportProgress?.errorMessage ||
-                    startExportMutation.error?.message ||
+                  {errorMessage ||
                     "An error occurred while preparing your export. Please try again."}
                 </p>
               </div>
@@ -274,7 +289,7 @@ export function ExportProductsModal({
         </div>
 
         <DialogFooter className="px-6 py-4 border-t border-border">
-          {isInitial && (
+          {exportState === "initial" && (
             <>
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancel
@@ -283,33 +298,24 @@ export function ExportProductsModal({
             </>
           )}
 
-          {isExporting && (
+          {exportState === "exporting" && (
             <Button variant="outline" onClick={() => handleOpenChange(false)}>
               Close
             </Button>
           )}
 
-          {isCompleted && (
+          {exportState === "completed" && (
             <Button variant="outline" onClick={() => handleOpenChange(false)}>
               Done
             </Button>
           )}
 
-          {isFailed && (
+          {exportState === "failed" && (
             <>
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Close
               </Button>
-              <Button
-                onClick={() => {
-                  setActiveExportRun(null);
-                  startExportMutation.reset();
-                  downloadTriggeredRef.current = false;
-                  handleStartExport();
-                }}
-              >
-                Try again
-              </Button>
+              <Button onClick={handleRetry}>Try again</Button>
             </>
           )}
         </DialogFooter>

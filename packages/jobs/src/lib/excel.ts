@@ -869,27 +869,53 @@ export async function generateErrorReportExcel(
     await loadExportTemplate();
   let currentRow = startRow;
 
+  // No fill style - used for cells without errors
+  const NO_FILL: ExcelJS.Fill = { type: "pattern", pattern: "none" };
+
   for (const rowData of rows) {
     const errorFields = new Set(rowData.errors.map((e) => e.field));
     const row = worksheet.getRow(currentRow);
 
+    // Track which error fields we've already processed
+    const processedErrorFields = new Set<string>();
+
+    // First pass: process cells from raw data
     for (const [columnName, value] of Object.entries(rowData.raw)) {
       const templateColumn = getTemplateColumnName(columnName);
       const colIdx = columnMap.get(templateColumn) ?? columnMap.get(columnName);
-      if (colIdx && value != null && value !== "") {
+      const stringValue = value != null ? String(value) : "";
+      const hasData = stringValue.trim() !== "";
+      const hasError =
+        errorFields.has(columnName) || errorFields.has(templateColumn);
+
+      // Process cells that have data OR have errors
+      if (colIdx && (hasData || hasError)) {
         const cell = row.getCell(colIdx);
-        cell.value = value;
-        if (errorFields.has(columnName) || errorFields.has(templateColumn)) {
-          cell.fill = ERROR_FILL;
+        if (hasData) {
+          cell.value = value;
+        }
+        // Use cell.style assignment for per-cell styling (prevents column-level fill propagation)
+        const fill = hasError ? ERROR_FILL : NO_FILL;
+        cell.style = { ...cell.style, fill };
+
+        // Track processed error fields
+        if (hasError) {
+          processedErrorFields.add(columnName);
+          processedErrorFields.add(templateColumn);
         }
       }
     }
 
-    for (const error of rowData.errors) {
-      const templateColumn = getTemplateColumnName(error.field);
-      const colIdx =
-        columnMap.get(templateColumn) ?? columnMap.get(error.field);
-      if (colIdx) row.getCell(colIdx).fill = ERROR_FILL;
+    // Second pass: color error fields that weren't in raw data (e.g., empty paired fields)
+    for (const errorField of errorFields) {
+      if (processedErrorFields.has(errorField)) continue;
+
+      const templateColumn = getTemplateColumnName(errorField);
+      const colIdx = columnMap.get(templateColumn) ?? columnMap.get(errorField);
+      if (colIdx) {
+        const cell = row.getCell(colIdx);
+        cell.style = { ...cell.style, fill: ERROR_FILL };
+      }
     }
 
     row.commit();

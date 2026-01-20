@@ -958,13 +958,13 @@ async function processImageUrl(
   if (!isExternalImageUrl(imageUrl)) return imageUrl;
 
   // Download and upload to our storage
-  const storagePath = await downloadAndUploadImage(storageClient, {
+  const result = await downloadAndUploadImage(storageClient, {
     url: imageUrl,
     bucket: "products",
     pathPrefix: brandId,
   });
 
-  return storagePath;
+  return result.path;
 }
 
 /**
@@ -984,13 +984,13 @@ async function processVariantImageUrl(
   if (!isExternalImageUrl(imageUrl)) return imageUrl;
 
   // Download and upload to our storage with variants path prefix
-  const storagePath = await downloadAndUploadImage(storageClient, {
+  const result = await downloadAndUploadImage(storageClient, {
     url: imageUrl,
     bucket: "products",
     pathPrefix: `${brandId}/variants`,
   });
 
-  return storagePath;
+  return result.path;
 }
 
 /**

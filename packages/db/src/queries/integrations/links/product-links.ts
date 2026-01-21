@@ -1,6 +1,6 @@
 /**
  * Product link query functions.
- * 
+ *
  * Handles mapping external products to internal products.
  */
 
@@ -279,10 +279,10 @@ export async function upsertProductLink(
 
 /**
  * Batch find which products already have a canonical link from this integration.
- * 
+ *
  * This is used during sync to determine if a new source product should be canonical
  * (first link within an integration) or non-canonical (subsequent links).
- * 
+ *
  * @param db - Database connection
  * @param brandIntegrationId - The integration to check
  * @param productIds - Array of Avelero product IDs to check

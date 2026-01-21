@@ -39,7 +39,7 @@ export interface BrandRecord {
 /**
  * Brand membership record shape with computed next brand.
  */
-export interface NextBrandRecord {
+interface NextBrandRecord {
   readonly userId: string;
   readonly nextBrandId: string | null;
 }

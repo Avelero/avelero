@@ -25,7 +25,7 @@ jobs:
   # ============================================
   detect-changes:
     name: 🔍 Detect Changes
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       app_changed: ${{ steps.filter.outputs.app }}
       api_changed: ${{ steps.filter.outputs.api }}
@@ -75,7 +75,7 @@ jobs:
     name: 🧪 Lint & Type Check (App)
     needs: detect-changes
     if: needs.detect-changes.outputs.app_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -94,7 +94,7 @@ jobs:
     name: 🧪 Lint & Type Check (API)
     needs: detect-changes
     if: needs.detect-changes.outputs.api_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -113,7 +113,7 @@ jobs:
     name: 🧪 Lint & Type Check (Jobs)
     needs: detect-changes
     if: needs.detect-changes.outputs.jobs_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -132,7 +132,7 @@ jobs:
     name: 🧪 Lint & Type Check (DPP)
     needs: detect-changes
     if: needs.detect-changes.outputs.dpp_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -151,7 +151,7 @@ jobs:
     name: 🧪 Lint & Type Check (Web)
     needs: detect-changes
     if: needs.detect-changes.outputs.web_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -178,7 +178,7 @@ jobs:
        needs.detect-changes.outputs.jobs_changed == 'true' || 
        needs.detect-changes.outputs.integrations_changed == 'true') && 
        github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     # No outputs - each downstream job fetches its own credentials
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -297,42 +297,61 @@ jobs:
           set -a
           source .env.supabase
           set +a
-          
+
           # Use placeholder values - the real APP_URL will be set by configure-supabase-auth
           # after deploy-app completes and we know the actual Vercel URL
           TEMP_APP_URL="https://temp-placeholder.vercel.app"
           TEMP_HOOK_URI="${SUPABASE_URL}/functions/v1/send-email"
           TEMP_REDIRECT_URI="${SUPABASE_URL}/auth/v1/callback"
-          
+
           echo "Setting temporary secrets for branch: $BRANCH_PROJECT_REF"
-          
-          supabase secrets set \
-            APP_URL="$TEMP_APP_URL" \
-            ADDITIONAL_REDIRECT_URL="$TEMP_APP_URL" \
-            SEND_EMAIL_HOOK_URI="$TEMP_HOOK_URI" \
-            SEND_EMAIL_HOOK_SECRET="${{ secrets.SEND_EMAIL_HOOK_SECRET }}" \
-            GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
-            GOOGLE_SECRET="${{ secrets.GOOGLE_SECRET }}" \
-            GOOGLE_REDIRECT_URI="$TEMP_REDIRECT_URI" \
-            RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
-            --project-ref "$BRANCH_PROJECT_REF"
-          
-          echo "✅ Temporary secrets set (will be overwritten with real values later)"
+
+          # Retry logic for transient API errors (502, 503, etc.)
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if supabase secrets set \
+              APP_URL="$TEMP_APP_URL" \
+              ADDITIONAL_REDIRECT_URL="$TEMP_APP_URL" \
+              SEND_EMAIL_HOOK_URI="$TEMP_HOOK_URI" \
+              SEND_EMAIL_HOOK_SECRET="${{ secrets.SEND_EMAIL_HOOK_SECRET }}" \
+              GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              GOOGLE_SECRET="${{ secrets.GOOGLE_SECRET }}" \
+              GOOGLE_REDIRECT_URI="$TEMP_REDIRECT_URI" \
+              RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
+              --project-ref "$BRANCH_PROJECT_REF" 2>&1; then
+              echo "✅ Temporary secrets set (will be overwritten with real values later)"
+              exit 0
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "⚠️ Failed to set secrets (attempt $RETRY_COUNT/$MAX_RETRIES). Retrying in 15s..."
+              sleep 15
+            fi
+          done
+
+          echo "❌ Failed to set secrets after $MAX_RETRIES attempts"
+          exit 1
 
       - name: Install dependencies
         run: bun install
 
-      - name: 🗄️ Sync Database Schema
-        # Apply pending Supabase migrations to the preview branch
-        # Preview branches are clones of production, so only new migrations need to be applied
-        # Note: supabase db push validates config.toml using env() which reads from .env file (NOT shell env vars)
+      - name: 🗄️ Apply Pending Migrations
+        # The Supabase GitHub Integration applies migrations at branch CREATION time only.
+        # If new migrations are added after the branch was created, they won't be applied
+        # automatically. Running 'db push' here ensures any new migrations are applied.
+        #
+        # This is safe because:
+        # 1. We wait for ACTIVE_HEALTHY + 30s stabilization, so the Integration is done
+        # 2. 'db push' is idempotent - it only applies migrations not in supabase_migrations table
         run: |
           set -a
           source $GITHUB_WORKSPACE/.env.supabase
           set +a
 
           # Create .env file for Supabase CLI's env() function in config.toml
-          # The env() function reads from .env file, not shell environment variables
           {
             echo "APP_URL=https://temp-placeholder.vercel.app"
             echo "ADDITIONAL_REDIRECT_URL=https://temp-placeholder.vercel.app"
@@ -344,10 +363,12 @@ jobs:
           } > .env
 
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "Applying any pending migrations..."
           supabase db push --db-url "$DATABASE_URL"
 
-          # Clean up .env file after db push
+          # Clean up .env file
           rm -f .env
+          echo "✅ Migrations applied successfully"
         working-directory: ./apps/api
 
       - name: 📚 Sync Taxonomy Data
@@ -365,12 +386,7 @@ jobs:
     name: 🧪 Integration Tests
     needs: [detect-changes]
     if: needs.detect-changes.outputs.integrations_changed == 'true' && github.event.action != 'closed'
-    runs-on: ubuntu-latest
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-      # Unique branch name for this test run (deleted after tests complete)
-      TEST_BRANCH_NAME: test-pr-${{ github.event.number }}-${{ github.run_id }}
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -382,105 +398,43 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: 🌿 Create Temporary Test Branch
-        id: create-branch
+      - name: 🚀 Start Supabase Local
+        # Runs full Supabase stack in Docker (Postgres, Auth, Storage, etc.)
+        # Migrations are automatically applied from supabase/migrations
         run: |
-          echo "Creating temporary Supabase branch: $TEST_BRANCH_NAME"
-          supabase branches create "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID
-          echo "branch_created=true" >> $GITHUB_OUTPUT
-
-      - name: ⏳ Wait for Test Branch to be Ready
-        run: |
-          echo "Waiting for branch $TEST_BRANCH_NAME to become ACTIVE_HEALTHY..."
-
-          MAX_RETRIES=30
-          RETRY_COUNT=0
-
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            STATUS=$(supabase branches get "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID 2>/dev/null | grep -oE 'ACTIVE_HEALTHY|CREATING_PROJECT|COMING_UP|UNKNOWN' | head -1 || echo "UNKNOWN")
-            echo "Branch status: $STATUS (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES})"
-
-            if [ "$STATUS" = "ACTIVE_HEALTHY" ]; then
-              echo "✅ Test branch is ready!"
-              break
-            fi
-
-            if [ $RETRY_COUNT -ge $((MAX_RETRIES - 1)) ]; then
-              echo "❌ Test branch did not become ready after $((MAX_RETRIES * 10)) seconds"
-              exit 1
-            fi
-
-            sleep 10
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-          done
-
-          # Supabase branches need additional time to fully stabilize
-          # even after reporting ACTIVE_HEALTHY
-          echo "Waiting 30s for branch to fully stabilize..."
-          sleep 30
-
-      - name: 🔗 Fetch Test Branch Credentials
-        run: |
-          supabase branches get "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
-
-          # Add DATABASE_URL with correct port
-          set -a
-          source $GITHUB_WORKSPACE/.env.supabase
-          set +a
-          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
-
-      - name: 🗄️ Sync Database Schema
-        # Apply pending Supabase migrations to the test branch
-        # Test branches are clean clones, so migrations must be applied before taxonomy sync
-        run: |
-          set -a
-          source $GITHUB_WORKSPACE/.env.supabase
-          set +a
-
-          # Create .env file for Supabase CLI's env() function in config.toml
+          # Create .env with placeholder values for config.toml env() references
+          # Tests don't use auth hooks or OAuth - they use direct DB connections
           {
-            echo "APP_URL=https://temp-placeholder.vercel.app"
-            echo "ADDITIONAL_REDIRECT_URL=https://temp-placeholder.vercel.app"
-            echo "SEND_EMAIL_HOOK_URI=${SUPABASE_URL}/functions/v1/send-email"
-            echo "SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}"
-            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
-            echo "GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}"
-            echo "GOOGLE_REDIRECT_URI=${SUPABASE_URL}/auth/v1/callback"
+            echo "APP_URL=http://localhost:3000"
+            echo "ADDITIONAL_REDIRECT_URL=http://localhost:3000"
+            echo "SEND_EMAIL_HOOK_URI=http://localhost:54321/functions/v1/send-email"
+            echo "SEND_EMAIL_HOOK_SECRET=v1,whsec_YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
+            echo "GOOGLE_CLIENT_ID=test-google-client-id"
+            echo "GOOGLE_SECRET=test-google-secret"
+            echo "GOOGLE_REDIRECT_URI=http://localhost:54321/auth/v1/callback"
           } > .env
 
-          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          supabase db push --db-url "$DATABASE_URL"
-
-          # Clean up .env file after db push
-          rm -f .env
+          supabase start
+          supabase status
         working-directory: ./apps/api
 
       - name: 📚 Sync Taxonomy Data
         run: |
-          set -a
-          source $GITHUB_WORKSPACE/.env.supabase
-          set +a
-          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          export DATABASE_URL
+          export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           bun run sync
         working-directory: ./packages/taxonomy
 
-      - name: 🧪 Run integration tests
+      - name: 🧪 Run all tests
+        # Runs tests for all packages: db, integrations, jobs, api
+        # Uses turbo with --concurrency=1 (defined in root package.json)
         run: |
-          set -a
-          source $GITHUB_WORKSPACE/.env.supabase
-          set +a
-          export DATABASE_URL
+          export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           bun run test
-        working-directory: ./packages/integrations
 
-      - name: 🗑️ Delete Temporary Test Branch
-        if: always() && steps.create-branch.outputs.branch_created == 'true'
-        run: |
-          echo "Cleaning up temporary test branch: $TEST_BRANCH_NAME"
-          supabase branches delete "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID || true
-          echo "✅ Temporary test branch deleted"
+      - name: 🛑 Stop Supabase Local
+        if: always()
+        run: supabase stop --no-backup || true
+        working-directory: ./apps/api
 
   # ============================================
   # Gate Job: Reports single status for branch protection
@@ -489,7 +443,7 @@ jobs:
     name: ✅ All Tests Passed
     needs: [test-app, test-api, test-jobs, test-dpp, test-web, test-integrations]
     if: always() && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Check test results
         run: |
@@ -533,7 +487,7 @@ jobs:
       (needs.test-web.result == 'success' || needs.test-web.result == 'skipped') &&
       needs.detect-changes.outputs.web_changed == 'true' &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency:
       group: pr-${{ github.event.number }}-web
       cancel-in-progress: true
@@ -575,7 +529,7 @@ jobs:
       (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
       (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency:
       group: pr-${{ github.event.number }}-app
       cancel-in-progress: true
@@ -646,7 +600,7 @@ jobs:
       needs.deploy-app.result == 'success' &&
       (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency:
       group: pr-${{ github.event.number }}-api
       cancel-in-progress: true
@@ -746,7 +700,7 @@ jobs:
       needs.deploy-app.result == 'success' &&
       needs.setup-database.result == 'success' &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
@@ -874,7 +828,7 @@ jobs:
       (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
       (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency:
       group: pr-${{ github.event.number }}-jobs
       cancel-in-progress: true
@@ -955,7 +909,7 @@ jobs:
       needs.detect-changes.outputs.dpp_changed == 'true' &&
       (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
       github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     concurrency:
       group: pr-${{ github.event.number }}-dpp
       cancel-in-progress: true
@@ -997,7 +951,7 @@ jobs:
     name: 📝 Post Summary
     needs: [detect-changes, deploy-web, deploy-app, deploy-api, deploy-jobs, deploy-dpp]
     if: always() && github.event.action != 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: 💬 Comment Summary
         uses: actions/github-script@v6
@@ -1053,7 +1007,7 @@ jobs:
   cleanup:
     name: 🗑️ Cleanup Previews
     if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}

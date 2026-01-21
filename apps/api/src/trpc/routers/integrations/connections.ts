@@ -10,7 +10,7 @@
  *
  * @module trpc/routers/integrations/connections
  */
-import { tasks } from "@trigger.dev/sdk/v3";
+import { auth, tasks } from "@trigger.dev/sdk/v3";
 import {
   createBrandIntegration,
   deleteBrandIntegration,
@@ -420,8 +420,16 @@ export const connectionsRouter = createTRPCRouter({
           brandId: brandCtx.brandId,
         });
 
+        // Generate a public access token for the client to subscribe to realtime updates
+        const publicToken = await auth.createPublicToken({
+          scopes: {
+            read: { runs: [handle.id] },
+          },
+        });
+
         return createSuccessWithMeta({
           taskId: handle.id,
+          publicAccessToken: publicToken,
           message: "Promotion started",
         });
       } catch (error) {
@@ -430,4 +438,4 @@ export const connectionsRouter = createTRPCRouter({
     }),
 });
 
-export type ConnectionsRouter = typeof connectionsRouter;
+type ConnectionsRouter = typeof connectionsRouter;

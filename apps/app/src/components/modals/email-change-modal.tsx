@@ -217,7 +217,7 @@ export function EmailChangeModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-auto p-0 gap-0 border border-border overflow-hidden">
+      <DialogContent size="md" className="p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">{title}</DialogTitle>
         </DialogHeader>
@@ -228,7 +228,9 @@ export function EmailChangeModal({
             <div className="px-6 py-4 min-h-[160px] flex flex-col justify-center space-y-4">
               <p className="type-p text-secondary">
                 Enter the 6-digit code sent to{" "}
-                <span className="font-medium text-foreground">{currentEmail}</span>
+                <span className="font-medium text-foreground">
+                  {currentEmail}
+                </span>
               </p>
               <div className="flex flex-col items-center space-y-2">
                 <InputOTP
@@ -251,7 +253,9 @@ export function EmailChangeModal({
                     </InputOTPGroup>
                   )}
                 />
-                {error ? <p className="text-sm text-red-500 text-center">{error}</p> : null}
+                {error ? (
+                  <p className="text-sm text-red-500 text-center">{error}</p>
+                ) : null}
                 <Button
                   type="button"
                   variant="ghost"
@@ -259,7 +263,9 @@ export function EmailChangeModal({
                   disabled={isBusy || cooldownOld > 0}
                   className="text-secondary hover:bg-accent"
                 >
-                  {cooldownOld > 0 ? `Resend in ${cooldownOld}s` : "Resend code"}
+                  {cooldownOld > 0
+                    ? `Resend in ${cooldownOld}s`
+                    : "Resend code"}
                 </Button>
               </div>
             </div>
@@ -316,7 +322,9 @@ export function EmailChangeModal({
                     </InputOTPGroup>
                   )}
                 />
-                {error ? <p className="text-sm text-red-500 text-center">{error}</p> : null}
+                {error ? (
+                  <p className="text-sm text-red-500 text-center">{error}</p>
+                ) : null}
                 <Button
                   type="button"
                   variant="ghost"
@@ -324,7 +332,9 @@ export function EmailChangeModal({
                   disabled={isBusy || cooldownNew > 0}
                   className="text-secondary hover:bg-accent"
                 >
-                  {cooldownNew > 0 ? `Resend in ${cooldownNew}s` : "Resend code"}
+                  {cooldownNew > 0
+                    ? `Resend in ${cooldownNew}s`
+                    : "Resend code"}
                 </Button>
               </div>
             </div>

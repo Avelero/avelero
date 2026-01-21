@@ -8,12 +8,11 @@ const {
   taxonomyCategories,
   taxonomyAttributes,
   taxonomyValues,
-  brandFacilities,
+  brandOperators,
   valueMappings,
   brandAttributes,
   brandAttributeValues,
   brandTags,
-  brandEcoClaims,
   brandManufacturers,
 } = schema;
 
@@ -72,8 +71,6 @@ export interface BrandCatalog {
   attributeValues: Map<string, AttributeValueInfo>;
   /** Map of normalized tag name -> tag ID */
   tags: Map<string, string>;
-  /** Map of normalized eco claim name -> eco claim ID */
-  ecoClaims: Map<string, string>;
   /** Map of normalized manufacturer name -> manufacturer ID */
   manufacturers: Map<string, string>;
 
@@ -137,7 +134,6 @@ export async function loadBrandCatalog(
     attributes,
     attributeValuesData,
     tags,
-    ecoClaims,
     manufacturers,
     // Taxonomy data for matching
     allTaxonomyAttributes,
@@ -154,8 +150,8 @@ export async function loadBrandCatalog(
     db.query.taxonomyCategories.findMany({
       columns: { id: true, name: true },
     }),
-    db.query.brandFacilities.findMany({
-      where: eq(brandFacilities.brandId, brandId),
+    db.query.brandOperators.findMany({
+      where: eq(brandOperators.brandId, brandId),
       columns: { id: true, displayName: true },
     }),
     db.query.valueMappings.findMany({
@@ -183,10 +179,6 @@ export async function loadBrandCatalog(
     db.query.brandTags.findMany({
       where: eq(brandTags.brandId, brandId),
       columns: { id: true, name: true },
-    }),
-    db.query.brandEcoClaims.findMany({
-      where: eq(brandEcoClaims.brandId, brandId),
-      columns: { id: true, claim: true },
     }),
     db.query.brandManufacturers.findMany({
       where: eq(brandManufacturers.brandId, brandId),
@@ -257,12 +249,6 @@ export async function loadBrandCatalog(
       tags.map(
         (t: { id: string; name: string }) =>
           [normalizeValue(t.name), t.id] as const,
-      ),
-    ),
-    ecoClaims: new Map(
-      ecoClaims.map(
-        (e: { id: string; claim: string }) =>
-          [normalizeValue(e.claim), e.id] as const,
       ),
     ),
     manufacturers: new Map(
@@ -456,7 +442,7 @@ export function lookupOperatorId(
  * @param catalog - Brand catalog
  * @returns Catalog statistics
  */
-export function getCatalogStats(catalog: BrandCatalog): {
+function getCatalogStats(catalog: BrandCatalog): {
   materials: number;
   seasons: number;
   categories: number;

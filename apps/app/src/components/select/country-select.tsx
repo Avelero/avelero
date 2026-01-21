@@ -15,7 +15,7 @@ import {
   SelectSearch,
   SelectTrigger,
 } from "@v1/ui/select";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface CountrySelectProps {
   id: string;
@@ -24,6 +24,12 @@ interface CountrySelectProps {
   value: string;
   onChange: (code: string, name?: string) => void;
   className?: string;
+  /**
+   * Container element for the portal. When specified, the popover will be portaled
+   * into this container instead of document.body. Useful when the select is inside
+   * a Sheet/Dialog to ensure proper scroll behavior.
+   */
+  container?: HTMLElement | null;
 }
 
 export function CountrySelect({
@@ -33,9 +39,20 @@ export function CountrySelect({
   value,
   onChange,
   className,
+  container,
 }: CountrySelectProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when popover opens
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 0);
+    } else {
+      setSearchTerm("");
+    }
+  }, [open]);
 
   const options = useMemo(
     () =>
@@ -81,8 +98,9 @@ export function CountrySelect({
             <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
           </Button>
         </SelectTrigger>
-        <SelectContent shouldFilter={false}>
+        <SelectContent shouldFilter={false} container={container}>
           <SelectSearch
+            ref={inputRef}
             placeholder="Search..."
             value={searchTerm}
             onValueChange={setSearchTerm}

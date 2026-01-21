@@ -1,231 +1,167 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@v1/supabase/client";
-import { useEffect, useMemo } from "react";
-import { useUserQuerySuspense } from "./use-user";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 
 /**
  * Notification object shape from the API.
  */
 export interface Notification {
-    /** Unique notification ID */
-    id: string;
-    /** Notification type (e.g., 'import_failure', 'export_ready') */
-    type: string;
-    /** Notification title */
-    title: string;
-    /** Optional detailed message */
-    message: string | null;
-    /** Type of resource this notification relates to */
-    resourceType: string | null;
-    /** ID of the related resource */
-    resourceId: string | null;
-    /** URL for click-through action */
-    actionUrl: string | null;
-    /** Additional action data */
-    actionData: Record<string, unknown> | null;
-    /** When the notification was seen (null = unread) */
-    seenAt: string | null;
-    /** When the notification was created */
-    createdAt: string;
+  /** Unique notification ID */
+  id: string;
+  /** Notification type (e.g., 'import_failure', 'export_ready') */
+  type: string;
+  /** Notification title */
+  title: string;
+  /** Optional detailed message */
+  message: string | null;
+  /** Type of resource this notification relates to */
+  resourceType: string | null;
+  /** ID of the related resource */
+  resourceId: string | null;
+  /** URL for click-through action */
+  actionUrl: string | null;
+  /** Additional action data */
+  actionData: Record<string, unknown> | null;
+  /** When the notification was seen (null = unread) */
+  seenAt: string | null;
+  /** When the notification was created */
+  createdAt: string;
 }
 
 /**
  * Hook for fetching and managing notifications.
  *
- * Features:
- * - Fetches unread notification count for the badge
- * - Subscribes to realtime notifications channel for instant updates
- * - Provides mutations for marking as seen and dismissing
+ * Uses Suspense - wrap calling components in a Suspense boundary.
+ * Suspends until both user and notification data are loaded.
  *
  * @example
  * ```tsx
- * const { unreadCount, notifications, markAsSeen, markAllAsSeen, dismiss } = useNotifications();
+ * // Wrap in Suspense
+ * <Suspense fallback={<Skeleton />}>
+ *   <NotificationContent />
+ * </Suspense>
  *
- * // Show badge
- * {unreadCount > 0 && <Badge count={unreadCount} />}
- *
- * // Mark single notification as seen
- * markAsSeen.mutate({ id: notification.id });
- *
- * // Mark all as seen
- * markAllAsSeen.mutate();
+ * // Inside NotificationContent
+ * const { notifications, markAsSeen } = useNotifications();
  * ```
  */
 export function useNotifications() {
-    const trpc = useTRPC();
-    const queryClient = useQueryClient();
-    const supabase = useMemo(() => createClient(), []);
-    const { data: user } = useUserQuerySuspense();
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
-    // Query for unread count (for badge)
-    const unreadCountQuery = useQuery({
-        ...trpc.notifications.getUnreadCount.queryOptions(),
-        enabled: !!user?.id && !!user?.brand_id,
-        staleTime: 30_000, // Cache for 30 seconds
-        refetchOnWindowFocus: true,
-    });
+  // Suspense queries - will suspend until data is available
+  const unreadCountQuery = useSuspenseQuery(
+    trpc.notifications.getUnreadCount.queryOptions(),
+  );
 
-    // Query for recent notifications (for panel/dropdown)
-    const recentNotificationsQuery = useQuery({
-        ...trpc.notifications.getRecent.queryOptions({
-            limit: 10,
-            unreadOnly: false,
-            includeDismissed: false,
-        }),
-        enabled: !!user?.id && !!user?.brand_id,
-        staleTime: 30_000,
-    });
+  const recentNotificationsQuery = useSuspenseQuery(
+    trpc.notifications.getRecent.queryOptions({
+      limit: 10,
+      unreadOnly: false,
+      includeDismissed: false,
+    }),
+  );
 
-    // Mutations
-    const markAsSeen = useMutation(
-        trpc.notifications.markAsSeen.mutationOptions({
-            onSuccess: () => {
-                // Invalidate both queries
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getRecent.queryKey(),
-                });
-            },
-        }),
-    );
+  // Mutations with optimistic updates for instant UI feedback
+  const markAsSeen = useMutation(
+    trpc.notifications.markAsSeen.mutationOptions({
+      onMutate: async ({ id }) => {
+        // Cancel outgoing refetches
+        await queryClient.cancelQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
 
-    const markAllAsSeen = useMutation(
-        trpc.notifications.markAllAsSeen.mutationOptions({
-            onSuccess: () => {
-                // Invalidate both queries
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getRecent.queryKey(),
-                });
-            },
-        }),
-    );
+        // Snapshot previous value
+        const previousNotifications = queryClient.getQueryData(
+          trpc.notifications.getRecent.queryKey(),
+        );
 
-    const dismiss = useMutation(
-        trpc.notifications.dismiss.mutationOptions({
-            onSuccess: () => {
-                // Invalidate both queries
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getRecent.queryKey(),
-                });
-            },
-        }),
-    );
+        // Optimistically update the cache - mark notification as seen immediately
+        queryClient.setQueryData(
+          trpc.notifications.getRecent.queryKey(),
+          (old: { notifications: Notification[] } | undefined) => ({
+            notifications: (old?.notifications ?? []).map((n) =>
+              n.id === id ? { ...n, seenAt: new Date().toISOString() } : n,
+            ),
+          }),
+        );
 
-    // Subscribe to realtime notifications channel (user-specific)
-    useEffect(() => {
-        if (!user?.id) return;
+        return { previousNotifications };
+      },
+      onError: (_err, _variables, context) => {
+        // Rollback on error
+        if (context?.previousNotifications) {
+          queryClient.setQueryData(
+            trpc.notifications.getRecent.queryKey(),
+            context.previousNotifications,
+          );
+        }
+      },
+      onSettled: () => {
+        // Always refetch after mutation settles to ensure consistency
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      },
+    }),
+  );
 
-        const channel = supabase
-            .channel(`notifications:${user.id}`, { config: { private: true } })
-            .on("broadcast", { event: "INSERT" }, () => {
-                // New notification received - invalidate queries
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getRecent.queryKey(),
-                });
-            })
-            .on("broadcast", { event: "UPDATE" }, () => {
-                // Notification updated (e.g., marked as seen from another device)
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getRecent.queryKey(),
-                });
-            })
-            .subscribe();
+  const markAllAsSeen = useMutation(
+    trpc.notifications.markAllAsSeen.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      },
+    }),
+  );
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [user?.id, supabase, queryClient, trpc]);
+  const dismiss = useMutation(
+    trpc.notifications.dismiss.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      },
+    }),
+  );
 
-    return {
-        /** Number of unread notifications (for badge) */
-        unreadCount: unreadCountQuery.data?.count ?? 0,
-        /** Whether the unread count is loading */
-        isLoadingCount: unreadCountQuery.isLoading,
-        /** Recent notifications */
-        notifications: (recentNotificationsQuery.data?.notifications ?? []) as Notification[],
-        /** Whether recent notifications are loading */
-        isLoadingNotifications: recentNotificationsQuery.isLoading,
-        /** Refetch notifications */
-        refetch: () => {
-            unreadCountQuery.refetch();
-            recentNotificationsQuery.refetch();
-        },
-        /** Mark a specific notification as seen */
-        markAsSeen,
-        /** Mark all notifications as seen */
-        markAllAsSeen,
-        /** Dismiss a notification */
-        dismiss,
-    };
+  // Note: Realtime subscription for notifications is handled globally in RealtimeProvider.
+  // This hook only provides query/mutation access for components that need it.
+
+  return {
+    /** Number of unread notifications (for badge) */
+    unreadCount: unreadCountQuery.data?.count ?? 0,
+    /** Recent notifications */
+    notifications: (recentNotificationsQuery.data?.notifications ??
+      []) as Notification[],
+    /** Refetch notifications */
+    refetch: () => {
+      unreadCountQuery.refetch();
+      recentNotificationsQuery.refetch();
+    },
+    /** Mark a specific notification as seen */
+    markAsSeen,
+    /** Mark all notifications as seen */
+    markAllAsSeen,
+    /** Dismiss a notification */
+    dismiss,
+  };
 }
 
-/**
- * Hook for just the unread notification count.
- *
- * Lighter-weight hook for components that only need the badge count.
- * Includes realtime subscription for instant updates.
- *
- * @example
- * ```tsx
- * const { count, isLoading } = useNotificationCount();
- * ```
- */
-export function useNotificationCount() {
-    const trpc = useTRPC();
-    const queryClient = useQueryClient();
-    const supabase = useMemo(() => createClient(), []);
-    const { data: user } = useUserQuerySuspense();
-
-    const query = useQuery({
-        ...trpc.notifications.getUnreadCount.queryOptions(),
-        enabled: !!user?.id && !!user?.brand_id,
-        staleTime: 30_000,
-        refetchOnWindowFocus: true,
-    });
-
-    // Subscribe to realtime for count updates
-    useEffect(() => {
-        if (!user?.id) return;
-
-        const channel = supabase
-            .channel(`notifications:${user.id}`, { config: { private: true } })
-            .on("broadcast", { event: "INSERT" }, () => {
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-            })
-            .on("broadcast", { event: "UPDATE" }, () => {
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [user?.id, supabase, queryClient, trpc]);
-
-    return {
-        count: query.data?.count ?? 0,
-        isLoading: query.isLoading,
-        refetch: query.refetch,
-    };
-}
+// Keep the old name as alias for backwards compatibility during migration
+export { useNotifications as useNotificationsSuspense };

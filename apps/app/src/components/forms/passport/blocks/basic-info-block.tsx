@@ -46,15 +46,8 @@ export function BasicInfoSection({
   // Track when we've just set imagePreview from user file selection
   const pendingUserSelection = useRef(false);
 
-  // Track if user has ever defocused the name field (to stop syncing after first blur)
-  const nameHasBeenBlurred = useRef(false);
-
-  // Reset the blur tracking when form is reset (both name and handle are empty)
-  useEffect(() => {
-    if (!name && !productHandle) {
-      nameHasBeenBlurred.current = false;
-    }
-  }, [name, productHandle]);
+  // Track if syncing is enabled - only true when both fields were empty at focus time
+  const syncEnabledRef = useRef(false);
 
   // Keep preview in sync when editing existing products (but not when user just selected a file)
   useEffect(() => {
@@ -65,15 +58,22 @@ export function BasicInfoSection({
     setImagePreview(normalizeToDisplayUrl(BUCKETS.PRODUCTS, existingImageUrl));
   }, [existingImageUrl]);
 
-  // Handle name change with real-time handle sync (until first blur)
+  // Enable sync only when both fields are empty at focus time
+  const handleNameFocus = () => {
+    if (!name && !productHandle) {
+      syncEnabledRef.current = true;
+    }
+  };
+
+  // Handle name change with real-time handle sync (only if sync is enabled)
   const handleNameChange = (value: string) => {
     setName(value);
 
-    // Real-time sync: update handle from name if user hasn't blurred yet
+    // Real-time sync: update handle from name if sync is enabled
     if (
       setProductHandle &&
       productHandle !== undefined &&
-      !nameHasBeenBlurred.current &&
+      syncEnabledRef.current &&
       value.trim()
     ) {
       const normalizedHandle = generateProductHandle(value);
@@ -83,7 +83,7 @@ export function BasicInfoSection({
 
   // Stop syncing after user defocuses the name field
   const handleNameBlur = () => {
-    nameHasBeenBlurred.current = true;
+    syncEnabledRef.current = false;
   };
 
   return (
@@ -97,12 +97,13 @@ export function BasicInfoSection({
           ref={nameInputRef}
           value={name}
           onChange={(e) => handleNameChange(e.target.value)}
+          onFocus={handleNameFocus}
           onBlur={handleNameBlur}
           placeholder="Enter product name"
           className={cn(
             "h-9",
             nameError &&
-            "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
+              "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
           )}
           aria-invalid={Boolean(nameError)}
           aria-required={required}

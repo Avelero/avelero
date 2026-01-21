@@ -1,6 +1,6 @@
-import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
+import { type VariantProps, cva } from "class-variance-authority";
+import * as React from "react";
 
 import { cn } from "@v1/ui/cn";
 
@@ -51,12 +51,12 @@ function Button({
   const processedChildren = asChild
     ? children
     : React.Children.map(children, (child) =>
-      typeof child === "string" || typeof child === "number" ? (
-        <span>{child}</span>
-      ) : (
-        child
-      ),
-    );
+        typeof child === "string" || typeof child === "number" ? (
+          <span>{child}</span>
+        ) : (
+          child
+        ),
+      );
 
   return (
     <Comp

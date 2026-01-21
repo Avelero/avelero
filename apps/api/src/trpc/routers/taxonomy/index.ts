@@ -114,4 +114,4 @@ export const taxonomyRouter = createTRPCRouter({
   }),
 });
 
-export type TaxonomyRouter = typeof taxonomyRouter;
+type TaxonomyRouter = typeof taxonomyRouter;

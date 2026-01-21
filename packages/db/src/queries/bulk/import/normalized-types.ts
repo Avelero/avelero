@@ -54,13 +54,6 @@ export interface NormalizedMaterial {
 }
 
 /**
- * Normalized eco claim data
- */
-export interface NormalizedEcoClaim {
-  ecoClaimId: string;
-}
-
-/**
  * Normalized environment data
  */
 export interface NormalizedEnvironment {
@@ -69,12 +62,13 @@ export interface NormalizedEnvironment {
 }
 
 /**
- * Normalized journey step data
+ * Normalized journey step data.
+ * Each step can have multiple operators.
  */
 export interface NormalizedJourneyStep {
   sortIndex: number;
   stepType: string;
-  facilityId: string;
+  operatorIds: string[];
 }
 
 /**
@@ -130,8 +124,6 @@ export interface NormalizedVariant {
   attributes: NormalizedVariantAttribute[];
   /** Variant-level material overrides */
   materials: NormalizedMaterial[];
-  /** Variant-level eco claim overrides */
-  ecoClaims: NormalizedEcoClaim[];
   /** Variant-level environment overrides */
   environment: NormalizedEnvironment | null;
   /** Variant-level journey step overrides */
@@ -187,8 +179,6 @@ export interface NormalizedRowData {
   tags: string[];
   /** Product-level materials */
   materials: NormalizedMaterial[];
-  /** Product-level eco claims */
-  ecoClaims: NormalizedEcoClaim[];
   /** Product-level environment data */
   environment: NormalizedEnvironment | null;
   /** Product-level journey steps */

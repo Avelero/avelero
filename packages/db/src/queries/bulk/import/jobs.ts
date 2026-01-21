@@ -1,14 +1,14 @@
 /**
  * Import job management functions.
- * 
+ *
  * Handles creation, status updates, and retrieval of import jobs.
  */
 
 import { desc, eq } from "drizzle-orm";
-import type { Database } from "../../../client";
-import { importJobs } from "../../../schema";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
+import type { Database } from "../../../client";
+import { importJobs } from "../../../schema";
 import type {
   CreateImportJobParams,
   ImportJobStatus,
@@ -19,7 +19,11 @@ import type {
 
 type DbOrTx =
   | Database
-  | PgTransaction<PostgresJsQueryResultHKT, typeof import("../../../schema"), any>;
+  | PgTransaction<
+      PostgresJsQueryResultHKT,
+      typeof import("../../../schema"),
+      any
+    >;
 
 /**
  * Creates a new import job record
@@ -208,7 +212,7 @@ export async function getImportJobStatus(
 export async function getRecentImportJobs(
   db: DbOrTx,
   brandId: string,
-  limit: number = 5,
+  limit = 5,
 ): Promise<ImportJobStatus[]> {
   const results = await db
     .select()
@@ -256,8 +260,3 @@ export async function updateImportJobCorrectionFile(
     })
     .where(eq(importJobs.id, params.jobId));
 }
-
-
-
-
-

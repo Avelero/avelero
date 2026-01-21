@@ -1,4 +1,4 @@
-import type { ThemeStyles, ThemeConfig } from "@v1/dpp-components";
+import type { ThemeConfig, ThemeStyles } from "@v1/dpp-components";
 
 /**
  * Default ThemeStyles for new brands.
@@ -246,20 +246,6 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   "impact-card__unit": {
     color: "$mutedForeground",
     typescale: "body-xs",
-    textTransform: "none",
-  },
-  "impact-card__eco-claim": {
-    borderColor: "$border",
-    borderRadius: 0,
-    backgroundColor: "$card",
-  },
-  "impact-card__eco-claim-icon": {
-    color: "$primary",
-    size: 17.5,
-  },
-  "impact-card__eco-claim-text": {
-    color: "$cardForeground",
-    typescale: "body-sm",
     textTransform: "none",
   },
   "impact-card__icon": {

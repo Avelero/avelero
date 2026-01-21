@@ -1,28 +1,20 @@
 "use client";
 
-import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import * as React from "react";
-
-interface EcoClaim {
-  id: string;
-  value: string;
-}
 
 interface EnvironmentSectionProps {
   carbonKgCo2e: string;
   setCarbonKgCo2e: (value: string) => void;
   waterLiters: string;
   setWaterLiters: (value: string) => void;
-  ecoClaims: EcoClaim[];
-  setEcoClaims: (
-    value: EcoClaim[] | ((prev: EcoClaim[]) => EcoClaim[]),
-  ) => void;
+  weightGrams: string;
+  setWeightGrams: (value: string) => void;
   carbonError?: string;
   waterError?: string;
+  weightError?: string;
 }
 
 export function EnvironmentSection({
@@ -30,10 +22,11 @@ export function EnvironmentSection({
   setCarbonKgCo2e,
   waterLiters,
   setWaterLiters,
-  ecoClaims,
-  setEcoClaims,
+  weightGrams,
+  setWeightGrams,
   carbonError,
   waterError,
+  weightError,
 }: EnvironmentSectionProps) {
   // Normalize numeric input: handle commas, spaces, multiple decimals, and precision
   const normalizeNumericInput = (value: string): string => {
@@ -94,34 +87,6 @@ export function EnvironmentSection({
     setter(normalized);
   };
 
-  const addEcoClaim = () => {
-    setEcoClaims((prev) => {
-      if (prev.length < 5) {
-        const newClaim: EcoClaim = {
-          id: Date.now().toString(),
-          value: "",
-        };
-        return [...prev, newClaim];
-      }
-      return prev;
-    });
-  };
-
-  const updateEcoClaim = (id: string, value: string) => {
-    // Limit to 50 characters
-    if (value.length <= 50) {
-      setEcoClaims((prev) =>
-        prev.map((claim) => (claim.id === id ? { ...claim, value } : claim)),
-      );
-    }
-  };
-
-  const removeEcoClaim = (id: string) => {
-    setEcoClaims((prev) => prev.filter((claim) => claim.id !== id));
-  };
-
-  const canAddEcoClaim = ecoClaims.length < 5;
-
   return (
     <div className="border border-border bg-background">
       <div className="p-4 flex flex-col gap-3">
@@ -181,52 +146,33 @@ export function EnvironmentSection({
           )}
         </div>
 
-        {/* Separator if eco-claims exist */}
-        {ecoClaims.length > 0 && <div className="border-t border-border" />}
-
-        {/* Eco-claims */}
-        {ecoClaims.map((claim) => (
-          <div key={claim.id} className="group/claim relative">
-            <div className="transition-[margin-right] duration-200 ease-in-out group-hover/claim:mr-11">
-              <div className="relative">
-                <Icons.Check className="h-4 w-4 text-brand absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <Input
-                  value={claim.value}
-                  onChange={(e) => updateEcoClaim(claim.id, e.target.value)}
-                  placeholder="Enter eco-claim..."
-                  className="h-9 w-full pl-8"
-                  maxLength={50}
-                />
-              </div>
+        {/* Weight Input */}
+        <div className="flex flex-col gap-1">
+          <Label>Weight</Label>
+          <div className="flex items-center">
+            <div className="flex items-center border-y border-l border-border bg-background h-9 px-3 w-[81px] type-p text-secondary whitespace-nowrap">
+              grams
             </div>
-            <div className="absolute right-0 top-0 w-0 group-hover/claim:w-9 overflow-hidden transition-[width] duration-200 ease-in-out">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => removeEcoClaim(claim.id)}
-                className="h-9 w-9 text-tertiary hover:text-destructive flex-shrink-0"
-              >
-                <Icons.X className="h-4 w-4" />
-              </Button>
-            </div>
+            <Input
+              type="text"
+              value={weightGrams}
+              onChange={(e) =>
+                handleNumericChange(e.target.value, setWeightGrams)
+              }
+              onBlur={(e) => handleNumericBlur(e.target.value, setWeightGrams)}
+              placeholder="Enter product weight"
+              className={cn(
+                "h-9 flex-1",
+                weightError &&
+                  "focus-visible:ring-destructive focus-visible:border-destructive",
+              )}
+            />
           </div>
-        ))}
-      </div>
-
-      {/* Footer with Add Button */}
-      {canAddEcoClaim && (
-        <div className="border-t border-border px-4 py-3 bg-accent-light">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addEcoClaim}
-          >
-            <Icons.Plus className="h-4 w-4" />
-            <span className="px-1">Add eco-claim</span>
-          </Button>
+          {weightError && (
+            <p className="type-small text-destructive">{weightError}</p>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

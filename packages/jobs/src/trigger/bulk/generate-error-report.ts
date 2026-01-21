@@ -141,14 +141,13 @@ export const generateErrorReport = task({
           // Use the variant's rawData (original Excel row data)
           const rawData = variant.rawData ?? {};
 
-          // Include row if it has any errors OR if parent row (always include parent if product has errors)
+          // Include ALL variants when product has any errors
+          // This gives users complete product context for corrections
           const productHasErrors =
             normalized.rowStatus === "BLOCKED" ||
             normalized.rowStatus === "PENDING_WITH_WARNINGS";
-          const shouldInclude =
-            rowErrors.length > 0 || (isParentRow && productHasErrors);
 
-          if (shouldInclude) {
+          if (productHasErrors) {
             excelRows.push({
               rowNumber: variant.rowNumber,
               raw: rawData,
@@ -236,13 +235,12 @@ export const generateErrorReport = task({
         try {
           const summary = job.summary as Record<string, number> | null;
           const totalProducts = summary?.totalProducts ?? 0;
-          const successfulProductCount =
-            totalProducts - blockedCount - warningsCount;
+          const issueProductCount = blockedCount + warningsCount;
+          const successfulProductCount = totalProducts - issueProductCount;
 
           const html = await render(
             ImportFailuresEmail({
-              blockedProductCount: blockedCount,
-              warningProductCount: warningsCount,
+              issueProductCount,
               successfulProductCount: Math.max(0, successfulProductCount),
               downloadUrl,
               expiresAt,
@@ -251,10 +249,7 @@ export const generateErrorReport = task({
           );
 
           const resend = getResend();
-          const subject =
-            blockedCount > 0
-              ? `${blockedCount} products failed during your import`
-              : `${warningsCount} products had warnings during your import`;
+          const subject = `${issueProductCount} product${issueProductCount !== 1 ? "s" : ""} had issues during your import`;
 
           await resend.emails.send({
             from: EMAIL_FROM,
@@ -280,8 +275,7 @@ export const generateErrorReport = task({
 
       logger.info("Error report generation completed", {
         jobId,
-        blockedProducts: blockedCount,
-        warningProducts: warningsCount,
+        issueProducts: blockedCount + warningsCount,
         storagePath,
       });
     } catch (error) {

@@ -134,25 +134,15 @@ export async function createTRPCContextFromHeaders(
 
   let brandId: string | null | undefined = undefined;
   if (user) {
-    try {
-      // Query using Supabase client instead of Drizzle to respect RLS policies
-      // The Supabase client has the auth context, while Drizzle doesn't
-      const { data: userRow, error } = await supabase
-        .from("users")
-        .select("brand_id")
-        .eq("id", user.id)
-        .maybeSingle();
+    // Query using Supabase client instead of Drizzle to respect RLS policies
+    // The Supabase client has the auth context, while Drizzle doesn't
+    const { data: userRow } = await supabase
+      .from("users")
+      .select("brand_id")
+      .eq("id", user.id)
+      .maybeSingle();
 
-      if (error) {
-        console.warn("[trpc-context] Failed to fetch user brandId:", error);
-        brandId = null;
-      } else {
-        brandId = userRow?.brand_id ?? null;
-      }
-    } catch (err) {
-      console.warn("[trpc-context] Error fetching user brandId:", err);
-      brandId = null;
-    }
+    brandId = userRow?.brand_id ?? null;
   }
 
   return {
@@ -219,10 +209,6 @@ export const t = initTRPC.context<TRPCContext>().create({
  * Convenience export for defining routers across the codebase.
  */
 export const createTRPCRouter = t.router;
-/**
- * Convenience export for merging modular routers.
- */
-export const mergeTRPCRouters = t.mergeRouters;
 
 /**
  * Resolves brand membership information and attaches it to the context.

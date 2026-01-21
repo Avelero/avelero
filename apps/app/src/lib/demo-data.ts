@@ -28,11 +28,6 @@ export const DEMO_DPP_DATA: DppData = {
   environmental: {
     carbonEmissions: { value: 8.2, unit: "kgCO2e" },
     waterUsage: { value: 2155, unit: "liters" },
-    ecoClaims: [
-      { ecoClaimId: 1, ecoClaim: "No harmful chemicals" },
-      { ecoClaimId: 2, ecoClaim: "Made with renewable energy" },
-      { ecoClaimId: 3, ecoClaim: "85% recycled material" },
-    ],
   },
 
   materials: {
@@ -122,7 +117,7 @@ export const DEMO_DPP_DATA: DppData = {
 /**
  * Demo content (non-compliance data) for the theme editor preview.
  */
-export const DEMO_DPP_CONTENT: DppContent = {
+const DEMO_DPP_CONTENT: DppContent = {
   similarProducts: [
     {
       image:

@@ -1,22 +1,27 @@
 import { and, eq, inArray } from "@v1/db/queries";
 import {
+  batchCreatePassportsForVariants,
+  batchOrphanPassportsByVariantIds,
   clearAllVariantOverrides,
+  createPassportForVariant,
+  getPassportByVariantId,
   getProductVariantsWithAttributes,
   getVariantOverridesOnly,
   listVariantsForProduct,
+  orphanPassport,
 } from "@v1/db/queries/products";
+import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
 import {
+  productPassports,
   productVariantAttributes,
   productVariants,
   products,
   variantCommercial,
-  variantEcoClaims,
   variantEnvironment,
   variantJourneySteps,
   variantMaterials,
   variantWeight,
 } from "@v1/db/schema";
-import { generateUniqueUpids } from "@v1/db/utils";
 /**
  * Unified Product Variants Router
  *
@@ -98,11 +103,10 @@ const variantOverridesSchema = z
         z.object({
           sortIndex: z.number().int().min(0),
           stepType: z.string().min(1),
-          facilityId: z.string().uuid(),
+          operatorId: z.string().uuid(),
         }),
       )
       .optional(),
-    ecoClaimIds: z.array(z.string().uuid()).optional(),
   })
   .optional();
 
@@ -126,6 +130,7 @@ const syncVariantInputSchema = z.object({
   attributeValueIds: z.array(z.string().uuid()).optional().default([]),
   sku: z.string().max(100).optional(),
   barcode: z.string().max(100).optional(),
+  isGhost: z.boolean().optional(),
 });
 
 // =============================================================================
@@ -360,24 +365,7 @@ async function applyVariantOverrides(
           variantId,
           sortIndex: s.sortIndex,
           stepType: s.stepType,
-          facilityId: s.facilityId,
-          createdAt: now,
-        })),
-      );
-    }
-  }
-
-  // Eco claims (replace)
-  if (overrides.ecoClaimIds !== undefined) {
-    await db
-      .delete(variantEcoClaims)
-      .where(eq(variantEcoClaims.variantId, variantId));
-
-    if (overrides.ecoClaimIds.length > 0) {
-      await db.insert(variantEcoClaims).values(
-        overrides.ecoClaimIds.map((ecoClaimId) => ({
-          variantId,
-          ecoClaimId,
+          operatorId: s.operatorId,
           createdAt: now,
         })),
       );
@@ -385,34 +373,9 @@ async function applyVariantOverrides(
   }
 }
 
-/**
- * Generate unique UPIDs for variants using the centralized utility.
- */
-async function generateVariantUpids(
-  db: BrandDb,
-  count: number,
-): Promise<string[]> {
-  return generateUniqueUpids({
-    count,
-    isTaken: async (candidate: string) => {
-      const [existing] = await db
-        .select({ id: productVariants.id })
-        .from(productVariants)
-        .where(eq(productVariants.upid, candidate))
-        .limit(1);
-      return !!existing;
-    },
-    fetchTakenSet: async (candidates: readonly string[]) => {
-      const existing = await db
-        .select({ upid: productVariants.upid })
-        .from(productVariants)
-        .where(inArray(productVariants.upid, candidates as string[]));
-      return new Set(
-        existing.map((e) => e.upid).filter((u): u is string => u !== null),
-      );
-    },
-  });
-}
+// NOTE: UPID generation now uses the centralized generateGloballyUniqueUpids
+// function from @v1/db/queries/products which ensures uniqueness across both
+// product_variants AND product_passports tables.
 
 // =============================================================================
 // ROUTER
@@ -448,18 +411,20 @@ export const productVariantsRouter = createTRPCRouter({
 
   /**
    * Get a single variant by UPID.
+   * Returns passport UPID if the variant has been published.
    */
   get: brandRequiredProcedure
     .input(
       variantIdentifierSchema.extend({
         includeOverrides: z.boolean().optional().default(false),
+        includePassport: z.boolean().optional().default(false),
       }),
     )
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
 
       // Verify variant exists and belongs to brand
-      await findVariantByUpid(
+      const { variantId } = await findVariantByUpid(
         db,
         brandId,
         input.productHandle,
@@ -485,7 +450,23 @@ export const productVariantsRouter = createTRPCRouter({
 
       // TODO: If includeOverrides, fetch override data
 
-      return variant;
+      // Fetch passport info if requested or always include basic passport UPID
+      let passportInfo = null;
+      if (input.includePassport) {
+        const passport = await getPassportByVariantId(db, variantId);
+        if (passport) {
+          passportInfo = {
+            passportUpid: passport.upid,
+            isPublished: passport.currentVersionId !== null,
+            firstPublishedAt: passport.firstPublishedAt,
+          };
+        }
+      }
+
+      return {
+        ...variant,
+        passport: passportInfo,
+      };
     }),
 
   /**
@@ -584,7 +565,7 @@ export const productVariantsRouter = createTRPCRouter({
         }
 
         // Generate UPID
-        const [upid] = await generateVariantUpids(db, 1);
+        const [upid] = await generateGloballyUniqueUpids(db, 1);
 
         // Use transaction to ensure atomicity - if any step fails, rollback
         const variant = await db.transaction(async (tx) => {
@@ -617,9 +598,12 @@ export const productVariantsRouter = createTRPCRouter({
             );
           }
 
-          // Apply overrides (note: applyVariantOverrides uses db, not tx)
-          // For full transactionality, we'd need to refactor applyVariantOverrides
-          // to accept a transaction context. For now, core variant + attributes are atomic.
+          // Create passport for the new variant (inside transaction for consistency)
+          await createPassportForVariant(tx, newVariant.id, brandId, {
+            upid: newVariant.upid!,
+            sku: input.sku,
+            barcode: input.barcode,
+          });
 
           return newVariant;
         });
@@ -725,6 +709,13 @@ export const productVariantsRouter = createTRPCRouter({
           input.variantUpid,
         );
 
+        // Orphan the passport before deleting the variant
+        // This preserves the passport record for QR code resolution
+        const passport = await getPassportByVariantId(db, variantId);
+        if (passport) {
+          await orphanPassport(db, passport.id);
+        }
+
         // Delete variant (cascades will handle related data)
         await db
           .delete(productVariants)
@@ -762,7 +753,10 @@ export const productVariantsRouter = createTRPCRouter({
         );
 
         // Generate UPIDs for all variants
-        const upids = await generateVariantUpids(db, input.variants.length);
+        const upids = await generateGloballyUniqueUpids(
+          db,
+          input.variants.length,
+        );
 
         const createdVariants: Array<{ id: string; upid: string }> = [];
 
@@ -814,6 +808,20 @@ export const productVariantsRouter = createTRPCRouter({
             }
           }
         });
+
+        // Create passports for all newly created variants
+        if (createdVariants.length > 0) {
+          await batchCreatePassportsForVariants(
+            db,
+            brandId,
+            createdVariants.map((v, i) => ({
+              variantId: v.id,
+              upid: v.upid,
+              sku: input.variants[i]?.sku,
+              barcode: input.variants[i]?.barcode,
+            })),
+          );
+        }
 
         // Apply overrides outside transaction (existing pattern from single create)
         for (const { variantId, overrides } of variantOverridesToApply) {
@@ -967,12 +975,15 @@ export const productVariantsRouter = createTRPCRouter({
           );
 
         if (variants.length > 0) {
-          await db.delete(productVariants).where(
-            inArray(
-              productVariants.id,
-              variants.map((v) => v.id),
-            ),
-          );
+          const variantIds = variants.map((v) => v.id);
+
+          // Orphan passports before deleting variants
+          await batchOrphanPassportsByVariantIds(db, variantIds);
+
+          // Delete variants
+          await db
+            .delete(productVariants)
+            .where(inArray(productVariants.id, variantIds));
         }
 
         // Revalidate product cache
@@ -1050,13 +1061,21 @@ export const productVariantsRouter = createTRPCRouter({
         );
 
         // Generate UPIDs for new variants
-        const newUpids = await generateVariantUpids(db, toCreate.length);
+        const newUpids = await generateGloballyUniqueUpids(db, toCreate.length);
 
         const createdVariants: Array<{ id: string; upid: string }> = [];
         let updatedCount = 0;
         let deletedCount = 0;
 
         await db.transaction(async (tx) => {
+          // Orphan passports for variants being deleted (inside transaction for consistency)
+          if (toDelete.length > 0) {
+            await batchOrphanPassportsByVariantIds(
+              tx,
+              toDelete.map((v) => v.id),
+            );
+          }
+
           // Delete variants
           if (toDelete.length > 0) {
             await tx.delete(productVariants).where(
@@ -1080,6 +1099,7 @@ export const productVariantsRouter = createTRPCRouter({
                 upid,
                 sku: variantInput.sku ?? null,
                 barcode: variantInput.barcode ?? null,
+                isGhost: variantInput.isGhost ?? false,
               })
               .returning({
                 id: productVariants.id,
@@ -1111,6 +1131,8 @@ export const productVariantsRouter = createTRPCRouter({
               updatePayload.sku = variantInput.sku;
             if (variantInput.barcode !== undefined)
               updatePayload.barcode = variantInput.barcode;
+            if (variantInput.isGhost !== undefined)
+              updatePayload.isGhost = variantInput.isGhost;
 
             if (Object.keys(updatePayload).length > 1) {
               await tx
@@ -1137,6 +1159,24 @@ export const productVariantsRouter = createTRPCRouter({
             updatedCount++;
           }
         });
+
+        // Create passports for newly created variants
+        if (createdVariants.length > 0) {
+          await batchCreatePassportsForVariants(
+            db,
+            brandId,
+            createdVariants.map((v, i) => ({
+              variantId: v.id,
+              upid: v.upid,
+              sku: toCreate[i]?.sku,
+              barcode: toCreate[i]?.barcode,
+            })),
+          );
+        }
+
+        // NOTE: Publishing is handled explicitly by the form after all mutations complete.
+        // This keeps publish logic in ONE place and avoids complex conditional publish triggers.
+        // The form calls publish.product at the end of the save flow if the product is published.
 
         // Revalidate product cache
         revalidateProduct(input.productHandle).catch(() => {});
@@ -1188,4 +1228,4 @@ export const productVariantsRouter = createTRPCRouter({
     }),
 });
 
-export type ProductVariantsRouter = typeof productVariantsRouter;
+type ProductVariantsRouter = typeof productVariantsRouter;

@@ -137,4 +137,4 @@ export const brandMembersRouter = createTRPCRouter({
     }),
 });
 
-export type BrandMembersRouter = typeof brandMembersRouter;
+type BrandMembersRouter = typeof brandMembersRouter;

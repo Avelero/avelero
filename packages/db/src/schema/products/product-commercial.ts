@@ -3,8 +3,8 @@ import {
   numeric,
   pgPolicy,
   pgTable,
-  timestamp,
   text,
+  timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
 import { products } from "./products";
@@ -19,10 +19,10 @@ export const productCommercial = pgTable(
       })
       .primaryKey()
       .notNull(),
-      webshopUrl: text("webshop_url"),
-      price: numeric("price", { precision: 10, scale: 2 }),
-      currency: text("currency"),
-      salesStatus: text("sales_status"),
+    webshopUrl: text("webshop_url"),
+    price: numeric("price", { precision: 10, scale: 2 }),
+    currency: text("currency"),
+    salesStatus: text("sales_status"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

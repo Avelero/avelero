@@ -1,13 +1,13 @@
 import "@/styles/globals.css";
+import { CTABlock } from "@/components/cta-block";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { cn } from "@v1/ui/cn";
-import { GeistSans } from "geist/font/sans";
+import { Analytics } from "@vercel/analytics/next";
 import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { CTABlock } from "@/components/cta-block";
-import { Analytics } from "@vercel/analytics/next";
 
 const Switzer = localFont({
   src: "../../public/fonts/Switzer-Regular.woff2",

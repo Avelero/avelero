@@ -1,6 +1,6 @@
 /**
  * Shared helper functions for product queries.
- * 
+ *
  * Contains mapping, loading, and validation utilities used across
  * multiple product query modules.
  */
@@ -8,24 +8,22 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../../client";
 import {
-  brandAttributes,
   brandAttributeValues,
-  brandEcoClaims,
-  brandFacilities,
+  brandAttributes,
   brandMaterials,
+  brandOperators,
   brandSeasons,
   brandTags,
-  taxonomyCategories,
-  productEcoClaims,
   productEnvironment,
   productJourneySteps,
   productMaterials,
+  productTags,
   productVariantAttributes,
   productVariants,
+  productWeight,
   products,
-  productTags,
+  taxonomyCategories,
   // Variant override tables
-  variantEcoClaims,
   variantEnvironment,
   variantJourneySteps,
   variantMaterials,
@@ -56,16 +54,13 @@ export function mapProductRow(row: Record<string, unknown>): ProductRecord {
   if ("season_id" in row)
     product.season_id = (row.season_id as string | null) ?? null;
   if ("manufacturer_id" in row)
-    product.manufacturer_id =
-      (row.manufacturer_id as string | null) ?? null;
+    product.manufacturer_id = (row.manufacturer_id as string | null) ?? null;
   if ("product_handle" in row)
-    product.product_handle =
-      (row.product_handle as string | null) ?? null;
+    product.product_handle = (row.product_handle as string | null) ?? null;
   if ("upid" in row) product.upid = (row.upid as string | null) ?? null;
   if ("status" in row) product.status = (row.status as string | null) ?? null;
   if ("image_path" in row)
-    product.image_path =
-      (row.image_path as string | null) ?? null;
+    product.image_path = (row.image_path as string | null) ?? null;
   if ("created_at" in row)
     product.created_at = (row.created_at as string | null) ?? undefined;
   if ("updated_at" in row)
@@ -88,8 +83,8 @@ export function mapProductRow(row: Record<string, unknown>): ProductRecord {
 export function createEmptyAttributes(): ProductAttributesBundle {
   return {
     materials: [],
-    ecoClaims: [],
     environment: null,
+    weight: null,
     journey: [],
     tags: [],
   };
@@ -101,7 +96,7 @@ export function createEmptyAttributes(): ProductAttributesBundle {
  * Security check to prevent cross-brand product access. Throws an error
  * if the product doesn't exist or belongs to a different brand.
  */
-export async function ensureProductBelongsToBrand(
+async function ensureProductBelongsToBrand(
   db: Database,
   brandId: string,
   productId: string,
@@ -146,6 +141,8 @@ export async function loadVariantsForProducts(
       name: productVariants.name,
       description: productVariants.description,
       imagePath: productVariants.imagePath,
+      // Ghost variant flag
+      isGhost: productVariants.isGhost,
     })
     .from(productVariants)
     .where(inArray(productVariants.productId, [...productIds]))
@@ -169,26 +166,22 @@ export async function loadVariantsForProducts(
     .from(productVariantAttributes)
     .innerJoin(
       brandAttributeValues,
-      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id)
+      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id),
     )
     .innerJoin(
       brandAttributes,
-      eq(brandAttributeValues.attributeId, brandAttributes.id)
+      eq(brandAttributeValues.attributeId, brandAttributes.id),
     )
     .where(inArray(productVariantAttributes.variantId, variantIds))
     .orderBy(asc(productVariantAttributes.sortOrder));
 
   // Batch check for override tables
   // We only need to know if ANY row exists for each variant
-  const [envRows, ecoClaimRows, materialRows, journeyRows] = await Promise.all([
+  const [envRows, materialRows, journeyRows] = await Promise.all([
     db
       .select({ variantId: variantEnvironment.variantId })
       .from(variantEnvironment)
       .where(inArray(variantEnvironment.variantId, variantIds)),
-    db
-      .select({ variantId: variantEcoClaims.variantId })
-      .from(variantEcoClaims)
-      .where(inArray(variantEcoClaims.variantId, variantIds)),
     db
       .select({ variantId: variantMaterials.variantId })
       .from(variantMaterials)
@@ -201,7 +194,6 @@ export async function loadVariantsForProducts(
 
   // Build sets of variant IDs that have overrides
   const hasEnvOverride = new Set(envRows.map((r) => r.variantId));
-  const hasEcoClaimOverride = new Set(ecoClaimRows.map((r) => r.variantId));
   const hasMaterialOverride = new Set(materialRows.map((r) => r.variantId));
   const hasJourneyOverride = new Set(journeyRows.map((r) => r.variantId));
 
@@ -225,10 +217,10 @@ export async function loadVariantsForProducts(
     const collection = map.get(row.product_id) ?? [];
 
     // Check if variant has any overrides (use explicit null checks - empty string is a valid override)
-    const hasCoreOverride = row.name !== null || row.description !== null || row.imagePath !== null;
+    const hasCoreOverride =
+      row.name !== null || row.description !== null || row.imagePath !== null;
     const hasTableOverride =
       hasEnvOverride.has(row.id) ||
-      hasEcoClaimOverride.has(row.id) ||
       hasMaterialOverride.has(row.id) ||
       hasJourneyOverride.has(row.id);
     const hasOverrides = hasCoreOverride || hasTableOverride;
@@ -243,6 +235,7 @@ export async function loadVariantsForProducts(
       updated_at: row.updated_at,
       attributes: attributesByVariant.get(row.id) ?? [],
       hasOverrides,
+      isGhost: row.isGhost,
     });
     map.set(row.product_id, collection);
   }
@@ -297,30 +290,6 @@ export async function loadAttributesForProducts(
     });
   }
 
-  const ecoRows = await db
-    .select({
-      id: productEcoClaims.id,
-      product_id: productEcoClaims.productId,
-      eco_claim_id: productEcoClaims.ecoClaimId,
-      claim: brandEcoClaims.claim,
-    })
-    .from(productEcoClaims)
-    .leftJoin(
-      brandEcoClaims,
-      eq(brandEcoClaims.id, productEcoClaims.ecoClaimId),
-    )
-    .where(inArray(productEcoClaims.productId, [...productIds]))
-    .orderBy(asc(productEcoClaims.createdAt));
-
-  for (const row of ecoRows) {
-    const bundle = ensureBundle(row.product_id);
-    bundle.ecoClaims.push({
-      id: row.id,
-      eco_claim_id: row.eco_claim_id,
-      claim: row.claim ?? null,
-    });
-  }
-
   const environmentRows = await db
     .select({
       product_id: productEnvironment.productId,
@@ -347,20 +316,38 @@ export async function loadAttributesForProducts(
     }
   }
 
-  // Load journey steps with their facility (one facility per step)
+  // Load weight data
+  const weightRows = await db
+    .select({
+      product_id: productWeight.productId,
+      weight: productWeight.weight,
+      weight_unit: productWeight.weightUnit,
+    })
+    .from(productWeight)
+    .where(inArray(productWeight.productId, [...productIds]));
+
+  for (const row of weightRows) {
+    const bundle = ensureBundle(row.product_id);
+    bundle.weight = {
+      weight: row.weight ? String(row.weight) : null,
+      weight_unit: row.weight_unit ?? null,
+    };
+  }
+
+  // Load journey steps with their operators (multiple operators per step possible)
   const journeyRows = await db
     .select({
       id: productJourneySteps.id,
       product_id: productJourneySteps.productId,
       sort_index: productJourneySteps.sortIndex,
       step_type: productJourneySteps.stepType,
-      facility_id: productJourneySteps.facilityId,
-      facility_name: brandFacilities.displayName,
+      operator_id: productJourneySteps.operatorId,
+      operator_name: brandOperators.displayName,
     })
     .from(productJourneySteps)
     .leftJoin(
-      brandFacilities,
-      eq(brandFacilities.id, productJourneySteps.facilityId),
+      brandOperators,
+      eq(brandOperators.id, productJourneySteps.operatorId),
     )
     .where(inArray(productJourneySteps.productId, [...productIds]))
     .orderBy(asc(productJourneySteps.sortIndex));
@@ -372,8 +359,8 @@ export async function loadAttributesForProducts(
       id: row.id,
       sort_index: row.sort_index,
       step_type: row.step_type,
-      facility_id: row.facility_id,
-      facility_name: row.facility_name ?? null,
+      operator_id: row.operator_id,
+      operator_name: row.operator_name ?? null,
     });
   }
 
@@ -466,9 +453,89 @@ export async function loadCategoryPathsForProducts(
   return map;
 }
 
+/**
+ * Passport data for a product (aggregated from all variant passports).
+ */
+export interface ProductPassportData {
+  /** UPID of the first variant's passport (for viewing the public passport) */
+  firstVariantUpid: string | null;
+}
 
+/**
+ * Batch loads passport data for multiple products.
+ *
+ * For each product, fetches:
+ * - lastPublishedAt: The most recent publish timestamp across all variant passports
+ * - firstVariantUpid: The UPID of the first variant's passport (by creation order)
+ *
+ * Optimizes N+1 query problems when loading product lists with passport info.
+ */
+export async function loadPassportDataForProducts(
+  db: Database,
+  productIds: readonly string[],
+): Promise<Map<string, ProductPassportData>> {
+  const map = new Map<string, ProductPassportData>();
+  if (productIds.length === 0) return map;
 
+  // Import the passport table schema
+  const { productPassports } = await import("../../../schema");
 
+  // Get all variants for the products in one query
+  const variantRows = await db
+    .select({
+      id: productVariants.id,
+      productId: productVariants.productId,
+      createdAt: productVariants.createdAt,
+    })
+    .from(productVariants)
+    .where(inArray(productVariants.productId, [...productIds]))
+    .orderBy(asc(productVariants.createdAt));
 
+  if (variantRows.length === 0) {
+    // No variants = no passport data, return empty entries
+    for (const productId of productIds) {
+      map.set(productId, { firstVariantUpid: null });
+    }
+    return map;
+  }
 
+  // Build a map of productId -> first variant ID (by creation order)
+  const firstVariantByProduct = new Map<string, string>();
+  for (const row of variantRows) {
+    if (!firstVariantByProduct.has(row.productId)) {
+      firstVariantByProduct.set(row.productId, row.id);
+    }
+  }
 
+  const variantIds = variantRows.map((v) => v.id);
+
+  // Get all passports for these variants
+  const passportRows = await db
+    .select({
+      workingVariantId: productPassports.workingVariantId,
+      upid: productPassports.upid,
+    })
+    .from(productPassports)
+    .where(inArray(productPassports.workingVariantId, variantIds));
+
+  // Build a map of variantId -> passport upid
+  const passportByVariant = new Map<string, string>();
+  for (const row of passportRows) {
+    if (row.workingVariantId) {
+      passportByVariant.set(row.workingVariantId, row.upid);
+    }
+  }
+
+  // Now build the result map - get first variant's passport UPID per product
+  for (const productId of productIds) {
+    // Get the first variant's passport UPID
+    const firstVariantId = firstVariantByProduct.get(productId);
+    const firstVariantUpid = firstVariantId
+      ? passportByVariant.get(firstVariantId) ?? null
+      : null;
+
+    map.set(productId, { firstVariantUpid });
+  }
+
+  return map;
+}

@@ -1,14 +1,14 @@
 /**
  * Import row management functions.
- * 
+ *
  * Handles creation, updates, and retrieval of import rows.
  */
 
 import { and, asc, count, eq } from "drizzle-orm";
-import type { Database } from "../../../client";
-import { importRows } from "../../../schema";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
+import type { Database } from "../../../client";
+import { importRows } from "../../../schema";
 import type {
   CreateImportRowParams,
   FailedRowExport,
@@ -18,7 +18,11 @@ import type {
 
 type DbOrTx =
   | Database
-  | PgTransaction<PostgresJsQueryResultHKT, typeof import("../../../schema"), any>;
+  | PgTransaction<
+      PostgresJsQueryResultHKT,
+      typeof import("../../../schema"),
+      any
+    >;
 
 /**
  * Creates import row records in batch
@@ -238,11 +242,8 @@ export async function getImportRowStatusCounts(
 // New Architecture: Normalized JSONB functions
 // ============================================================================
 
-import { sql, inArray } from "drizzle-orm";
-import type {
-  NormalizedRowData,
-  RowStatus,
-} from "./normalized-types";
+import { inArray, sql } from "drizzle-orm";
+import type { NormalizedRowData, RowStatus } from "./normalized-types";
 
 /**
  * Import row with normalized data for commit processing
@@ -558,12 +559,3 @@ export async function getImportRowsPreview(
     counts: actionCounts,
   };
 }
-
-
-
-
-
-
-
-
-

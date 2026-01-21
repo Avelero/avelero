@@ -116,14 +116,18 @@ export function SortPopover({
             className="group-hover:bg-accent transition-none data-[state=open]:bg-accent"
           >
             <ActiveIcon className="h-[14px] w-[14px]" />
-            <span className="px-1">{optimisticSort && activeField ? (
-              <>
-                Sorted by{" "}
-                <span className="font-medium pl-2 text-foreground">{activeField.label}</span>
-              </>
-            ) : (
-              "Sort"
-            )}</span>
+            <span className="px-1">
+              {optimisticSort && activeField ? (
+                <>
+                  Sorted by{" "}
+                  <span className="font-medium pl-2 text-foreground">
+                    {activeField.label}
+                  </span>
+                </>
+              ) : (
+                "Sort"
+              )}
+            </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[220px]">

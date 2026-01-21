@@ -245,19 +245,19 @@ export const syncRouter = createTRPCRouter({
           isSyncing,
           latestJob: latestJob
             ? {
-              id: latestJob.id,
-              status: latestJob.status,
-              triggerType: latestJob.triggerType,
-              startedAt: latestJob.startedAt,
-              finishedAt: latestJob.finishedAt,
-              productsTotal: latestJob.productsTotal,
-              productsProcessed: latestJob.productsProcessed,
-              productsCreated: latestJob.productsCreated,
-              productsUpdated: latestJob.productsUpdated,
-              productsFailed: latestJob.productsFailed,
-              productsSkipped: latestJob.productsSkipped,
-              errorSummary: latestJob.errorSummary,
-            }
+                id: latestJob.id,
+                status: latestJob.status,
+                triggerType: latestJob.triggerType,
+                startedAt: latestJob.startedAt,
+                finishedAt: latestJob.finishedAt,
+                productsTotal: latestJob.productsTotal,
+                productsProcessed: latestJob.productsProcessed,
+                productsCreated: latestJob.productsCreated,
+                productsUpdated: latestJob.productsUpdated,
+                productsFailed: latestJob.productsFailed,
+                productsSkipped: latestJob.productsSkipped,
+                errorSummary: latestJob.errorSummary,
+              }
             : null,
         });
       } catch (error) {
@@ -297,4 +297,4 @@ export const syncRouter = createTRPCRouter({
     }),
 });
 
-export type SyncRouter = typeof syncRouter;
+type SyncRouter = typeof syncRouter;

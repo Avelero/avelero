@@ -1,28 +1,30 @@
 /**
  * Catalog entity validation and duplicate checking.
- * 
+ *
  * Consolidates validation logic and duplicate detection for all catalog entity types.
  */
 
 import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  brandMaterials,
-  brandEcoClaims,
-  brandFacilities,
-  brandManufacturers,
   brandCertifications,
+  brandManufacturers,
+  brandMaterials,
+  brandOperators,
   brandSeasons,
   brandTags,
 } from "../../schema";
-import type { CatalogEntityType, ValidationError, ValidationResult } from "./types";
-import { createMaterial } from "./materials";
-import { createEcoClaim } from "./eco-claims";
-import { createFacility } from "./facilities";
-import { createBrandManufacturer } from "./manufacturers";
 import { createCertification } from "./certifications";
+import { createBrandManufacturer } from "./manufacturers";
+import { createMaterial } from "./materials";
+import { createOperator } from "./operators";
 import { createSeason } from "./seasons";
 import { createBrandTag } from "./tags";
+import type {
+  CatalogEntityType,
+  ValidationError,
+  ValidationResult,
+} from "./types";
 
 /**
  * Configuration map for duplicate checking by entity type.
@@ -32,13 +34,9 @@ const DUPLICATE_CHECK_CONFIG = {
     table: brandMaterials,
     nameColumn: brandMaterials.name,
   },
-  ECO_CLAIM: {
-    table: brandEcoClaims,
-    nameColumn: brandEcoClaims.claim,
-  },
-  FACILITY: {
-    table: brandFacilities,
-    nameColumn: brandFacilities.displayName,
+  OPERATOR: {
+    table: brandOperators,
+    nameColumn: brandOperators.displayName,
   },
   MANUFACTURER: {
     table: brandManufacturers,
@@ -60,7 +58,7 @@ const DUPLICATE_CHECK_CONFIG = {
 
 /**
  * Checks if a name already exists for a given entity type (case-insensitive).
- * 
+ *
  * @param db - Database instance
  * @param brandId - Brand ID
  * @param entityType - Entity type to check
@@ -127,30 +125,9 @@ export function validateMaterialInput(input: {
 }
 
 /**
- * Validates eco claim input.
+ * Validates operator input.
  */
-export function validateEcoClaimInput(claim: string): ValidationResult {
-  const errors: ValidationError[] = [];
-  if (!claim || claim.trim().length === 0) {
-    errors.push({
-      field: "claim",
-      message: "Eco claim is required",
-      code: "REQUIRED",
-    });
-  } else if (claim.length > 500) {
-    errors.push({
-      field: "claim",
-      message: "Eco claim too long",
-      code: "TOO_LONG",
-    });
-  }
-  return { valid: errors.length === 0, errors };
-}
-
-/**
- * Validates facility input.
- */
-export function validateFacilityInput(input: {
+export function validateOperatorInput(input: {
   displayName: string;
   legalName?: string | null;
   email?: string | null;
@@ -285,7 +262,10 @@ export function validateCertificationInput(input: {
     });
   }
 
-  if (input.instituteEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.instituteEmail)) {
+  if (
+    input.instituteEmail &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.instituteEmail)
+  ) {
     errors.push({
       field: "instituteEmail",
       message: "Invalid email format",
@@ -351,7 +331,7 @@ export function validateCertificationInput(input: {
 
 /**
  * Validates and creates a catalog entity.
- * 
+ *
  * This is a unified entry point for creating entities with validation
  * and duplicate checking. Used primarily by bulk import workflows.
  */
@@ -376,12 +356,8 @@ export async function validateAndCreateEntity(
       );
       name = (input as { name: string }).name;
       break;
-    case "ECO_CLAIM":
-      validation = validateEcoClaimInput((input as { claim: string }).claim);
-      name = (input as { claim: string }).claim;
-      break;
-    case "FACILITY":
-      validation = validateFacilityInput(
+    case "OPERATOR":
+      validation = validateOperatorInput(
         input as {
           displayName: string;
           legalName?: string | null;
@@ -481,15 +457,9 @@ export async function validateAndCreateEntity(
           },
         )) ?? { id: "" }
       );
-    case "ECO_CLAIM":
+    case "OPERATOR":
       return (
-        (await createEcoClaim(db, brandId, input as { claim: string })) ?? {
-          id: "",
-        }
-      );
-    case "FACILITY":
-      return (
-        (await createFacility(
+        (await createOperator(
           db,
           brandId,
           input as {
@@ -509,7 +479,11 @@ export async function validateAndCreateEntity(
       );
     case "MANUFACTURER":
       return (
-        (await createBrandManufacturer(db, brandId, input as { name: string })) ?? {
+        (await createBrandManufacturer(
+          db,
+          brandId,
+          input as { name: string },
+        )) ?? {
           id: "",
         }
       );
@@ -548,4 +522,3 @@ export async function validateAndCreateEntity(
     }
   }
 }
-

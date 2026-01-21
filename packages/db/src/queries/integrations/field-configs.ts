@@ -1,9 +1,9 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  integrations,
   brandIntegrations,
   integrationFieldConfigs,
+  integrations,
 } from "../../schema";
 
 // =============================================================================
@@ -186,7 +186,10 @@ export async function listAllOwnedFields(db: Database, brandId: string) {
       brandIntegrations,
       eq(integrationFieldConfigs.brandIntegrationId, brandIntegrations.id),
     )
-    .innerJoin(integrations, eq(brandIntegrations.integrationId, integrations.id))
+    .innerJoin(
+      integrations,
+      eq(brandIntegrations.integrationId, integrations.id),
+    )
     .where(
       and(
         eq(brandIntegrations.brandId, brandId),
@@ -195,4 +198,3 @@ export async function listAllOwnedFields(db: Database, brandId: string) {
     )
     .orderBy(asc(integrationFieldConfigs.fieldKey));
 }
-

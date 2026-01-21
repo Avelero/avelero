@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   pgPolicy,
   pgTable,
@@ -31,6 +32,9 @@ export const productVariants = pgTable(
     // Source tracking: which integration wrote this data
     sourceIntegration: text("source_integration"),
     sourceExternalId: text("source_external_id"),
+    // Ghost variant flag: true for system-created default variants (invisible to users)
+    // Ghost variants exist for publishing purposes but should not be shown in UI
+    isGhost: boolean("is_ghost").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

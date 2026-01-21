@@ -26,7 +26,11 @@ const iconSizes = {
  * Logo component for integrations.
  * Displays the integration-specific logo or a fallback icon.
  */
-export function IntegrationLogo({ slug, size = "md", className }: IntegrationLogoProps) {
+export function IntegrationLogo({
+  slug,
+  size = "md",
+  className,
+}: IntegrationLogoProps) {
   return (
     <div
       className={cn(
@@ -43,4 +47,3 @@ export function IntegrationLogo({ slug, size = "md", className }: IntegrationLog
     </div>
   );
 }
-

@@ -139,12 +139,3 @@ export async function deleteCertification(
     .returning({ id: brandCertifications.id });
   return row;
 }
-
-
-
-
-
-
-
-
-

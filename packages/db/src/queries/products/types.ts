@@ -58,6 +58,8 @@ export interface ProductVariantSummary {
   upid: string | null;
   created_at: string;
   updated_at: string;
+  /** Whether this is a ghost variant (system-created, invisible to users) */
+  isGhost: boolean;
 }
 
 /**
@@ -104,23 +106,14 @@ export interface ProductMaterialSummary {
 }
 
 /**
- * Eco claim association summary for a product.
- */
-export interface ProductEcoClaimSummary {
-  id: string;
-  eco_claim_id: string;
-  claim: string | null;
-}
-
-/**
  * Journey step entry for a product passport.
  */
 export interface ProductJourneyStepSummary {
   id: string;
   sort_index: number;
   step_type: string;
-  facility_id: string;
-  facility_name: string | null;
+  operator_id: string;
+  operator_name: string | null;
 }
 
 /**
@@ -133,12 +126,20 @@ export interface ProductEnvironmentSummary {
 }
 
 /**
+ * Weight data for a product.
+ */
+export interface ProductWeightSummary {
+  weight: string | null;
+  weight_unit: string | null;
+}
+
+/**
  * Aggregated attributes bundle returned when includeAttributes is enabled.
  */
 export interface ProductAttributesBundle {
   materials: ProductMaterialSummary[];
-  ecoClaims: ProductEcoClaimSummary[];
   environment: ProductEnvironmentSummary | null;
+  weight: ProductWeightSummary | null;
   journey: ProductJourneyStepSummary[];
   tags: Array<{
     id: string;
@@ -154,6 +155,8 @@ export interface ProductAttributesBundle {
 export interface ProductWithRelations extends ProductRecord {
   variants?: ProductVariantWithAttributes[];
   attributes?: ProductAttributesBundle;
+  /** UPID of the first variant's passport (for viewing the public passport) */
+  first_variant_upid?: string | null;
 }
 
 /**
@@ -193,6 +196,8 @@ export interface BulkDeleteResult {
  */
 export interface BulkUpdateResult {
   updated: number;
+  /** IDs of products that were updated (for triggering publish on status change) */
+  productIds?: string[];
 }
 
 /**
@@ -274,4 +279,3 @@ export interface ReplaceVariantsResult {
     attributeValueIds: string[];
   }>;
 }
-

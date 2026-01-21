@@ -61,7 +61,7 @@ export const PRODUCT_FIELDS = [
 /**
  * Type representing all available product field names.
  */
-export type ProductField = (typeof PRODUCT_FIELDS)[number];
+type ProductField = (typeof PRODUCT_FIELDS)[number];
 
 // ============================================================================
 // FilterState Schema Definitions
@@ -245,13 +245,12 @@ export const createProductSchema = z.object({
       }),
     )
     .optional(),
-  eco_claim_ids: uuidArraySchema.optional(),
   journey_steps: z
     .array(
       z.object({
         sort_index: nonNegativeIntSchema,
         step_type: shortStringSchema,
-        facility_id: uuidSchema, // 1:1 relationship with facility
+        operator_ids: uuidArraySchema, // Multiple operators per step
       }),
     )
     .optional(),
@@ -259,6 +258,12 @@ export const createProductSchema = z.object({
     .object({
       carbon_kg_co2e: z.union([z.string(), z.number()]).optional(),
       water_liters: z.union([z.string(), z.number()]).optional(),
+    })
+    .optional(),
+  weight: z
+    .object({
+      weight: z.union([z.string(), z.number()]).optional(),
+      weight_unit: z.string().optional().default("g"),
     })
     .optional(),
 });
@@ -306,7 +311,7 @@ export const bulkSelectionSchema = z.discriminatedUnion("mode", [
   }),
 ]);
 
-export type BulkSelection = z.infer<typeof bulkSelectionSchema>;
+type BulkSelection = z.infer<typeof bulkSelectionSchema>;
 
 /**
  * Unified delete schema supporting both single and bulk operations.
@@ -327,7 +332,7 @@ export const unifiedDeleteSchema = z.union([
   }),
 ]);
 
-export type UnifiedDeleteInput = z.infer<typeof unifiedDeleteSchema>;
+type UnifiedDeleteInput = z.infer<typeof unifiedDeleteSchema>;
 
 /**
  * Fields that can be bulk updated across multiple products.
@@ -339,7 +344,7 @@ export const bulkUpdateFieldsSchema = z.object({
   season_id: uuidSchema.nullable().optional(),
 });
 
-export type BulkUpdateFields = z.infer<typeof bulkUpdateFieldsSchema>;
+type BulkUpdateFields = z.infer<typeof bulkUpdateFieldsSchema>;
 
 /**
  * Unified update schema supporting both single and bulk operations.
@@ -361,7 +366,7 @@ export const unifiedUpdateSchema = z.union([
     .merge(bulkUpdateFieldsSchema),
 ]);
 
-export type UnifiedUpdateInput = z.infer<typeof unifiedUpdateSchema>;
+type UnifiedUpdateInput = z.infer<typeof unifiedUpdateSchema>;
 
 /**
  * @deprecated Use unifiedDeleteSchema instead
@@ -397,30 +402,7 @@ export const listProductIdsSchema = z.object({
   excludeIds: uuidArraySchema.optional(),
 });
 
-export type ListProductIdsInput = z.infer<typeof listProductIdsSchema>;
-
-/**
- * Upsert payload used for product-level identifiers.
- */
-export const upsertProductHandleSchema = z.object({
-  product_id: uuidSchema,
-  handle: productHandleSchema,
-});
-
-// Variants (consolidated under products)
-/**
- * Identifies the parent product whose variants should be listed.
- */
-export const listVariantsSchema = z.object({
-  product_id: uuidSchema,
-  cursor: z.string().optional(),
-  limit: paginationLimitSchema.optional(),
-});
-
-/**
- * Retrieves all variants for a given product_id.
- */
-export const getVariantsSchema = byParentId("product_id");
+type ListProductIdsInput = z.infer<typeof listProductIdsSchema>;
 
 /**
  * Schema for individual variant metadata (SKU and barcode).
@@ -527,9 +509,7 @@ export const productVariantsCreateSchema = z.object({
   barcode: z.string().max(100).optional(),
 });
 
-export type ProductVariantsCreateInput = z.infer<
-  typeof productVariantsCreateSchema
->;
+type ProductVariantsCreateInput = z.infer<typeof productVariantsCreateSchema>;
 
 /**
  * Input payload for `products.list` in the reorganized API.
@@ -543,7 +523,7 @@ export const productsDomainListSchema = listProductsSchema.extend({
   includeAttributes: z.boolean().optional().default(false),
 });
 
-export type ProductsDomainListInput = z.infer<typeof productsDomainListSchema>;
+type ProductsDomainListInput = z.infer<typeof productsDomainListSchema>;
 
 /**
  * Input payload for `products.get`.
@@ -555,7 +535,7 @@ export const productsDomainGetSchema = getProductSchema.extend({
   includeAttributes: z.boolean().optional().default(false),
 });
 
-export type ProductsDomainGetInput = z.infer<typeof productsDomainGetSchema>;
+type ProductsDomainGetInput = z.infer<typeof productsDomainGetSchema>;
 
 /**
  * Input payload for fetching a product by UPID.
@@ -566,7 +546,7 @@ export const productsDomainGetByUpidSchema = z.object({
   includeAttributes: z.boolean().optional().default(false),
 });
 
-export type ProductsDomainGetByUpidInput = z.infer<
+type ProductsDomainGetByUpidInput = z.infer<
   typeof productsDomainGetByUpidSchema
 >;
 
@@ -582,9 +562,7 @@ export const productsDomainCreateSchema = createProductSchema.extend({
   brand_id: uuidSchema,
 });
 
-export type ProductsDomainCreateInput = z.infer<
-  typeof productsDomainCreateSchema
->;
+type ProductsDomainCreateInput = z.infer<typeof productsDomainCreateSchema>;
 
 /**
  * Input payload for `products.update`.
@@ -598,9 +576,7 @@ export const productsDomainUpdateSchema = updateProductSchema.extend({
   brand_id: uuidSchema.optional(),
 });
 
-export type ProductsDomainUpdateInput = z.infer<
-  typeof productsDomainUpdateSchema
->;
+type ProductsDomainUpdateInput = z.infer<typeof productsDomainUpdateSchema>;
 
 /**
  * Input payload for `products.delete`.
@@ -611,14 +587,12 @@ export const productsDomainDeleteSchema = deleteProductSchema.extend({
   brand_id: uuidSchema.optional(),
 });
 
-export type ProductsDomainDeleteInput = z.infer<
-  typeof productsDomainDeleteSchema
->;
+type ProductsDomainDeleteInput = z.infer<typeof productsDomainDeleteSchema>;
 
 /**
  * Input payload for bulk product deletion.
  */
-export type BulkDeleteProductsInput = z.infer<typeof bulkDeleteProductsSchema>;
+type BulkDeleteProductsInput = z.infer<typeof bulkDeleteProductsSchema>;
 
 /**
  * Input payload for `products.variants.upsert`.
@@ -627,16 +601,12 @@ export type BulkDeleteProductsInput = z.infer<typeof bulkDeleteProductsSchema>;
  * - explicit: Provide complete variant definitions with attribute assignments
  * - matrix: Provide dimensions for cartesian product generation
  */
-export type ProductVariantsUpsertInput = z.infer<
-  typeof productVariantsUpsertSchema
->;
+type ProductVariantsUpsertInput = z.infer<typeof productVariantsUpsertSchema>;
 
 /**
  * Input payload for `products.variants.delete`.
  */
-export type ProductVariantsDeleteInput = z.infer<
-  typeof productVariantsDeleteSchema
->;
+type ProductVariantsDeleteInput = z.infer<typeof productVariantsDeleteSchema>;
 
 // ============================================================================
 // Unified Schemas (API Redesign)
@@ -657,7 +627,7 @@ export const productUnifiedGetSchema = z.intersection(
   }),
 );
 
-export type ProductUnifiedGetInput = z.infer<typeof productUnifiedGetSchema>;
+type ProductUnifiedGetInput = z.infer<typeof productUnifiedGetSchema>;
 
 /**
  * Unified variant list schema accepting either product_id or product_handle.
@@ -674,7 +644,7 @@ export const variantUnifiedListSchema = z.intersection(
   }),
 );
 
-export type VariantUnifiedListInput = z.infer<typeof variantUnifiedListSchema>;
+type VariantUnifiedListInput = z.infer<typeof variantUnifiedListSchema>;
 
 // ============================================================================
 // FilterState Type Exports
@@ -683,7 +653,7 @@ export type VariantUnifiedListInput = z.infer<typeof variantUnifiedListSchema>;
 /**
  * Type exports for FilterState structures (matching client-side filter-types.ts)
  */
-export type FilterValue = z.infer<typeof filterValueSchema>;
-export type FilterCondition = z.infer<typeof filterConditionSchema>;
-export type FilterGroup = z.infer<typeof filterGroupSchema>;
-export type FilterState = z.infer<typeof filterStateSchema>;
+type FilterValue = z.infer<typeof filterValueSchema>;
+type FilterCondition = z.infer<typeof filterConditionSchema>;
+type FilterGroup = z.infer<typeof filterGroupSchema>;
+type FilterState = z.infer<typeof filterStateSchema>;

@@ -1,15 +1,15 @@
 "use client";
 
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
-import { useTRPC } from "@/trpc/client";
 import {
+  type ValidationErrors,
+  type ValidationSchema,
   getFirstInvalidField,
   isFormValid,
   rules,
-  type ValidationErrors,
-  type ValidationSchema,
   validateForm,
 } from "@/hooks/use-form-validation";
+import { useTRPC } from "@/trpc/client";
 import { formatPhone, normalizeUrl } from "@/utils/validation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -80,6 +80,10 @@ export function ManufacturerSheet({
     ValidationErrors<ManufacturerFormValues>
   >({});
 
+  // Container ref for portal - ensures popovers render inside the sheet
+  const [sheetContainer, setSheetContainer] =
+    React.useState<HTMLDivElement | null>(null);
+
   // API mutation for creating manufacturer
   const createManufacturerMutation = useMutation(
     trpc.catalog.manufacturers.create.mutationOptions(),
@@ -93,7 +97,9 @@ export function ManufacturerSheet({
         rules.required("Manufacturer name is required"),
         rules.maxLength(100, "Name must be 100 characters or less"),
         rules.uniqueCaseInsensitive(
-          existingManufacturers.map((manufacturer: { name: string }) => manufacturer.name),
+          existingManufacturers.map(
+            (manufacturer: { name: string }) => manufacturer.name,
+          ),
           "A manufacturer with this name already exists",
         ),
       ],
@@ -283,7 +289,6 @@ export function ManufacturerSheet({
         state: createdManufacturer.state || undefined,
         zip: createdManufacturer.zip || undefined,
         countryCode: createdManufacturer.country_code || undefined,
-        
       };
 
       // Call parent callback with real data
@@ -326,6 +331,7 @@ export function ManufacturerSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        ref={setSheetContainer}
         side="right"
         className="flex flex-col p-0 gap-0 w-full sm:w-[480px] lg:w-[560px] m-6 h-[calc(100vh-48px)]"
         hideDefaultClose
@@ -513,6 +519,7 @@ export function ManufacturerSheet({
                 placeholder="Select country"
                 value={countryCode}
                 onChange={(code) => setCountryCode(code)}
+                container={sheetContainer}
               />
               <div className="space-y-1.5">
                 <Label htmlFor="manufacturer-city">City</Label>

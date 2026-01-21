@@ -1,6 +1,6 @@
 /**
  * Main queries barrel export.
- * 
+ *
  * Re-exports all query functions from their organized domain folders.
  * For better tree-shaking, import directly from domain folders:
  * - @v1/db/queries/products
@@ -43,4 +43,3 @@ export {
   SQL,
   type SQLWrapper,
 } from "drizzle-orm";
-

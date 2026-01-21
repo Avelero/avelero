@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Input } from "@v1/ui/input";
 import { cn } from "@v1/ui/cn";
+import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
+import { useEffect, useState } from "react";
 
 interface ColorInputProps {
   label: string;
@@ -60,7 +60,10 @@ export function hexAlphaToOpacity(hexAlpha: string): number {
  * Handles: #RRGGBB, #RRGGBBAA, RRGGBB, RRGGBBAA
  * Returns: { rgb: "RRGGBB", opacity: 0-100 }
  */
-export function parseHexWithAlpha(hex: string): { rgb: string; opacity: number } {
+export function parseHexWithAlpha(hex: string): {
+  rgb: string;
+  opacity: number;
+} {
   // Remove # prefix if present
   const cleaned = hex.replace(/^#/, "").toUpperCase();
 

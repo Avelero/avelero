@@ -122,12 +122,3 @@ export async function deleteSeason(
     .returning({ id: brandSeasons.id });
   return row;
 }
-
-
-
-
-
-
-
-
-

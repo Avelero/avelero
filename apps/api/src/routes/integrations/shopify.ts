@@ -254,4 +254,4 @@ shopifyOAuthRouter.get("/callback", async (c) => {
   }
 });
 
-export type ShopifyOAuthRouter = typeof shopifyOAuthRouter;
+type ShopifyOAuthRouter = typeof shopifyOAuthRouter;

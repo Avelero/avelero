@@ -1,6 +1,6 @@
 /**
  * Bulk product operations.
- * 
+ *
  * Provides functions for bulk updates and deletes on products,
  * either by filter criteria or explicit IDs.
  */
@@ -125,7 +125,8 @@ export async function bulkUpdateProductsByFilter(
   // Build update data - only include fields that are explicitly provided
   const updateData: Record<string, unknown> = {};
   if (updates.status !== undefined) updateData.status = updates.status;
-  if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
+  if (updates.categoryId !== undefined)
+    updateData.categoryId = updates.categoryId;
   if (updates.seasonId !== undefined) updateData.seasonId = updates.seasonId;
 
   // If no fields to update, return early
@@ -141,6 +142,7 @@ export async function bulkUpdateProductsByFilter(
 
   return {
     updated: updated.length,
+    productIds: updated.map((row) => row.id),
   };
 }
 
@@ -163,7 +165,8 @@ export async function bulkUpdateProductsByIds(
   // Build update data - only include fields that are explicitly provided
   const updateData: Record<string, unknown> = {};
   if (updates.status !== undefined) updateData.status = updates.status;
-  if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
+  if (updates.categoryId !== undefined)
+    updateData.categoryId = updates.categoryId;
   if (updates.seasonId !== undefined) updateData.seasonId = updates.seasonId;
 
   // If no fields to update, return early
@@ -179,6 +182,7 @@ export async function bulkUpdateProductsByIds(
 
   return {
     updated: updated.length,
+    productIds: updated.map((row) => row.id),
   };
 }
 
@@ -211,4 +215,3 @@ export async function bulkDeleteProductsByIds(
       .filter((path): path is string => path !== null),
   };
 }
-

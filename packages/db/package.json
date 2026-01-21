@@ -13,8 +13,7 @@
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
-    "test": "bun test __tests__ --serial --timeout 30000",
-    "test:integration": "bun test __tests__/integration --serial --timeout 30000"
+    "test": "bun test __tests__ --serial --timeout 30000"
   },
   "exports": {
     "./client": "./src/client.ts",
@@ -36,9 +35,7 @@
   },
   "dependencies": {
     "@v1/dpp-components": "workspace:*",
-    "@v1/selections": "workspace:*",
     "drizzle-orm": "^0.44.7",
-    "nanoid": "^5.1.6",
     "postgres": "^3.4.7"
   },
   "devDependencies": {

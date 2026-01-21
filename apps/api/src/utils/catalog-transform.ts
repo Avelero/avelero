@@ -113,9 +113,9 @@ export function transformCertificationInput<T extends Record<string, any>>(
 }
 
 /**
- * Transforms facility input from snake_case schema to camelCase DB format.
+ * Transforms operator input from snake_case schema to camelCase DB format.
  */
-export function transformFacilityInput<T extends Record<string, any>>(
+export function transformOperatorInput<T extends Record<string, any>>(
   input: T,
 ): any {
   const result: any = {};

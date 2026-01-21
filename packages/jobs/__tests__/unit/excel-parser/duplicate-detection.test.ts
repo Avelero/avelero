@@ -176,7 +176,6 @@ describe("Excel Parser - Duplicate Detection", () => {
           productHandle: "product-1",
           name: "Product 1",
           tags: [],
-          ecoClaims: [],
           materials: [],
           journeySteps: {},
           variants: [
@@ -186,7 +185,6 @@ describe("Excel Parser - Duplicate Detection", () => {
               sku: "SKU-001",
               barcode: "1111111111111",
               attributes: [],
-              ecoClaimsOverride: [],
               materialsOverride: [],
               journeyStepsOverride: {},
               rawData: {},
@@ -199,7 +197,6 @@ describe("Excel Parser - Duplicate Detection", () => {
           productHandle: "product-2",
           name: "Product 2",
           tags: [],
-          ecoClaims: [],
           materials: [],
           journeySteps: {},
           variants: [
@@ -209,7 +206,6 @@ describe("Excel Parser - Duplicate Detection", () => {
               sku: "SKU-002",
               barcode: "2222222222222",
               attributes: [],
-              ecoClaimsOverride: [],
               materialsOverride: [],
               journeyStepsOverride: {},
               rawData: {},

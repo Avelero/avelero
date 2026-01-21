@@ -12,6 +12,12 @@ export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
   const { branding } = themeConfig;
   const logoHeight = 18;
 
+  // Next.js blocks image optimization for private IPs (security feature)
+  // Use unoptimized for local development URLs
+  const logoUrl = branding.headerLogoUrl;
+  const isLocalDev =
+    logoUrl?.includes("127.0.0.1") || logoUrl?.includes("localhost:");
+
   // Determine positioning classes and styles
   const getPositionProps = () => {
     switch (position) {
@@ -37,14 +43,15 @@ export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
     >
       {/* Brand section */}
       <div className="header__section flex items-center justify-center w-full py-sm border-b">
-        {branding.headerLogoUrl ? (
+        {logoUrl ? (
           <Image
-            src={branding.headerLogoUrl}
+            src={logoUrl}
             alt={brandName}
             height={logoHeight}
             width={logoHeight * 4}
             className="object-contain"
             style={{ height: `${logoHeight}px`, width: "auto" }}
+            unoptimized={isLocalDev}
           />
         ) : (
           <span

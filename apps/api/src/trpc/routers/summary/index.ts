@@ -9,23 +9,27 @@ export const summaryRouter = createTRPCRouter({
     .input(summaryProductStatusSchema)
     .query(async ({ ctx }) => {
       const { db, brandId } = ctx;
-      const rows = await db
+
+      // Single query with conditional counts for consistency and efficiency
+      const [result] = await db
         .select({
-          status: products.status,
-          count: sql<number>`COUNT(*)::int`,
+          total: sql<number>`COUNT(*)::int`,
+          published: sql<number>`COUNT(*) FILTER (WHERE ${products.status} = 'published')::int`,
+          unpublished: sql<number>`COUNT(*) FILTER (WHERE ${products.status} = 'unpublished')::int`,
+          scheduled: sql<number>`COUNT(*) FILTER (WHERE ${products.status} = 'scheduled')::int`,
         })
         .from(products)
-        .where(eq(products.brandId, brandId))
-        .groupBy(products.status);
+        .where(eq(products.brandId, brandId));
 
-      const summary = rows.reduce<Record<string, number>>((acc, row) => {
-        const key = row.status ?? "unknown";
-        acc[key] = (acc[key] ?? 0) + (row.count ?? 0);
-        return acc;
-      }, {});
+      const summary = {
+        total: result?.total ?? 0,
+        published: result?.published ?? 0,
+        unpublished: result?.unpublished ?? 0,
+        scheduled: result?.scheduled ?? 0,
+      };
 
       return createEntityResponse(summary);
     }),
 });
 
-export type SummaryRouter = typeof summaryRouter;
+type SummaryRouter = typeof summaryRouter;

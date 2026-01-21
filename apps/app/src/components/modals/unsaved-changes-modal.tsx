@@ -43,14 +43,18 @@ export function UnsavedChangesModal({
 }: UnsavedChangesModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none">
-        <DialogHeader>
+      <DialogContent size="sm" className="p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">{title}</DialogTitle>
-          <DialogDescription className="text-secondary w-full whitespace-normal break-words">
+        </DialogHeader>
+
+        <div className="px-6 py-4 min-h-[40px]">
+          <DialogDescription className="text-secondary">
             {description}
           </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="flex justify-end gap-2">
+        </div>
+
+        <DialogFooter className="px-6 py-4 border-t border-border">
           <Button
             variant="outline"
             type="button"

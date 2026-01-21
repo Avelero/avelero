@@ -10,17 +10,12 @@ export type {
   FilterOperator,
 } from "@/components/passports/filter-types";
 
-export type PassportStatus =
-  | "published"
-  | "scheduled"
-  | "unpublished"
-  | "archived";
+export type PassportStatus = "published" | "unpublished" | "scheduled";
 
-export const PASSPORT_STATUS_LABELS: Record<PassportStatus, string> = {
+const PASSPORT_STATUS_LABELS: Record<PassportStatus, string> = {
   published: "Published",
-  scheduled: "Scheduled",
   unpublished: "Unpublished",
-  archived: "Archived",
+  scheduled: "Scheduled",
 };
 
 export interface ProductPassportRow {
@@ -44,6 +39,8 @@ export interface PassportTableRow extends ProductPassportRow {
   passportIds: string[]; // legacy hook for bulk selection, maps to product/row id
   variantCount: number; // number of variants for this product
   tags: Array<{ id: string; name: string | null; hex: string | null }>; // product tags with swatches
+  /** First variant's passport UPID (for viewing the public passport) */
+  firstVariantUpid?: string | null;
 }
 
 // Selection model for scalable bulk actions
@@ -55,10 +52,10 @@ export interface SelectionState {
   excludeIds: string[]; // used when mode === 'all'
 }
 
-export type BulkSelection =
+type BulkSelection =
   | { mode: "all"; excludeIds: string[] }
   | { mode: "explicit"; includeIds: string[] };
 
-export type BulkChanges = {
+type BulkChanges = {
   status?: PassportStatus;
 };

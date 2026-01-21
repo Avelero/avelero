@@ -28,13 +28,14 @@ import type {
   NormalizedVariant,
   RowError,
 } from "@v1/db/queries/bulk";
-import { createNotification } from "@v1/db/queries/notifications";
 import * as schema from "@v1/db/schema";
+import { validateImageUrl } from "@v1/supabase/utils/external-images";
 import { type BrandCatalog, loadBrandCatalog } from "../../lib/catalog-loader";
 import {
   type ParsedProduct,
   findDuplicateIdentifiers,
   parseExcelFile,
+  parseSemicolonSeparated,
   validateTemplateMatch,
 } from "../../lib/excel";
 
@@ -122,8 +123,7 @@ const {
   brandMaterials,
   brandSeasons,
   brandTags,
-  brandEcoClaims,
-  brandFacilities,
+  brandOperators,
   brandManufacturers,
   products,
   productVariants,
@@ -140,14 +140,12 @@ const {
 const BATCH_SIZE = 250;
 
 /**
- * Valid status values for products
+ * Valid status values for products (new publishing model)
+ * - 'unpublished': Draft, never been published (default)
+ * - 'published': Has been published at least once
+ * - 'scheduled': Scheduled for future publication
  */
-const VALID_STATUSES = [
-  "unpublished",
-  "published",
-  "archived",
-  "scheduled",
-] as const;
+const VALID_STATUSES = ["unpublished", "published", "scheduled"] as const;
 type ValidStatus = (typeof VALID_STATUSES)[number];
 
 // ============================================================================
@@ -201,7 +199,6 @@ export const validateAndStage = task({
           tags: firstProduct?.tags,
           productLevelData: {
             materials: firstProduct?.materials,
-            ecoClaims: firstProduct?.ecoClaims,
             carbonKg: firstProduct?.carbonKg,
             waterLiters: firstProduct?.waterLiters,
             weightGrams: firstProduct?.weightGrams,
@@ -213,7 +210,6 @@ export const validateAndStage = task({
                 sku: firstVariant.sku,
                 attributes: firstVariant.attributes,
                 materialsOverride: firstVariant.materialsOverride,
-                ecoClaimsOverride: firstVariant.ecoClaimsOverride,
                 rawData: Object.keys(firstVariant.rawData),
               }
             : null,
@@ -351,7 +347,6 @@ export const validateAndStage = task({
               variants: [],
               tags: [],
               materials: [],
-              ecoClaims: [],
               environment: null,
               journeySteps: [],
               weight: null,
@@ -483,69 +478,15 @@ export const validateAndStage = task({
         errorReportNeeded: hasErrors,
       });
 
-      // 10. Generate error report SYNCHRONOUSLY if ANY products have errors
-      // IMPORTANT: Must use triggerAndWait so the report is generated BEFORE
-      // commit-to-production runs (which changes rowStatus and deletes staging data)
-      if (hasErrors) {
-        logger.info("Generating error report (synchronous)", {
-          jobId,
-          warningsCount,
-          blockedCount,
-        });
-
-        await tasks.triggerAndWait("generate-error-report", {
-          jobId,
-          brandId,
-          userEmail: payload.userEmail ?? null,
-        });
-
-        logger.info("Error report generation completed", {
-          jobId,
-          warningsCount,
-          blockedCount,
-        });
-
-        // 10b. Create user notification for import failure
-        if (payload.userId) {
-          const notificationTitle =
-            blockedCount > 0 && warningsCount > 0
-              ? `${blockedCount} products failed and ${warningsCount} had warnings`
-              : blockedCount > 0
-                ? `${blockedCount} products failed during import`
-                : `${warningsCount} products had warnings during import`;
-
-          await createNotification(db, {
-            userId: payload.userId,
-            brandId,
-            type: "import_failure",
-            title: notificationTitle,
-            message:
-              "Download the error report to see which products need corrections.",
-            resourceType: "import_job",
-            resourceId: jobId,
-            actionUrl: "/products",
-            actionData: {
-              blockedCount,
-              warningsCount,
-              jobId,
-            },
-            expiresInMs: 24 * 60 * 60 * 1000, // 24 hours
-          });
-
-          logger.info("Created import failure notification", {
-            jobId,
-            userId: payload.userId,
-            blockedCount,
-            warningsCount,
-          });
-        }
-      }
-
-      // 11. Auto-trigger commit-to-production job (only if we have committable products)
+      // 10. Auto-trigger commit-to-production job (only if we have committable products)
+      // Note: Error report generation and failure notifications are handled in commit-to-production
+      // AFTER all images have been processed. This ensures the report includes image failures
+      // and the toast notification appears after the import is fully complete.
       if (hasCommittableProducts) {
         await tasks.trigger("commit-to-production", {
           jobId,
           brandId,
+          userId: payload.userId ?? null,
           userEmail: payload.userEmail ?? null,
           // Pass validation errors flag so commit-to-production can preserve it
           hasValidationErrors: hasErrors,
@@ -668,8 +609,7 @@ async function autoCreateEntities(
   const uniqueSeasons = new Set<string>();
   const uniqueTags = new Set<string>();
   const uniqueMaterials = new Set<string>();
-  const uniqueEcoClaims = new Set<string>();
-  const uniqueFacilities = new Set<string>();
+  const uniqueOperators = new Set<string>();
   const uniqueAttributes = new Set<string>();
   const uniqueAttributeValues = new Map<string, Set<string>>(); // attrName -> values
 
@@ -688,13 +628,13 @@ async function autoCreateEntities(
     for (const material of product.materials) {
       uniqueMaterials.add(material.name.trim());
     }
-    // Product-level eco claims (from parent row)
-    for (const claim of product.ecoClaims) {
-      uniqueEcoClaims.add(claim.trim());
-    }
-    // Product-level journey step facilities (from parent row)
-    for (const facilityName of Object.values(product.journeySteps)) {
-      uniqueFacilities.add(facilityName.trim());
+    // Product-level journey step operators (from parent row)
+    // Support semicolon-separated multiple operators per step: "Factory A; Factory B"
+    for (const operatorValue of Object.values(product.journeySteps)) {
+      const operatorNames = parseSemicolonSeparated(operatorValue);
+      for (const operatorName of operatorNames) {
+        uniqueOperators.add(operatorName.trim());
+      }
     }
 
     for (const variant of product.variants) {
@@ -702,13 +642,13 @@ async function autoCreateEntities(
       for (const material of variant.materialsOverride) {
         uniqueMaterials.add(material.name.trim());
       }
-      // Variant-level eco claim overrides (from child rows)
-      for (const claim of variant.ecoClaimsOverride) {
-        uniqueEcoClaims.add(claim.trim());
-      }
-      // Variant-level journey step facility overrides (from child rows)
-      for (const facilityName of Object.values(variant.journeyStepsOverride)) {
-        uniqueFacilities.add(facilityName.trim());
+      // Variant-level journey step operator overrides (from child rows)
+      // Support semicolon-separated multiple operators per step
+      for (const operatorValue of Object.values(variant.journeyStepsOverride)) {
+        const operatorNames = parseSemicolonSeparated(operatorValue);
+        for (const operatorName of operatorNames) {
+          uniqueOperators.add(operatorName.trim());
+        }
       }
       // Attributes (always variant-level)
       for (const attr of variant.attributes) {
@@ -793,39 +733,23 @@ async function autoCreateEntities(
     logger.info("Auto-created materials", { count: inserted.length });
   }
 
-  // Eco Claims
-  const missingEcoClaims = [...uniqueEcoClaims].filter(
-    (name) => !catalog.ecoClaims.has(normalizeKey(name)),
-  );
-  if (missingEcoClaims.length > 0) {
-    const inserted = await database
-      .insert(brandEcoClaims)
-      .values(missingEcoClaims.map((claim) => ({ brandId, claim })))
-      .returning({ id: brandEcoClaims.id, claim: brandEcoClaims.claim });
-
-    for (const e of inserted) {
-      catalog.ecoClaims.set(normalizeKey(e.claim), e.id);
-    }
-    logger.info("Auto-created eco claims", { count: inserted.length });
-  }
-
-  // Facilities
-  const missingFacilities = [...uniqueFacilities].filter(
+  // Operators
+  const missingOperators = [...uniqueOperators].filter(
     (name) => !catalog.operators.has(normalizeKey(name)),
   );
-  if (missingFacilities.length > 0) {
+  if (missingOperators.length > 0) {
     const inserted = await database
-      .insert(brandFacilities)
+      .insert(brandOperators)
       .values(
-        missingFacilities.map((name) => ({
+        missingOperators.map((name) => ({
           brandId,
           displayName: name,
           type: "MANUFACTURER" as const,
         })),
       )
       .returning({
-        id: brandFacilities.id,
-        displayName: brandFacilities.displayName,
+        id: brandOperators.id,
+        displayName: brandOperators.displayName,
       });
 
     for (const f of inserted) {
@@ -833,7 +757,7 @@ async function autoCreateEntities(
         catalog.operators.set(normalizeKey(f.displayName), f.id);
       }
     }
-    logger.info("Auto-created facilities", { count: inserted.length });
+    logger.info("Auto-created operators", { count: inserted.length });
   }
 
   // Attributes - Match to taxonomy first, then create with taxonomy reference
@@ -1050,12 +974,26 @@ function computeNormalizedRowData(
     });
   }
 
+  // Validate image URL format (product-level)
+  // Image URLs must ALWAYS be full HTTP/HTTPS URLs
+  if (product.imagePath) {
+    const imageValidation = validateImageUrl(product.imagePath);
+    if (!imageValidation.valid && !imageValidation.skipped) {
+      warningErrors.push({
+        field: "Image",
+        message: imageValidation.error!,
+      });
+    }
+  }
+
   // Track errors per variant (by row number) for error reporting
   const variantErrorsByRow = new Map<number, RowError[]>();
   let hasVariantErrors = false; // Track if any variant has errors (for product status)
 
   // Check for duplicate UPIDs within the file and validate variant-level fields
-  for (const variant of product.variants) {
+  for (let variantIdx = 0; variantIdx < product.variants.length; variantIdx++) {
+    const variant = product.variants[variantIdx]!;
+    const isFirstVariant = variantIdx === 0;
     const variantErrors: RowError[] = [];
 
     if (variant.upid) {
@@ -1087,38 +1025,42 @@ function computeNormalizedRowData(
     }
 
     // Validate variant-level numeric overrides (child rows only)
-    // Check if raw data has values but parsed override is undefined
-    if (
-      variant.carbonKgOverride === undefined &&
-      variant.rawData["Kilograms CO2"]?.trim()
-    ) {
-      variantErrors.push({
-        field: "kgCO2e Carbon Footprint",
-        message: `Invalid number: "${variant.rawData["Kilograms CO2"]}". Field skipped.`,
-      });
-    }
+    // Skip for first variant - it uses product-level values, not overrides
+    // The override fields are intentionally undefined for first variant by design
+    if (!isFirstVariant) {
+      if (
+        variant.carbonKgOverride === undefined &&
+        variant.rawData["Kilograms CO2"]?.trim()
+      ) {
+        variantErrors.push({
+          field: "kgCO2e Carbon Footprint",
+          message: `Invalid number: "${variant.rawData["Kilograms CO2"]}". Field skipped.`,
+        });
+      }
 
-    if (
-      variant.waterLitersOverride === undefined &&
-      variant.rawData["Liters Water Used"]?.trim()
-    ) {
-      variantErrors.push({
-        field: "Liters Water Used",
-        message: `Invalid number: "${variant.rawData["Liters Water Used"]}". Field skipped.`,
-      });
-    }
+      if (
+        variant.waterLitersOverride === undefined &&
+        variant.rawData["Liters Water Used"]?.trim()
+      ) {
+        variantErrors.push({
+          field: "Liters Water Used",
+          message: `Invalid number: "${variant.rawData["Liters Water Used"]}". Field skipped.`,
+        });
+      }
 
-    if (
-      variant.weightGramsOverride === undefined &&
-      variant.rawData["Grams Weight"]?.trim()
-    ) {
-      variantErrors.push({
-        field: "Grams Weight",
-        message: `Invalid number: "${variant.rawData["Grams Weight"]}". Field skipped.`,
-      });
+      if (
+        variant.weightGramsOverride === undefined &&
+        variant.rawData["Grams Weight"]?.trim()
+      ) {
+        variantErrors.push({
+          field: "Grams Weight",
+          message: `Invalid number: "${variant.rawData["Grams Weight"]}". Field skipped.`,
+        });
+      }
     }
 
     // Validate percentages column (semicolon-delimited numbers)
+    // This applies to all variants including the first one
     const rawPercentages = variant.rawData.Percentages?.trim();
     if (rawPercentages) {
       const percentageValues = rawPercentages.split(";").map((v) => v.trim());
@@ -1131,6 +1073,18 @@ function computeNormalizedRowData(
         variantErrors.push({
           field: "Percentages",
           message: `Invalid percentage values: "${invalidPercentages.join(", ")}". Must be semicolon-separated numbers.`,
+        });
+      }
+    }
+
+    // Validate variant-level image URL override (child rows only)
+    // Image URLs must ALWAYS be full HTTP/HTTPS URLs
+    if (!isFirstVariant && variant.imagePathOverride) {
+      const imageValidation = validateImageUrl(variant.imagePathOverride);
+      if (!imageValidation.valid && !imageValidation.skipped) {
+        variantErrors.push({
+          field: "Image",
+          message: imageValidation.error!,
         });
       }
     }
@@ -1281,15 +1235,6 @@ function computeNormalizedRowData(
       }
     }
 
-    // Build variant eco claims
-    const ecoClaims: NormalizedVariant["ecoClaims"] = [];
-    for (const claimName of variant.ecoClaimsOverride) {
-      const ecoClaimId = catalog.ecoClaims.get(normalizeKey(claimName));
-      if (ecoClaimId) {
-        ecoClaims.push({ ecoClaimId });
-      }
-    }
-
     // Build variant environment
     const environment: NormalizedVariant["environment"] =
       variant.carbonKgOverride !== undefined ||
@@ -1301,18 +1246,28 @@ function computeNormalizedRowData(
         : null;
 
     // Build variant journey steps
+    // Support semicolon-separated multiple operators per step: "Factory A; Factory B"
     const journeySteps: NormalizedVariant["journeySteps"] = [];
     const variantJourneyEntries = Object.entries(variant.journeyStepsOverride);
     for (let i = 0; i < variantJourneyEntries.length; i++) {
-      const [stepType, facilityName] = variantJourneyEntries[i] ?? [];
-      if (!stepType || !facilityName) continue;
+      const [stepType, operatorValue] = variantJourneyEntries[i] ?? [];
+      if (!stepType || !operatorValue) continue;
 
-      const facilityId = catalog.operators.get(normalizeKey(facilityName));
-      if (facilityId) {
+      // Parse semicolon-separated operator names and look up each
+      const operatorNames = parseSemicolonSeparated(operatorValue);
+      const operatorIds: string[] = [];
+      for (const operatorName of operatorNames) {
+        const operatorId = catalog.operators.get(normalizeKey(operatorName));
+        if (operatorId) {
+          operatorIds.push(operatorId);
+        }
+      }
+
+      if (operatorIds.length > 0) {
         journeySteps.push({
           sortIndex: i,
           stepType,
-          facilityId,
+          operatorIds,
         });
       }
     }
@@ -1343,7 +1298,6 @@ function computeNormalizedRowData(
       errors: variantRowErrors,
       attributes,
       materials,
-      ecoClaims,
       environment,
       journeySteps,
       weight,
@@ -1381,15 +1335,6 @@ function computeNormalizedRowData(
     }
   }
 
-  // Build product-level eco claims
-  const productEcoClaims: NormalizedRowData["ecoClaims"] = [];
-  for (const claimName of product.ecoClaims) {
-    const ecoClaimId = catalog.ecoClaims.get(normalizeKey(claimName));
-    if (ecoClaimId) {
-      productEcoClaims.push({ ecoClaimId });
-    }
-  }
-
   // Build product-level environment
   const productEnvironment: NormalizedRowData["environment"] =
     product.carbonKg !== undefined || product.waterLiters !== undefined
@@ -1400,18 +1345,28 @@ function computeNormalizedRowData(
       : null;
 
   // Build product-level journey steps
+  // Support semicolon-separated multiple operators per step: "Factory A; Factory B"
   const productJourneySteps: NormalizedRowData["journeySteps"] = [];
   const journeyEntries = Object.entries(product.journeySteps);
   for (let i = 0; i < journeyEntries.length; i++) {
-    const [stepType, facilityName] = journeyEntries[i] ?? [];
-    if (!stepType || !facilityName) continue;
+    const [stepType, operatorValue] = journeyEntries[i] ?? [];
+    if (!stepType || !operatorValue) continue;
 
-    const facilityId = catalog.operators.get(normalizeKey(facilityName));
-    if (facilityId) {
+    // Parse semicolon-separated operator names and look up each
+    const operatorNames = parseSemicolonSeparated(operatorValue);
+    const operatorIds: string[] = [];
+    for (const operatorName of operatorNames) {
+      const operatorId = catalog.operators.get(normalizeKey(operatorName));
+      if (operatorId) {
+        operatorIds.push(operatorId);
+      }
+    }
+
+    if (operatorIds.length > 0) {
       productJourneySteps.push({
         sortIndex: i,
         stepType,
-        facilityId,
+        operatorIds,
       });
     }
   }
@@ -1446,7 +1401,6 @@ function computeNormalizedRowData(
     variants: normalizedVariants,
     tags,
     materials: productMaterials,
-    ecoClaims: productEcoClaims,
     environment: productEnvironment,
     journeySteps: productJourneySteps,
     weight: productWeight,

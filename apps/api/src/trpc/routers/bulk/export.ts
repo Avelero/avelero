@@ -5,7 +5,7 @@
  * - start: Create export job and trigger background processing
  * - status: Get real-time job progress and download URL when complete
  */
-import { tasks } from "@trigger.dev/sdk/v3";
+import { auth, tasks } from "@trigger.dev/sdk/v3";
 import {
   createExportJob,
   getExportJobStatus,
@@ -80,9 +80,10 @@ export const exportRouter = createTRPCRouter({
           status: "PENDING",
         });
 
+        // Trigger background job - failure here should mark job as FAILED
+        let handle: Awaited<ReturnType<typeof tasks.trigger>>;
         try {
-          // Trigger background job
-          await tasks.trigger("export-products", {
+          handle = await tasks.trigger("export-products", {
             jobId: job.id,
             brandId,
             userEmail,
@@ -93,7 +94,7 @@ export const exportRouter = createTRPCRouter({
             searchQuery: input.search ?? null,
           });
         } catch (triggerError) {
-          // Update job status to FAILED immediately
+          // Update job status to FAILED - the trigger itself failed
           await updateExportJobStatus(brandCtx.db, {
             jobId: job.id,
             status: "FAILED",
@@ -115,10 +116,29 @@ export const exportRouter = createTRPCRouter({
           );
         }
 
+        // Generate a public access token for realtime updates
+        // Token creation failure should NOT mark the job as failed since
+        // the background job is already running successfully
+        let publicToken: string | null = null;
+        try {
+          publicToken = await auth.createPublicToken({
+            scopes: {
+              read: { runs: [handle.id] },
+            },
+          });
+        } catch {
+          // Token creation failed but job is still running - client can poll instead
+          console.warn(
+            `Failed to create public token for export job ${job.id}, client will need to poll`,
+          );
+        }
+
         return {
           jobId: job.id,
           status: job.status,
           createdAt: job.startedAt,
+          runId: handle.id,
+          publicAccessToken: publicToken,
         };
       } catch (error) {
         throw wrapError(error, "Failed to start export job");
@@ -174,4 +194,4 @@ export const exportRouter = createTRPCRouter({
     }),
 });
 
-export type ExportRouter = typeof exportRouter;
+type ExportRouter = typeof exportRouter;

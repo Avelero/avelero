@@ -2,7 +2,7 @@
  * Text and number formatting utilities
  */
 
-export function truncateText(text: string, maxLength: number): string {
+function truncateText(text: string, maxLength: number): string {
   if (maxLength <= 3) {
     return text.substring(0, Math.max(0, maxLength));
   }

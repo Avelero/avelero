@@ -1,7 +1,7 @@
 /**
  * Generates a URL-friendly handle from a product name.
  * Converts to lowercase, replaces spaces with dashes, and removes special characters.
- * 
+ *
  * @example "Special Pants" → "special-pants"
  * @example "Organic Cotton T-Shirt (2024)" → "organic-cotton-t-shirt-2024"
  */

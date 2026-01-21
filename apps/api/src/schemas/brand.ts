@@ -37,7 +37,7 @@ export const brandUpdateSchema = updateWithNullable(brandCreateSchema, [
   "logo_url",
 ]);
 
-export type BrandUpdateInput = z.infer<typeof brandUpdateSchema>;
+type BrandUpdateInput = z.infer<typeof brandUpdateSchema>;
 
 /**
  * Shared schema for endpoints that require a brand identifier.
@@ -64,15 +64,6 @@ export const memberUpdateSchema = z.object({
   role: roleSchema,
 });
 
-export const memberRemoveSchema = z.object({
-  user_id: uuidSchema,
-});
-
-/**
- * Payload for listing pending invites for a brand.
- */
-export const invitesListSchema = brandIdOptionalSchema;
-
 /**
  * Payload for sending a brand invite.
  */
@@ -82,14 +73,7 @@ export const inviteSendSchema = z.object({
   role: roleSchema.default("member"),
 });
 
-/**
- * Payload for revoking a pending invite.
- */
-export const inviteRevokeSchema = z.object({
-  invite_id: uuidSchema,
-});
-
-export type MemberUpdateInput = z.infer<typeof memberUpdateSchema>;
+type MemberUpdateInput = z.infer<typeof memberUpdateSchema>;
 
 // ============================================================================
 // Legacy aliases for backward compatibility during migration

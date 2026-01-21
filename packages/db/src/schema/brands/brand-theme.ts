@@ -21,8 +21,6 @@ export const brandTheme = pgTable(
     themeConfig: jsonb("theme_config").notNull().default({}),
     stylesheetPath: text("stylesheet_path"),
     googleFontsUrl: text("google_fonts_url"),
-    screenshotDesktopPath: text("screenshot_desktop_path"),
-    screenshotMobilePath: text("screenshot_mobile_path"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

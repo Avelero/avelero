@@ -276,4 +276,4 @@ export const mappingsRouter = createTRPCRouter({
     }),
 });
 
-export type MappingsRouter = typeof mappingsRouter;
+type MappingsRouter = typeof mappingsRouter;

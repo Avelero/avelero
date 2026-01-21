@@ -7,7 +7,11 @@
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../../client";
-import { brandAttributeValues, brandAttributes, taxonomyValues } from "../../schema";
+import {
+  brandAttributeValues,
+  brandAttributes,
+  taxonomyValues,
+} from "../../schema";
 
 // =============================================================================
 // TYPES
@@ -23,7 +27,8 @@ export interface BrandAttributeValueData {
   updatedAt: string;
 }
 
-export interface BrandAttributeValueWithTaxonomy extends BrandAttributeValueData {
+export interface BrandAttributeValueWithTaxonomy
+  extends BrandAttributeValueData {
   taxonomyValue: {
     id: string;
     friendlyId: string;
@@ -52,7 +57,7 @@ export interface UpdateBrandAttributeValueInput {
  */
 export async function getBrandAttributeValue(
   db: Database,
-  valueId: string
+  valueId: string,
 ): Promise<BrandAttributeValueData | null> {
   const [row] = await db
     .select({
@@ -76,7 +81,7 @@ export async function getBrandAttributeValue(
 export async function listBrandAttributeValues(
   db: Database,
   brandId: string,
-  attributeId: string
+  attributeId: string,
 ): Promise<BrandAttributeValueData[]> {
   return db
     .select({
@@ -92,8 +97,8 @@ export async function listBrandAttributeValues(
     .where(
       and(
         eq(brandAttributeValues.brandId, brandId),
-        eq(brandAttributeValues.attributeId, attributeId)
-      )
+        eq(brandAttributeValues.attributeId, attributeId),
+      ),
     )
     .orderBy(brandAttributeValues.name);
 }
@@ -103,7 +108,7 @@ export async function listBrandAttributeValues(
  */
 export async function listAllBrandAttributeValues(
   db: Database,
-  brandId: string
+  brandId: string,
 ): Promise<BrandAttributeValueData[]> {
   return db
     .select({
@@ -126,7 +131,7 @@ export async function listAllBrandAttributeValues(
 export async function listBrandAttributeValuesWithTaxonomy(
   db: Database,
   brandId: string,
-  attributeId: string
+  attributeId: string,
 ): Promise<BrandAttributeValueWithTaxonomy[]> {
   const rows = await db
     .select({
@@ -145,13 +150,13 @@ export async function listBrandAttributeValuesWithTaxonomy(
     .from(brandAttributeValues)
     .leftJoin(
       taxonomyValues,
-      eq(brandAttributeValues.taxonomyValueId, taxonomyValues.id)
+      eq(brandAttributeValues.taxonomyValueId, taxonomyValues.id),
     )
     .where(
       and(
         eq(brandAttributeValues.brandId, brandId),
-        eq(brandAttributeValues.attributeId, attributeId)
-      )
+        eq(brandAttributeValues.attributeId, attributeId),
+      ),
     )
     .orderBy(brandAttributeValues.name);
 
@@ -165,11 +170,11 @@ export async function listBrandAttributeValuesWithTaxonomy(
     updatedAt: row.updatedAt,
     taxonomyValue: row.taxonomyId
       ? {
-        id: row.taxonomyId,
-        friendlyId: row.taxonomyFriendlyId!,
-        name: row.taxonomyName!,
-        metadata: row.taxonomyMetadata,
-      }
+          id: row.taxonomyId,
+          friendlyId: row.taxonomyFriendlyId!,
+          name: row.taxonomyName!,
+          metadata: row.taxonomyMetadata,
+        }
       : null,
   }));
 }
@@ -180,7 +185,7 @@ export async function listBrandAttributeValuesWithTaxonomy(
 export async function createBrandAttributeValue(
   db: Database,
   brandId: string,
-  input: CreateBrandAttributeValueInput
+  input: CreateBrandAttributeValueInput,
 ): Promise<{ id: string } | null> {
   const [row] = await db
     .insert(brandAttributeValues)
@@ -201,7 +206,7 @@ export async function updateBrandAttributeValue(
   db: Database,
   brandId: string,
   id: string,
-  input: UpdateBrandAttributeValueInput
+  input: UpdateBrandAttributeValueInput,
 ): Promise<{ id: string } | null> {
   const updateData: Record<string, unknown> = {
     updatedAt: new Date().toISOString(),
@@ -219,8 +224,8 @@ export async function updateBrandAttributeValue(
     .where(
       and(
         eq(brandAttributeValues.id, id),
-        eq(brandAttributeValues.brandId, brandId)
-      )
+        eq(brandAttributeValues.brandId, brandId),
+      ),
     )
     .returning({ id: brandAttributeValues.id });
   return row ?? null;
@@ -232,15 +237,15 @@ export async function updateBrandAttributeValue(
 export async function deleteBrandAttributeValue(
   db: Database,
   brandId: string,
-  id: string
+  id: string,
 ): Promise<{ id: string } | null> {
   const [row] = await db
     .delete(brandAttributeValues)
     .where(
       and(
         eq(brandAttributeValues.id, id),
-        eq(brandAttributeValues.brandId, brandId)
-      )
+        eq(brandAttributeValues.brandId, brandId),
+      ),
     )
     .returning({ id: brandAttributeValues.id });
   return row ?? null;
@@ -257,7 +262,7 @@ export async function findBrandAttributeValueByName(
   db: Database,
   brandId: string,
   attributeId: string,
-  name: string
+  name: string,
 ): Promise<BrandAttributeValueData | null> {
   const rows = await db
     .select({
@@ -273,8 +278,8 @@ export async function findBrandAttributeValueByName(
     .where(
       and(
         eq(brandAttributeValues.brandId, brandId),
-        eq(brandAttributeValues.attributeId, attributeId)
-      )
+        eq(brandAttributeValues.attributeId, attributeId),
+      ),
     );
 
   const normalizedName = name.trim().toLowerCase();
@@ -288,7 +293,7 @@ export async function findBrandAttributeValueByName(
 export async function loadBrandAttributeValuesMap(
   db: Database,
   brandId: string,
-  attributeId: string
+  attributeId: string,
 ): Promise<Map<string, { id: string; taxonomyValueId: string | null }>> {
   const rows = await db
     .select({
@@ -300,8 +305,8 @@ export async function loadBrandAttributeValuesMap(
     .where(
       and(
         eq(brandAttributeValues.brandId, brandId),
-        eq(brandAttributeValues.attributeId, attributeId)
-      )
+        eq(brandAttributeValues.attributeId, attributeId),
+      ),
     );
 
   const map = new Map<string, { id: string; taxonomyValueId: string | null }>();
@@ -319,7 +324,7 @@ export async function loadBrandAttributeValuesMap(
  */
 export async function getBrandAttributeValuesByIds(
   db: Database,
-  valueIds: string[]
+  valueIds: string[],
 ): Promise<BrandAttributeValueData[]> {
   if (valueIds.length === 0) return [];
 
@@ -347,7 +352,7 @@ export async function ensureBrandAttributeValueForTaxonomy(
   brandId: string,
   attributeId: string,
   taxonomyValueId: string,
-  taxonomyValueName: string
+  taxonomyValueName: string,
 ): Promise<string> {
   // Check if brand already has a value linked to this taxonomy value
   const [existing] = await db
@@ -357,8 +362,8 @@ export async function ensureBrandAttributeValueForTaxonomy(
       and(
         eq(brandAttributeValues.brandId, brandId),
         eq(brandAttributeValues.attributeId, attributeId),
-        eq(brandAttributeValues.taxonomyValueId, taxonomyValueId)
-      )
+        eq(brandAttributeValues.taxonomyValueId, taxonomyValueId),
+      ),
     )
     .limit(1);
 
@@ -386,7 +391,7 @@ export async function ensureBrandAttributeValueForTaxonomy(
  */
 export async function getBrandAttributeValuesWithAttribute(
   db: Database,
-  valueIds: string[]
+  valueIds: string[],
 ): Promise<
   Array<{
     id: string;
@@ -407,7 +412,7 @@ export async function getBrandAttributeValuesWithAttribute(
     .from(brandAttributeValues)
     .innerJoin(
       brandAttributes,
-      eq(brandAttributeValues.attributeId, brandAttributes.id)
+      eq(brandAttributeValues.attributeId, brandAttributes.id),
     )
     .where(inArray(brandAttributeValues.id, valueIds));
 }
@@ -423,7 +428,7 @@ export async function getBrandAttributeValuesWithAttribute(
  */
 export async function loadAllBrandAttributeValuesMap(
   db: Database,
-  brandId: string
+  brandId: string,
 ): Promise<Map<string, Map<string, string>>> {
   const rows = await db
     .select({
@@ -457,13 +462,21 @@ export async function loadAllBrandAttributeValuesMap(
 export async function batchCreateBrandAttributeValues(
   db: Database,
   brandId: string,
-  values: Array<{ attributeId: string; name: string; taxonomyValueId?: string | null }>
+  values: Array<{
+    attributeId: string;
+    name: string;
+    taxonomyValueId?: string | null;
+  }>,
 ): Promise<Map<string, string>> {
   if (values.length === 0) return new Map();
 
   // Deduplicate by (attributeId, name)
   const seen = new Set<string>();
-  const uniqueValues: Array<{ attributeId: string; name: string; taxonomyValueId?: string | null }> = [];
+  const uniqueValues: Array<{
+    attributeId: string;
+    name: string;
+    taxonomyValueId?: string | null;
+  }> = [];
   for (const v of values) {
     const key = `${v.attributeId}:${v.name.trim().toLowerCase()}`;
     if (!seen.has(key) && v.name.trim().length > 0) {
@@ -513,4 +526,3 @@ export async function batchCreateBrandAttributeValues(
   }
   return result;
 }
-

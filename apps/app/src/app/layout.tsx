@@ -1,6 +1,5 @@
 import "@v1/ui/globals.css";
 import { TRPCReactProvider } from "@/trpc/client";
-import { HydrateClient } from "@/trpc/server";
 import { cn } from "@v1/ui/cn";
 import { Toaster } from "@v1/ui/sonner";
 import { GeistMono } from "geist/font/mono";
@@ -106,10 +105,8 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TRPCReactProvider>
-            <HydrateClient>
-              <div className="h-screen w-screen">{children}</div>
-              <Toaster />
-            </HydrateClient>
+            <div className="h-screen w-screen">{children}</div>
+            <Toaster />
           </TRPCReactProvider>
         </ThemeProvider>
       </body>

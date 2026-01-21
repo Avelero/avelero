@@ -1,5 +1,7 @@
 "use client";
 
+import type { VariantDimension } from "@/components/forms/passport/blocks/variant-block";
+import { CreateValueModal } from "@/components/modals/create-value-modal";
 import { useAttributes } from "@/hooks/use-attributes";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { useTRPC } from "@/trpc/client";
@@ -33,8 +35,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { SelectAction, SelectFooter } from "@v1/ui/select";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
-import { CreateValueModal } from "@/components/modals/create-value-modal";
-import type { VariantDimension } from "@/components/forms/passport/blocks/variant-block";
 
 function ValueChip({
   name,
@@ -439,28 +439,28 @@ function CustomInlineExpanded({
                         isNewSlot
                           ? undefined
                           : (e) => {
-                            if (
-                              e.key === "Enter" ||
-                              (e.key === "Tab" && !e.shiftKey)
-                            ) {
-                              e.preventDefault();
-                              focusNewValueInput();
+                              if (
+                                e.key === "Enter" ||
+                                (e.key === "Tab" && !e.shiftKey)
+                              ) {
+                                e.preventDefault();
+                                focusNewValueInput();
+                              }
                             }
-                          }
                       }
                       onBlur={
                         isNewSlot
                           ? undefined
                           : () => {
-                            const current = (vals[i] ?? "").trim();
-                            if (current) return;
-                            const last = (
-                              lastNonEmptyByIdRef.current.get(id) ?? ""
-                            ).trim();
-                            if (last) {
-                              handleValueChange(i, last);
+                              const current = (vals[i] ?? "").trim();
+                              if (current) return;
+                              const last = (
+                                lastNonEmptyByIdRef.current.get(id) ?? ""
+                              ).trim();
+                              if (last) {
+                                handleValueChange(i, last);
+                              }
                             }
-                          }
                       }
                     />
                   );
@@ -627,7 +627,10 @@ export function AttributeSelect({
       });
 
       // Add to selected values
-      onChange({ ...dimension, values: [...dimension.values, createdValue.id] });
+      onChange({
+        ...dimension,
+        values: [...dimension.values, createdValue.id],
+      });
       toast.success(`Created "${valueName}"`);
     } catch (error) {
       console.error("Failed to create value:", error);

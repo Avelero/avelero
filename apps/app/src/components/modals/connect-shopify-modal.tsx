@@ -112,7 +112,7 @@ export function ConnectShopifyModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[480px] p-0 gap-0 border border-border">
+      <DialogContent size="md" className="p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">Connect Shopify</DialogTitle>
         </DialogHeader>
@@ -152,7 +152,10 @@ export function ConnectShopifyModal({
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleConnect} disabled={!shopDomain.trim() || isConnecting}>
+          <Button
+            onClick={handleConnect}
+            disabled={!shopDomain.trim() || isConnecting}
+          >
             {isConnecting ? "Connecting..." : "Connect"}
           </Button>
         </DialogFooter>
@@ -160,14 +163,3 @@ export function ConnectShopifyModal({
     </Dialog>
   );
 }
-
-
-
-
-
-
-
-
-
-
-

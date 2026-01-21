@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
 import { useUpload } from "@/hooks/use-upload";
-import { parseFontFile, normalizeFontFamily } from "@/utils/font-parser";
-import { validateFontFile, FONT_EXTENSIONS } from "@/utils/upload";
+import { normalizeFontFamily, parseFontFile } from "@/utils/font-parser";
 import { UPLOAD_CONFIGS, buildStoragePath } from "@/utils/storage-config";
+import { FONT_EXTENSIONS, validateFontFile } from "@/utils/upload";
 import type { CustomFont } from "@v1/dpp-components";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -18,6 +17,7 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { toast } from "@v1/ui/sonner";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 // ============================================================================
 // Types
@@ -68,11 +68,15 @@ export function CustomFontsModal({
           const weightA =
             typeof a.fontWeight === "number"
               ? a.fontWeight
-              : Number.parseInt(String(a.fontWeight ?? 400).split(" ")[0] ?? "400") || 400;
+              : Number.parseInt(
+                  String(a.fontWeight ?? 400).split(" ")[0] ?? "400",
+                ) || 400;
           const weightB =
             typeof b.fontWeight === "number"
               ? b.fontWeight
-              : Number.parseInt(String(b.fontWeight ?? 400).split(" ")[0] ?? "400") || 400;
+              : Number.parseInt(
+                  String(b.fontWeight ?? 400).split(" ")[0] ?? "400",
+                ) || 400;
           return weightA - weightB;
         }),
       }),
@@ -204,7 +208,7 @@ export function CustomFontsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[520px] p-0 gap-0 border border-border overflow-hidden">
+      <DialogContent size="lg" className="p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">Custom fonts</DialogTitle>
         </DialogHeader>
@@ -278,9 +282,7 @@ export function CustomFontsModal({
           {/* Uploaded fonts list */}
           {groupedFonts.length > 0 && (
             <div className="space-y-2">
-              <p className="type-small text-secondary">
-                Uploaded fonts
-              </p>
+              <p className="type-small text-secondary">Uploaded fonts</p>
               <div className="space-y-2">
                 {groupedFonts.map((group) => (
                   <FontFamilyGroup
@@ -361,7 +363,11 @@ interface FontVariantRowProps {
   onDelete: () => void;
 }
 
-function FontVariantRow({ font, showFamilyName, onDelete }: FontVariantRowProps) {
+function FontVariantRow({
+  font,
+  showFamilyName,
+  onDelete,
+}: FontVariantRowProps) {
   const weightLabel = formatWeight(font.fontWeight);
   const isVariable =
     typeof font.fontWeight === "string" && font.fontWeight.includes(" ");
@@ -449,7 +455,8 @@ function formatWeight(weight: number | string | undefined): string {
     return `${min}–${max}`;
   }
 
-  const numWeight = typeof weight === "number" ? weight : Number.parseInt(weight);
+  const numWeight =
+    typeof weight === "number" ? weight : Number.parseInt(weight);
 
   const weightNames: Record<number, string> = {
     100: "Thin",
@@ -466,4 +473,3 @@ function formatWeight(weight: number | string | undefined): string {
   const name = weightNames[numWeight] ?? "";
   return name ? `${name} (${numWeight})` : String(numWeight);
 }
-

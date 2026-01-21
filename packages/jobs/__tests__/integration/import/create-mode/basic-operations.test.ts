@@ -139,25 +139,6 @@ describe("CREATE Mode - Basic Operations", () => {
       expect(brandCatalog.tags.get("new arrival")).toBeDefined();
     });
 
-    it("resolves existing eco claims from catalog", async () => {
-      const productWithEcoClaims = {
-        ...basicProduct,
-        ecoClaims: ["GOTS Certified", "Fair Trade"], // Must match catalog fixtures
-      };
-
-      const excelBuffer = await ExcelBuilder.create({
-        products: [productWithEcoClaims],
-      });
-
-      const parseResult = await parseExcelFile(excelBuffer);
-      expect(parseResult.products[0]?.ecoClaims).toContain("GOTS Certified");
-      expect(parseResult.products[0]?.ecoClaims).toContain("Fair Trade");
-
-      const brandCatalog = await loadBrandCatalog(testDb, brandId);
-      expect(brandCatalog.ecoClaims.get("gots certified")).toBeDefined();
-      expect(brandCatalog.ecoClaims.get("fair trade")).toBeDefined();
-    });
-
     it("resolves existing attributes for variants", async () => {
       const productWithAttributes = {
         ...basicProduct,
@@ -268,7 +249,6 @@ describe("CREATE Mode - Basic Operations", () => {
       expect(product.manufacturerName).toBe("Premium Textiles Co");
       expect(product.seasonName).toBe("FW25");
       expect(product.tags).toContain("Bestseller");
-      expect(product.ecoClaims).toContain("GOTS Certified");
 
       // Materials
       expect(product.materials.length).toBe(2);

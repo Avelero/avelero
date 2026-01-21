@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  useBrandCatalog,
   type BrandTagOption,
+  useBrandCatalog,
 } from "@/hooks/use-brand-catalog";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
-export interface TagOption extends BrandTagOption { }
+export interface TagOption extends BrandTagOption {}
 
 interface TagSelectProps {
   value: string[];
@@ -56,7 +56,14 @@ const TagLabel = ({
           />
         </div>
       )}
-      <p className={cn("type-small leading-none text-primary", tag.hex && "ml-1.5")}>{tag.name}</p>
+      <p
+        className={cn(
+          "type-small leading-none text-primary",
+          tag.hex && "ml-1.5",
+        )}
+      >
+        {tag.name}
+      </p>
       {isHovered && !disabled && (
         <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center">
           <div className="w-3 h-3 bg-gradient-to-r from-transparent to-background" />
@@ -340,7 +347,9 @@ export function TagSelect({
                 )}
                 {filteredTags.length === 0 && !showCreateOption && (
                   <CommandEmpty>
-                    {searchTerm ? "No items found." : "Start typing to create..."}
+                    {searchTerm
+                      ? "No items found."
+                      : "Start typing to create..."}
                   </CommandEmpty>
                 )}
               </CommandGroup>

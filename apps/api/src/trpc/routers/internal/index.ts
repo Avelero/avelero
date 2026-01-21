@@ -108,4 +108,4 @@ export const internalRouter = createTRPCRouter({
     }),
 });
 
-export type InternalRouter = typeof internalRouter;
+type InternalRouter = typeof internalRouter;

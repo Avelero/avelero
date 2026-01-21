@@ -15,7 +15,6 @@ const PUBLIC_BUCKETS = new Set<string>([
   BUCKETS.PRODUCTS,
   BUCKETS.DPP_ASSETS,
   BUCKETS.DPP_THEMES,
-  BUCKETS.THEME_SCREENSHOTS,
 ]);
 
 const PRIVATE_BUCKETS = new Set<string>([
@@ -40,7 +39,7 @@ export function encodePath(path: string | string[]): string {
 
 /**
  * Build a public URL for files in public buckets.
- * Use for: products, dpp-assets, dpp-themes, theme-screenshots
+ * Use for: products, dpp-assets, dpp-themes
  */
 export function buildPublicUrl(
   bucket: string,
@@ -122,7 +121,7 @@ export function normalizeToDisplayUrl(
  * Extract the storage path from a value that could be a full URL or path.
  * Returns the path portion only.
  */
-export function extractPath(
+function extractPath(
   value: string | null | undefined,
   bucket: string,
 ): string | null {
@@ -142,6 +141,53 @@ export function extractPath(
 }
 
 // ============================================================================
+// Theme Config Image Resolution
+// ============================================================================
+
+/**
+ * Resolve image paths in themeConfig to full public URLs.
+ *
+ * ThemeConfig stores storage PATHS (not full URLs) for images.
+ * This function converts those paths to full URLs for display.
+ *
+ * This is the client-side equivalent of resolveThemeConfigImageUrls in the API router.
+ * Used during live preview editing where themeConfigDraft contains raw paths.
+ */
+export function resolveThemeConfigImageUrls<T>(themeConfig: T): T {
+  if (!themeConfig || typeof themeConfig !== "object") return themeConfig;
+
+  // Deep clone to avoid mutating the original
+  const resolved = JSON.parse(JSON.stringify(themeConfig)) as T & {
+    branding?: { headerLogoUrl?: string };
+    cta?: { bannerBackgroundImage?: string };
+  };
+
+  // Resolve branding.headerLogoUrl
+  if (resolved.branding?.headerLogoUrl) {
+    // Only resolve if it's a path (not already a full URL)
+    if (!isFullUrl(resolved.branding.headerLogoUrl)) {
+      resolved.branding.headerLogoUrl =
+        buildPublicUrl(BUCKETS.DPP_ASSETS, resolved.branding.headerLogoUrl) ??
+        "";
+    }
+  }
+
+  // Resolve cta.bannerBackgroundImage
+  if (resolved.cta?.bannerBackgroundImage) {
+    // Only resolve if it's a path (not already a full URL)
+    if (!isFullUrl(resolved.cta.bannerBackgroundImage)) {
+      resolved.cta.bannerBackgroundImage =
+        buildPublicUrl(
+          BUCKETS.DPP_ASSETS,
+          resolved.cta.bannerBackgroundImage,
+        ) ?? "";
+    }
+  }
+
+  return resolved;
+}
+
+// ============================================================================
 // Environment Helpers
 // ============================================================================
 
@@ -152,4 +198,3 @@ export function extractPath(
 export function getSupabaseUrl(): string | null {
   return process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
 }
-

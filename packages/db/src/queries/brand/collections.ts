@@ -273,4 +273,3 @@ export async function getCollectionById(
     updatedAt: row.updatedAt,
   };
 }
-

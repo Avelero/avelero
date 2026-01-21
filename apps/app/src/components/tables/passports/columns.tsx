@@ -1,9 +1,9 @@
 "use client";
 
+import { buildPublicUrl } from "@/utils/storage-urls";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import { Icons } from "@v1/ui/icons";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
+import { Icons } from "@v1/ui/icons";
 import {
   Tooltip,
   TooltipContent,
@@ -23,7 +24,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { PassportTableRow } from "./types";
-import { buildPublicUrl } from "@/utils/storage-urls";
 
 const MAX_COLUMN_WIDTH = 320;
 const CELL_PADDING_X = "px-4";
@@ -90,12 +90,12 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       const product = row.original;
       const meta = table.options.meta as
         | {
-          handleRangeSelection?: (
-            index: number,
-            shift: boolean,
-            id: string,
-          ) => void;
-        }
+            handleRangeSelection?: (
+              index: number,
+              shift: boolean,
+              id: string,
+            ) => void;
+          }
         | undefined;
 
       return (
@@ -172,7 +172,7 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       );
     },
   },
-  // 3) Status with icon
+  // Status with icon - Published/Unpublished/Scheduled
   {
     id: "status",
     header: "Status",
@@ -184,13 +184,11 @@ export const columns: ColumnDef<PassportTableRow>[] = [
           ? Icons.StatusPublished
           : status === "scheduled"
             ? Icons.StatusScheduled
-            : status === "unpublished"
-              ? Icons.StatusUnpublished
-              : Icons.StatusArchived;
+            : Icons.StatusUnpublished;
 
       return (
         <div className="flex items-center gap-3">
-          <Icon className="h-[14px] w-[14px]" />
+          <Icon className="h-[16px] w-[16px]" />
           <span className="truncate type-p text-primary capitalize">
             {status}
           </span>
@@ -198,8 +196,8 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       );
     },
     meta: {
-      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
-      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      headerClassName: cn("w-[180px] min-w-[180px] max-w-[180px]"),
+      cellClassName: cn("w-[180px] min-w-[180px] max-w-[180px]"),
     },
   },
   // Category with hover path
@@ -268,11 +266,7 @@ export const columns: ColumnDef<PassportTableRow>[] = [
     header: "Variants",
     cell: ({ row }) => {
       const count = row.original.variantCount;
-      return (
-        <span className="type-p text-primary">
-          {count}
-        </span>
-      );
+      return <span className="type-p text-primary">{count}</span>;
     },
     meta: {
       headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
@@ -314,13 +308,14 @@ export const columns: ColumnDef<PassportTableRow>[] = [
                 <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background pointer-events-none [tr:hover_&]:to-accent-light [tr[data-state=selected]_&]:to-accent-blue" />
               </div>
             </TooltipTrigger>
-            <TooltipContent side="top" align="start" className="p-2 min-w-[120px]">
+            <TooltipContent
+              side="top"
+              align="start"
+              className="p-2 min-w-[120px]"
+            >
               <div className="flex flex-col gap-1.5">
                 {tags.map((tag) => (
-                  <div
-                    key={tag.id}
-                    className="flex items-center gap-2"
-                  >
+                  <div key={tag.id} className="flex items-center gap-2">
                     {tag.hex && (
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0 border-[0.5px] border-border"
@@ -357,22 +352,24 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       // Get callbacks from table meta
       const meta = table.options.meta as
         | {
-          brandSlug?: string | null;
-          onDeleteProduct?: (productId: string) => void;
-          onChangeStatus?: (productId: string, status: string) => void;
-        }
+            onDeleteProduct?: (productId: string) => void;
+            onChangeStatus?: (
+              productId: string,
+              status: "published" | "unpublished" | "scheduled",
+            ) => void;
+          }
         | undefined;
-      const brandSlug = meta?.brandSlug;
       const onDeleteProduct = meta?.onDeleteProduct;
       const onChangeStatus = meta?.onChangeStatus;
 
-      // Build public DPP URL (opens in new tab, no prefetch)
+      // Build public DPP URL using UPID (new immutable passports URL structure)
       const dppBaseUrl =
         process.env.NEXT_PUBLIC_DPP_URL || "https://passport.avelero.com";
-      const dppUrl =
-        brandSlug && handle ? `${dppBaseUrl}/${brandSlug}/${handle}` : undefined;
+      // Use firstVariantUpid if available, otherwise the product isn't published yet
+      const upid = product.firstVariantUpid;
+      const dppUrl = upid ? `${dppBaseUrl}/${upid}` : undefined;
 
-      // Only show passport button if product is published and has a valid DPP URL
+      // Only show passport button if product is published and has a UPID
       const canViewPassport =
         product.status === "published" && dppUrl !== undefined;
 
@@ -402,9 +399,7 @@ export const columns: ColumnDef<PassportTableRow>[] = [
                 <TooltipContent>
                   {product.status !== "published"
                     ? "Passport must be published to view"
-                    : !brandSlug
-                      ? "Brand slug not configured"
-                      : "Passport URL not available"}
+                    : "Passport URL not available"}
                 </TooltipContent>
               )}
             </Tooltip>
@@ -428,29 +423,20 @@ export const columns: ColumnDef<PassportTableRow>[] = [
               onClick={(e) => e.stopPropagation()}
             >
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <span>Change status</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-[220px]">
+                <DropdownMenuSubTrigger>Change status</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
                   <DropdownMenuItem
                     onSelect={() => {
                       onChangeStatus?.(product.id, "published");
                     }}
                   >
                     <span className="inline-flex items-center">
-                      <Icons.StatusPublished className="!h-[14px] !w-[14px]" />
+                      <Icons.StatusPublished width={12} height={12} />
                       <span className="px-1">Published</span>
                     </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      onChangeStatus?.(product.id, "scheduled");
-                    }}
-                  >
-                    <span className="inline-flex items-center">
-                      <Icons.StatusScheduled className="!h-[14px] !w-[14px]" />
-                      <span className="px-1">Scheduled</span>
-                    </span>
+                    {product.status === "published" && (
+                      <Icons.Check className="h-4 w-4" />
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => {
@@ -458,19 +444,25 @@ export const columns: ColumnDef<PassportTableRow>[] = [
                     }}
                   >
                     <span className="inline-flex items-center">
-                      <Icons.StatusUnpublished className="!h-[14px] !w-[14px]" />
+                      <Icons.StatusUnpublished width={12} height={12} />
                       <span className="px-1">Unpublished</span>
                     </span>
+                    {product.status === "unpublished" && (
+                      <Icons.Check className="h-4 w-4" />
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => {
-                      onChangeStatus?.(product.id, "archived");
+                      onChangeStatus?.(product.id, "scheduled");
                     }}
                   >
                     <span className="inline-flex items-center">
-                      <Icons.StatusArchived className="!h-[14px] !w-[14px]" />
-                      <span className="px-1">Archived</span>
+                      <Icons.StatusScheduled width={12} height={12} />
+                      <span className="px-1">Scheduled</span>
                     </span>
+                    {product.status === "scheduled" && (
+                      <Icons.Check className="h-4 w-4" />
+                    )}
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>

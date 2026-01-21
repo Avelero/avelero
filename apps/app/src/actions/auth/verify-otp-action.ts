@@ -88,10 +88,10 @@ export const verifyOtpAction = actionClient
     const destination = acceptedBrand
       ? "/"
       : await resolveAuthRedirectPath({
-        next: sanitizeRedirectPath(redirectTo),
-        client: supabase,
-        user,
-      });
+          next: sanitizeRedirectPath(redirectTo),
+          client: supabase,
+          user,
+        });
 
     redirect(destination);
   });

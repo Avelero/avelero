@@ -1,9 +1,7 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import { connection } from "next/server";
-import { prefetch, HydrateClient, trpc } from "@/trpc/server";
 import { ThemeEditorPage } from "@/components/theme-editor";
-import { MainSkeleton } from "@/components/main-skeleton";
+import { HydrateClient, prefetch, trpc } from "@/trpc/server";
+import type { Metadata } from "next";
+import { connection } from "next/server";
 import "@v1/dpp-components/globals.css";
 
 export const metadata: Metadata = {
@@ -17,10 +15,7 @@ export default async function Page() {
 
   return (
     <HydrateClient>
-      <Suspense fallback={<MainSkeleton />}>
-        <ThemeEditorPage />
-      </Suspense>
+      <ThemeEditorPage />
     </HydrateClient>
   );
 }
-

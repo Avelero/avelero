@@ -32,7 +32,6 @@ function createTestVariant(
     carbonKgOverride: null,
     waterLitersOverride: null,
     weightGramsOverride: null,
-    ecoClaimsOverride: null,
     materialsOverride: null,
     journeyStepsOverride: null,
     ...overrides,
@@ -56,7 +55,6 @@ function createTestProduct(
     tags: [],
     carbonKg: null,
     waterLiters: null,
-    ecoClaims: [],
     weightGrams: null,
     materials: [],
     journeySteps: {},
@@ -79,7 +77,6 @@ describe("Parent Row (first variant)", () => {
       tags: ["organic", "sustainable"],
       carbonKg: 5.5,
       waterLiters: 2500,
-      ecoClaims: ["GOTS Certified"],
       weightGrams: 250,
       materials: [{ name: "Cotton", percentage: 100 }],
       journeySteps: { "Raw Material": "Farm A", Weaving: "Mill B" },
@@ -183,7 +180,6 @@ describe("Child Rows (subsequent variants)", () => {
     expect(childVariant.carbonKgOverride).toBeNull();
     expect(childVariant.waterLitersOverride).toBeNull();
     expect(childVariant.weightGramsOverride).toBeNull();
-    expect(childVariant.ecoClaimsOverride).toBeNull();
     expect(childVariant.materialsOverride).toBeNull();
     expect(childVariant.journeyStepsOverride).toBeNull();
   });

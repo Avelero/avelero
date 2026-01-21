@@ -30,7 +30,7 @@ export function NavigationLabel({ items }: NavigationLabelProps) {
     <nav className="flex items-center type-h6" aria-label="Breadcrumb">
       {displayItems.map((item, index) => {
         if (!item) return null;
-        
+
         return (
           <div
             key={`${item.href ?? "ellipsis"}-${item.label}-${index}`}
@@ -53,7 +53,9 @@ export function NavigationLabel({ items }: NavigationLabelProps) {
                     ? "text-primary !font-medium"
                     : "text-secondary !font-medium"
                 }
-                aria-current={index === displayItems.length - 1 ? "page" : undefined}
+                aria-current={
+                  index === displayItems.length - 1 ? "page" : undefined
+                }
               >
                 {item.label}
               </span>

@@ -41,23 +41,23 @@ type InviteRow = MembersWithInvites["invites"][number];
  */
 type Props =
   | {
-    /** Active brand membership to display */
-    membership: MemberRow;
-    /** Brand ID for scoped operations */
-    brandId: string;
-    /** Current user's ID to determine if viewing own membership */
-    currentUserId: string | null;
-    /** Whether the current user is an owner of this brand */
-    isOwner?: boolean;
-  }
+      /** Active brand membership to display */
+      membership: MemberRow;
+      /** Brand ID for scoped operations */
+      brandId: string;
+      /** Current user's ID to determine if viewing own membership */
+      currentUserId: string | null;
+      /** Whether the current user is an owner of this brand */
+      isOwner?: boolean;
+    }
   | {
-    /** Pending invitation to display */
-    invite: InviteRow;
-    /** Brand ID for scoped operations */
-    brandId: string;
-    /** Whether the current user is an owner of this brand */
-    isOwner?: boolean;
-  };
+      /** Pending invitation to display */
+      invite: InviteRow;
+      /** Brand ID for scoped operations */
+      brandId: string;
+      /** Whether the current user is an owner of this brand */
+      isOwner?: boolean;
+    };
 
 /**
  * Displays a single row in the members table, supporting both active members
@@ -94,7 +94,13 @@ export function MembersRow(props: Props) {
     );
   }
 
-  return <InviteRowComp invite={props.invite} brandId={props.brandId} isOwner={props.isOwner} />;
+  return (
+    <InviteRowComp
+      invite={props.invite}
+      brandId={props.brandId}
+      isOwner={props.isOwner}
+    />
+  );
 }
 
 /**
@@ -236,7 +242,12 @@ function MembershipRow({
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Member options" className="data-[state=open]:bg-accent">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Member options"
+                className="data-[state=open]:bg-accent"
+              >
                 <Icons.EllipsisVertical className="w-4 h-4" strokeWidth={1} />
               </Button>
             </DropdownMenuTrigger>

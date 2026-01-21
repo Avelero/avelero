@@ -91,6 +91,13 @@ function createConnection(
     connect_timeout: 10,
     idle_timeout: 20,
     max_lifetime: 60 * 30,
+    // Custom backoff with minimum 100ms delay to prevent race condition in postgres.js
+    // that causes TimeoutNegativeWarning when reconnect() is called after delay has elapsed
+    backoff: (retries: number) =>
+      Math.max(
+        0.1,
+        (0.5 + Math.random() / 2) * Math.min(3 ** retries / 100, 20),
+      ),
     ...(enableTls
       ? { ssl: strictTls ? { rejectUnauthorized: true } : "prefer" }
       : {}),
@@ -158,3 +165,12 @@ export const serviceDb: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
 ) as ReturnType<typeof drizzle<typeof schema>>;
 
 export type Database = typeof db;
+
+/**
+ * Type that accepts both a full database instance and a transaction.
+ * Use this for functions that need to work inside transactions.
+ */
+export type DatabaseOrTransaction = Pick<
+  Database,
+  "select" | "insert" | "update" | "delete" | "execute" | "query"
+>;

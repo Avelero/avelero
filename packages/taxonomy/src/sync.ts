@@ -99,7 +99,7 @@ async function syncCategories() {
     return parent ? getDepth(parent) + 1 : 0;
   };
   const sortedCategories = [...categories].sort(
-    (a, b) => getDepth(a.id) - getDepth(b.id)
+    (a, b) => getDepth(a.id) - getDepth(b.id),
   );
 
   // Upsert categories in order
@@ -135,16 +135,19 @@ async function syncShopifyToAveleroMapping() {
   console.log("Syncing Shopify → Avelero taxonomy mapping...");
 
   const raw = loadYaml<ShopifyToAveleroYamlConfig>(
-    "mappings/shopify-to-avelero.yml"
+    "mappings/shopify-to-avelero.yml",
   );
 
   // Load all categories from DB to resolve publicId → UUID
   const categories = await serviceDb
-    .select({ id: taxonomyCategories.id, publicId: taxonomyCategories.publicId })
+    .select({
+      id: taxonomyCategories.id,
+      publicId: taxonomyCategories.publicId,
+    })
     .from(taxonomyCategories);
 
   const idByPublicId = new Map(
-    categories.map((c) => [c.publicId, c.id] as const)
+    categories.map((c) => [c.publicId, c.id] as const),
   );
 
   // Resolve a publicId to { publicId, id } or null
@@ -153,7 +156,7 @@ async function syncShopifyToAveleroMapping() {
     const id = idByPublicId.get(publicId);
     if (!id) {
       throw new Error(
-        `Unknown taxonomy category publicId in mapping: "${publicId}". Make sure categories.yml includes this category.`
+        `Unknown taxonomy category publicId in mapping: "${publicId}". Make sure categories.yml includes this category.`,
       );
     }
     return { publicId, id };
@@ -170,12 +173,12 @@ async function syncShopifyToAveleroMapping() {
         Object.entries(raw.branch_config.branches).map(([k, v]) => [
           k,
           resolve(v),
-        ])
+        ]),
       ),
     },
     excluded_category_ids: raw.excluded_category_ids,
     rules: Object.fromEntries(
-      Object.entries(raw.rules).map(([k, v]) => [k, resolve(v)])
+      Object.entries(raw.rules).map(([k, v]) => [k, resolve(v)]),
     ),
   };
 
@@ -208,7 +211,7 @@ async function syncShopifyToAveleroMapping() {
     });
 
   console.log(
-    `✓ Synced Shopify mapping v${raw.version} (${ruleCount} rules, ${branchCount} branches)`
+    `✓ Synced Shopify mapping v${raw.version} (${ruleCount} rules, ${branchCount} branches)`,
   );
 }
 
@@ -258,7 +261,7 @@ async function syncValues() {
     const attrFriendlyId = attrFriendlyIdMap.get(val.attribute_id);
     if (!attrFriendlyId) {
       console.warn(
-        `⚠ Skipping value ${val.friendly_id}: unknown attribute_id ${val.attribute_id}`
+        `⚠ Skipping value ${val.friendly_id}: unknown attribute_id ${val.attribute_id}`,
       );
       continue;
     }

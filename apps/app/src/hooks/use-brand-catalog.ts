@@ -166,7 +166,10 @@ export function useBrandCatalog() {
     }
     // Sort each list by sortOrder
     for (const [key, list] of map) {
-      map.set(key, list.sort((a, b) => a.sortOrder - b.sortOrder));
+      map.set(
+        key,
+        list.sort((a, b) => a.sortOrder - b.sortOrder),
+      );
     }
     return map;
   }, [data?.taxonomy?.values]);
@@ -200,35 +203,46 @@ export function useBrandCatalog() {
   const sizeOptions = React.useMemo<SizeOption[]>(() => {
     const sizeAttr = taxonomyAttributes.find((a) => a.friendlyId === "size");
     if (!sizeAttr) return [];
-    
-    const brandAttr = brandAttributes.find((a) => a.taxonomyAttributeId === sizeAttr.id);
+
+    const brandAttr = brandAttributes.find(
+      (a) => a.taxonomyAttributeId === sizeAttr.id,
+    );
     if (!brandAttr) return [];
-    
+
     const values = brandAttributeValuesByAttribute.get(brandAttr.id) ?? [];
     const taxValues = taxonomyValuesByAttribute.get(sizeAttr.id) ?? [];
-    
-    return values.map((v, idx) => {
-      const taxVal = taxValues.find((tv) => tv.id === v.taxonomyValueId);
-      return {
-        id: v.id,
-        name: v.name,
-        displayHint: taxVal?.sortOrder ?? (1000 + idx),
-        isDefault: !!v.taxonomyValueId,
-      };
-    }).sort((a, b) => a.displayHint - b.displayHint);
-  }, [taxonomyAttributes, brandAttributes, brandAttributeValuesByAttribute, taxonomyValuesByAttribute]);
+
+    return values
+      .map((v, idx) => {
+        const taxVal = taxValues.find((tv) => tv.id === v.taxonomyValueId);
+        return {
+          id: v.id,
+          name: v.name,
+          displayHint: taxVal?.sortOrder ?? 1000 + idx,
+          isDefault: !!v.taxonomyValueId,
+        };
+      })
+      .sort((a, b) => a.displayHint - b.displayHint);
+  }, [
+    taxonomyAttributes,
+    brandAttributes,
+    brandAttributeValuesByAttribute,
+    taxonomyValuesByAttribute,
+  ]);
 
   // Legacy: derive colors from "Color" attribute values (for filter components)
   const colors = React.useMemo(() => {
     const colorAttr = taxonomyAttributes.find((a) => a.friendlyId === "color");
     if (!colorAttr) return [];
-    
-    const brandAttr = brandAttributes.find((a) => a.taxonomyAttributeId === colorAttr.id);
+
+    const brandAttr = brandAttributes.find(
+      (a) => a.taxonomyAttributeId === colorAttr.id,
+    );
     if (!brandAttr) return [];
-    
+
     const values = brandAttributeValuesByAttribute.get(brandAttr.id) ?? [];
     const taxValues = taxonomyValuesByAttribute.get(colorAttr.id) ?? [];
-    
+
     return values.map((v) => {
       const taxVal = taxValues.find((tv) => tv.id === v.taxonomyValueId);
       const meta = taxVal?.metadata as { hex?: string } | null;
@@ -238,7 +252,12 @@ export function useBrandCatalog() {
         hex: meta?.hex ?? null,
       };
     });
-  }, [taxonomyAttributes, brandAttributes, brandAttributeValuesByAttribute, taxonomyValuesByAttribute]);
+  }, [
+    taxonomyAttributes,
+    brandAttributes,
+    brandAttributeValuesByAttribute,
+    taxonomyValuesByAttribute,
+  ]);
 
   return {
     // System-level
@@ -265,7 +284,7 @@ export function useBrandCatalog() {
       isOngoing: s.ongoing,
     })),
     tags,
-    
+
     // Legacy compatibility
     sizeOptions,
     colors,

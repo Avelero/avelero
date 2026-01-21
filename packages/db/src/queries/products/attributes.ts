@@ -1,9 +1,8 @@
 /**
  * Product attribute query functions.
- * 
+ *
  * Provides functions for managing product attributes:
  * - Materials composition
- * - Eco claims
  * - Environment metrics
  * - Journey steps
  * - Tags
@@ -12,12 +11,12 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  productEcoClaims,
   productEnvironment,
   productJourneySteps,
   productMaterials,
-  products,
   productTags,
+  productWeight,
+  products,
 } from "../../schema";
 
 /**
@@ -56,40 +55,6 @@ export async function upsertProductMaterials(
       .limit(1);
   });
   return { count: countInserted } as const;
-}
-
-/**
- * Sets product eco claims (replaces all existing eco claims).
- */
-export async function setProductEcoClaims(
-  db: Database,
-  productId: string,
-  ecoClaimIds: string[],
-) {
-  const existing = await db
-    .select({
-      id: productEcoClaims.id,
-      ecoClaimId: productEcoClaims.ecoClaimId,
-    })
-    .from(productEcoClaims)
-    .where(eq(productEcoClaims.productId, productId));
-  const existingIds = new Set(existing.map((r) => r.ecoClaimId));
-  const toInsert = ecoClaimIds.filter((id) => !existingIds.has(id));
-  const toDelete = existing.filter((r) => !ecoClaimIds.includes(r.ecoClaimId));
-  if (toDelete.length) {
-    await db.delete(productEcoClaims).where(
-      inArray(
-        productEcoClaims.id,
-        toDelete.map((r) => r.id),
-      ),
-    );
-  }
-  if (toInsert.length) {
-    await db
-      .insert(productEcoClaims)
-      .values(toInsert.map((id) => ({ productId, ecoClaimId: id })));
-  }
-  return { count: ecoClaimIds.length } as const;
 }
 
 /**
@@ -154,11 +119,13 @@ export async function upsertProductEnvironment(
 
 /**
  * Sets product journey steps (replaces all existing journey steps).
+ * Each step can have multiple operators (operatorIds array).
+ * One row is created per operator, all sharing the same sortIndex and stepType.
  */
 export async function setProductJourneySteps(
   db: Database,
   productId: string,
-  steps: { sortIndex: number; stepType: string; facilityId: string }[],
+  steps: { sortIndex: number; stepType: string; operatorIds: string[] }[],
 ) {
   let countInserted = 0;
   await db.transaction(async (tx) => {
@@ -167,20 +134,23 @@ export async function setProductJourneySteps(
       .delete(productJourneySteps)
       .where(eq(productJourneySteps.productId, productId));
 
-    if (!steps.length) {
+    // Flatten steps: one row per operator
+    const flattenedSteps = steps.flatMap((step) =>
+      step.operatorIds.map((operatorId) => ({
+        productId,
+        sortIndex: step.sortIndex,
+        stepType: step.stepType,
+        operatorId,
+      })),
+    );
+
+    if (!flattenedSteps.length) {
       countInserted = 0;
     } else {
-      // Insert journey steps with their facility
+      // Insert journey steps with their operators
       const rows = await tx
         .insert(productJourneySteps)
-        .values(
-          steps.map((s) => ({
-            productId,
-            sortIndex: s.sortIndex,
-            stepType: s.stepType,
-            facilityId: s.facilityId,
-          })),
-        )
+        .values(flattenedSteps)
         .returning({ id: productJourneySteps.id });
 
       countInserted = rows.length;
@@ -204,9 +174,7 @@ export async function setProductTags(
   tagIds: string[],
 ) {
   await db.transaction(async (tx) => {
-    await tx
-      .delete(productTags)
-      .where(eq(productTags.productId, productId));
+    await tx.delete(productTags).where(eq(productTags.productId, productId));
     if (tagIds.length === 0) {
       return;
     }
@@ -222,10 +190,55 @@ export async function setProductTags(
   return { count: tagIds.length } as const;
 }
 
+/**
+ * Upserts product weight.
+ * Weight is stored in grams by default.
+ */
+export async function upsertProductWeight(
+  db: Database,
+  productId: string,
+  input: { weight?: string; weightUnit?: string },
+) {
+  await db.transaction(async (tx) => {
+    // Check if weight record exists
+    const [existing] = await tx
+      .select({ productId: productWeight.productId })
+      .from(productWeight)
+      .where(eq(productWeight.productId, productId))
+      .limit(1);
 
+    const now = new Date().toISOString();
 
+    // If weight is empty/undefined, delete existing record
+    if (!input.weight) {
+      if (existing) {
+        await tx
+          .delete(productWeight)
+          .where(eq(productWeight.productId, productId));
+      }
+      return;
+    }
 
-
-
-
-
+    if (existing) {
+      // Update existing record
+      await tx
+        .update(productWeight)
+        .set({
+          weight: input.weight,
+          weightUnit: input.weightUnit ?? "g",
+          updatedAt: now,
+        })
+        .where(eq(productWeight.productId, productId));
+    } else {
+      // Insert new record
+      await tx.insert(productWeight).values({
+        productId,
+        weight: input.weight,
+        weightUnit: input.weightUnit ?? "g",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  });
+  return { product_id: productId };
+}

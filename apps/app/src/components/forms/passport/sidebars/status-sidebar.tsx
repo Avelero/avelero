@@ -31,11 +31,6 @@ const STATUS_OPTIONS = [
     icon: <Icons.StatusUnpublished width={14} height={14} />,
   },
   {
-    value: "archived",
-    label: "Archived",
-    icon: <Icons.StatusArchived width={14} height={14} />,
-  },
-  {
     value: "scheduled",
     label: "Scheduled",
     icon: <Icons.StatusScheduled width={14} height={14} />,

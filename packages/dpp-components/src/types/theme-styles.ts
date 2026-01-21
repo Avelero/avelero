@@ -210,9 +210,6 @@ export interface ThemeStyles extends DesignTokens {
   "impact-card__value"?: ComponentStyleOverride;
   "impact-card__unit"?: ComponentStyleOverride;
   "impact-card__icon"?: ComponentStyleOverride;
-  "impact-card__eco-claim"?: ComponentStyleOverride;
-  "impact-card__eco-claim-icon"?: ComponentStyleOverride;
-  "impact-card__eco-claim-text"?: ComponentStyleOverride;
 
   // Materials
   "materials-card"?: ComponentStyleOverride;

@@ -25,7 +25,7 @@ import { toast } from "@v1/ui/sonner";
  * const { data: invites, isLoading } = useMyInvitesQuery();
  * ```
  */
-export function useMyInvitesQuery() {
+function useMyInvitesQuery() {
   const trpc = useTRPC();
   const opts = trpc.user.invites.list.queryOptions();
   return useQuery(opts);

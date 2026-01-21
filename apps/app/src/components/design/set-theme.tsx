@@ -3,12 +3,9 @@
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import Link from "next/link";
-import Image from "next/image";
 
 interface SetThemeProps {
   updatedAt: string;
-  screenshotDesktopUrl?: string | null;
-  screenshotMobileUrl?: string | null;
 }
 
 function formatDate(dateString: string): string {
@@ -22,47 +19,14 @@ function formatDate(dateString: string): string {
   });
 }
 
-export function SetTheme({
-  updatedAt,
-  screenshotDesktopUrl,
-  screenshotMobileUrl,
-}: SetThemeProps) {
-  const hasScreenshots = screenshotDesktopUrl && screenshotMobileUrl;
-
+export function SetTheme({ updatedAt }: SetThemeProps) {
   return (
     <div className="border border-border bg-background flex flex-col overflow-hidden w-full">
-      {/* Preview Block - negative margin bottom makes images flow below border */}
+      {/* Preview Block */}
       <div className="pt-4 px-8 pb-0 flex justify-center aspect-[10/4] relative overflow-hidden -mb-4 bg-[url('/assets/theme-background.webp')] bg-cover bg-center">
-        {hasScreenshots ? (
-          <>
-            {/* Desktop frame - takes most width, pushed left */}
-            <div className="w-[calc(100%-5rem)] mr-5 h-full overflow-hidden bg-[#FAFAFF]/50 p-1">
-              <Image
-                src={screenshotDesktopUrl}
-                alt="Desktop theme preview"
-                className="w-full h-auto"
-                width={1440}
-                height={1024}
-              />
-            </div>
-
-            {/* Mobile frame - absolutely positioned, overlapping on top-right */}
-            <div className="absolute top-10 right-8 w-[28%] aspect-[402/874] overflow-hidden bg-[#FAFAFF]/50 p-1">
-              <Image
-                src={screenshotMobileUrl}
-                alt="Mobile theme preview"
-                className="w-full h-auto"
-                width={393}
-                height={852}
-              />
-            </div>
-          </>
-        ) : (
-          /* Placeholder when no screenshots */
-          <div className="flex items-center justify-center text-muted type-small">
-            Preview will appear after saving theme
-          </div>
-        )}
+        <div className="flex items-center justify-center text-muted type-small">
+          Preview will appear after saving theme
+        </div>
       </div>
 
       {/* Info + Button Row */}
@@ -71,19 +35,9 @@ export function SetTheme({
         <div className="flex flex-row items-center gap-3">
           {/* Thumbnail */}
           <div className="w-[90px] h-[64px] border border-border overflow-hidden flex-shrink-0 bg-accent">
-            {screenshotDesktopUrl ? (
-              <Image
-                src={screenshotDesktopUrl}
-                alt="Theme thumbnail"
-                width={90}
-                height={64}
-                className="w-full h-full object-cover object-top"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Icons.Palette className="w-6 h-6 text-muted" />
-              </div>
-            )}
+            <div className="w-full h-full flex items-center justify-center">
+              <Icons.Palette className="w-6 h-6 text-muted" />
+            </div>
           </div>
 
           {/* Text */}

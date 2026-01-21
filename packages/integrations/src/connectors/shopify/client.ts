@@ -139,7 +139,9 @@ export interface ShopifyProductNode {
   onlineStoreUrl: string | null;
   category: { id: string; name: string; fullName: string } | null;
   featuredImage: { url: string } | null;
-  priceRangeV2: { minVariantPrice: { amount: string; currencyCode: string } } | null;
+  priceRangeV2: {
+    minVariantPrice: { amount: string; currencyCode: string };
+  } | null;
   options: ShopifyProductOption[] | null;
   variants: { edges: Array<{ node: ShopifyVariantNode }> };
 }
@@ -158,13 +160,16 @@ export interface ProductsQueryResponse {
 async function executeQuery<T>(
   credentials: IntegrationCredentials,
   query: string,
-  variables: Record<string, unknown>
+  variables: Record<string, unknown>,
 ): Promise<ShopifyGraphQLResponse<T>> {
-  const storeDomain = (credentials.storeDomain ?? credentials.shopDomain) as string;
+  const storeDomain = (credentials.storeDomain ??
+    credentials.shopDomain) as string;
   const accessToken = credentials.accessToken as string;
 
   if (!storeDomain || !accessToken) {
-    throw new Error("Missing storeDomain/shopDomain or accessToken in credentials");
+    throw new Error(
+      "Missing storeDomain/shopDomain or accessToken in credentials",
+    );
   }
 
   const endpoint = buildShopifyEndpoint(storeDomain);
@@ -179,7 +184,9 @@ async function executeQuery<T>(
   });
 
   if (!response.ok) {
-    throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Shopify API error: ${response.status} ${response.statusText}`,
+    );
   }
 
   return response.json() as Promise<ShopifyGraphQLResponse<T>>;
@@ -192,9 +199,13 @@ async function executeQuery<T>(
 const SHOP_QUERY = "query { shop { name primaryDomain { url } } }";
 
 export async function testConnection(
-  credentials: IntegrationCredentials
+  credentials: IntegrationCredentials,
 ): Promise<{ shopName: string; domain: string }> {
-  const result = await executeQuery<ShopQueryResponse>(credentials, SHOP_QUERY, {});
+  const result = await executeQuery<ShopQueryResponse>(
+    credentials,
+    SHOP_QUERY,
+    {},
+  );
 
   if (result.errors?.length) {
     const errorMessages = result.errors.map((e) => e.message).join(", ");
@@ -221,7 +232,7 @@ export async function testConnection(
  */
 export async function* fetchProducts(
   credentials: IntegrationCredentials,
-  batchSize: number = SHOPIFY_BATCH_SIZE
+  batchSize: number = SHOPIFY_BATCH_SIZE,
 ): AsyncGenerator<FetchedProductBatch, void, undefined> {
   let cursor: string | null = null;
   let hasNextPage = true;
@@ -235,7 +246,7 @@ export async function* fetchProducts(
     const result = await executeQuery<ProductsQueryResponse>(
       credentials,
       SHOPIFY_PRODUCTS_QUERY,
-      variables
+      variables,
     );
 
     if (result.errors?.length) {
@@ -252,11 +263,13 @@ export async function* fetchProducts(
     const batch: FetchedProductBatch = products.edges.map((edge) => {
       const productNode = edge.node;
 
-      const variants: FetchedVariant[] = productNode.variants.edges.map((variantEdge) => ({
-        externalId: variantEdge.node.id,
-        externalProductId: productNode.id,
-        data: variantEdge.node as unknown as Record<string, unknown>,
-      }));
+      const variants: FetchedVariant[] = productNode.variants.edges.map(
+        (variantEdge) => ({
+          externalId: variantEdge.node.id,
+          externalProductId: productNode.id,
+          data: variantEdge.node as unknown as Record<string, unknown>,
+        }),
+      );
 
       return {
         externalId: productNode.id,
@@ -294,12 +307,12 @@ interface ProductCountResponse {
  * Get the total product count from Shopify.
  */
 export async function getProductCount(
-  credentials: IntegrationCredentials
+  credentials: IntegrationCredentials,
 ): Promise<number> {
   const result = await executeQuery<ProductCountResponse>(
     credentials,
     PRODUCT_COUNT_QUERY,
-    {}
+    {},
   );
 
   if (result.errors?.length) {
@@ -314,14 +327,16 @@ export async function getProductCount(
 // HELPERS
 // =============================================================================
 
-export function extractNumericId(gid: string): string {
+function extractNumericId(gid: string): string {
   const match = gid.match(/\/(\d+)$/);
   return match?.[1] ?? gid;
 }
 
-function calculateRateLimitDelay(
-  extensions?: { cost?: { throttleStatus?: { currentlyAvailable: number; restoreRate: number } } }
-): number {
+function calculateRateLimitDelay(extensions?: {
+  cost?: {
+    throttleStatus?: { currentlyAvailable: number; restoreRate: number };
+  };
+}): number {
   const status = extensions?.cost?.throttleStatus;
   if (!status) return 0;
 

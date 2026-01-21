@@ -235,7 +235,7 @@ export function OTPSignIn({ className }: Props) {
             }}
             className={cn(
               sendError &&
-              "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none",
+                "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none",
             )}
             aria-invalid={!!sendError}
           />

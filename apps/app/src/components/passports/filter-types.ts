@@ -52,8 +52,8 @@ export type MultiSelectOperator =
   | "is not empty";
 
 export type HierarchicalOperator =
-  | "is descendant of"  // Includes the selected category AND all child categories
-  | "is ancestor of";   // Includes the selected category AND all parent categories
+  | "is descendant of" // Includes the selected category AND all child categories
+  | "is ancestor of"; // Includes the selected category AND all parent categories
 
 export type DateOperator =
   | "is"
@@ -98,11 +98,11 @@ export interface FilterFieldConfig {
   label: string;
   tier: 1 | 2 | 3; // Quick (1), Advanced (2), Power User (3)
   category:
-  | "product"
-  | "sustainability"
-  | "variants"
-  | "manufacturing"
-  | "metadata";
+    | "product"
+    | "sustainability"
+    | "variants"
+    | "manufacturing"
+    | "metadata";
   inputType: FilterInputType;
   operators: FilterOperator[];
   options?: SelectOption[]; // Static options
@@ -213,7 +213,7 @@ export interface FilterActions {
 // Query Builder Types (for future backend integration)
 // ============================================================================
 
-export interface PassportFilterQuery {
+interface PassportFilterQuery {
   groups: QueryGroup[];
   groupOperator: "AND";
 }
@@ -234,7 +234,7 @@ export interface QueryCondition {
 // UI Component Props
 // ============================================================================
 
-export interface FilterRowProps {
+interface FilterRowProps {
   groupId: string;
   condition: FilterCondition;
   onUpdate: (updates: Partial<FilterCondition>) => void;
@@ -243,7 +243,7 @@ export interface FilterRowProps {
   isNested?: boolean;
 }
 
-export interface FilterGroupProps {
+interface FilterGroupProps {
   group: FilterGroup;
   onAddCondition: () => void;
   onUpdateCondition: (
@@ -255,13 +255,13 @@ export interface FilterGroupProps {
   availableFields: FilterFieldConfig[];
 }
 
-export interface QuickFiltersPopoverProps {
+interface QuickFiltersPopoverProps {
   filterState: FilterState;
   filterActions: FilterActions;
   onOpenAdvanced: () => void;
 }
 
-export interface AdvancedFilterPanelProps {
+interface AdvancedFilterPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   filterState: FilterState;

@@ -41,7 +41,6 @@ export function PassportDataTable({
   onPrefetchLast,
   hasActiveFilters,
   onClearFilters,
-  brandSlug,
   onDeleteProduct,
   onChangeStatus,
 }: {
@@ -71,9 +70,11 @@ export function PassportDataTable({
   onPrefetchLast?: () => void;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
-  brandSlug?: string | null;
   onDeleteProduct?: (productId: string) => void;
-  onChangeStatus?: (productId: string, status: string) => void;
+  onChangeStatus?: (
+    productId: string,
+    status: "published" | "unpublished",
+  ) => void;
 }) {
   const pageSize = 50;
   const page =
@@ -264,7 +265,6 @@ export function PassportDataTable({
     },
     meta: {
       handleRangeSelection,
-      brandSlug,
       onDeleteProduct,
       onChangeStatus,
     },
@@ -385,8 +385,8 @@ export function PassportDataTable({
                         "border-r px-4 align-middle",
                         (
                           cell.column.columnDef.meta as
-                          | { cellClassName?: string }
-                          | undefined
+                            | { cellClassName?: string }
+                            | undefined
                         )?.cellClassName,
                       )}
                     >

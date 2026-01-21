@@ -109,8 +109,8 @@ export function MembersTable() {
                 key={
                   tab === "members"
                     ? (row as MemberItem).user_id ??
-                    (row as MemberItem).email ??
-                    `member-fallback-${index}`
+                      (row as MemberItem).email ??
+                      `member-fallback-${index}`
                     : (row as InviteItem).id
                 }
                 className="p-3"
@@ -123,7 +123,11 @@ export function MembersTable() {
                     isOwner={isOwner}
                   />
                 ) : (
-                  <MembersRow brandId={brandId} invite={row as InviteItem} isOwner={isOwner} />
+                  <MembersRow
+                    brandId={brandId}
+                    invite={row as InviteItem}
+                    isOwner={isOwner}
+                  />
                 )}
               </div>
             ))}

@@ -162,7 +162,9 @@ export async function generateUniqueProductHandles({
     const baseSlug = slugifyProductName(name);
 
     if (!baseSlug) {
-      throw new Error(`Cannot generate handle from empty or invalid name: "${name}"`);
+      throw new Error(
+        `Cannot generate handle from empty or invalid name: "${name}"`,
+      );
     }
 
     // Try base slug first
@@ -200,4 +202,3 @@ export async function generateUniqueProductHandles({
 
   return results;
 }
-

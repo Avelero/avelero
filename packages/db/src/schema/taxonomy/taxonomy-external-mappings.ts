@@ -47,7 +47,7 @@ export const taxonomyExternalMappings = pgTable(
     uniqueIndex("taxonomy_external_mappings_slug_unq").on(table.slug),
     index("taxonomy_external_mappings_source_idx").on(
       table.sourceSystem,
-      table.sourceTaxonomy
+      table.sourceTaxonomy,
     ),
 
     // Global read access for authenticated users
@@ -57,6 +57,5 @@ export const taxonomyExternalMappings = pgTable(
       to: ["authenticated", "service_role"],
       using: sql`true`,
     }),
-  ]
+  ],
 );
-

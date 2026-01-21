@@ -5,17 +5,17 @@
  * and FilterState format, and for identifying filter types.
  */
 
-import { getQuickFilterFields } from "@/config/filters";
 import type {
   FilterCondition,
   FilterGroup,
   FilterState,
 } from "@/components/passports/filter-types";
+import { getQuickFilterFields } from "@/config/filters";
 
 /**
  * Get all quick filter field IDs (Tier 1 fields)
  */
-export function getQuickFilterFieldIds(): string[] {
+function getQuickFilterFieldIds(): string[] {
   return getQuickFilterFields().map((field) => field.id);
 }
 
@@ -80,7 +80,8 @@ export function convertQuickFiltersToFilterState(
 
     // Use "is descendant of" for category to include child categories in hierarchy
     // This means selecting "clothing" will also match "outerwear", "rain jackets", etc.
-    const operator = fieldId === "categoryId" ? "is descendant of" : "is any of";
+    const operator =
+      fieldId === "categoryId" ? "is descendant of" : "is any of";
 
     // Create a group with one condition
     const condition: FilterCondition = {

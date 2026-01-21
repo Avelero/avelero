@@ -109,22 +109,6 @@ export function noBrandSelected(): TRPCError {
   return badRequest("No active brand selected");
 }
 
-/**
- * Throws when input validation fails (e.g., Zod schema validation).
- *
- * @param field - Field name that failed validation
- * @param reason - Reason for validation failure
- * @returns TRPCError with BAD_REQUEST code
- *
- * @example
- * ```ts
- * throw invalidInput("email", "Must be a valid email address");
- * ```
- */
-export function invalidInput(field: string, reason: string): TRPCError {
-  return badRequest(`Invalid ${field}: ${reason}`);
-}
-
 // ============================================================================
 // Resource Errors
 // ============================================================================
@@ -217,26 +201,6 @@ export function soleOwnerError(): TRPCError {
 // Rate Limiting & Quota Errors
 // ============================================================================
 
-/**
- * Throws when rate limit is exceeded.
- *
- * Use when client has made too many requests in a time window.
- *
- * @param retryAfter - Seconds until client can retry
- * @returns TRPCError with TOO_MANY_REQUESTS code
- *
- * @example
- * ```ts
- * if (requestCount > limit) throw tooManyRequests(60);
- * ```
- */
-export function tooManyRequests(retryAfter?: number): TRPCError {
-  const message = retryAfter
-    ? `Too many requests. Please try again in ${retryAfter} seconds.`
-    : "Too many requests. Please slow down.";
-  return createError("TOO_MANY_REQUESTS", message);
-}
-
 // ============================================================================
 // Server & External Errors
 // ============================================================================
@@ -266,131 +230,6 @@ export function internalServerError(
   cause?: unknown,
 ): TRPCError {
   return createError("INTERNAL_SERVER_ERROR", message, cause);
-}
-
-/**
- * Throws when an external service is unavailable.
- *
- * Use when third-party APIs or services fail or timeout.
- *
- * @param service - Name of the external service
- * @param cause - Optional underlying error
- * @returns TRPCError with INTERNAL_SERVER_ERROR code
- *
- * @example
- * ```ts
- * try {
- *   await stripeApi.charge();
- * } catch (error) {
- *   throw serviceUnavailable("Stripe", error);
- * }
- * ```
- */
-export function serviceUnavailable(
-  service: string,
-  cause?: unknown,
-): TRPCError {
-  return createError(
-    "INTERNAL_SERVER_ERROR",
-    `${service} service is currently unavailable`,
-    cause,
-  );
-}
-
-/**
- * Throws when database operation fails.
- *
- * Use for database connection errors, query failures, or transaction issues.
- *
- * @param operation - Database operation that failed
- * @param cause - Optional underlying error
- * @returns TRPCError with INTERNAL_SERVER_ERROR code
- *
- * @example
- * ```ts
- * try {
- *   await db.delete.user.where({ id });
- * } catch (error) {
- *   throw databaseError("delete user", error);
- * }
- * ```
- */
-export function databaseError(operation: string, cause?: unknown): TRPCError {
-  return internalServerError(`Database error: ${operation}`, cause);
-}
-
-// ============================================================================
-// Timeout Errors
-// ============================================================================
-
-/**
- * Throws when operation exceeds time limit.
- *
- * Use for long-running operations that timeout.
- *
- * @param operation - Operation that timed out
- * @returns TRPCError with TIMEOUT code
- *
- * @example
- * ```ts
- * const result = await Promise.race([
- *   longRunningTask(),
- *   timeout(5000)
- * ]);
- * if (!result) throw operationTimeout("Data import");
- * ```
- */
-export function operationTimeout(operation: string): TRPCError {
-  return createError("TIMEOUT", `${operation} operation timed out`);
-}
-
-// ============================================================================
-// Precondition Errors
-// ============================================================================
-
-/**
- * Throws when a required precondition is not met.
- *
- * Use when operation requires specific state that isn't present.
- *
- * @param condition - Description of the missing precondition
- * @returns TRPCError with PRECONDITION_FAILED code
- *
- * @example
- * ```ts
- * if (!brand.isVerified) {
- *   throw preconditionFailed("Brand must be verified before publishing products");
- * }
- * ```
- */
-export function preconditionFailed(condition: string): TRPCError {
-  return createError("PRECONDITION_FAILED", condition);
-}
-
-// ============================================================================
-// Payload Errors
-// ============================================================================
-
-/**
- * Throws when request payload is too large.
- *
- * Use when file uploads or request bodies exceed size limits.
- *
- * @param maxSize - Maximum allowed size
- * @returns TRPCError with PAYLOAD_TOO_LARGE code
- *
- * @example
- * ```ts
- * if (fileSize > MAX_SIZE) {
- *   throw payloadTooLarge("10MB");
- * }
- * ```
- */
-export function payloadTooLarge(maxSize: string): TRPCError {
-  return createError(
-    "PAYLOAD_TOO_LARGE",
-    `Request payload exceeds maximum size of ${maxSize}`,
-  );
 }
 
 // ============================================================================

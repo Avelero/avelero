@@ -1,15 +1,15 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import {
+  type ValidationErrors,
+  type ValidationSchema,
   getFirstInvalidField,
   isFormValid,
   rules,
-  type ValidationErrors,
-  type ValidationSchema,
   validateForm,
 } from "@/hooks/use-form-validation";
+import { useTRPC } from "@/trpc/client";
 import { formatPhone } from "@/utils/validation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -78,9 +78,13 @@ export function OperatorSheet({
     ValidationErrors<OperatorFormValues>
   >({});
 
-  // Operators are facilities (production plants)
+  // Container ref for portal - ensures popovers render inside the sheet
+  const [sheetContainer, setSheetContainer] =
+    React.useState<HTMLDivElement | null>(null);
+
+  // Operators are production plants in the supply chain
   const createOperatorMutation = useMutation(
-    trpc.catalog.facilities.create.mutationOptions(),
+    trpc.catalog.operators.create.mutationOptions(),
   );
 
   const validationSchema = React.useMemo<ValidationSchema<OperatorFormValues>>(
@@ -191,24 +195,18 @@ export function OperatorSheet({
       const mutationResult = await toast.loading(
         "Creating operator...",
         (async () => {
-          // Combine address lines into single address field
-          const fullAddress = [addressLine1.trim(), addressLine2.trim()]
-            .filter(Boolean)
-            .join(", ");
-
-          // Combine contact info (email + phone)
-          const contactInfo = [email.trim(), formattedPhone]
-            .filter(Boolean)
-            .join(" | ");
-
-          // Create operator via API (using facilities endpoint)
+          // Create operator via API
           const result = await createOperatorMutation.mutateAsync({
             display_name: name.trim(),
             legal_name: legalName.trim() || undefined,
-            address: fullAddress || undefined,
+            email: email.trim() || undefined,
+            phone: formattedPhone || undefined,
+            address_line_1: addressLine1.trim() || undefined,
+            address_line_2: addressLine2.trim() || undefined,
             city: city.trim() || undefined,
+            state: state.trim() || undefined,
+            zip: zip.trim() || undefined,
             country_code: countryCode || undefined,
-            contact: contactInfo || undefined,
           });
 
           // Validate response
@@ -235,11 +233,14 @@ export function OperatorSheet({
                       id: operatorId,
                       display_name: name.trim(),
                       legal_name: legalName.trim() || null,
-                      address: fullAddress || null,
+                      email: email.trim() || null,
+                      phone: formattedPhone || null,
+                      address_line_1: addressLine1.trim() || null,
+                      address_line_2: addressLine2.trim() || null,
                       city: city.trim() || null,
+                      state: state.trim() || null,
+                      zip: zip.trim() || null,
                       country_code: countryCode || null,
-                      contact: contactInfo || null,
-                      vat_number: null,
                       created_at: now,
                       updated_at: now,
                     },
@@ -316,6 +317,7 @@ export function OperatorSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        ref={setSheetContainer}
         side="right"
         className="flex flex-col p-0 gap-0 w-full sm:w-[480px] lg:w-[560px] m-6 h-[calc(100vh-48px)]"
         hideDefaultClose
@@ -457,6 +459,7 @@ export function OperatorSheet({
                 placeholder="Select country"
                 value={countryCode}
                 onChange={(code) => setCountryCode(code)}
+                container={sheetContainer}
               />
               <div className="space-y-1.5">
                 <Label htmlFor="operator-city">City</Label>

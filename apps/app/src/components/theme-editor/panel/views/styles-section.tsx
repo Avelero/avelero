@@ -14,19 +14,19 @@ import {
 } from "@v1/ui/select";
 import * as React from "react";
 import {
-  findComponentById,
   type StyleField,
   TYPESCALE_OPTIONS,
+  findComponentById,
 } from "../../registry";
 import {
+  BorderInput,
   ColorInput,
-  parseHexWithAlpha,
-  combineHexWithAlpha,
+  EditorSection,
+  FieldWrapper,
   PixelInput,
   RadiusInput,
-  BorderInput,
-  FieldWrapper,
-  EditorSection,
+  combineHexWithAlpha,
+  parseHexWithAlpha,
 } from "../inputs";
 
 // =============================================================================
@@ -65,7 +65,10 @@ function StyleSelect({
         <Button
           variant="outline"
           size="default"
-          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
+          className={cn(
+            "w-full justify-between data-[state=open]:bg-accent",
+            className,
+          )}
         >
           <span
             className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
@@ -123,11 +126,17 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
           opacity={opacity}
           onChange={(newRgb) => {
             // Combine new RGB with existing opacity
-            updateComponentStyle(field.path, combineHexWithAlpha(newRgb, opacity));
+            updateComponentStyle(
+              field.path,
+              combineHexWithAlpha(newRgb, opacity),
+            );
           }}
           onOpacityChange={(newOpacity) => {
             // Combine existing RGB with new opacity
-            updateComponentStyle(field.path, combineHexWithAlpha(rgb, newOpacity));
+            updateComponentStyle(
+              field.path,
+              combineHexWithAlpha(rgb, newOpacity),
+            );
           }}
           showOpacity={true}
         />

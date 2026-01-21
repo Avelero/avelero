@@ -1,6 +1,6 @@
 import { SetupForm, SetupFormSkeleton } from "@/components/forms/setup-form";
 import { Header } from "@/components/header";
-import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 

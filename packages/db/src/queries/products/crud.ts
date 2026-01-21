@@ -1,11 +1,11 @@
 /**
  * Product CRUD operations.
- * 
+ *
  * Provides create, update, and delete functions for products.
  */
 
-import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { and, eq } from "drizzle-orm";
 import type { Database } from "../../client";
 import { products } from "../../schema";
 
@@ -60,7 +60,7 @@ export async function createProduct(
 
 /**
  * Updates an existing product.
- * 
+ *
  * Only updates fields that are explicitly provided (not undefined).
  * This prevents accidentally nullifying fields that weren't meant to be updated.
  */
@@ -84,17 +84,21 @@ export async function updateProduct(
     // Only include fields that are explicitly provided (not undefined)
     // This prevents accidentally nullifying fields that weren't meant to be updated
     const updateData: Record<string, unknown> = {};
-    
+
     if (input.name !== undefined) updateData.name = input.name;
-    if (input.description !== undefined) updateData.description = input.description;
-    if (input.categoryId !== undefined) updateData.categoryId = input.categoryId;
+    if (input.description !== undefined)
+      updateData.description = input.description;
+    if (input.categoryId !== undefined)
+      updateData.categoryId = input.categoryId;
     if (input.seasonId !== undefined) updateData.seasonId = input.seasonId;
-    if (input.productHandle !== undefined) updateData.productHandle = input.productHandle;
-    if (input.manufacturerId !== undefined) updateData.manufacturerId = input.manufacturerId;
+    if (input.productHandle !== undefined)
+      updateData.productHandle = input.productHandle;
+    if (input.manufacturerId !== undefined)
+      updateData.manufacturerId = input.manufacturerId;
     if (input.imagePath !== undefined) updateData.imagePath = input.imagePath;
     if (input.status !== undefined) updateData.status = input.status;
 
-    // If no fields to update, return early
+    // If no content fields to update, return early without modifying anything
     if (Object.keys(updateData).length === 0) {
       const [existing] = await tx
         .select({ id: products.id })
@@ -106,6 +110,8 @@ export async function updateProduct(
       }
       return;
     }
+
+    updateData.updatedAt = new Date().toISOString();
 
     const [row] = await tx
       .update(products)
@@ -132,4 +138,3 @@ export async function deleteProduct(db: Database, brandId: string, id: string) {
     .returning({ id: products.id });
   return row;
 }
-

@@ -85,7 +85,7 @@ function ControlBarNavButton({
   const computedActive = exact
     ? normalizedPathname === normalizedHref
     : normalizedPathname === normalizedHref ||
-    normalizedPathname.startsWith(`${normalizedHref}/`);
+      normalizedPathname.startsWith(`${normalizedHref}/`);
   const isActive = providedIsActive ?? computedActive;
 
   return (

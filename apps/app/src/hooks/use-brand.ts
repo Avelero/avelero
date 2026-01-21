@@ -134,7 +134,7 @@ export function useSetActiveBrandMutation() {
  * };
  * ```
  */
-export function useCreateBrandMutation() {
+function useCreateBrandMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 

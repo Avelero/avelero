@@ -13,8 +13,7 @@ export * from "./brands/brand-theme";
 export * from "./catalog/brand-attributes";
 export * from "./catalog/brand-attribute-values";
 export * from "./catalog/brand-certifications";
-export * from "./catalog/brand-eco-claims";
-export * from "./catalog/brand-facilities";
+export * from "./catalog/brand-operators";
 export * from "./catalog/brand-manufacturers";
 export * from "./catalog/brand-materials";
 export * from "./catalog/brand-seasons";
@@ -25,7 +24,6 @@ export * from "./products/product-variants";
 export * from "./products/product-materials";
 export * from "./products/product-journey-steps";
 export * from "./products/product-environment";
-export * from "./products/product-eco-claims";
 export * from "./products/product-tags";
 export * from "./products/product-variant-attributes";
 export * from "./products/product-weight";
@@ -34,10 +32,13 @@ export * from "./products/product-commercial";
 // Variant override tables (for multi-source integration support)
 export * from "./products/variant-commercial";
 export * from "./products/variant-environment";
-export * from "./products/variant-eco-claims";
 export * from "./products/variant-materials";
 export * from "./products/variant-weight";
 export * from "./products/variant-journey-steps";
+
+// Publishing layer schemas (immutable passport versions)
+export * from "./products/product-passports";
+export * from "./products/product-passport-versions";
 
 // Data schemas
 export * from "./data/file-assets";

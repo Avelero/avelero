@@ -56,7 +56,15 @@ export const OPERATORS = {
     "is ancestor of",
   ] as const,
 
-  date: ["is", "is before", "is after", "is on or before", "is on or after", "is between", "relative"] as const,
+  date: [
+    "is",
+    "is before",
+    "is after",
+    "is on or before",
+    "is on or after",
+    "is between",
+    "relative",
+  ] as const,
 
   boolean: ["is true", "is false"] as const,
 } as const;
@@ -67,9 +75,7 @@ export const OPERATORS = {
 
 export const STATUS_OPTIONS: SelectOption[] = [
   { value: "published", label: "Published" },
-  { value: "scheduled", label: "Scheduled" },
   { value: "unpublished", label: "Unpublished" },
-  { value: "archived", label: "Archived" },
 ];
 
 export const RELATIVE_DATE_OPTIONS: SelectOption[] = [
@@ -353,7 +359,7 @@ export function getFieldsByTier(tier: 1 | 2 | 3): FilterFieldConfig[] {
 /**
  * Get all fields in a specific category
  */
-export function getFieldsByCategory(
+function getFieldsByCategory(
   category:
     | "product"
     | "sustainability"
@@ -392,7 +398,7 @@ export function getFieldConfig(
 /**
  * Get available operators for a field
  */
-export function getOperatorsForField(fieldId: string): FilterOperator[] {
+function getOperatorsForField(fieldId: string): FilterOperator[] {
   const config = getFieldConfig(fieldId);
   return config?.operators ?? [];
 }
@@ -407,7 +413,7 @@ export function getQuickFilterFields(): FilterFieldConfig[] {
 /**
  * Get fields organized by category for the advanced filter panel
  */
-export function getFieldsByCategoryForUI(): Array<{
+function getFieldsByCategoryForUI(): Array<{
   category: string;
   label: string;
   fields: FilterFieldConfig[];
@@ -424,7 +430,7 @@ export function getFieldsByCategoryForUI(): Array<{
 /**
  * Get advanced filter fields (Tier 2 and 3 only - excludes quick filters)
  */
-export function getAdvancedFilterFields(): FilterFieldConfig[] {
+function getAdvancedFilterFields(): FilterFieldConfig[] {
   return Object.values(FILTER_FIELDS).filter(
     (field) => field.tier === 2 || field.tier === 3,
   );

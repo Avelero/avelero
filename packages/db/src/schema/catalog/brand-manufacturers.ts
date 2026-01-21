@@ -29,7 +29,10 @@ export const brandManufacturers = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("brand_manufacturers_brand_name_unq").on(table.brandId, table.name),
+    uniqueIndex("brand_manufacturers_brand_name_unq").on(
+      table.brandId,
+      table.name,
+    ),
     // RLS policies
     pgPolicy("brand_manufacturers_select_for_brand_members", {
       as: "permissive",

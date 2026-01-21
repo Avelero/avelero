@@ -3,7 +3,8 @@ import "./src/env.mjs";
 /** @type {import('next').NextConfig} */
 const supabaseUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
-const isLocal = supabaseUrl.hostname === '127.0.0.1' || supabaseUrl.hostname === 'localhost';
+const isLocal =
+  supabaseUrl.hostname === "127.0.0.1" || supabaseUrl.hostname === "localhost";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

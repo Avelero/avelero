@@ -1,28 +1,25 @@
 "use client";
 
 import type { SelectOption } from "@/components/passports/filter-types";
-import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 
 /**
  * Hook for loading filter options using proper tRPC queries.
  * This hook uses the standard tRPC query keys, allowing prefetching to work correctly.
+ *
+ * All data comes from composite.catalogContent which should be prefetched
+ * on pages that use filters.
  */
 export function useFilterOptions() {
   const trpc = useTRPC();
 
   // Fetch the main passport form references using proper tRPC query
-  const { data: formData, isLoading: isFormDataLoading } = useQuery(
+  // All filter data (including tags) comes from this single composite query
+  const { data: formData, isLoading } = useQuery(
     trpc.composite.catalogContent.queryOptions(),
   );
-
-  // Fetch additional endpoints that aren't in the composite
-  const { data: tagsData, isLoading: isTagsLoading } = useQuery(
-    trpc.catalog.tags.list.queryOptions(undefined),
-  );
-
-
 
   // Transform and memoize all options
   const options = React.useMemo(() => {
@@ -74,26 +71,15 @@ export function useFilterOptions() {
           }),
         ) ?? [],
 
-      // From composite.catalogContent
-      ecoClaims:
-        formData?.brandCatalog?.ecoClaims?.map(
-          (c: { id: string; claim: string }) => ({
-            value: c.id,
-            label: c.claim,
-          }),
-        ) ?? [],
-
+      // Tags are included in brandCatalog from catalogContent
       tags:
-        tagsData?.data?.map((t: { id: string; name: string; hex?: string }) => ({
+        formData?.brandCatalog?.tags?.map((t) => ({
           value: t.id,
           label: t.name,
           hex: t.hex ?? undefined,
         })) ?? [],
-
     };
-  }, [formData, tagsData]);
-
-  const isLoading = isFormDataLoading || isTagsLoading;
+  }, [formData]);
 
   return {
     options,
@@ -118,7 +104,6 @@ export function useFieldOptions(fieldId: string): {
       brandCertificationId: options.certifications,
       operatorId: options.facilities,
       manufacturerId: options.manufacturers,
-      ecoClaimId: options.ecoClaims,
       tagId: options.tags,
       season: options.seasons ?? [],
     };

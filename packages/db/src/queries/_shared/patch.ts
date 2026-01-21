@@ -1,6 +1,6 @@
 /**
  * Shared helpers for building partial update objects.
- * 
+ *
  * Prevents accidentally clearing fields by only including
  * explicitly provided values in update operations.
  */
@@ -8,11 +8,11 @@
 /**
  * Builds a partial update object, only including fields that are explicitly provided.
  * Useful for preventing accidental field clearing when updating records.
- * 
+ *
  * @param input - Input object with optional fields
  * @param defaults - Optional default values to apply
  * @returns Partial object with only defined fields
- * 
+ *
  * @example
  * ```typescript
  * const updateData = buildPartialUpdate({
@@ -38,4 +38,3 @@ export function buildPartialUpdate<T extends Record<string, unknown>>(
 
   return result;
 }
-

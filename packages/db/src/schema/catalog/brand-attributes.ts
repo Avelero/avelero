@@ -11,8 +11,10 @@ export const brandAttributes = pgTable(
     brandId: uuid("brand_id")
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
-    taxonomyAttributeId: uuid("taxonomy_attribute_id")
-      .references(() => taxonomyAttributes.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    taxonomyAttributeId: uuid("taxonomy_attribute_id").references(
+      () => taxonomyAttributes.id,
+      { onDelete: "cascade", onUpdate: "cascade" },
+    ),
     name: text("name").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()

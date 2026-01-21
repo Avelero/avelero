@@ -270,7 +270,7 @@ export function SeasonModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[520px] p-0 gap-0 border border-border overflow-visible">
+      <DialogContent size="lg" className="p-0 gap-0 overflow-visible">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">Add season</DialogTitle>
         </DialogHeader>
@@ -354,10 +354,7 @@ export function SeasonModal({
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={!name.trim() || isCreating}
-          >
+          <Button onClick={handleSave} disabled={!name.trim() || isCreating}>
             Create
           </Button>
         </DialogFooter>

@@ -1,27 +1,27 @@
 {
-    "name": "@v1/testing",
-    "version": "0.0.0",
-    "private": true,
-    "type": "module",
-    "exports": {
-        ".": "./src/index.ts",
-        "./mocks": "./src/mocks/index.ts",
-        "./mocks/shopify": "./src/mocks/shopify.ts",
-        "./mocks/its-perfect": "./src/mocks/its-perfect.ts",
-        "./fixtures": "./src/fixtures/index.ts",
-        "./fixtures/shopify": "./src/fixtures/shopify.ts",
-        "./bulk-import": "./src/bulk-import/index.ts"
-    },
-    "scripts": {
-        "typecheck": "tsc --noEmit"
-    },
-    "dependencies": {
-        "exceljs": "^4.4.0",
-        "msw": "^2.7.0"
-    },
-    "devDependencies": {
-        "@types/bun": "^1.2.16",
-        "@v1/tsconfig": "workspace:*",
-        "typescript": "^5.9.2"
-    }
+  "name": "@v1/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./mocks": "./src/mocks/index.ts",
+    "./mocks/shopify": "./src/mocks/shopify.ts",
+    "./mocks/its-perfect": "./src/mocks/its-perfect.ts",
+    "./fixtures": "./src/fixtures/index.ts",
+    "./fixtures/shopify": "./src/fixtures/shopify.ts",
+    "./bulk-import": "./src/bulk-import/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "msw": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.16",
+    "@v1/tsconfig": "workspace:*",
+    "typescript": "^5.9.2"
+  }
 }

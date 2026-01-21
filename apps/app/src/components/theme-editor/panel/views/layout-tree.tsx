@@ -1,18 +1,18 @@
 "use client";
 
-import * as React from "react";
-import { useRef, useCallback } from "react";
-import { Icons } from "@v1/ui/icons";
+import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
+import * as React from "react";
+import { useCallback, useRef } from "react";
 import {
   COMPONENT_TREE,
   type ComponentDefinition,
-  getComponentAncestry,
-  hasEditableContent,
-  hasConfigContent,
   findComponentById,
+  getComponentAncestry,
+  hasConfigContent,
+  hasEditableContent,
 } from "../../registry";
-import { useDesignEditor } from "@/contexts/design-editor-provider";
 
 /**
  * Debounce delay for triggering live preview highlight when hovering layout tree items (ms).
@@ -292,7 +292,10 @@ export function LayoutTree() {
 
       // Only trigger preview highlight for components with editable content or config content
       const component = findComponentById(id);
-      if (!component || (!hasEditableContent(component) && !hasConfigContent(component))) {
+      if (
+        !component ||
+        (!hasEditableContent(component) && !hasConfigContent(component))
+      ) {
         // Clear hover when hovering non-editable items
         setHoveredComponentId(null);
         return;
@@ -326,12 +329,15 @@ export function LayoutTree() {
     expandedItems,
   );
 
+  // Filter out hidden components (feature flag support)
+  const visibleComponents = COMPONENT_TREE.filter((item) => !item.hidden);
+
   return (
     <div
       className="flex-1 p-2 overflow-y-auto scrollbar-hide"
       onMouseLeave={() => handleItemHover(null)}
     >
-      {COMPONENT_TREE.map((item) => (
+      {visibleComponents.map((item) => (
         <LayoutTreeItem
           key={item.id}
           item={item}

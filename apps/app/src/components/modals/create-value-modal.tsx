@@ -87,7 +87,11 @@ function TaxonomyValueSelect({
             <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
           </Button>
         </SelectTrigger>
-        <SelectContent shouldFilter={false} inline defaultValue={value ?? undefined}>
+        <SelectContent
+          shouldFilter={false}
+          inline
+          defaultValue={value ?? undefined}
+        >
           <SelectSearch
             placeholder="Search..."
             value={searchTerm}
@@ -341,7 +345,7 @@ export function CreateValueModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[520px] p-0 gap-0 border border-border overflow-visible">
+      <DialogContent size="lg" className="p-0 gap-0 overflow-visible">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">
             Add {attributeName.toLowerCase()} value

@@ -31,7 +31,10 @@ export const productEnvironment = pgTable(
   },
   (table) => [
     // Composite primary key: one row per product per metric type
-    primaryKey({ columns: [table.productId, table.metric], name: "product_environment_pkey" }),
+    primaryKey({
+      columns: [table.productId, table.metric],
+      name: "product_environment_pkey",
+    }),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_environment_select_for_brand_members", {
       as: "permissive",

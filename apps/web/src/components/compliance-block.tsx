@@ -1,4 +1,4 @@
-import { EsprLogo, AwlLogo } from "./logos";
+import { AwlLogo, EsprLogo } from "./logos";
 
 export function ComplianceBlock() {
   return (

@@ -12,18 +12,20 @@ import { and, eq, inArray } from "@v1/db/queries";
 import {
   bulkDeleteProductsByFilter,
   bulkDeleteProductsByIds,
+  bulkPublishProducts,
   bulkUpdateProductsByFilter,
   bulkUpdateProductsByIds,
   createProduct,
   deleteProduct,
   getProductWithIncludes,
   listProductsWithIncludes,
-  setProductEcoClaims,
+  publishProduct,
   setProductJourneySteps,
   setProductTags,
   updateProduct,
   upsertProductEnvironment,
   upsertProductMaterials,
+  upsertProductWeight,
 } from "@v1/db/queries/products";
 import { productVariants, products } from "@v1/db/schema";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
@@ -42,6 +44,7 @@ import {
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import { publishRouter } from "./publish.js";
 import { productVariantsRouter } from "./variants.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
@@ -65,15 +68,18 @@ type CreateProductInput = Parameters<typeof createProduct>[2];
 type UpdateProductInput = Parameters<typeof updateProduct>[2];
 type AttributeInput = {
   materials?: { brand_material_id: string; percentage?: string | number }[];
-  eco_claim_ids?: string[];
   journey_steps?: {
     sort_index: number;
     step_type: string;
-    facility_id: string; // 1:1 relationship with facility
+    operator_ids: string[]; // Multiple operators per step
   }[];
   environment?: {
     carbon_kg_co2e?: string | number;
     water_liters?: string | number;
+  };
+  weight?: {
+    weight?: string | number;
+    weight_unit?: string;
   };
   tag_ids?: string[];
 };
@@ -102,6 +108,7 @@ export const productsRouter = createTRPCRouter({
           limit: input.limit,
           includeVariants: input.includeVariants,
           includeAttributes: input.includeAttributes,
+          includePassports: true, // Always include passport data for list views
           sort: input.sort,
         },
       );
@@ -167,9 +174,9 @@ export const productsRouter = createTRPCRouter({
 
         await applyProductAttributes(brandCtx, product.id, {
           materials: input.materials,
-          eco_claim_ids: input.eco_claim_ids,
           journey_steps: input.journey_steps,
           environment: input.environment,
+          weight: input.weight,
           tag_ids: input.tag_ids,
         });
 
@@ -207,7 +214,7 @@ export const productsRouter = createTRPCRouter({
           };
 
           // Bulk update based on selection mode
-          let result: { updated: number };
+          let result: { updated: number; productIds?: string[] };
           if (selection.mode === "all") {
             result = await bulkUpdateProductsByFilter(
               brandCtx.db,
@@ -228,9 +235,20 @@ export const productsRouter = createTRPCRouter({
             );
           }
 
-          // Invalidate DPP cache for bulk updates (fire-and-forget)
-          // Note: For large bulk updates, we don't revalidate individual products
-          // The cache will naturally expire or can be manually refreshed
+          // If status changed to "published", trigger publish flow to create passport versions
+          // This ensures QR codes become resolvable when status is set to published
+          if (
+            input.status === "published" &&
+            result.productIds &&
+            result.productIds.length > 0
+          ) {
+            // Trigger bulk publish (fire-and-forget, errors logged but not thrown)
+            bulkPublishProducts(brandCtx.db, result.productIds, brandId).catch(
+              (err) => {
+                console.error("Bulk publish failed after status change:", err);
+              },
+            );
+          }
 
           return {
             success: true,
@@ -264,11 +282,35 @@ export const productsRouter = createTRPCRouter({
 
         await applyProductAttributes(brandCtx, input.id, {
           materials: input.materials,
-          eco_claim_ids: input.eco_claim_ids,
           journey_steps: input.journey_steps,
           environment: input.environment,
+          weight: input.weight,
           tag_ids: input.tag_ids,
         });
+
+        // Trigger publish when status is explicitly changed to "published"
+        // This handles the case when user toggles status from the passports table
+        // (The form handles publish explicitly after all mutations complete)
+        if (input.status === "published" && product?.id) {
+          try {
+            const publishResult = await publishProduct(
+              brandCtx.db,
+              product.id,
+              brandId,
+            );
+            if (!publishResult.success) {
+              console.error(
+                "Publish failed after status change:",
+                publishResult.error,
+              );
+            }
+          } catch (err) {
+            console.error(
+              "Publish threw an exception after status change:",
+              err,
+            );
+          }
+        }
 
         // Revalidate DPP cache for this product (fire-and-forget)
         if (product?.id) {
@@ -376,9 +418,10 @@ export const productsRouter = createTRPCRouter({
     }),
 
   variants: productVariantsRouter,
+  publish: publishRouter,
 });
 
-export type ProductsRouter = typeof productsRouter;
+type ProductsRouter = typeof productsRouter;
 
 async function applyProductAttributes(
   ctx: BrandContext,
@@ -400,11 +443,6 @@ async function applyProductAttributes(
     );
   }
 
-  // Eco-claims
-  if (input.eco_claim_ids) {
-    await setProductEcoClaims(ctx.db, productId, input.eco_claim_ids);
-  }
-
   // Environment
   if (input.environment) {
     await upsertProductEnvironment(ctx.db, productId, {
@@ -419,17 +457,28 @@ async function applyProductAttributes(
     });
   }
 
+  // Weight
+  if (input.weight) {
+    await upsertProductWeight(ctx.db, productId, {
+      weight:
+        input.weight.weight !== undefined
+          ? String(input.weight.weight)
+          : undefined,
+      weightUnit: input.weight.weight_unit ?? "g",
+    });
+  }
+
   // Journey steps
   if (input.journey_steps) {
     await setProductJourneySteps(
       ctx.db,
       productId,
       input.journey_steps
-        .filter((step) => step.facility_id) // Filter out steps without a facility
+        .filter((step) => step.operator_ids && step.operator_ids.length > 0)
         .map((step) => ({
           sortIndex: step.sort_index,
           stepType: step.step_type,
-          facilityId: step.facility_id,
+          operatorIds: step.operator_ids,
         })),
     );
   }

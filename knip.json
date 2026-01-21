@@ -1,0 +1,41 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "workspaces": {
+    "apps/api": {
+      "entry": ["supabase/functions/**/index.ts"],
+      "ignore": ["__tests__/**"],
+      "ignoreDependencies": ["drizzle-orm"]
+    },
+    "apps/app": {
+      "ignore": ["__tests__/**"],
+      "ignoreDependencies": ["@v1/dpp"]
+    },
+    "apps/dpp": {},
+    "packages/jobs": {
+      "entry": ["src/index.ts", "src/trigger/**/*.ts", "trigger.config.ts"],
+      "ignore": ["__tests__/**"]
+    },
+    "packages/db": {
+      "ignore": ["__tests__/**"]
+    },
+    "packages/integrations": {
+      "ignore": ["__tests__/**"]
+    },
+    "packages/testing": {
+      "ignore": ["**/*"]
+    },
+    "packages/tsconfig": {
+      "ignore": ["**/*"]
+    },
+    "packages/email": {
+      "ignoreDependencies": ["@react-email/preview-server"]
+    },
+    "packages/ui": {
+      "ignoreDependencies": ["autoprefixer"]
+    }
+  },
+  "ignoreExportsUsedInFile": true,
+  "exclude": ["unlisted"],
+  "ignoreDependencies": ["bun-types", "dotenv", "@v1/testing"],
+  "ignoreBinaries": ["supabase"]
+}

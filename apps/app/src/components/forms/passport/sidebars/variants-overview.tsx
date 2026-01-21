@@ -13,20 +13,15 @@
  * - Hovering prefetches variant data for fast navigation
  */
 
+import {
+  VariantDeletionModal,
+  type VariantToDelete,
+} from "@/components/modals/variant-deletion-modal";
 import { useTRPC } from "@/trpc/client";
 import { BUCKETS } from "@/utils/storage-config";
 import { normalizeToDisplayUrl } from "@/utils/storage-urls";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@v1/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +44,8 @@ interface VariantInfo {
   upid: string;
   attributeLabel: string; // e.g., "Black / S"
   hasOverrides?: boolean; // Whether this variant has override data
+  sku?: string | null;
+  barcode?: string | null;
 }
 
 interface VariantsOverviewProps {
@@ -75,27 +72,35 @@ export function VariantsOverview({
   const imageUrl = normalizeToDisplayUrl(BUCKETS.PRODUCTS, productImage);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [variantToDelete, setVariantToDelete] = React.useState<string | null>(null);
+  const [variantToDelete, setVariantToDelete] =
+    React.useState<VariantToDelete | null>(null);
 
   // Delete variant mutation
   const deleteVariantMutation = useMutation(
-    trpc.products.variants.delete.mutationOptions()
+    trpc.products.variants.delete.mutationOptions(),
   );
 
-  const handleDeleteClick = (upid: string, e: React.MouseEvent) => {
+  const handleDeleteClick = (variant: VariantInfo, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setVariantToDelete(upid);
+    setVariantToDelete({
+      upid: variant.upid,
+      attributeSummary: variant.attributeLabel,
+      sku: variant.sku,
+      barcode: variant.barcode,
+    });
     setDeleteDialogOpen(true);
   };
 
   const handleConfirmDelete = async () => {
     if (!variantToDelete) return;
 
+    const upidToDelete = variantToDelete.upid;
+
     try {
       await deleteVariantMutation.mutateAsync({
         productHandle,
-        variantUpid: variantToDelete,
+        variantUpid: upidToDelete,
       });
 
       // Invalidate queries
@@ -112,7 +117,7 @@ export function VariantsOverview({
       setVariantToDelete(null);
 
       // If we deleted the currently selected variant, navigate to product page
-      if (variantToDelete === selectedUpid) {
+      if (upidToDelete === selectedUpid) {
         router.push(`/passports/edit/${productHandle}`);
       }
     } catch (error) {
@@ -227,7 +232,7 @@ export function VariantsOverview({
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
-                      onClick={(e) => handleDeleteClick(variant.upid, e)}
+                      onClick={(e) => handleDeleteClick(variant, e)}
                     >
                       <div className="flex items-center">
                         <Icons.Trash2 className="h-4 w-4 mr-2" />
@@ -248,37 +253,17 @@ export function VariantsOverview({
         </div>
       </div>
 
-      {/* Delete confirmation dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none">
-          <DialogHeader>
-            <DialogTitle className="text-foreground">Delete variant</DialogTitle>
-            <DialogDescription className="text-secondary">
-              Are you sure you want to delete this variant? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => {
-                setDeleteDialogOpen(false);
-                setVariantToDelete(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              type="button"
-              onClick={handleConfirmDelete}
-              disabled={deleteVariantMutation.isPending}
-            >
-              {deleteVariantMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete confirmation dialog with orphan warning */}
+      <VariantDeletionModal
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        variants={variantToDelete ? [variantToDelete] : []}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setDeleteDialogOpen(false);
+          setVariantToDelete(null);
+        }}
+      />
     </>
   );
 }

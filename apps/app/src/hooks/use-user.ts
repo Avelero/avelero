@@ -8,30 +8,6 @@ import {
 } from "@tanstack/react-query";
 
 /**
- * Fetches the current user's profile using Suspense.
- *
- * Returns the authenticated user's profile data including email, name,
- * avatar, and active brand ID. This query suspends rendering until data
- * is available.
- *
- * @returns Suspense query hook for current user profile
- *
- * @note API Breaking Change: This uses the `user.get` endpoint (formerly `user.me`).
- * The endpoint was renamed from `user.me` to `user.get` to follow REST-like conventions.
- * While `me` is a common pattern for 'current user' endpoints, `get` provides better
- * consistency with other entity endpoints in the API.
- *
- * @example
- * ```tsx
- * const { data: user } = useUserQuery();
- * ```
- */
-export function useUserQuery() {
-  const trpc = useTRPC();
-  return useSuspenseQuery(trpc.user.get.queryOptions());
-}
-
-/**
  * Current user profile shape.
  */
 export interface CurrentUser {
@@ -50,23 +26,24 @@ export interface CurrentUser {
 /**
  * Fetches the current user's profile using Suspense.
  *
- * Alias for useUserQuery with explicit Suspense naming. Use this in components
- * wrapped with Suspense boundaries.
+ * Returns the authenticated user's profile data including email, name,
+ * avatar, and active brand ID. This query suspends rendering until data
+ * is available.
  *
  * @returns Suspense query hook for current user profile
  *
  * @example
  * ```tsx
- * const { data: user } = useUserQuerySuspense();
+ * const { data: user } = useUserQuery();
  * ```
  */
-export function useUserQuerySuspense() {
+export function useUserQuery() {
   const trpc = useTRPC();
-  const opts = trpc.user.get.queryOptions();
-  return useSuspenseQuery({
-    ...opts,
-  });
+  return useSuspenseQuery(trpc.user.get.queryOptions());
 }
+
+// Alias with explicit Suspense naming
+export { useUserQuery as useUserQuerySuspense };
 
 /**
  * Updates the current user's profile fields (name, email, avatar).

@@ -1,11 +1,11 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import { useUserQuery } from "@/hooks/use-user";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useImageUpload } from "@/hooks/use-upload";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { useImageUpload } from "@/hooks/use-upload";
+import { useUserQuery } from "@/hooks/use-user";
+import { useTRPC } from "@/trpc/client";
 import { formatPhone, normalizeUrl } from "@/utils/validation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BooleanToggle } from "@v1/ui/boolean";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -186,9 +186,9 @@ export function MaterialSheet({
   const [certExpiryDate, setCertExpiryDate] = React.useState<Date | undefined>(
     undefined,
   );
-  const [certificationPath, setCertificationPath] = React.useState<string | undefined>(
-    undefined,
-  );
+  const [certificationPath, setCertificationPath] = React.useState<
+    string | undefined
+  >(undefined);
   const [uploadedFileName, setUploadedFileName] = React.useState<
     string | undefined
   >(undefined);
@@ -197,6 +197,10 @@ export function MaterialSheet({
   const [isDragging, setIsDragging] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { uploadImage, buildPath, isLoading: isUploading } = useImageUpload();
+
+  // Container ref for portal - ensures popovers render inside the sheet
+  const [sheetContainer, setSheetContainer] =
+    React.useState<HTMLDivElement | null>(null);
 
   // API mutations
   const createMaterialMutation = useMutation(
@@ -287,30 +291,30 @@ export function MaterialSheet({
       // Serialize dates as ISO strings
       const issueDateISO = certIssueDate
         ? new Date(
-          Date.UTC(
-            certIssueDate.getFullYear(),
-            certIssueDate.getMonth(),
-            certIssueDate.getDate(),
-            0,
-            0,
-            0,
-            0,
-          ),
-        ).toISOString()
+            Date.UTC(
+              certIssueDate.getFullYear(),
+              certIssueDate.getMonth(),
+              certIssueDate.getDate(),
+              0,
+              0,
+              0,
+              0,
+            ),
+          ).toISOString()
         : undefined;
 
       const expiryDateISO = certExpiryDate
         ? new Date(
-          Date.UTC(
-            certExpiryDate.getFullYear(),
-            certExpiryDate.getMonth(),
-            certExpiryDate.getDate(),
-            0,
-            0,
-            0,
-            0,
-          ),
-        ).toISOString()
+            Date.UTC(
+              certExpiryDate.getFullYear(),
+              certExpiryDate.getMonth(),
+              certExpiryDate.getDate(),
+              0,
+              0,
+              0,
+              0,
+            ),
+          ).toISOString()
         : undefined;
 
       // Create certification via API
@@ -320,10 +324,8 @@ export function MaterialSheet({
         institute_name: certInstituteName.trim() || undefined,
         institute_email: certInstituteEmail.trim() || undefined,
         institute_website: normalizedWebsite || undefined,
-        institute_address_line_1:
-          certInstituteAddressLine1.trim() || undefined,
-        institute_address_line_2:
-          certInstituteAddressLine2.trim() || undefined,
+        institute_address_line_1: certInstituteAddressLine1.trim() || undefined,
+        institute_address_line_2: certInstituteAddressLine2.trim() || undefined,
         institute_city: certInstituteCity.trim() || undefined,
         institute_state: certInstituteState.trim() || undefined,
         institute_zip: certInstituteZip.trim() || undefined,
@@ -564,8 +566,7 @@ export function MaterialSheet({
           if (f.size > maxSize) {
             return {
               valid: false,
-              error:
-                "File too large. Please upload a file smaller than 50MB.",
+              error: "File too large. Please upload a file smaller than 50MB.",
             };
           }
           return { valid: true };
@@ -614,6 +615,7 @@ export function MaterialSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        ref={setSheetContainer}
         side="right"
         className="flex flex-col p-0 gap-0 w-full sm:w-[480px] lg:w-[560px] m-6 h-[calc(100vh-48px)]"
         hideDefaultClose
@@ -625,7 +627,8 @@ export function MaterialSheet({
           onClose={() => onOpenChange(false)}
           onPageClick={(pageIndex) => {
             if (pageIndex === 0) {
-              handleBackToMaterial(); SheetBreadcrumbHeader
+              handleBackToMaterial();
+              SheetBreadcrumbHeader;
             }
           }}
         />
@@ -656,6 +659,7 @@ export function MaterialSheet({
                   placeholder="Select country"
                   value={countryOfOrigin}
                   onChange={(code) => setCountryOfOrigin(code)}
+                  container={sheetContainer}
                 />
 
                 <div className="space-y-1.5">
@@ -712,14 +716,14 @@ export function MaterialSheet({
                         // Filter certifications by search term
                         const filteredCerts = certSearchTerm
                           ? availableCertifications.filter(
-                            (cert) =>
-                              cert.title
-                                .toLowerCase()
-                                .includes(certSearchTerm.toLowerCase()) ||
-                              cert.certificationCode
-                                ?.toLowerCase()
-                                .includes(certSearchTerm.toLowerCase()),
-                          )
+                              (cert) =>
+                                cert.title
+                                  .toLowerCase()
+                                  .includes(certSearchTerm.toLowerCase()) ||
+                                cert.certificationCode
+                                  ?.toLowerCase()
+                                  .includes(certSearchTerm.toLowerCase()),
+                            )
                           : availableCertifications;
 
                         // Check if search term doesn't match any existing certification
@@ -728,9 +732,9 @@ export function MaterialSheet({
                           !availableCertifications.some(
                             (cert) =>
                               cert.title.toLowerCase() ===
-                              certSearchTerm.toLowerCase() ||
+                                certSearchTerm.toLowerCase() ||
                               cert.certificationCode?.toLowerCase() ===
-                              certSearchTerm.toLowerCase(),
+                                certSearchTerm.toLowerCase(),
                           );
 
                         return (
@@ -747,10 +751,10 @@ export function MaterialSheet({
                                     "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border",
                                     // Remove bottom border on last item only if there's no create option below
                                     index === filteredCerts.length - 1 &&
-                                    !showCreateOption &&
-                                    "border-b-0",
+                                      !showCreateOption &&
+                                      "border-b-0",
                                     selectedCertificationId === cert.id &&
-                                    "bg-accent-blue",
+                                      "bg-accent-blue",
                                   )}
                                 >
                                   <div className="w-8 h-8 flex items-center justify-center shrink-0">
@@ -927,7 +931,9 @@ export function MaterialSheet({
 
               {/* Institute Website */}
               <div className="space-y-1.5">
-                <Label htmlFor="cert-institute-website">Institute website</Label>
+                <Label htmlFor="cert-institute-website">
+                  Institute website
+                </Label>
                 <Input
                   id="cert-institute-website"
                   type="text"
@@ -976,6 +982,7 @@ export function MaterialSheet({
                   placeholder="Select country"
                   value={certInstituteCountryCode}
                   onChange={(code) => setCertInstituteCountryCode(code)}
+                  container={sheetContainer}
                 />
                 <div className="space-y-1.5">
                   <Label htmlFor="cert-city">City</Label>

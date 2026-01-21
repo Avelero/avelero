@@ -13,18 +13,27 @@ export function CTABanner({ themeConfig }: Props) {
   const showSubline = cta?.showSubline ?? true;
   const showButton = cta?.showButton ?? true;
 
+  // Next.js blocks image optimization for private IPs (security feature)
+  // Use unoptimized for local development URLs
+  const bannerImage = cta?.bannerBackgroundImage;
+  const isLocalDev =
+    bannerImage?.includes("127.0.0.1") ||
+    bannerImage?.includes("localhost:") ||
+    bannerImage?.includes("localhost/");
+
   return (
     <div className="mt-3x mb-xl @3xl:mb-2x">
       <div className="banner relative w-full flex flex-col items-center justify-center py-3x px-lg @3xl:px-3x overflow-hidden">
         {/* Background image using Next.js Image */}
-        {cta?.bannerBackgroundImage && (
+        {bannerImage && (
           <Image
-            src={cta.bannerBackgroundImage}
+            src={bannerImage}
             alt=""
             fill
             className="object-cover"
             sizes="100vw"
             priority={false}
+            unoptimized={isLocalDev}
           />
         )}
 

@@ -153,9 +153,7 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
           variant="outline"
           size="icon"
           disabled={isProcessing}
-          onClick={() =>
-            reject.mutate({ invite_id: invite.id })
-          }
+          onClick={() => reject.mutate({ invite_id: invite.id })}
           aria-label="Reject"
         >
           <Icons.X className="w-4 h-4" strokeWidth={1} />
@@ -164,9 +162,7 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
           variant="outline"
           size="icon"
           disabled={isProcessing}
-          onClick={() =>
-            accept.mutate({ invite_id: invite.id })
-          }
+          onClick={() => accept.mutate({ invite_id: invite.id })}
           aria-label="Accept"
         >
           <Icons.Check className="w-4 h-4" strokeWidth={1} />

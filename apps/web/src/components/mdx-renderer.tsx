@@ -1,5 +1,5 @@
-import { MDXRemote, type MDXRemoteProps } from "next-mdx-remote/rsc";
 import { mdxComponents } from "@/lib/mdx";
+import { MDXRemote, type MDXRemoteProps } from "next-mdx-remote/rsc";
 
 interface MDXRendererProps {
   source: string;

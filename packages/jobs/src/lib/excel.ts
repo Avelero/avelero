@@ -45,7 +45,6 @@ export interface ParsedVariant {
   carbonStatusOverride?: string;
   waterLitersOverride?: number;
   weightGramsOverride?: number;
-  ecoClaimsOverride: string[];
   materialsOverride: ParsedMaterial[];
   journeyStepsOverride: Record<string, string>;
   rawData: Record<string, string>;
@@ -66,7 +65,6 @@ export interface ParsedProduct {
   carbonStatus?: string;
   waterLiters?: number;
   weightGrams?: number;
-  ecoClaims: string[];
   materials: ParsedMaterial[];
   journeySteps: Record<string, string>;
   variants: ParsedVariant[];
@@ -101,7 +99,6 @@ export interface ExportProductData {
   tags: string[];
   carbonKg: number | null;
   waterLiters: number | null;
-  ecoClaims: string[];
   weightGrams: number | null;
   materials: Array<{ name: string; percentage: number | null }>;
   journeySteps: Record<string, string>;
@@ -119,7 +116,6 @@ export interface ExportVariantData {
   carbonKgOverride: number | null;
   waterLitersOverride: number | null;
   weightGramsOverride: number | null;
-  ecoClaimsOverride: string[] | null;
   materialsOverride: Array<{ name: string; percentage: number | null }> | null;
   journeyStepsOverride: Record<string, string> | null;
 }
@@ -162,6 +158,7 @@ const EXPORT_COLUMNS = [
   "Description",
   "Image",
   "Status",
+  "Last Published At",
   "Category",
   "Season",
   "Tags",
@@ -176,7 +173,6 @@ const EXPORT_COLUMNS = [
   "Attribute Value 3",
   "kgCO2e Carbon Footprint",
   "Liters Water Used",
-  "Eco-claims",
   "Grams Weight",
   "Materials",
   "Percentages",
@@ -208,7 +204,6 @@ export const EXPECTED_COLUMNS = [
   "Attribute Value 3",
   "kgCO2e Carbon Footprint",
   "Liters Water Used",
-  "Eco-claims",
   "Grams Weight",
   "Materials",
   "Percentages",
@@ -250,7 +245,6 @@ const COLUMN_TO_INTERNAL: Record<string, string> = {
   "Attribute Value 3": "Attribute Value 3",
   "kgCO2e Carbon Footprint": "Kilograms CO2",
   "Liters Water Used": "Liters Water Used",
-  "Eco-claims": "Eco Claims",
   "Grams Weight": "Grams Weight",
   Materials: "Materials",
   Percentages: "Percentages",
@@ -265,7 +259,6 @@ const COLUMN_TO_INTERNAL: Record<string, string> = {
 const INTERNAL_TO_TEMPLATE: Record<string, string> = {
   "Kilograms CO2": "kgCO2e Carbon Footprint",
   "Carbon Footprint": "kgCO2e Carbon Footprint",
-  "Eco Claims": "Eco-claims",
 };
 
 // ============================================================================
@@ -525,9 +518,6 @@ function extractVariant(
     weightGramsOverride: shouldExtractOverrides
       ? parseNumber(rowData["Grams Weight"])
       : undefined,
-    ecoClaimsOverride: shouldExtractOverrides
-      ? parseSemicolonSeparated(rowData["Eco Claims"])
-      : [],
     materialsOverride: shouldExtractOverrides
       ? parseMaterials(rowData.Materials, rowData.Percentages)
       : [],
@@ -645,7 +635,6 @@ export async function parseExcelFile(
         carbonStatus: rowData["Carbon Footprint"],
         waterLiters: parseNumber(rowData["Liters Water Used"]),
         weightGrams: parseNumber(rowData["Grams Weight"]),
-        ecoClaims: parseSemicolonSeparated(rowData["Eco Claims"]),
         materials: parseMaterials(rowData.Materials, rowData.Percentages),
         journeySteps: extractJourneySteps(rowData),
         variants: [extractVariant(rowData, rowNumber, true)],
@@ -798,10 +787,6 @@ export async function generateProductExportExcel(
           "Liters Water Used",
           variant.waterLitersOverride ?? product.waterLiters,
         );
-        const ecoClaims = variant.ecoClaimsOverride?.length
-          ? variant.ecoClaimsOverride
-          : product.ecoClaims;
-        setCell("Eco-claims", joinSemicolon(ecoClaims));
         setCell(
           "Grams Weight",
           variant.weightGramsOverride ?? product.weightGrams,
@@ -835,8 +820,6 @@ export async function generateProductExportExcel(
           setCell("Liters Water Used", variant.waterLitersOverride);
         if (variant.weightGramsOverride != null)
           setCell("Grams Weight", variant.weightGramsOverride);
-        if (variant.ecoClaimsOverride?.length)
-          setCell("Eco-claims", joinSemicolon(variant.ecoClaimsOverride));
         if (variant.materialsOverride?.length) {
           const { names, percentages } = formatMaterials(
             variant.materialsOverride,
@@ -886,27 +869,53 @@ export async function generateErrorReportExcel(
     await loadExportTemplate();
   let currentRow = startRow;
 
+  // No fill style - used for cells without errors
+  const NO_FILL: ExcelJS.Fill = { type: "pattern", pattern: "none" };
+
   for (const rowData of rows) {
     const errorFields = new Set(rowData.errors.map((e) => e.field));
     const row = worksheet.getRow(currentRow);
 
+    // Track which error fields we've already processed
+    const processedErrorFields = new Set<string>();
+
+    // First pass: process cells from raw data
     for (const [columnName, value] of Object.entries(rowData.raw)) {
       const templateColumn = getTemplateColumnName(columnName);
       const colIdx = columnMap.get(templateColumn) ?? columnMap.get(columnName);
-      if (colIdx && value != null && value !== "") {
+      const stringValue = value != null ? String(value) : "";
+      const hasData = stringValue.trim() !== "";
+      const hasError =
+        errorFields.has(columnName) || errorFields.has(templateColumn);
+
+      // Process cells that have data OR have errors
+      if (colIdx && (hasData || hasError)) {
         const cell = row.getCell(colIdx);
-        cell.value = value;
-        if (errorFields.has(columnName) || errorFields.has(templateColumn)) {
-          cell.fill = ERROR_FILL;
+        if (hasData) {
+          cell.value = value;
+        }
+        // Use cell.style assignment for per-cell styling (prevents column-level fill propagation)
+        const fill = hasError ? ERROR_FILL : NO_FILL;
+        cell.style = { ...cell.style, fill };
+
+        // Track processed error fields
+        if (hasError) {
+          processedErrorFields.add(columnName);
+          processedErrorFields.add(templateColumn);
         }
       }
     }
 
-    for (const error of rowData.errors) {
-      const templateColumn = getTemplateColumnName(error.field);
-      const colIdx =
-        columnMap.get(templateColumn) ?? columnMap.get(error.field);
-      if (colIdx) row.getCell(colIdx).fill = ERROR_FILL;
+    // Second pass: color error fields that weren't in raw data (e.g., empty paired fields)
+    for (const errorField of errorFields) {
+      if (processedErrorFields.has(errorField)) continue;
+
+      const templateColumn = getTemplateColumnName(errorField);
+      const colIdx = columnMap.get(templateColumn) ?? columnMap.get(errorField);
+      if (colIdx) {
+        const cell = row.getCell(colIdx);
+        cell.style = { ...cell.style, fill: ERROR_FILL };
+      }
     }
 
     row.commit();

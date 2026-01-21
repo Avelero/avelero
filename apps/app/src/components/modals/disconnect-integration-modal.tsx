@@ -54,7 +54,7 @@ export function DisconnectIntegrationModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[480px] p-0 gap-0 border border-border">
+      <DialogContent size="md" className="p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">
             Disconnect {integrationName}
@@ -63,10 +63,12 @@ export function DisconnectIntegrationModal({
 
         <div className="px-6 py-4 space-y-3">
           <DialogDescription className="text-secondary type-p">
-            Are you sure you want to disconnect this integration? This will stop automatic syncing.
+            Are you sure you want to disconnect this integration? This will stop
+            automatic syncing.
           </DialogDescription>
           <p className="text-secondary type-p">
-            Your product data will <span className="text-foreground font-medium">not</span> be deleted.
+            Your product data will{" "}
+            <span className="text-foreground font-medium">not</span> be deleted.
           </p>
         </div>
 
@@ -90,9 +92,3 @@ export function DisconnectIntegrationModal({
     </Dialog>
   );
 }
-
-
-
-
-
-

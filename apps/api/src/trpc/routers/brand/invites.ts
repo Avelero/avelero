@@ -23,7 +23,10 @@ import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
 import { ROLES } from "../../../config/roles.js";
 import { uuidSchema } from "../../../schemas/_shared/primitives.js";
-import { inviteSendSchema, invitesListSchema } from "../../../schemas/brand.js";
+import {
+  brandIdOptionalSchema,
+  inviteSendSchema,
+} from "../../../schemas/brand.js";
 import { badRequest, forbidden, wrapError } from "../../../utils/errors.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
@@ -56,7 +59,7 @@ export const brandInvitesRouter = createTRPCRouter({
    */
   list: brandRequiredProcedure
     .use(hasRole([ROLES.OWNER]))
-    .input(invitesListSchema)
+    .input(brandIdOptionalSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
       if (input.brand_id !== undefined && brandId !== input.brand_id) {
@@ -172,4 +175,4 @@ export const brandInvitesRouter = createTRPCRouter({
     }),
 });
 
-export type BrandInvitesRouter = typeof brandInvitesRouter;
+type BrandInvitesRouter = typeof brandInvitesRouter;

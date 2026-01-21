@@ -1,25 +1,30 @@
 /**
  * Product variant query functions.
- * 
+ *
  * Provides functions for listing variants for a product with attributes.
  */
 
 import { asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  brandAttributes,
   brandAttributeValues,
+  brandAttributes,
   productVariantAttributes,
   productVariants,
 } from "../../schema";
 import { normalizeLimit, parseCursor } from "../_shared/pagination.js";
 import { getProduct, getProductByHandle } from "./get";
-import type { ProductVariantWithAttributes, VariantAttributeSummary } from "./types";
+import type {
+  ProductVariantWithAttributes,
+  VariantAttributeSummary,
+} from "./types";
 
 /**
  * Identifier for variant listing - accepts either product UUID or handle.
  */
-export type VariantProductIdentifier = { product_id: string } | { product_handle: string };
+export type VariantProductIdentifier =
+  | { product_id: string }
+  | { product_handle: string };
 
 /**
  * Lists variants for a product with their attributes.
@@ -33,15 +38,19 @@ export async function listVariantsForProduct(
 ): Promise<ProductVariantWithAttributes[]> {
   // Resolve product ID from identifier
   let productId: string;
-  
-  if ('product_id' in identifier) {
+
+  if ("product_id" in identifier) {
     // Direct product ID - verify it belongs to brand
     const product = await getProduct(db, brandId, identifier.product_id);
     if (!product) return [];
     productId = product.id;
   } else {
     // handle - look up product first
-    const product = await getProductByHandle(db, brandId, identifier.product_handle);
+    const product = await getProductByHandle(
+      db,
+      brandId,
+      identifier.product_handle,
+    );
     if (!product) return [];
     productId = product.id;
   }
@@ -59,6 +68,7 @@ export async function listVariantsForProduct(
       upid: productVariants.upid,
       created_at: productVariants.createdAt,
       updated_at: productVariants.updatedAt,
+      isGhost: productVariants.isGhost,
     })
     .from(productVariants)
     .where(eq(productVariants.productId, productId))
@@ -84,11 +94,11 @@ export async function listVariantsForProduct(
     .from(productVariantAttributes)
     .innerJoin(
       brandAttributeValues,
-      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id)
+      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id),
     )
     .innerJoin(
       brandAttributes,
-      eq(brandAttributeValues.attributeId, brandAttributes.id)
+      eq(brandAttributeValues.attributeId, brandAttributes.id),
     )
     .where(inArray(productVariantAttributes.variantId, variantIds))
     .orderBy(asc(productVariantAttributes.sortOrder));
@@ -117,6 +127,6 @@ export async function listVariantsForProduct(
     created_at: row.created_at,
     updated_at: row.updated_at,
     attributes: attributesByVariant.get(row.id) ?? [],
+    isGhost: row.isGhost,
   }));
 }
-

@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { AveleroLogo } from "@v1/ui/avelero-logo";
 import { AveleroText } from "@v1/ui/avelero-text";
+import Link from "next/link";
 
 export function Footer() {
   return (
@@ -79,7 +79,9 @@ export function Footer() {
                 </ul>
               </div>
               <div>
-                <h6 className="text-small text-foreground/50 pb-1">Resources</h6>
+                <h6 className="text-small text-foreground/50 pb-1">
+                  Resources
+                </h6>
                 <ul>
                   <li>
                     <Link

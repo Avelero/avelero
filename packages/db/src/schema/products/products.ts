@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
   index,
-  numeric,
   pgPolicy,
   pgTable,
   text,
@@ -9,11 +8,11 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brandSeasons } from "../catalog/brand-seasons";
-import { taxonomyCategories } from "../taxonomy/taxonomy-categories";
 import { brandManufacturers } from "../catalog/brand-manufacturers";
+import { brandSeasons } from "../catalog/brand-seasons";
 import { brands } from "../core/brands";
 import { brandIntegrations } from "../integrations/brand-integrations";
+import { taxonomyCategories } from "../taxonomy/taxonomy-categories";
 
 export const products = pgTable(
   "products",
@@ -41,6 +40,13 @@ export const products = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
+    /**
+     * Publication status of the product.
+     * Values: 'published' | 'unpublished' | 'scheduled'
+     * - 'unpublished': Draft, not visible to the public (default)
+     * - 'published': Visible to the public
+     * - 'scheduled': Visual indicator only, not currently visible (behaves like unpublished)
+     */
     status: text("status").notNull().default("unpublished"),
     /**
      * Source of product creation.
@@ -113,7 +119,10 @@ export const products = pgTable(
       table.name.asc().nullsLast().op("text_ops"),
     ),
     // For queries filtering by name alone (count by name)
-    index("idx_products_name").using("btree", table.name.asc().nullsLast().op("text_ops")),
+    index("idx_products_name").using(
+      "btree",
+      table.name.asc().nullsLast().op("text_ops"),
+    ),
     // RLS policies - both members and owners can perform all operations
     pgPolicy("products_select_for_brand_members", {
       as: "permissive",

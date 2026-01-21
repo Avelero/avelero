@@ -1,12 +1,12 @@
 "use client";
 
-import type { Integration } from "@/hooks/use-integrations";
+import { IntegrationLogo } from "@/components/integrations/integration-logo";
 import {
+  type IntegrationStatus,
   IntegrationStatusBadge,
   formatSyncTime,
-  type IntegrationStatus,
 } from "@/components/integrations/integration-status";
-import { IntegrationLogo } from "@/components/integrations/integration-logo";
+import type { Integration } from "@/hooks/use-integrations";
 import { Button } from "@v1/ui/button";
 import Link from "next/link";
 
@@ -22,7 +22,8 @@ export function IntegrationCard({
   integration,
   onConnect,
 }: IntegrationCardProps) {
-  const connectionStatus = integration.connectionStatus as IntegrationStatus | null;
+  const connectionStatus =
+    integration.connectionStatus as IntegrationStatus | null;
   const isConnected = !!connectionStatus;
 
   return (
@@ -37,9 +38,7 @@ export function IntegrationCard({
             )}
           </div>
           {integration.description && (
-            <p className="text-secondary text-sm">
-              {integration.description}
-            </p>
+            <p className="text-secondary text-sm">{integration.description}</p>
           )}
         </div>
       </div>
@@ -47,7 +46,9 @@ export function IntegrationCard({
       <div className="flex items-center gap-3">
         {isConnected ? (
           <Button variant="outline" asChild>
-            <Link href={`/settings/integrations/${integration.slug}`} prefetch>Manage</Link>
+            <Link href={`/settings/integrations/${integration.slug}`} prefetch>
+              Manage
+            </Link>
           </Button>
         ) : (
           <Button variant="outline" onClick={onConnect}>
@@ -59,11 +60,10 @@ export function IntegrationCard({
   );
 }
 
-
 /**
  * Loading skeleton for integration cards.
  */
-export function IntegrationCardSkeleton() {
+function IntegrationCardSkeleton() {
   return (
     <div className="border border-border p-6 flex items-center gap-4 animate-pulse">
       <div className="h-10 w-10 bg-accent" />

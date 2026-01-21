@@ -9,6 +9,4 @@ import { voidSchema } from "./_shared/patterns.js";
  */
 export const summaryProductStatusSchema = voidSchema;
 
-export type SummaryProductStatusInput = z.infer<
-  typeof summaryProductStatusSchema
->;
+type SummaryProductStatusInput = z.infer<typeof summaryProductStatusSchema>;

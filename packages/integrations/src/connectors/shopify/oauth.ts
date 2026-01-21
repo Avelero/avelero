@@ -16,7 +16,7 @@ import { createHmac } from "node:crypto";
 export function validateShopifyHmac(
   params: Record<string, string>,
   hmac: string,
-  clientSecret: string
+  clientSecret: string,
 ): boolean {
   // Remove hmac from params for verification
   const { hmac: _, ...rest } = params;
@@ -58,7 +58,7 @@ export async function exchangeCodeForToken(
   shop: string,
   code: string,
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
 ): Promise<string | null> {
   try {
     const response = await fetch(`https://${shop}/admin/oauth/access_token`, {
@@ -75,7 +75,11 @@ export async function exchangeCodeForToken(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Shopify token exchange failed:", response.status, errorText);
+      console.error(
+        "Shopify token exchange failed:",
+        response.status,
+        errorText,
+      );
       return null;
     }
 
@@ -95,7 +99,7 @@ export function buildAuthorizationUrl(
   clientId: string,
   scopes: string,
   redirectUri: string,
-  state: string
+  state: string,
 ): string {
   const url = new URL(`https://${shop}/admin/oauth/authorize`);
   url.searchParams.set("client_id", clientId);
@@ -120,7 +124,7 @@ export function buildAuthorizationUrl(
 export function verifyShopifyWebhookHmac(
   rawBody: string,
   hmacHeader: string,
-  clientSecret: string
+  clientSecret: string,
 ): boolean {
   // Calculate the expected HMAC using SHA256 and base64 encoding
   // Note: This is different from OAuth HMAC which uses hex encoding
@@ -131,4 +135,3 @@ export function verifyShopifyWebhookHmac(
   // Compare using timing-safe comparison to prevent timing attacks
   return timingSafeEqual(hmacHeader, expectedHmac);
 }
-

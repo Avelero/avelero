@@ -1,24 +1,28 @@
 "use client";
 
-import { useUserBrandsQuerySuspense } from "@/hooks/use-brand";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
-import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
 import {
   Suspense,
-  useState,
-  useMemo,
   useCallback,
-  useEffect,
-  useRef,
   useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import { DeleteProductsModal } from "../modals/delete-products-modal";
 import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type {
+  PassportStatus,
   PassportTableRow,
   SelectionState,
 } from "../tables/passports/types";
@@ -56,17 +60,19 @@ export function TableSection() {
   // Count for delete modal (resolved from selection or passed directly for single delete)
   const [deleteCount, setDeleteCount] = useState(0);
 
-  // Status update mutation
+  // Status change mutation
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const updateStatusMutation = useMutation(
+  const updateProductMutation = useMutation(
     trpc.products.update.mutationOptions({
       onSuccess: () => {
         // Invalidate products list to refresh table
-        void queryClient.invalidateQueries({ queryKey: [["products", "list"]] });
+        void queryClient.invalidateQueries({
+          queryKey: [["products", "list"]],
+        });
         void queryClient.invalidateQueries({ queryKey: [["summary"]] });
       },
-    })
+    }),
   );
 
   // Filter state management
@@ -92,7 +98,15 @@ export function TableSection() {
 
   // Static column order - all columns always visible
   const columnOrder = useMemo(
-    () => ["product", "status", "category", "season", "variantCount", "tags", "actions"],
+    () => [
+      "product",
+      "status",
+      "category",
+      "season",
+      "variantCount",
+      "tags",
+      "actions",
+    ],
     [],
   );
 
@@ -135,7 +149,15 @@ export function TableSection() {
       selectionContext.setSearchValue(searchValue);
       selectionContext.setDisabled(!hasAnyPassports && !hasActiveFilters);
     }
-  }, [selection, selectedCount, filterState, searchValue, hasAnyPassports, hasActiveFilters, selectionContext]);
+  }, [
+    selection,
+    selectedCount,
+    filterState,
+    searchValue,
+    hasAnyPassports,
+    hasActiveFilters,
+    selectionContext,
+  ]);
 
   const handleClearFilters = useCallback(() => {
     setSearchValue("");
@@ -172,59 +194,68 @@ export function TableSection() {
   }, []);
 
   // Handle status change from row action (single product)
-  const handleChangeStatus = useCallback((productId: string, status: string) => {
-    updateStatusMutation.mutate(
-      { id: productId, status },
-      {
-        onSuccess: () => {
-          toast.success(`Status updated to ${status}`);
+  const handleChangeStatus = useCallback(
+    (productId: string, status: "published" | "unpublished") => {
+      updateProductMutation.mutate(
+        { id: productId, status },
+        {
+          onSuccess: () => {
+            toast.success(
+              `Product ${status === "published" ? "published" : "unpublished"} successfully`,
+            );
+          },
+          onError: (error) => {
+            toast.error(error.message || "Failed to update product status");
+          },
         },
-        onError: (error) => {
-          toast.error(error.message || "Failed to update status");
-        },
-      }
-    );
-  }, [updateStatusMutation]);
+      );
+    },
+    [updateProductMutation],
+  );
 
   // Handle bulk status change from Actions menu
-  // Uses the unified update endpoint which supports both single and bulk operations
-  const handleBulkStatusChange = useCallback((status: string) => {
-    if (selectedCount === 0) {
-      toast.error("No products selected");
-      return;
-    }
-
-    // Build the update payload based on selection mode
-    const updatePayload = selection.mode === "all"
-      ? {
-        selection: {
-          mode: "all" as const,
-          filters: filterState.groups.length > 0 ? filterState : undefined,
-          search: deferredSearch?.trim() || undefined,
-          excludeIds: selection.excludeIds.length > 0 ? selection.excludeIds : undefined,
-        },
-        status,
+  const handleChangeStatusSelected = useCallback(
+    (status: "published" | "unpublished" | "scheduled") => {
+      if (selectedCount === 0) {
+        toast.error("No products selected");
+        return;
       }
-      : {
-        selection: {
-          mode: "explicit" as const,
-          ids: selection.includeIds,
-        },
-        status,
-      };
 
-    updateStatusMutation.mutate(updatePayload, {
-      onSuccess: (result) => {
-        const updated = 'updated' in result ? result.updated : 1;
-        toast.success(`Updated ${updated} ${updated === 1 ? "product" : "products"} to ${status}`);
-        // Clear selection after bulk update
-        setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
-      },
-      onError: (error) => {
-        toast.error(error.message || "Failed to update products");
-      },
-    });
-  }, [selection, selectedCount, filterState, deferredSearch, updateStatusMutation]);
+      // Build selection for bulk update
+      const bulkSelection =
+        selection.mode === "explicit"
+          ? { mode: "explicit" as const, includeIds: selection.includeIds }
+          : {
+              mode: "all" as const,
+              excludeIds: selection.excludeIds,
+              filters: filterState.groups.length > 0 ? filterState : undefined,
+              search: searchValue?.trim() || undefined,
+            };
+
+      updateProductMutation.mutate(
+        { selection: bulkSelection, status },
+        {
+          onSuccess: () => {
+            const statusLabel =
+              status === "published"
+                ? "published"
+                : status === "scheduled"
+                  ? "scheduled"
+                  : "unpublished";
+            toast.success(
+              `${selectedCount} ${selectedCount === 1 ? "product" : "products"} ${statusLabel} successfully`,
+            );
+            // Clear selection after bulk operation
+            setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+          },
+          onError: (error) => {
+            toast.error(error.message || "Failed to update product status");
+          },
+        },
+      );
+    },
+    [selection, selectedCount, filterState, searchValue, updateProductMutation],
+  );
 
   // Map UI field names to API field names
   const mapSortField = useCallback((uiField: string): SortField => {
@@ -283,7 +314,7 @@ export function TableSection() {
           setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
         }}
         onDeleteSelectedAction={handleDeleteSelected}
-        onStatusChangeAction={handleBulkStatusChange}
+        onChangeStatusSelectedAction={handleChangeStatusSelected}
         filterState={filterState}
         filterActions={filterActions}
         sortState={sortState}
@@ -338,7 +369,10 @@ interface TableContentProps {
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
   onDeleteProduct?: (productId: string) => void;
-  onChangeStatus?: (productId: string, status: string) => void;
+  onChangeStatus?: (
+    productId: string,
+    status: "published" | "unpublished",
+  ) => void;
   onVisibleProductIdsChange?: (ids: string[]) => void;
 }
 
@@ -366,17 +400,8 @@ function TableContent({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Get active brand's slug for DPP URLs
+  // Get user data for brand context
   const { data: userResult } = useUserQuerySuspense();
-  const { data: brandsResult } = useUserBrandsQuerySuspense();
-  const brandSlug = useMemo(() => {
-    const activeBrandId = (userResult as any)?.brand_id;
-    if (!activeBrandId || !brandsResult) return null;
-    const activeBrand = (brandsResult as any[]).find(
-      (b: any) => b.id === activeBrandId,
-    );
-    return activeBrand?.slug ?? null;
-  }, [userResult, brandsResult]);
 
   // Track previous values to detect changes (including clearing)
   const prevSearchRef = useRef<string | undefined>(search);
@@ -446,19 +471,25 @@ function TableContent({
       const variants: any[] = Array.isArray(p.variants) ? p.variants : [];
       const attributes = p.attributes ?? {};
       const tags = Array.isArray(attributes.tags) ? attributes.tags : [];
+
+      // Filter out ghost variants using the explicit isGhost flag.
+      // Ghost variants exist for publishing purposes but should be invisible to users.
+      const visibleVariants = variants.filter((v: any) => !v.isGhost);
+
       return {
         id: p.id,
         passportIds: [p.id],
         name: p.name ?? "",
         productHandle: p.product_handle ?? p.productHandle ?? "",
-        status: (p.status ?? "unpublished") as any,
+        status: (p.status ?? "unpublished") as PassportStatus,
+        firstVariantUpid: p.first_variant_upid ?? null,
         category: (p as any).category_name ?? null,
         categoryPath: (p as any).category_path ?? null,
         season: (p as any).season_name ?? null,
         imagePath: p.image_path ?? (p as any).imagePath ?? null,
         createdAt: p.created_at ?? p.createdAt ?? "",
         updatedAt: p.updated_at ?? p.updatedAt ?? "",
-        variantCount: variants.length,
+        variantCount: visibleVariants.length,
         tags: tags.map((t: any) => ({
           id: t.id ?? t.tag_id ?? "",
           name: t.name ?? null,
@@ -471,7 +502,7 @@ function TableContent({
   // Report visible product IDs to parent for bulk operations
   useEffect(() => {
     if (onVisibleProductIdsChange) {
-      const ids = tableRows.map(row => row.id);
+      const ids = tableRows.map((row) => row.id);
       onVisibleProductIdsChange(ids);
     }
   }, [tableRows, onVisibleProductIdsChange]);
@@ -664,7 +695,6 @@ function TableContent({
       onPrefetchLast={handlePrefetchLast}
       hasActiveFilters={hasActiveFilters}
       onClearFilters={onClearFilters}
-      brandSlug={brandSlug}
       onDeleteProduct={onDeleteProduct}
       onChangeStatus={onChangeStatus}
     />

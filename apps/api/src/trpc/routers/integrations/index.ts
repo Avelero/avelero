@@ -62,4 +62,4 @@ export const integrationsRouter = createTRPCRouter({
   promotion: promotionRouter,
 });
 
-export type IntegrationsRouter = typeof integrationsRouter;
+type IntegrationsRouter = typeof integrationsRouter;

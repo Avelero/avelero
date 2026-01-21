@@ -1,6 +1,6 @@
 /**
  * Product get/retrieve query functions.
- * 
+ *
  * Provides functions for retrieving individual products by ID or handle,
  * with optional variant and attribute loading.
  */
@@ -18,11 +18,7 @@ import type { ProductHandle, ProductWithRelations } from "./types";
 /**
  * Retrieves a product by ID.
  */
-export async function getProduct(
-  db: Database,
-  brandId: string,
-  id: string,
-) {
+export async function getProduct(db: Database, brandId: string, id: string) {
   const rows = await db
     .select({
       id: products.id,
@@ -66,7 +62,9 @@ export async function getProductByHandle(
       updated_at: products.updatedAt,
     })
     .from(products)
-    .where(and(eq(products.productHandle, handle), eq(products.brandId, brandId)))
+    .where(
+      and(eq(products.productHandle, handle), eq(products.brandId, brandId)),
+    )
     .limit(1);
   return rows[0] ?? null;
 }
@@ -82,10 +80,11 @@ export async function getProductWithIncludes(
   opts: { includeVariants?: boolean; includeAttributes?: boolean } = {},
 ): Promise<ProductWithRelations | null> {
   // Determine which lookup to use based on identifier type
-  const base = 'id' in identifier
-    ? await getProduct(db, brandId, identifier.id)
-    : await getProductByHandle(db, brandId, identifier.handle);
-  
+  const base =
+    "id" in identifier
+      ? await getProduct(db, brandId, identifier.id)
+      : await getProductByHandle(db, brandId, identifier.handle);
+
   if (!base) return null;
 
   const product: ProductWithRelations = { ...base };
@@ -104,10 +103,3 @@ export async function getProductWithIncludes(
 
   return product;
 }
-
-
-
-
-
-
-

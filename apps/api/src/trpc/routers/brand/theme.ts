@@ -1,4 +1,4 @@
-import { tasks } from "@trigger.dev/sdk/v3";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { eq } from "@v1/db/queries";
 /**
  * Brand theme router.
@@ -15,16 +15,78 @@ import { eq } from "@v1/db/queries";
  */
 import { getBrandTheme, updateBrandThemeConfig } from "@v1/db/queries/brand";
 import { brands } from "@v1/db/schema";
+import { getPublicUrl } from "@v1/supabase/storage";
 import { z } from "zod";
 import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
 import { wrapError } from "../../../utils/errors.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
+// ============================================================================
+// Helper: Resolve themeConfig image paths to full URLs
+// ============================================================================
+
+/**
+ * Resolve image paths in themeConfig to full public URLs.
+ *
+ * ThemeConfig stores storage PATHS (not full URLs) for images.
+ * This function converts those paths to full URLs using the current
+ * environment's Supabase URL.
+ */
+function resolveThemeConfigImageUrls<T extends Record<string, unknown> | null>(
+  supabase: SupabaseClient,
+  themeConfig: T,
+): T {
+  if (!themeConfig) return themeConfig;
+
+  // Deep clone to avoid mutating the original
+  const resolved = JSON.parse(JSON.stringify(themeConfig)) as Record<
+    string,
+    unknown
+  >;
+
+  // Resolve branding.headerLogoUrl
+  if (
+    resolved.branding &&
+    typeof resolved.branding === "object" &&
+    resolved.branding !== null
+  ) {
+    const branding = resolved.branding as Record<string, unknown>;
+    if (typeof branding.headerLogoUrl === "string" && branding.headerLogoUrl) {
+      branding.headerLogoUrl = getPublicUrl(
+        supabase,
+        "dpp-assets",
+        branding.headerLogoUrl,
+      );
+    }
+  }
+
+  // Resolve cta.bannerBackgroundImage
+  if (
+    resolved.cta &&
+    typeof resolved.cta === "object" &&
+    resolved.cta !== null
+  ) {
+    const cta = resolved.cta as Record<string, unknown>;
+    if (
+      typeof cta.bannerBackgroundImage === "string" &&
+      cta.bannerBackgroundImage
+    ) {
+      cta.bannerBackgroundImage = getPublicUrl(
+        supabase,
+        "dpp-assets",
+        cta.bannerBackgroundImage,
+      );
+    }
+  }
+
+  return resolved as T;
+}
+
 /**
  * Get theme data (styles and config) for the active brand.
  */
 const getThemeProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
-  const { db, brandId } = ctx;
+  const { db, brandId, supabase } = ctx;
   try {
     const theme = await getBrandTheme(db, brandId);
     if (!theme) {
@@ -33,17 +95,20 @@ const getThemeProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
         themeConfig: {},
         googleFontsUrl: null,
         updatedAt: null,
-        screenshotDesktopPath: null,
-        screenshotMobilePath: null,
       };
     }
+
+    // Resolve image paths in themeConfig to full URLs
+    const resolvedThemeConfig = resolveThemeConfigImageUrls(
+      supabase,
+      (theme.themeConfig as Record<string, unknown>) ?? {},
+    );
+
     return {
       themeStyles: theme.themeStyles,
-      themeConfig: theme.themeConfig,
+      themeConfig: resolvedThemeConfig,
       googleFontsUrl: theme.googleFontsUrl,
       updatedAt: theme.updatedAt,
-      screenshotDesktopPath: theme.screenshotDesktopPath,
-      screenshotMobilePath: theme.screenshotMobilePath,
     };
   } catch (error) {
     throw wrapError(error, "Failed to fetch theme");
@@ -82,13 +147,6 @@ const updateConfigProcedure = brandRequiredProcedure
         // Silently ignore revalidation errors - the config update already succeeded
       }
 
-      // Trigger screenshot capture in background (fire-and-forget)
-      try {
-        await tasks.trigger("capture-theme-screenshot", { brandId });
-      } catch {
-        // Silently ignore - screenshot is optional enhancement
-      }
-
       return result;
     } catch (error) {
       throw wrapError(error, "Failed to update theme config");
@@ -100,4 +158,4 @@ export const brandThemeRouter = createTRPCRouter({
   update: updateConfigProcedure,
 });
 
-export type BrandThemeRouter = typeof brandThemeRouter;
+type BrandThemeRouter = typeof brandThemeRouter;

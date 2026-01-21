@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
-import { NavigationLabel, type BreadcrumbItem } from "./navigation-label";
+import { type BreadcrumbItem, NavigationLabel } from "./navigation-label";
 
 /**
  * Get breadcrumbs for the header based on the current URL.
@@ -32,7 +32,8 @@ function getHeaderBreadcrumbs(pathname: string): BreadcrumbItem[] {
       // /settings/integrations/[integration]
       const integrationName = segments[2];
       if (integrationName) {
-        const displayName = integrationName.charAt(0).toUpperCase() + integrationName.slice(1);
+        const displayName =
+          integrationName.charAt(0).toUpperCase() + integrationName.slice(1);
         return [
           { label: "Integrations", href: "/settings/integrations" },
           { label: displayName },
@@ -59,16 +60,10 @@ function getHeaderBreadcrumbs(pathname: string): BreadcrumbItem[] {
       return [{ label: "Passports" }];
     }
     if (segments[1] === "create") {
-      return [
-        { label: "Passports", href: "/passports" },
-        { label: "Create" },
-      ];
+      return [{ label: "Passports", href: "/passports" }, { label: "Create" }];
     }
     if (segments[1] === "edit") {
-      return [
-        { label: "Passports", href: "/passports" },
-        { label: "Edit" },
-      ];
+      return [{ label: "Passports", href: "/passports" }, { label: "Edit" }];
     }
     return [{ label: "Passports" }];
   }

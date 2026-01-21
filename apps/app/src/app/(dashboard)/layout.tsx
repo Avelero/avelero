@@ -1,6 +1,6 @@
 import { MainSkeleton } from "@/components/main-skeleton";
-import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
-import { cacheLife } from "next/cache";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
+import { connection } from "next/server";
 import { Suspense } from "react";
 
 /**
@@ -28,8 +28,9 @@ async function DashboardLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
-  "use cache: private";
-  cacheLife("minutes");
+  // Signal that this component needs request-time data.
+  // Without this, Cache Components may prerender without request context.
+  await connection();
 
   const queryClient = getQueryClient();
 
@@ -53,5 +54,7 @@ async function DashboardLayoutContent({
     initDashboard.myInvites,
   );
 
+  // HydrateClient transfers seeded cache data to client components.
+  // Per TanStack docs, every layout/page that prefetches must have HydrateClient.
   return <HydrateClient>{children}</HydrateClient>;
 }

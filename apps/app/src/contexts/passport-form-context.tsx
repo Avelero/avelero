@@ -26,6 +26,12 @@ interface PassportFormContextType {
   setProductHandle: (handle: string | null) => void;
   variantUpid: string | null;
   setVariantUpid: (upid: string | null) => void;
+  productId: string | null;
+  setProductId: (id: string | null) => void;
+
+  // Publishing state (from database)
+  publishingStatus: "published" | "unpublished" | null;
+  setPublishingStatus: (status: "published" | "unpublished" | null) => void;
 
   // Submission state
   isSubmitting: boolean;
@@ -67,6 +73,12 @@ export function PassportFormProvider({
   const [formType, setFormType] = React.useState<FormType>("create");
   const [productHandle, setProductHandle] = React.useState<string | null>(null);
   const [variantUpid, setVariantUpid] = React.useState<string | null>(null);
+  const [productId, setProductId] = React.useState<string | null>(null);
+
+  // Publishing state (from database)
+  const [publishingStatus, setPublishingStatus] = React.useState<
+    "published" | "unpublished" | null
+  >(null);
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -91,7 +103,7 @@ export function PassportFormProvider({
         router.push(url);
       }
     },
-    [hasUnsavedChanges, router]
+    [hasUnsavedChanges, router],
   );
 
   const value = React.useMemo(
@@ -102,6 +114,10 @@ export function PassportFormProvider({
       setProductHandle,
       variantUpid,
       setVariantUpid,
+      productId,
+      setProductId,
+      publishingStatus,
+      setPublishingStatus,
       isSubmitting,
       setIsSubmitting,
       hasUnsavedChanges,
@@ -115,6 +131,8 @@ export function PassportFormProvider({
       formType,
       productHandle,
       variantUpid,
+      productId,
+      publishingStatus,
       isSubmitting,
       hasUnsavedChanges,
       pendingNavigationUrl,
@@ -151,11 +169,13 @@ export function useRegisterForm(options: {
   type: FormType;
   productHandle?: string;
   variantUpid?: string;
+  productId?: string | null;
 }) {
   const {
     setFormType,
     setProductHandle,
     setVariantUpid,
+    setProductId,
     setHasUnsavedChanges,
   } = usePassportFormContext();
 
@@ -163,6 +183,7 @@ export function useRegisterForm(options: {
     setFormType(options.type);
     setProductHandle(options.productHandle ?? null);
     setVariantUpid(options.variantUpid ?? null);
+    setProductId(options.productId ?? null);
 
     // Reset unsaved changes when form mounts
     setHasUnsavedChanges(false);
@@ -175,9 +196,11 @@ export function useRegisterForm(options: {
     options.type,
     options.productHandle,
     options.variantUpid,
+    options.productId,
     setFormType,
     setProductHandle,
     setVariantUpid,
+    setProductId,
     setHasUnsavedChanges,
   ]);
 }

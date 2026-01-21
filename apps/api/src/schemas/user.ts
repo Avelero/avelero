@@ -8,18 +8,6 @@ import { z } from "zod";
 import { emailSchema, urlSchema, uuidSchema } from "./_shared/primitives.js";
 
 /**
- * Validates payloads for updating the authenticated user's profile.
- */
-export const updateUserSchema = z.object({
-  email: emailSchema.optional(),
-  full_name: z.string().optional(),
-  // legacy (ignored if column dropped)
-  avatar_url: urlSchema.optional(),
-  // new storage path: "<uid>/<file>"
-  avatar_path: z.string().optional(),
-});
-
-/**
  * Validates payloads for the v2 `user.update` procedure.
  *
  * Only permits updating the display name and avatar URL/path while allowing
@@ -87,7 +75,7 @@ export const brandSetActiveSchema = z.object({
   brand_id: uuidSchema,
 });
 
-export type InviteAcceptInput = z.infer<typeof inviteAcceptSchema>;
-export type InviteRejectInput = z.infer<typeof inviteRejectSchema>;
-export type BrandLeaveInput = z.infer<typeof brandLeaveSchema>;
-export type BrandSetActiveInput = z.infer<typeof brandSetActiveSchema>;
+type InviteAcceptInput = z.infer<typeof inviteAcceptSchema>;
+type InviteRejectInput = z.infer<typeof inviteRejectSchema>;
+type BrandLeaveInput = z.infer<typeof brandLeaveSchema>;
+type BrandSetActiveInput = z.infer<typeof brandSetActiveSchema>;

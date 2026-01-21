@@ -39,4 +39,4 @@ export const roleSchema = z.enum(["owner", "member"]);
  * }
  * ```
  */
-export type Role = z.infer<typeof roleSchema>;
+type Role = z.infer<typeof roleSchema>;

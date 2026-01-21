@@ -1,10 +1,12 @@
 "use client";
 
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
-import { createClient } from "@v1/supabase/client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 
-export type JobProgressType = "sync" | "promotion" | "import" | "export";
+// =============================================================================
+// Types
+// =============================================================================
+
 export type JobProgressStatus =
   | "pending"
   | "running"
@@ -12,40 +14,40 @@ export type JobProgressStatus =
   | "failed"
   | "cancelled";
 
-export interface JobProgressData {
-  jobId: string;
-  jobType: JobProgressType;
-  status: JobProgressStatus;
-  processed: number;
-  total: number | null;
-  startedAt: string | null;
-  errorMessage?: string | null;
-  context?: Record<string, unknown>;
-}
-
-// =============================================================================
-// Trigger.dev Native Realtime Hook for Sync Progress
-// =============================================================================
-
-export interface SyncProgressMetadata {
+/**
+ * Progress metadata stored in Trigger.dev run metadata.
+ * Used by all job types that send progress updates.
+ */
+export interface JobProgressMetadata {
   status: "running" | "completed" | "failed";
   processed: number;
   total: number | null;
   startedAt: string;
   errorMessage?: string | null;
-  context?: { brandIntegrationId: string };
+  context?: Record<string, unknown>;
 }
 
+// =============================================================================
+// Generic Trigger.dev Realtime Progress Hook
+// =============================================================================
+
 /**
- * Hook to subscribe to sync progress via Trigger.dev native realtime.
+ * Generic hook to subscribe to job progress via Trigger.dev native realtime.
  * Uses useRealtimeRun to subscribe directly to the Trigger.dev run.
+ *
+ * @param runId - The Trigger.dev run ID (returned when triggering a job)
+ * @param accessToken - Public access token for the run (returned when triggering a job)
+ * @param metadataKey - The key in run.metadata where progress is stored (e.g., "syncProgress")
  */
-export function useTriggerSyncProgress(
+export function useTriggerJobProgress<
+  T extends JobProgressMetadata = JobProgressMetadata,
+>(
   runId: string | null,
   accessToken: string | null,
+  metadataKey: string,
 ): {
-  progress: SyncProgressMetadata | null;
-  runStatus: string | null;
+  progress: T | null;
+  runStatus: JobProgressStatus | null;
   error: Error | null;
 } {
   const isEnabled = !!runId && !!accessToken;
@@ -55,14 +57,14 @@ export function useTriggerSyncProgress(
     enabled: isEnabled,
   });
 
-  // Extract sync progress from run metadata
+  // Extract progress from run metadata using the specified key
   const progress = useMemo(() => {
-    if (!run?.metadata?.syncProgress) return null;
-    return run.metadata.syncProgress as unknown as SyncProgressMetadata;
-  }, [run?.metadata?.syncProgress]);
+    if (!run?.metadata?.[metadataKey]) return null;
+    return run.metadata[metadataKey] as unknown as T;
+  }, [run?.metadata, metadataKey]);
 
   // Map Trigger.dev run status to our status type
-  const runStatus = useMemo(() => {
+  const runStatus = useMemo((): JobProgressStatus | null => {
     if (!run) return null;
     // Trigger.dev statuses from SDK 4.0.6
     switch (run.status) {
@@ -78,14 +80,9 @@ export function useTriggerSyncProgress(
         return "failed";
       case "CANCELED":
         return "cancelled";
-      case "QUEUED":
-      case "DEQUEUED":
-      case "WAITING":
-      case "DELAYED":
-      case "PENDING_VERSION":
-        return "pending";
       default:
-        return String(run.status).toLowerCase();
+        // QUEUED, DEQUEUED, WAITING, DELAYED, PENDING_VERSION, and unknown statuses
+        return "pending";
     }
   }, [run?.status]);
 
@@ -93,148 +90,90 @@ export function useTriggerSyncProgress(
 }
 
 // =============================================================================
-// Legacy Supabase Realtime Hook (for promotion progress)
-// =============================================================================
-
-export interface UseJobProgressOptions {
-  jobTypes?: JobProgressType[];
-  contextFilter?: Record<string, unknown>;
-  completedRetention?: number;
-}
-
-/**
- * Legacy hook for job progress via Supabase Realtime.
- * Still used for promotion progress (sync now uses Trigger.dev native realtime).
- */
-export function useJobProgress(
-  brandId: string | null,
-  options: UseJobProgressOptions = {},
-): {
-  progress: JobProgressData | null;
-  isConnected: boolean;
-  clear: () => void;
-} {
-  const { jobTypes, contextFilter, completedRetention = 10000 } = options;
-
-  const [progress, setProgress] = useState<JobProgressData | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const supabase = useMemo(() => createClient(), []);
-  const retentionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Use refs to avoid stale closures in the subscription callback
-  const jobTypesRef = useRef(jobTypes);
-  const contextFilterRef = useRef(contextFilter);
-  const completedRetentionRef = useRef(completedRetention);
-
-  // Keep refs in sync with latest values
-  useEffect(() => {
-    jobTypesRef.current = jobTypes;
-    contextFilterRef.current = contextFilter;
-    completedRetentionRef.current = completedRetention;
-  }, [jobTypes, contextFilter, completedRetention]);
-
-  const clear = useCallback(() => {
-    setProgress(null);
-    if (retentionTimerRef.current) {
-      clearTimeout(retentionTimerRef.current);
-      retentionTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!brandId) {
-      setIsConnected(false);
-      return;
-    }
-
-    const channel = supabase
-      .channel(`job-progress:${brandId}`)
-      .on("broadcast", { event: "progress" }, (message) => {
-        const payload = message.payload as JobProgressData;
-
-        // Apply filters using refs to avoid stale closures
-        if (
-          jobTypesRef.current?.length &&
-          !jobTypesRef.current.includes(payload.jobType)
-        )
-          return;
-        if (contextFilterRef.current && payload.context) {
-          const matches = Object.entries(contextFilterRef.current).every(
-            ([key, value]) => payload.context?.[key] === value,
-          );
-          if (!matches) return;
-        }
-
-        setProgress(payload);
-
-        if (retentionTimerRef.current) {
-          clearTimeout(retentionTimerRef.current);
-          retentionTimerRef.current = null;
-        }
-
-        // Auto-clear for terminal states
-        if (
-          payload.status === "completed" ||
-          payload.status === "failed" ||
-          payload.status === "cancelled"
-        ) {
-          retentionTimerRef.current = setTimeout(() => {
-            setProgress(null);
-            retentionTimerRef.current = null;
-          }, completedRetentionRef.current);
-        }
-      })
-      .subscribe((status) => {
-        setIsConnected(status === "SUBSCRIBED");
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-      setIsConnected(false);
-      if (retentionTimerRef.current) {
-        clearTimeout(retentionTimerRef.current);
-        retentionTimerRef.current = null;
-      }
-    };
-  }, [brandId, supabase]);
-
-  return { progress, isConnected, clear };
-}
-
-// =============================================================================
-// Convenience Hooks
+// Convenience Hooks (typed wrappers around useTriggerJobProgress)
 // =============================================================================
 
 /**
- * @deprecated Use useTriggerSyncProgress instead for sync progress.
- * This hook is kept for backwards compatibility but sync now uses Trigger.dev native realtime.
+ * Sync progress metadata structure.
  */
-export function useSyncProgress(
-  brandId: string | null,
-  brandIntegrationId: string | null,
+export interface SyncProgressMetadata extends JobProgressMetadata {
+  context?: { brandIntegrationId: string };
+}
+
+/**
+ * Hook to subscribe to sync job progress via Trigger.dev native realtime.
+ */
+export function useTriggerSyncProgress(
+  runId: string | null,
+  accessToken: string | null,
 ) {
-  const { progress, isConnected } = useJobProgress(brandId, {
-    jobTypes: ["sync"],
-    contextFilter: brandIntegrationId ? { brandIntegrationId } : undefined,
-  });
-  return { progress, isConnected };
+  return useTriggerJobProgress<SyncProgressMetadata>(
+    runId,
+    accessToken,
+    "syncProgress",
+  );
 }
 
-export function usePromotionProgress(
-  brandId: string | null,
-  brandIntegrationId: string | null,
+/**
+ * Promotion progress metadata structure.
+ */
+export interface PromotionProgressMetadata extends JobProgressMetadata {
+  context?: { brandIntegrationId: string };
+}
+
+/**
+ * Hook to subscribe to promotion job progress via Trigger.dev native realtime.
+ */
+export function useTriggerPromotionProgress(
+  runId: string | null,
+  accessToken: string | null,
 ) {
-  const { progress, isConnected } = useJobProgress(brandId, {
-    jobTypes: ["promotion"],
-    contextFilter: brandIntegrationId ? { brandIntegrationId } : undefined,
-  });
-  return { progress, isConnected };
+  return useTriggerJobProgress<PromotionProgressMetadata>(
+    runId,
+    accessToken,
+    "promotionProgress",
+  );
 }
 
-export function useImportProgress(brandId: string | null) {
-  const { progress, isConnected } = useJobProgress(brandId, {
-    jobTypes: ["import"],
-  });
-  return { progress, isConnected };
+/**
+ * Import progress metadata structure.
+ */
+export interface ImportProgressMetadata extends JobProgressMetadata {
+  context?: { importJobId?: string };
 }
 
+/**
+ * Hook to subscribe to import job progress via Trigger.dev native realtime.
+ */
+function useTriggerImportProgress(
+  runId: string | null,
+  accessToken: string | null,
+) {
+  return useTriggerJobProgress<ImportProgressMetadata>(
+    runId,
+    accessToken,
+    "importProgress",
+  );
+}
+
+/**
+ * Export progress metadata structure.
+ */
+export interface ExportProgressMetadata extends JobProgressMetadata {
+  context?: { exportJobId?: string };
+  downloadUrl?: string | null;
+}
+
+/**
+ * Hook to subscribe to export job progress via Trigger.dev native realtime.
+ */
+export function useTriggerExportProgress(
+  runId: string | null,
+  accessToken: string | null,
+) {
+  return useTriggerJobProgress<ExportProgressMetadata>(
+    runId,
+    accessToken,
+    "exportProgress",
+  );
+}

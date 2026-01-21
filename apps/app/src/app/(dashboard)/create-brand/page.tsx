@@ -3,7 +3,7 @@ import {
   CreateBrandFormSkeleton,
 } from "@/components/forms/create-brand-form";
 import { Header } from "@/components/header";
-import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 

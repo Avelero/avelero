@@ -45,4 +45,4 @@ export const promotionRouter = createTRPCRouter({
     }),
 });
 
-export type PromotionRouter = typeof promotionRouter;
+type PromotionRouter = typeof promotionRouter;

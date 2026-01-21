@@ -7,11 +7,9 @@
     "src/index.ts",
     "src/countries.ts",
     "src/certifications.ts",
-    "src/categories.ts",
     "src/colors.ts",
     "src/fonts.ts",
     "src/production-steps.ts",
-    "src/seasons.ts",
     "src/sizes.ts"
   ],
   "exports": {
@@ -27,10 +25,6 @@
       "types": "./src/certifications.ts",
       "default": "./src/certifications.ts"
     },
-    "./categories": {
-      "types": "./src/categories.ts",
-      "default": "./src/categories.ts"
-    },
     "./colors": {
       "types": "./src/colors.ts",
       "default": "./src/colors.ts"
@@ -42,10 +36,6 @@
     "./production-steps": {
       "types": "./src/production-steps.ts",
       "default": "./src/production-steps.ts"
-    },
-    "./seasons": {
-      "types": "./src/seasons.ts",
-      "default": "./src/seasons.ts"
     },
     "./sizes": {
       "types": "./src/sizes.ts",

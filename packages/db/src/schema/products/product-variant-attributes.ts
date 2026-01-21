@@ -8,8 +8,8 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { productVariants } from "./product-variants";
 import { brandAttributeValues } from "../catalog/brand-attribute-values";
+import { productVariants } from "./product-variants";
 
 export const productVariantAttributes = pgTable(
   "product_variant_attributes",
@@ -21,7 +21,10 @@ export const productVariantAttributes = pgTable(
       })
       .notNull(),
     attributeValueId: uuid("attribute_value_id")
-      .references(() => brandAttributeValues.id, { onDelete: "cascade", onUpdate: "cascade" })
+      .references(() => brandAttributeValues.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      })
       .notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
@@ -33,7 +36,10 @@ export const productVariantAttributes = pgTable(
   },
   (table) => [
     // Composite primary key: variant + attribute value
-    primaryKey({ columns: [table.variantId, table.attributeValueId], name: "product_variant_attributes_pkey" }),
+    primaryKey({
+      columns: [table.variantId, table.attributeValueId],
+      name: "product_variant_attributes_pkey",
+    }),
     // Index for loading attributes by variant
     index("idx_product_variant_attributes_variant").on(table.variantId),
     // RLS policies - inherit brand access through product_variants → products relationship

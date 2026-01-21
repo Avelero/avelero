@@ -1,7 +1,7 @@
 "use client";
 
-import { Input } from "@v1/ui/input";
 import { cn } from "@v1/ui/cn";
+import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 
 interface BorderInputProps {
@@ -99,34 +99,3 @@ export function BorderInput({
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

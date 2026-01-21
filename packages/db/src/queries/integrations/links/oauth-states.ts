@@ -1,6 +1,6 @@
 /**
  * OAuth state query functions.
- * 
+ *
  * Handles OAuth flow CSRF protection state management.
  */
 
@@ -82,12 +82,3 @@ export async function deleteExpiredOAuthStates(db: Database) {
   const now = new Date().toISOString();
   return db.delete(oauthStates).where(lt(oauthStates.expiresAt, now));
 }
-
-
-
-
-
-
-
-
-

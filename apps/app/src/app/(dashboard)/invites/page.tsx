@@ -1,6 +1,6 @@
+import { Header } from "@/components/header";
 import { BrandsTable } from "@/components/tables/brands/brands";
 import { BrandsSkeleton } from "@/components/tables/brands/skeleton";
-import { Header } from "@/components/header";
 import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { Suspense } from "react";

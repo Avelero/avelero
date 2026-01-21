@@ -16,24 +16,24 @@ import { testDb } from "./connection";
  * Returns the brand ID for use in tests.
  */
 export async function createTestBrand(name = "Test Brand"): Promise<string> {
-    // Generate unique slug with random suffix to prevent collisions
-    // when tests run concurrently or cleanup is incomplete
-    const randomSuffix = Math.random().toString(36).substring(2, 10);
-    const baseSlug = name.toLowerCase().replace(/\s+/g, "-");
+  // Generate unique slug with random suffix to prevent collisions
+  // when tests run concurrently or cleanup is incomplete
+  const randomSuffix = Math.random().toString(36).substring(2, 10);
+  const baseSlug = name.toLowerCase().replace(/\s+/g, "-");
 
-    const [brand] = await testDb
-        .insert(schema.brands)
-        .values({
-            name,
-            slug: `${baseSlug}-${randomSuffix}`,
-        })
-        .returning({ id: schema.brands.id });
+  const [brand] = await testDb
+    .insert(schema.brands)
+    .values({
+      name,
+      slug: `${baseSlug}-${randomSuffix}`,
+    })
+    .returning({ id: schema.brands.id });
 
-    if (!brand) {
-        throw new Error("Failed to create test brand");
-    }
+  if (!brand) {
+    throw new Error("Failed to create test brand");
+  }
 
-    return brand.id;
+  return brand.id;
 }
 
 /**
@@ -41,60 +41,61 @@ export async function createTestBrand(name = "Test Brand"): Promise<string> {
  * Returns the brand integration ID for use in tests.
  */
 export async function createTestBrandIntegration(
-    brandId: string,
-    integrationSlug = "shopify",
-    options?: { isPrimary?: boolean }
+  brandId: string,
+  integrationSlug = "shopify",
+  options?: { isPrimary?: boolean },
 ): Promise<string> {
-    // First ensure the integration exists
-    const [existingIntegration] = await testDb
-        .select()
-        .from(schema.integrations)
-        .where(sql`${schema.integrations.slug} = ${integrationSlug}`)
-        .limit(1);
+  // First ensure the integration exists
+  const [existingIntegration] = await testDb
+    .select()
+    .from(schema.integrations)
+    .where(sql`${schema.integrations.slug} = ${integrationSlug}`)
+    .limit(1);
 
-    let integrationId: string;
+  let integrationId: string;
 
-    if (existingIntegration) {
-        integrationId = existingIntegration.id;
-    } else {
-        const [integration] = await testDb
-            .insert(schema.integrations)
-            .values({
-                slug: integrationSlug,
-                name: integrationSlug.charAt(0).toUpperCase() + integrationSlug.slice(1),
-                description: `Test ${integrationSlug} integration`,
-                authType: "oauth",
-                status: "active",
-            })
-            .returning({ id: schema.integrations.id });
+  if (existingIntegration) {
+    integrationId = existingIntegration.id;
+  } else {
+    const [integration] = await testDb
+      .insert(schema.integrations)
+      .values({
+        slug: integrationSlug,
+        name:
+          integrationSlug.charAt(0).toUpperCase() + integrationSlug.slice(1),
+        description: `Test ${integrationSlug} integration`,
+        authType: "oauth",
+        status: "active",
+      })
+      .returning({ id: schema.integrations.id });
 
-        if (!integration) {
-            throw new Error("Failed to create test integration");
-        }
-
-        integrationId = integration.id;
+    if (!integration) {
+      throw new Error("Failed to create test integration");
     }
 
-    // Create brand integration
-    const [brandIntegration] = await testDb
-        .insert(schema.brandIntegrations)
-        .values({
-            brandId,
-            integrationId,
-            status: "active",
-            isPrimary: options?.isPrimary ?? false,
-            credentials: JSON.stringify({
-                accessToken: "test-access-token",
-                shopDomain: "test-shop.myshopify.com",
-            }),
-        })
-        .returning({ id: schema.brandIntegrations.id });
+    integrationId = integration.id;
+  }
 
-    if (!brandIntegration) {
-        throw new Error("Failed to create test brand integration");
-    }
+  // Create brand integration
+  const [brandIntegration] = await testDb
+    .insert(schema.brandIntegrations)
+    .values({
+      brandId,
+      integrationId,
+      status: "active",
+      isPrimary: options?.isPrimary ?? false,
+      credentials: JSON.stringify({
+        accessToken: "test-access-token",
+        shopDomain: "test-shop.myshopify.com",
+      }),
+    })
+    .returning({ id: schema.brandIntegrations.id });
 
-    return brandIntegration.id;
+  if (!brandIntegration) {
+    throw new Error("Failed to create test brand integration");
+  }
+
+  return brandIntegration.id;
 }
 
 /**
@@ -102,27 +103,71 @@ export async function createTestBrandIntegration(
  * Enables all standard Shopify fields with default sources.
  */
 export async function createDefaultFieldConfigs(
-    brandIntegrationId: string
+  brandIntegrationId: string,
 ): Promise<void> {
-    const defaultConfigs = [
-        { fieldKey: "product.name", ownershipEnabled: true, sourceOptionKey: "title" },
-        { fieldKey: "product.description", ownershipEnabled: true, sourceOptionKey: "description" },
-        { fieldKey: "product.imagePath", ownershipEnabled: true, sourceOptionKey: "featured_image" },
-        { fieldKey: "product.webshopUrl", ownershipEnabled: true, sourceOptionKey: "online_store_url" },
-        { fieldKey: "product.salesStatus", ownershipEnabled: true, sourceOptionKey: "status" },
-        { fieldKey: "product.tags", ownershipEnabled: true, sourceOptionKey: "tags" },
-        { fieldKey: "product.categoryId", ownershipEnabled: true, sourceOptionKey: "category" },
-        { fieldKey: "product.price", ownershipEnabled: true, sourceOptionKey: "price" },
-        { fieldKey: "product.currency", ownershipEnabled: true, sourceOptionKey: "currency" },
-        { fieldKey: "variant.sku", ownershipEnabled: true, sourceOptionKey: "sku" },
-        { fieldKey: "variant.barcode", ownershipEnabled: true, sourceOptionKey: "barcode" },
-        { fieldKey: "variant.attributes", ownershipEnabled: true, sourceOptionKey: "selectedOptions" },
-    ];
+  const defaultConfigs = [
+    {
+      fieldKey: "product.name",
+      ownershipEnabled: true,
+      sourceOptionKey: "title",
+    },
+    {
+      fieldKey: "product.description",
+      ownershipEnabled: true,
+      sourceOptionKey: "description",
+    },
+    {
+      fieldKey: "product.imagePath",
+      ownershipEnabled: true,
+      sourceOptionKey: "featured_image",
+    },
+    {
+      fieldKey: "product.webshopUrl",
+      ownershipEnabled: true,
+      sourceOptionKey: "online_store_url",
+    },
+    {
+      fieldKey: "product.salesStatus",
+      ownershipEnabled: true,
+      sourceOptionKey: "status",
+    },
+    {
+      fieldKey: "product.tags",
+      ownershipEnabled: true,
+      sourceOptionKey: "tags",
+    },
+    {
+      fieldKey: "product.categoryId",
+      ownershipEnabled: true,
+      sourceOptionKey: "category",
+    },
+    {
+      fieldKey: "product.price",
+      ownershipEnabled: true,
+      sourceOptionKey: "price",
+    },
+    {
+      fieldKey: "product.currency",
+      ownershipEnabled: true,
+      sourceOptionKey: "currency",
+    },
+    { fieldKey: "variant.sku", ownershipEnabled: true, sourceOptionKey: "sku" },
+    {
+      fieldKey: "variant.barcode",
+      ownershipEnabled: true,
+      sourceOptionKey: "barcode",
+    },
+    {
+      fieldKey: "variant.attributes",
+      ownershipEnabled: true,
+      sourceOptionKey: "selectedOptions",
+    },
+  ];
 
-    await testDb.insert(schema.integrationFieldConfigs).values(
-        defaultConfigs.map((config) => ({
-            brandIntegrationId,
-            ...config,
-        }))
-    );
+  await testDb.insert(schema.integrationFieldConfigs).values(
+    defaultConfigs.map((config) => ({
+      brandIntegrationId,
+      ...config,
+    })),
+  );
 }

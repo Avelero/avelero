@@ -15,14 +15,14 @@ import {
   and,
   asc,
   eq,
-  ne,
   inArray,
-  notInArray,
   isNotNull,
+  ne,
+  notInArray,
   sql,
 } from "drizzle-orm";
 import type { Database } from "../../client";
-import { products, taxonomyCategories, productCommercial } from "../../schema";
+import { productCommercial, products, taxonomyCategories } from "../../schema";
 import { convertFilterStateToWhereClauses } from "../../utils/filter-converter";
 
 // ============================================================================
@@ -183,8 +183,14 @@ export async function fetchCarouselProducts(
         categoryParentId: taxonomyCategories.parentId,
       })
       .from(products)
-      .innerJoin(productCommercial, eq(productCommercial.productId, products.id))
-      .leftJoin(taxonomyCategories, eq(taxonomyCategories.id, products.categoryId))
+      .innerJoin(
+        productCommercial,
+        eq(productCommercial.productId, products.id),
+      )
+      .leftJoin(
+        taxonomyCategories,
+        eq(taxonomyCategories.id, products.categoryId),
+      )
       .where(and(...baseConditions, inArray(products.id, eligibleIds)))
       .orderBy(asc(relevanceOrder), sql`RANDOM()`)
       .limit(productCount);
@@ -242,7 +248,10 @@ export async function fetchCarouselProducts(
     })
     .from(products)
     .innerJoin(productCommercial, eq(productCommercial.productId, products.id))
-    .leftJoin(taxonomyCategories, eq(taxonomyCategories.id, products.categoryId))
+    .leftJoin(
+      taxonomyCategories,
+      eq(taxonomyCategories.id, products.categoryId),
+    )
     .where(and(...whereConditions))
     .orderBy(asc(relevanceOrder), sql`RANDOM()`)
     .limit(productCount);
@@ -333,6 +342,3 @@ function mapToCarouselProducts(
       webshopUrl: row.webshopUrl,
     }));
 }
-
-
-

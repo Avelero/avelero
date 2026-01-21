@@ -1,6 +1,12 @@
 "use client";
 
-import * as React from "react";
+import { saveThemeAction } from "@/actions/design/save-theme-action";
+import { CustomFontsModal } from "@/components/modals/custom-fonts-modal";
+import { FontSelect } from "@/components/select/font-select";
+import { useDesignEditor } from "@/contexts/design-editor-provider";
+import { useTRPC } from "@/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
+import type { CustomFont, TypographyScale } from "@v1/dpp-components";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
@@ -12,11 +18,8 @@ import {
   SelectList,
   SelectTrigger,
 } from "@v1/ui/select";
-import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { FontSelect } from "@/components/select/font-select";
-import { CustomFontsModal } from "@/components/modals/custom-fonts-modal";
-import { PixelInput, FieldWrapper } from "../inputs";
-import type { TypographyScale, CustomFont } from "@v1/dpp-components";
+import * as React from "react";
+import { FieldWrapper, PixelInput } from "../inputs";
 
 // Typography scale configuration
 const TYPOGRAPHY_SCALES = [
@@ -90,7 +93,10 @@ function TypographySelect({
         <Button
           variant="outline"
           size="default"
-          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
+          className={cn(
+            "w-full justify-between data-[state=open]:bg-accent",
+            className,
+          )}
         >
           <span
             className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
@@ -245,10 +251,16 @@ function TypographyScaleForm({
 }
 
 export function TypographyEditor() {
-  const { themeStylesDraft, setThemeStylesDraft, updateTypographyScale, brandId } =
-    useDesignEditor();
+  const {
+    themeStylesDraft,
+    setThemeStylesDraft,
+    updateTypographyScale,
+    brandId,
+  } = useDesignEditor();
   const [openItem, setOpenItem] = React.useState<string | null>(null);
   const [customFontsModalOpen, setCustomFontsModalOpen] = React.useState(false);
+  const queryClient = useQueryClient();
+  const trpc = useTRPC();
 
   const toggleItem = (key: string) => {
     setOpenItem((prev) => (prev === key ? null : key));
@@ -261,15 +273,29 @@ export function TypographyEditor() {
   // Get custom fonts from theme styles
   const customFonts = themeStylesDraft.customFonts ?? [];
 
-  // Update custom fonts in theme styles
+  // Update custom fonts in theme styles and auto-save to database
   const handleCustomFontsChange = React.useCallback(
-    (fonts: CustomFont[]) => {
-      setThemeStylesDraft({
+    async (fonts: CustomFont[]) => {
+      // Update local state immediately for UI
+      const updatedThemeStyles = {
         ...themeStylesDraft,
         customFonts: fonts,
-      });
+      };
+      setThemeStylesDraft(updatedThemeStyles);
+
+      // Auto-save to database so fonts persist without clicking Save
+      if (brandId) {
+        await saveThemeAction({
+          brandId,
+          themeStyles: updatedThemeStyles,
+        });
+        // Invalidate cache so re-entering the editor shows the fonts
+        await queryClient.invalidateQueries({
+          queryKey: trpc.brand.theme.get.queryKey(),
+        });
+      }
     },
-    [themeStylesDraft, setThemeStylesDraft],
+    [themeStylesDraft, setThemeStylesDraft, brandId, queryClient, trpc],
   );
 
   const handleManageCustomFonts = React.useCallback(() => {

@@ -201,4 +201,3 @@ export async function getLatestSyncJob(
     .limit(1);
   return row;
 }
-

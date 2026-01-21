@@ -1,17 +1,18 @@
 "use client";
 
 import { getQuickFilterFields } from "@/config/filters";
-import { useFieldOptions } from "@/hooks/use-filter-options";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { useFieldOptions } from "@/hooks/use-filter-options";
+import { useTRPC } from "@/trpc/client";
 import {
   convertQuickFiltersToFilterState,
   extractQuickFiltersFromFilterState,
   hasAdvancedFilters,
   hasQuickFilters,
 } from "@/utils/filter-converter";
-import { useTRPC } from "@/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
 import {
   Command,
   CommandEmpty,
@@ -33,7 +34,6 @@ import {
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
-import { cn } from "@v1/ui/cn";
 import { format } from "date-fns";
 import * as React from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -55,7 +55,7 @@ const QUICK_FIELDS = getQuickFilterFields();
 
 const renderStatusIcon = (fieldId: string, value: string) => {
   if (fieldId !== "status") return null;
-  const iconClass = "status-icon h-[14px] w-[14px]";
+  const iconClass = "status-icon h-[12px] w-[12px]";
   const icons = {
     published: <Icons.StatusPublished className={iconClass} />,
     scheduled: <Icons.StatusScheduled className={iconClass} />,
@@ -76,7 +76,9 @@ export function QuickFiltersPopover({
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
 
   // Store pending selections locally - only apply when popover closes
-  const [pendingQuickFilters, setPendingQuickFilters] = React.useState<Record<string, string[]>>({});
+  const [pendingQuickFilters, setPendingQuickFilters] = React.useState<
+    Record<string, string[]>
+  >({});
   const [hasLocalChanges, setHasLocalChanges] = React.useState(false);
 
   // Extract current quick filter selections from FilterState
@@ -147,7 +149,8 @@ export function QuickFiltersPopover({
   const applyPendingFilters = React.useCallback(() => {
     if (!hasLocalChanges) return;
 
-    const newFilterState = convertQuickFiltersToFilterState(pendingQuickFilters);
+    const newFilterState =
+      convertQuickFiltersToFilterState(pendingQuickFilters);
     filterActions.setGroups(newFilterState.groups);
     setHasLocalChanges(false);
   }, [pendingQuickFilters, hasLocalChanges, filterActions]);
@@ -189,7 +192,12 @@ export function QuickFiltersPopover({
     }
     setOpen(false);
     onOpenAdvanced();
-  }, [onOpenAdvanced, showAdvancedFilters, hasLocalChanges, applyPendingFilters]);
+  }, [
+    onOpenAdvanced,
+    showAdvancedFilters,
+    hasLocalChanges,
+    applyPendingFilters,
+  ]);
 
   // Keyboard shortcut: Shift + Cmd/Ctrl + F (only when advanced filters are enabled)
   useHotkeys(
@@ -417,7 +425,7 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
                         isSelected
                           ? "bg-accent-blue text-brand"
                           : hoveredRow === categoryId &&
-                            hoveredArea === "selection"
+                              hoveredArea === "selection"
                             ? "bg-accent-dark text-primary"
                             : "text-primary",
                       )}
@@ -622,12 +630,7 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
   const isSeasonField = field.id === "season";
   const { options: dynamicOptions, isLoading: isDynamicLoading } =
     useFieldOptions(field.id);
-  const {
-    categoryHierarchy,
-    categoryMap,
-    seasons,
-    tags,
-  } = useBrandCatalog();
+  const { categoryHierarchy, categoryMap, seasons, tags } = useBrandCatalog();
 
   // For season, convert seasons to options format
   const seasonOptions = React.useMemo(() => {
@@ -735,10 +738,10 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
                     // Get season info for season field
                     let seasonInfo:
                       | {
-                        startDate?: Date | null;
-                        endDate?: Date | null;
-                        isOngoing?: boolean;
-                      }
+                          startDate?: Date | null;
+                          endDate?: Date | null;
+                          isOngoing?: boolean;
+                        }
                       | undefined;
                     if (field.id === "season") {
                       const season = seasons.find((s) => s.id === option.value);

@@ -9,16 +9,20 @@
 
 // Main form components
 export { CreateProductForm, EditProductForm } from "./product-form";
-export { VariantForm, EditVariantForm, CreateVariantForm } from "./variant-form";
+export {
+  VariantForm,
+  EditVariantForm,
+  CreateVariantForm,
+} from "./variant-form";
 
 // Action components
-export { FormActionsWrapper, ProductFormActions, VariantFormActions } from "./actions";
+export {
+  FormActionsWrapper,
+  ProductFormActions,
+  VariantFormActions,
+} from "./actions";
 
 // Sidebar components
 export { IdentifiersSidebar } from "./sidebars/identifiers-sidebar";
 export { StatusSidebar } from "./sidebars/status-sidebar";
 export { VariantsOverview } from "./sidebars/variants-overview";
-
-// Skeleton components
-export { ProductFormSkeleton } from "./skeletons/product-skeleton";
-export { VariantFormSkeleton } from "./skeletons/variant-skeleton";

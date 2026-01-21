@@ -1,5 +1,5 @@
-import type { MetadataRoute } from "next";
 import { getAllUpdates } from "@/lib/updates";
+import type { MetadataRoute } from "next";
 
 export const baseUrl = "https://avelero.com";
 

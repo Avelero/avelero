@@ -7,12 +7,12 @@
  * Matches the CarouselProductRow from the database query.
  */
 export interface CarouselProductRow {
-    id: string;
-    name: string;
-    productHandle: string;
-    imagePath: string | null;
-    categoryName: string | null;
-    seasonName: string | null;
+  id: string;
+  name: string;
+  productHandle: string;
+  imagePath: string | null;
+  categoryName: string | null;
+  seasonName: string | null;
 }
 
 /**
@@ -20,20 +20,20 @@ export interface CarouselProductRow {
  * Used to track which products are selected for the carousel.
  */
 export interface CarouselSelectionState {
-    /**
-     * Selection mode:
-     * - "all": All products matching filter are selected, excludeIds contains deselections
-     * - "explicit": Only products in includeIds are selected
-     */
-    mode: "all" | "explicit";
-    /**
-     * IDs of products explicitly included (used when mode is "explicit")
-     */
-    includeIds: string[];
-    /**
-     * IDs of products excluded from selection (used when mode is "all")
-     */
-    excludeIds: string[];
+  /**
+   * Selection mode:
+   * - "all": All products matching filter are selected, excludeIds contains deselections
+   * - "explicit": Only products in includeIds are selected
+   */
+  mode: "all" | "explicit";
+  /**
+   * IDs of products explicitly included (used when mode is "explicit")
+   */
+  includeIds: string[];
+  /**
+   * IDs of products excluded from selection (used when mode is "all")
+   */
+  excludeIds: string[];
 }
 
 /**
@@ -41,19 +41,19 @@ export interface CarouselSelectionState {
  * Simplified version matching the tRPC schema.
  */
 export interface FilterCondition {
-    id: string;
-    fieldId: string;
-    operator: string;
-    value: unknown;
-    nestedConditions?: FilterCondition[];
+  id: string;
+  fieldId: string;
+  operator: string;
+  value: unknown;
+  nestedConditions?: FilterCondition[];
 }
 
 export interface FilterGroup {
-    id: string;
-    conditions: FilterCondition[];
-    asGroup?: boolean;
+  id: string;
+  conditions: FilterCondition[];
+  asGroup?: boolean;
 }
 
-export interface FilterState {
-    groups: FilterGroup[];
+interface FilterState {
+  groups: FilterGroup[];
 }

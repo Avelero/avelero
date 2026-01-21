@@ -16,6 +16,10 @@ import { VariantSection } from "@/components/forms/passport/blocks/variant-block
 import { IdentifiersSidebar } from "@/components/forms/passport/sidebars/identifiers-sidebar";
 import { StatusSidebar } from "@/components/forms/passport/sidebars/status-sidebar";
 import {
+  VariantDeletionModal,
+  type VariantToDelete,
+} from "@/components/modals/variant-deletion-modal";
+import {
   usePassportFormContext,
   useRegisterForm,
 } from "@/contexts/passport-form-context";
@@ -24,7 +28,11 @@ import { usePassportForm } from "@/hooks/use-passport-form";
 import type { PassportFormValidationErrors } from "@/hooks/use-passport-form";
 import { useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { cn } from "@v1/ui/cn";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
@@ -37,6 +45,7 @@ function ProductFormScaffold({
   title,
   left,
   right,
+  actions,
   className,
   leftClassName,
   rightClassName,
@@ -44,13 +53,17 @@ function ProductFormScaffold({
   title: React.ReactNode;
   left: React.ReactNode;
   right: React.ReactNode;
+  actions?: React.ReactNode;
   className?: string;
   leftClassName?: string;
   rightClassName?: string;
 }) {
   return (
     <div className={cn("flex flex-col gap-6 w-full max-w-[924px]", className)}>
-      <p className="type-h4 text-primary">{title}</p>
+      <div className="flex items-center justify-between">
+        <p className="type-h4 text-primary">{title}</p>
+        {actions}
+      </div>
       <div className="flex flex-row gap-6">
         <div
           className={cn(
@@ -89,7 +102,17 @@ function ProductFormInner({
   initialData,
 }: ProductFormProps) {
   const { data: user } = useUserQuery();
-  const { setIsSubmitting, setHasUnsavedChanges, requestNavigation, formResetCallbackRef } = usePassportFormContext();
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const {
+    setIsSubmitting,
+    setHasUnsavedChanges,
+    requestNavigation,
+    formResetCallbackRef,
+    setProductId,
+    publishingStatus,
+    setPublishingStatus,
+  } = usePassportFormContext();
   const isEditMode = mode === "edit";
 
   // Register form with context
@@ -107,23 +130,27 @@ function ProductFormInner({
     submit,
     isSubmitting,
     hasUnsavedChanges,
-    resetForm,
+    revertToSaved,
     savedVariantsMap,
     productHandle: savedProductHandle,
+    productId,
+    dbPublishingStatus,
+    getVariantsToDelete,
   } = usePassportForm({ mode, productHandle, initialData });
 
-  const handleEcoClaimsChange = React.useCallback<
-    React.Dispatch<React.SetStateAction<{ id: string; value: string }[]>>
-  >(
-    (value) => {
-      if (typeof value === "function") {
-        updateField("ecoClaims", value);
-      } else {
-        setField("ecoClaims", value);
-      }
-    },
-    [setField, updateField],
-  );
+  // Variant deletion warning modal state
+  const [variantDeletionModalOpen, setVariantDeletionModalOpen] =
+    React.useState(false);
+  const [pendingVariantDeletions, setPendingVariantDeletions] = React.useState<
+    VariantToDelete[]
+  >([]);
+  const pendingSubmitRef = React.useRef<(() => Promise<void>) | null>(null);
+
+  // Sync productId and publishing state with context when they change
+  React.useEffect(() => {
+    setProductId(productId);
+    setPublishingStatus(dbPublishingStatus);
+  }, [productId, setProductId, dbPublishingStatus, setPublishingStatus]);
 
   // Clear errors when fields change (after first submit attempt)
   React.useEffect(() => {
@@ -218,16 +245,30 @@ function ProductFormInner({
     setHasUnsavedChanges(hasUnsavedChanges);
   }, [hasUnsavedChanges, setHasUnsavedChanges]);
 
-  // Register reset callback with context so discard handler can reset form state
+  // Register revert callback with context so discard handler can revert to saved state
+  // We use revertToSaved instead of resetForm to restore form to last fetched data
+  // rather than resetting to empty initial values
   React.useEffect(() => {
-    formResetCallbackRef.current = resetForm;
-    return () => { formResetCallbackRef.current = null; };
-  }, [resetForm, formResetCallbackRef]);
+    formResetCallbackRef.current = revertToSaved;
+    return () => {
+      formResetCallbackRef.current = null;
+    };
+  }, [revertToSaved, formResetCallbackRef]);
 
   // Refs for focusing invalid fields
   const nameInputRef = React.useRef<HTMLInputElement>(null);
   const productHandleInputRef = React.useRef<HTMLInputElement>(null);
   const materialsSectionRef = React.useRef<HTMLDivElement>(null);
+
+  // Perform the actual form submission
+  const executeSubmit = React.useCallback(async () => {
+    if (!user?.brand_id) return;
+    try {
+      await submit(user.brand_id);
+    } catch (err) {
+      console.error("Form submission failed:", err);
+    }
+  }, [user?.brand_id, submit]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -278,12 +319,37 @@ function ProductFormInner({
       return;
     }
 
-    try {
-      await submit(user.brand_id);
-    } catch (err) {
-      console.error("Form submission failed:", err);
+    // Check for variant deletions in edit mode
+    if (isEditMode) {
+      const variantsToDelete = getVariantsToDelete();
+      if (variantsToDelete.length > 0) {
+        // Show the deletion warning modal
+        setPendingVariantDeletions(variantsToDelete);
+        pendingSubmitRef.current = executeSubmit;
+        setVariantDeletionModalOpen(true);
+        return;
+      }
     }
+
+    await executeSubmit();
   };
+
+  // Handle variant deletion confirmation
+  const handleConfirmVariantDeletion = React.useCallback(async () => {
+    setVariantDeletionModalOpen(false);
+    setPendingVariantDeletions([]);
+    if (pendingSubmitRef.current) {
+      await pendingSubmitRef.current();
+      pendingSubmitRef.current = null;
+    }
+  }, []);
+
+  // Handle variant deletion cancellation
+  const handleCancelVariantDeletion = React.useCallback(() => {
+    setVariantDeletionModalOpen(false);
+    setPendingVariantDeletions([]);
+    pendingSubmitRef.current = null;
+  }, []);
 
   return (
     <form
@@ -362,7 +428,9 @@ function ProductFormInner({
               isEditMode={isEditMode}
               productHandle={savedProductHandle ?? undefined}
               savedVariants={savedVariantsMap}
-              isNewProduct={!isEditMode || !savedVariantsMap || savedVariantsMap.size === 0}
+              isNewProduct={
+                !isEditMode || !savedVariantsMap || savedVariantsMap.size === 0
+              }
               onNavigateToVariant={requestNavigation}
             />
             <EnvironmentSection
@@ -370,8 +438,8 @@ function ProductFormInner({
               setCarbonKgCo2e={(value) => setField("carbonKgCo2e", value)}
               waterLiters={state.waterLiters}
               setWaterLiters={(value) => setField("waterLiters", value)}
-              ecoClaims={state.ecoClaims}
-              setEcoClaims={handleEcoClaimsChange}
+              weightGrams={state.weightGrams}
+              setWeightGrams={(value) => setField("weightGrams", value)}
               carbonError={
                 state.hasAttemptedSubmit
                   ? state.validationErrors.carbonKgCo2e
@@ -380,6 +448,11 @@ function ProductFormInner({
               waterError={
                 state.hasAttemptedSubmit
                   ? state.validationErrors.waterLiters
+                  : undefined
+              }
+              weightError={
+                state.hasAttemptedSubmit
+                  ? state.validationErrors.weightGrams
                   : undefined
               }
             />
@@ -420,12 +493,24 @@ function ProductFormInner({
           </>
         }
       />
+
+      {/* Variant Deletion Warning Modal */}
+      <VariantDeletionModal
+        open={variantDeletionModalOpen}
+        onOpenChange={setVariantDeletionModalOpen}
+        variants={pendingVariantDeletions}
+        onConfirm={handleConfirmVariantDeletion}
+        onCancel={handleCancelVariantDeletion}
+      />
     </form>
   );
 }
 
 export function CreateProductForm() {
-  return <ProductFormInner mode="create" />;
+  // Generate unique key on every mount to guarantee fresh state
+  // This ensures the form is always empty when visiting the create page
+  const [key] = React.useState(() => `create-${Date.now()}`);
+  return <ProductFormInner key={key} mode="create" />;
 }
 
 export function EditProductForm({
@@ -444,15 +529,13 @@ export function EditProductForm({
     staleTime: 0,
     refetchOnMount: "always",
   });
+  // Key includes handle to ensure fresh state when switching between different products
   return (
     <ProductFormInner
+      key={`edit-${productHandle}`}
       mode="edit"
       productHandle={productHandle}
       initialData={data}
     />
   );
 }
-
-// Legacy exports for backward compatibility during migration
-export { CreateProductForm as CreatePassportForm };
-export { EditProductForm as EditPassportForm };

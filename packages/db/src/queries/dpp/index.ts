@@ -3,5 +3,3 @@
  */
 export * from "./public";
 export * from "./carousel";
-export * from "./transform";
-

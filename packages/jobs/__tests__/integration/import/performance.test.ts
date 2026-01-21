@@ -94,7 +94,6 @@ describe("Import Performance", () => {
           errors: [],
           attributes: [],
           materials: [],
-          ecoClaims: [],
           environment: null,
           journeySteps: [],
           weight: null,
@@ -103,7 +102,6 @@ describe("Import Performance", () => {
       ],
       tags: [],
       materials: [],
-      ecoClaims: [],
       environment: null,
       journeySteps: [],
       weight: null,
@@ -342,13 +340,12 @@ describe("Import Performance", () => {
             { brandMaterialId: crypto.randomUUID(), percentage: "50" },
             { brandMaterialId: crypto.randomUUID(), percentage: "50" },
           ],
-          ecoClaims: [{ ecoClaimId: crypto.randomUUID() }],
           environment: { carbonKgCo2e: "5.5", waterLiters: "100" },
           journeySteps: [
             {
               sortIndex: 0,
               stepType: "Manufacturing",
-              facilityId: crypto.randomUUID(),
+              operatorIds: [crypto.randomUUID()],
             },
           ],
           weight: { weight: "250", weightUnit: "g" },
@@ -362,13 +359,12 @@ describe("Import Performance", () => {
         materials: [
           { brandMaterialId: crypto.randomUUID(), percentage: "100" },
         ],
-        ecoClaims: [{ ecoClaimId: crypto.randomUUID() }],
         environment: { carbonKgCo2e: "10.0", waterLiters: "200" },
         journeySteps: [
           {
             sortIndex: 0,
             stepType: "Raw Material",
-            facilityId: crypto.randomUUID(),
+            operatorIds: [crypto.randomUUID()],
           },
         ],
         weight: { weight: "500", weightUnit: "g" },

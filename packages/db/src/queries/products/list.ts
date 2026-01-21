@@ -1,6 +1,6 @@
 /**
  * Product list query functions.
- * 
+ *
  * Provides functions for listing products with various filtering,
  * sorting, and pagination options.
  */
@@ -10,21 +10,26 @@ import type { Database } from "../../client";
 import {
   brandSeasons,
   brandTags,
-  taxonomyCategories,
-  products,
   productTags,
+  products,
+  taxonomyCategories,
 } from "../../schema";
-import { normalizeLimit, parseCursor, buildPaginationMeta } from "../_shared/pagination.js";
-import { PRODUCT_FIELD_MAP, PRODUCT_FIELDS } from "./_shared/fields";
-import { buildProductWhereClauses } from "./_shared/where";
-import { buildProductOrderBy } from "./_shared/sort";
+import {
+  buildPaginationMeta,
+  normalizeLimit,
+  parseCursor,
+} from "../_shared/pagination.js";
+import { PRODUCT_FIELDS, PRODUCT_FIELD_MAP } from "./_shared/fields";
 import {
   createEmptyAttributes,
   loadAttributesForProducts,
   loadCategoryPathsForProducts,
+  loadPassportDataForProducts,
   loadVariantsForProducts,
   mapProductRow,
 } from "./_shared/helpers";
+import { buildProductOrderBy } from "./_shared/sort";
+import { buildProductWhereClauses } from "./_shared/where";
 import type {
   CarouselProductRow,
   ListFilters,
@@ -67,8 +72,8 @@ export async function listProducts(
   const selectFields =
     opts.fields && opts.fields.length > 0
       ? Object.fromEntries(
-        opts.fields.map((field) => [field, PRODUCT_FIELD_MAP[field]]),
-      )
+          opts.fields.map((field) => [field, PRODUCT_FIELD_MAP[field]]),
+        )
       : PRODUCT_FIELD_MAP;
 
   // Add joined fields for category and season names
@@ -87,7 +92,10 @@ export async function listProducts(
   const rows = await db
     .select(selectWithJoins)
     .from(products)
-    .leftJoin(taxonomyCategories, eq(products.categoryId, taxonomyCategories.id))
+    .leftJoin(
+      taxonomyCategories,
+      eq(products.categoryId, taxonomyCategories.id),
+    )
     .leftJoin(brandSeasons, eq(products.seasonId, brandSeasons.id))
     .where(and(...whereClauses))
     .orderBy(...(Array.isArray(orderBy) ? orderBy : [orderBy]))
@@ -118,7 +126,12 @@ export async function listProductIds(
   filters: ListFilters = {},
   excludeIds: string[] = [],
 ): Promise<string[]> {
-  const whereClauses = buildProductWhereClauses(db, brandId, filters, excludeIds);
+  const whereClauses = buildProductWhereClauses(
+    db,
+    brandId,
+    filters,
+    excludeIds,
+  );
 
   const rows = await db
     .select({ id: products.id })
@@ -144,6 +157,7 @@ export async function listProductsWithIncludes(
     fields?: readonly ProductField[];
     includeVariants?: boolean;
     includeAttributes?: boolean;
+    includePassports?: boolean;
     sort?: { field: string; direction: "asc" | "desc" };
   } = {},
 ): Promise<{
@@ -183,6 +197,11 @@ export async function listProductsWithIncludes(
     ? await loadAttributesForProducts(db, productIds)
     : new Map<string, ProductAttributesBundle>();
 
+  // Load passport data if requested (for firstVariantUpid)
+  const passportDataMap = opts.includePassports
+    ? await loadPassportDataForProducts(db, productIds)
+    : null;
+
   const data: ProductWithRelations[] = products.map((product) => {
     const enriched: ProductWithRelations = { ...product };
 
@@ -198,6 +217,10 @@ export async function listProductsWithIncludes(
     if (opts.includeAttributes) {
       enriched.attributes =
         attributesMap.get(product.id) ?? createEmptyAttributes();
+    }
+    if (passportDataMap) {
+      const passportData = passportDataMap.get(product.id);
+      enriched.first_variant_upid = passportData?.firstVariantUpid ?? null;
     }
     return enriched;
   });
@@ -255,7 +278,10 @@ export async function listProductsForCarouselSelection(
       seasonName: brandSeasons.name,
     })
     .from(products)
-    .leftJoin(taxonomyCategories, eq(products.categoryId, taxonomyCategories.id))
+    .leftJoin(
+      taxonomyCategories,
+      eq(products.categoryId, taxonomyCategories.id),
+    )
     .leftJoin(brandSeasons, eq(products.seasonId, brandSeasons.id))
     .where(and(...whereClauses))
     .orderBy(...(Array.isArray(orderBy) ? orderBy : [orderBy]))
@@ -283,4 +309,3 @@ export async function listProductsForCarouselSelection(
     meta,
   };
 }
-

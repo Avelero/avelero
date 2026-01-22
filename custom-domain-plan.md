@@ -1,6 +1,6 @@
 # Custom Domain Management - Implementation Plan
 
-> **Status**: In Progress (Phase 3 Complete)
+> **Status**: In Progress (Phase 4 Complete)
 > **Based on**: [custom-domain-specs.md](./custom-domain-specs.md)
 > **Methodology**: Test-Driven Development (TDD)
 
@@ -513,16 +513,24 @@ export const brandRouter = createTRPCRouter({
 ```
 
 ### Phase 4 Completion Criteria
-- [ ] All 4 procedures implemented (get, add, verify, remove)
-- [ ] Router exported and integrated
-- [ ] All unit tests from Phase 3 now PASSING (TDD green phase)
-- [ ] Run: `bun test apps/api/__tests__/unit/` - all pass
+- [x] All 4 procedures implemented (get, add, verify, remove)
+- [x] Router exported and integrated
+- [x] All unit tests from Phase 3 now PASSING (TDD green phase)
+- [x] Run: `bun test apps/api/__tests__/unit/` - all pass
 
 **Test command after completion**:
 ```bash
 bun test apps/api/__tests__/unit/schemas/custom-domains.test.ts
 bun test apps/api/__tests__/unit/utils/dns-verification.test.ts
 ```
+
+### Phase 4 Completion Notes
+- **Router file**: `apps/api/src/trpc/routers/brand/custom-domains.ts`
+- **Procedures**: get, add, verify, remove (all implemented)
+- **Unit tests**: 79 tests (52 schema + 27 DNS), all passing
+- **Typecheck**: Passing
+- **Lint**: Passing
+- **Completed**: 2026-01-22
 
 ---
 

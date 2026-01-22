@@ -1,6 +1,6 @@
 # Custom Domain Management - Implementation Plan
 
-> **Status**: In Progress (Phase 4 Complete)
+> **Status**: In Progress (Phase 6 Complete)
 > **Based on**: [custom-domain-specs.md](./custom-domain-specs.md)
 > **Methodology**: Test-Driven Development (TDD)
 
@@ -677,9 +677,22 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 - Invalidates query cache on success
 
 ### Phase 6 Completion Criteria
-- [ ] All 4 hooks implemented
-- [ ] Proper cache invalidation on mutations
-- [ ] Client-side only query execution
+- [x] All 4 hooks implemented
+- [x] Proper cache invalidation on mutations
+- [x] Client-side only query execution
+
+### Phase 6 Completion Notes
+- **Hooks file**: `apps/app/src/hooks/use-custom-domain.ts`
+- **Hooks implemented**:
+  - `useCustomDomainQuery` - Query hook for fetching current domain (client-side only)
+  - `useCustomDomainQuerySuspense` - Suspense-enabled query hook
+  - `useAddCustomDomainMutation` - Mutation for adding domain with toast notifications
+  - `useVerifyCustomDomainMutation` - Mutation for DNS verification with toast notifications
+  - `useRemoveCustomDomainMutation` - Mutation for removing domain with toast notifications
+- **Cache invalidation**: All mutations invalidate `trpc.brand.customDomains.get` query
+- **Typecheck**: Passing
+- **Lint**: Passing
+- **Completed**: 2026-01-22
 
 ---
 

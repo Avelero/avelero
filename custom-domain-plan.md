@@ -616,10 +616,17 @@ bun test apps/api/__tests__/integration/trpc/custom-domains.test.ts
 ```
 
 ### Phase 5 Completion Criteria
-- [ ] Integration test file created
-- [ ] All test scenarios from spec section 10.3 implemented
-- [ ] All integration tests passing
-- [ ] DNS mocking working correctly
+- [x] Integration test file created
+- [x] All test scenarios from spec section 10.3 implemented
+- [x] All integration tests passing
+- [x] DNS mocking working correctly
+
+### Phase 5 Completion Notes
+- **Test file**: `apps/api/__tests__/integration/trpc/custom-domains.test.ts`
+- **Total tests**: 39 tests (5 get, 11 add, 13 verify, 10 remove)
+- **Coverage**: Authorization, validation, success/failure paths, edge cases
+- **DNS mocking**: Uses `mock.module("node:dns/promises")` for DNS lookup simulation
+- **Completed**: 2026-01-22
 
 ---
 

@@ -9,6 +9,13 @@ import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@v1/ui/dropdown-menu";
+import { Icons } from "@v1/ui/icons";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -16,6 +23,7 @@ import {
 } from "@v1/ui/tooltip";
 import { useState } from "react";
 import { CustomDomainModal } from "../modals/custom-domain-modal";
+import { RemoveDomainModal } from "../modals/remove-domain-modal";
 
 interface Brand {
   id: string;
@@ -83,6 +91,7 @@ function DomainStatusBadge({
  */
 function SetDomain() {
   const [open, setOpen] = useState(false);
+  const [removeModalOpen, setRemoveModalOpen] = useState(false);
   const { data: brandsData, isLoading: brandsLoading } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
   const { data: domainData, isLoading: domainLoading } = useCustomDomainQuery();
@@ -128,14 +137,45 @@ function SetDomain() {
           </p>
         )}
       </div>
-      <Button
-        variant="outline"
-        onClick={() => setOpen(true)}
-        disabled={domainLoading}
-      >
-        Configure
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          onClick={() => setOpen(true)}
+          disabled={domainLoading}
+        >
+          Configure
+        </Button>
+        {hasDomain && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 data-[state=open]:bg-accent"
+              >
+                <Icons.EllipsisVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => setRemoveModalOpen(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <div className="flex items-center">
+                  <Icons.Trash2 className="h-4 w-4" />
+                  <span className="px-2">Remove domain</span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
       <CustomDomainModal open={open} onOpenChange={setOpen} />
+      <RemoveDomainModal
+        open={removeModalOpen}
+        onOpenChange={setRemoveModalOpen}
+        domainName={domain?.domain ?? ""}
+      />
     </div>
   );
 }

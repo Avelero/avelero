@@ -26,7 +26,6 @@ import {
   TooltipTrigger,
 } from "@v1/ui/tooltip";
 import { useEffect, useRef, useState } from "react";
-import { RemoveDomainModal } from "./remove-domain-modal";
 
 interface CustomDomainModalProps {
   open: boolean;
@@ -331,11 +330,9 @@ function AddDomainContent({
 function DnsInstructionsContent({
   domainDetails,
   onClose,
-  onRemove,
 }: {
   domainDetails: DomainDetails;
   onClose: () => void;
-  onRemove: () => void;
 }) {
   const verifyDomain = useVerifyCustomDomainMutation();
   const isVerifying = verifyDomain.status === "pending";
@@ -437,11 +434,10 @@ function DnsInstructionsContent({
         <Button
           type="button"
           variant="outline"
-          onClick={onRemove}
+          onClick={onClose}
           disabled={isVerifying}
-          className="text-destructive hover:text-destructive"
         >
-          Remove domain
+          Cancel
         </Button>
         <Button
           type="button"
@@ -462,11 +458,9 @@ function DnsInstructionsContent({
 function VerifiedContent({
   domainDetails,
   onClose,
-  onRemove,
 }: {
   domainDetails: DomainDetails;
   onClose: () => void;
-  onRemove: () => void;
 }) {
   const verifiedDate = domainDetails.verifiedAt
     ? new Date(domainDetails.verifiedAt).toLocaleDateString("en-US", {
@@ -502,14 +496,6 @@ function VerifiedContent({
       </div>
 
       <DialogFooter className="px-6 py-4 border-t border-border">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onRemove}
-          className="text-destructive hover:text-destructive"
-        >
-          Remove domain
-        </Button>
         <Button type="button" variant="outline" onClick={onClose}>
           Done
         </Button>
@@ -532,19 +518,9 @@ export function CustomDomainModal({
   onOpenChange,
 }: CustomDomainModalProps) {
   const { data: domainData } = useCustomDomainQuery();
-  const [removeModalOpen, setRemoveModalOpen] = useState(false);
 
   function handleClose() {
     onOpenChange(false);
-  }
-
-  function handleOpenRemoveModal() {
-    setRemoveModalOpen(true);
-  }
-
-  function handleRemoved() {
-    setRemoveModalOpen(false);
-    // Domain query will be invalidated by the mutation
   }
 
   // Extract domain details from the response wrapper
@@ -574,25 +550,13 @@ export function CustomDomainModal({
             <DnsInstructionsContent
               domainDetails={domainDetails}
               onClose={handleClose}
-              onRemove={handleOpenRemoveModal}
             />
           )}
           {hasDomain && isVerified && (
-            <VerifiedContent
-              domainDetails={domainDetails}
-              onClose={handleClose}
-              onRemove={handleOpenRemoveModal}
-            />
+            <VerifiedContent domainDetails={domainDetails} onClose={handleClose} />
           )}
         </DialogContent>
       </Dialog>
-
-      <RemoveDomainModal
-        open={removeModalOpen}
-        onOpenChange={setRemoveModalOpen}
-        domainName={domainDetails?.domain ?? ""}
-        onRemoved={handleRemoved}
-      />
     </>
   );
 }

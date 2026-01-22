@@ -2,10 +2,10 @@
  * DNS verification utilities for custom domain management.
  *
  * Handles TXT record lookups to verify domain ownership.
+ * Uses Google DNS-over-HTTPS to avoid local DNS caching issues.
  *
  * @module utils/dns-verification
  */
-import { resolveTxt } from "node:dns/promises";
 import { randomBytes } from "node:crypto";
 import { parse as parseDomain } from "tldts";
 
@@ -13,6 +13,13 @@ import { parse as parseDomain } from "tldts";
  * DNS verification timeout in milliseconds.
  */
 const DNS_TIMEOUT_MS = 10_000;
+
+/**
+ * Google DNS-over-HTTPS API endpoint.
+ * Using DoH avoids local/runtime DNS caching that can cause
+ * verification to fail even after DNS has propagated.
+ */
+const GOOGLE_DOH_URL = "https://dns.google/resolve";
 
 /**
  * Result of a DNS verification attempt.
@@ -71,28 +78,59 @@ export async function verifyDomainDns(
   const txtHost = `_avelero-verification.${domain}`;
 
   try {
-    // DNS TXT lookup with timeout
-    const records = await Promise.race([
-      resolveTxt(txtHost),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("DNS_TIMEOUT")), DNS_TIMEOUT_MS),
-      ),
-    ]);
+    // Use Google DNS-over-HTTPS to avoid local/runtime DNS caching
+    const url = new URL(GOOGLE_DOH_URL);
+    url.searchParams.set("name", txtHost);
+    url.searchParams.set("type", "TXT");
 
-    // Flatten TXT record arrays (DNS TXT records can be chunked into 255-char segments)
-    const flatRecords = records.map((chunks) => chunks.join(""));
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DNS_TIMEOUT_MS);
+
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/dns-json" },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `DNS lookup failed: HTTP ${response.status}`,
+      };
+    }
+
+    const data = (await response.json()) as {
+      Status: number;
+      Answer?: Array<{ type: number; data: string }>;
+    };
+
+    // Status 0 = NOERROR, 3 = NXDOMAIN (domain doesn't exist)
+    if (data.Status === 3 || !data.Answer || data.Answer.length === 0) {
+      return {
+        success: false,
+        error:
+          "No TXT record found. Please add the DNS record and wait for propagation.",
+      };
+    }
+
+    // Extract TXT records (type 16 = TXT)
+    // Google DoH returns TXT data with quotes, so we need to strip them
+    const txtRecords = data.Answer.filter((a) => a.type === 16).map((a) =>
+      a.data.replace(/^"|"$/g, ""),
+    );
 
     // Check if any record matches the expected token (with whitespace trimming)
-    const found = flatRecords.some(
-      (record) => record.trim() === expectedToken.trim(),
+    const found = txtRecords.some(
+      (record: string) => record.trim() === expectedToken.trim(),
     );
 
     if (found) {
-      return { success: true, foundRecords: flatRecords };
+      return { success: true, foundRecords: txtRecords };
     }
 
     // Check if there are any avelero-verify records (helps with debugging)
-    const hasAveleroRecord = flatRecords.some((r) =>
+    const hasAveleroRecord = txtRecords.some((r: string) =>
       r.includes("avelero-verify"),
     );
 
@@ -101,20 +139,12 @@ export async function verifyDomainDns(
       error: hasAveleroRecord
         ? "TXT record found but token does not match"
         : "No matching TXT record found. Please add the DNS record and wait for propagation.",
-      foundRecords: flatRecords,
+      foundRecords: txtRecords,
     };
   } catch (err) {
-    const error = err as NodeJS.ErrnoException;
+    const error = err as Error;
 
-    if (error.code === "ENOTFOUND" || error.code === "ENODATA") {
-      return {
-        success: false,
-        error:
-          "No TXT record found. Please add the DNS record and wait for propagation.",
-      };
-    }
-
-    if (error.message === "DNS_TIMEOUT") {
+    if (error.name === "AbortError") {
       return {
         success: false,
         error: "DNS lookup timed out. Please try again.",

@@ -105,7 +105,16 @@ export async function verifyDomainDns(
       Answer?: Array<{ type: number; data: string }>;
     };
 
-    // Status 0 = NOERROR, 3 = NXDOMAIN (domain doesn't exist)
+    // DNS response status codes:
+    // 0 = NOERROR (success), 1 = FORMERR, 2 = SERVFAIL, 3 = NXDOMAIN, 4 = NOTIMP, 5 = REFUSED
+    if (data.Status !== 0 && data.Status !== 3) {
+      // Non-zero status codes (other than NXDOMAIN) indicate DNS lookup failures
+      return {
+        success: false,
+        error: `DNS lookup failed (status ${data.Status}). This may be a temporary DNS server issue. Please try again later.`,
+      };
+    }
+
     if (data.Status === 3 || !data.Answer || data.Answer.length === 0) {
       return {
         success: false,

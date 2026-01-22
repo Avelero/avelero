@@ -294,7 +294,7 @@ describe("Custom Domains Router", () => {
         expect(result.dnsInstructions.txt.recordType).toBe("TXT");
         expect(result.dnsInstructions.cname).toBeDefined();
         expect(result.dnsInstructions.cname.recordType).toBe("CNAME");
-        expect(result.dnsInstructions.cname.value).toBe("dpp.avelero.com");
+        expect(result.dnsInstructions.cname.value).toBe("cname.avelero.com");
       });
 
       it("normalizes domain to lowercase", async () => {

@@ -20,6 +20,10 @@ import {
   verifyDomainDns,
 } from "../../../utils/dns-verification.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
+import {
+  addDomainToVercel,
+  removeDomainFromVercel,
+} from "../../../utils/vercel-domains.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
@@ -186,6 +190,15 @@ const verifyProcedure = brandRequiredProcedure
           })
           .where(eq(brandCustomDomains.id, domain.id));
 
+        // Add domain to Vercel project for SSL and routing
+        // This is non-blocking - verification succeeded regardless of Vercel API result
+        const vercelResult = await addDomainToVercel(domain.domain);
+        if (!vercelResult.success) {
+          console.warn(
+            `[CustomDomains] Failed to add ${domain.domain} to Vercel: ${vercelResult.error}`,
+          );
+        }
+
         return {
           success: true,
           status: "verified" as const,
@@ -229,7 +242,10 @@ const removeProcedure = brandRequiredProcedure
     try {
       // Check if domain exists
       const [domain] = await db
-        .select({ id: brandCustomDomains.id })
+        .select({
+          id: brandCustomDomains.id,
+          domain: brandCustomDomains.domain,
+        })
         .from(brandCustomDomains)
         .where(eq(brandCustomDomains.brandId, brandId))
         .limit(1);
@@ -238,7 +254,15 @@ const removeProcedure = brandRequiredProcedure
         throw badRequest("No custom domain is configured for your brand.");
       }
 
-      // Delete the domain
+      // Remove domain from Vercel (best effort - continue even if it fails)
+      const vercelResult = await removeDomainFromVercel(domain.domain);
+      if (!vercelResult.success) {
+        console.warn(
+          `[CustomDomains] Failed to remove ${domain.domain} from Vercel: ${vercelResult.error}`,
+        );
+      }
+
+      // Delete the domain from database
       await db
         .delete(brandCustomDomains)
         .where(eq(brandCustomDomains.id, domain.id));

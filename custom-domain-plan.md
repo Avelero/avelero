@@ -781,11 +781,31 @@ async function handleCopy(value: string, label: string) {
 ```
 
 ### Phase 7 Completion Criteria
-- [ ] Settings block component displays all states correctly
-- [ ] Main modal handles all 4 configuration states
-- [ ] Remove modal follows existing patterns
-- [ ] Copy functionality works with toast feedback
-- [ ] All components use existing UI library components
+- [x] Settings block component displays all states correctly
+- [x] Main modal handles all 4 configuration states
+- [x] Remove modal follows existing patterns
+- [x] Copy functionality works with toast feedback
+- [x] All components use existing UI library components
+
+### Phase 7 Completion Notes
+- **Settings component**: `apps/app/src/components/settings/set-domain.tsx`
+  - Displays domain name with status badge (Pending/Verified/Failed)
+  - Shows description when no domain configured
+  - "Configure" button opens the main modal
+  - Only visible to brand owners
+- **Main modal**: `apps/app/src/components/modals/custom-domain-modal.tsx`
+  - 4 states: No domain (add form), Pending (DNS instructions), Failed (retry), Verified (success)
+  - DNS record blocks with copy-to-clipboard functionality
+  - Proper toast notifications for copy actions
+  - Opens remove modal for domain deletion
+- **Remove modal**: `apps/app/src/components/modals/remove-domain-modal.tsx`
+  - Confirmation dialog following existing patterns
+  - Warning about QR codes stopping to work
+  - Cancel and Remove buttons with loading state
+- **Styling**: All components follow existing modal and settings patterns exactly
+- **Typecheck**: Passing
+- **Lint**: Passing
+- **Completed**: 2026-01-22
 
 ---
 
@@ -831,10 +851,21 @@ import { SetDomain } from "@/components/settings/set-domain";
 7. DeleteBrand
 
 ### Phase 8 Completion Criteria
-- [ ] Query prefetched on server
-- [ ] Component renders in correct position
-- [ ] No hydration errors
-- [ ] Page loads without issues
+- [x] Query prefetched on server
+- [x] Component renders in correct position
+- [x] No hydration errors
+- [x] Page loads without issues
+
+### Phase 8 Completion Notes
+- **Modified file**: `apps/app/src/app/(dashboard)/(main)/(sidebar)/settings/page.tsx`
+- **Changes**:
+  - Added import for `SetDomain` from `@/components/settings/set-domain`
+  - Added `trpc.brand.customDomains.get.queryOptions()` to `batchPrefetch`
+  - Added `<SetDomain />` between `<SetCountry />` and `<DeleteBrand />`
+- **Component order**: SetLogo, SetName, SetSlug, SetEmail, SetCountry, **SetDomain**, DeleteBrand
+- **Typecheck**: Passing
+- **Lint**: Passing
+- **Completed**: 2026-01-22
 
 ---
 

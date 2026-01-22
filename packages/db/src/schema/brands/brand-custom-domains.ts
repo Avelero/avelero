@@ -87,10 +87,8 @@ export const brandCustomDomains = pgTable(
     uniqueIndex("brand_custom_domains_brand_id_unq").on(table.brandId),
 
     // Global domain uniqueness (no two brands can claim the same domain)
+    // Note: This unique index also provides fast lookups for DPP routing
     uniqueIndex("brand_custom_domains_domain_unq").on(table.domain),
-
-    // Index for lookups by domain (used by DPP routing)
-    index("idx_brand_custom_domains_domain").on(table.domain),
 
     // Index for status (useful for admin queries)
     index("idx_brand_custom_domains_status").on(table.status),

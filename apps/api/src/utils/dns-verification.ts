@@ -7,6 +7,7 @@
  */
 import { resolveTxt } from "node:dns/promises";
 import { randomBytes } from "node:crypto";
+import { parse as parseDomain } from "tldts";
 
 /**
  * DNS verification timeout in milliseconds.
@@ -154,20 +155,24 @@ export function buildDnsInstructions(
     ttl: number;
   };
 } {
-  // Extract the subdomain part for the CNAME host field
-  // e.g., "passport.nike.com" -> "passport" (user adds this to nike.com DNS)
-  // e.g., "nike.com" -> "@" (root domain, represented by @ in DNS)
-  const parts = domain.split(".");
-  const cnameHost = parts.length > 2 ? parts.slice(0, -2).join(".") : "@";
+  // Use public suffix parser to correctly handle multi-part TLDs (e.g., co.uk, com.au)
+  // e.g., "passport.nike.com" -> subdomain: "passport", domain: "nike.com"
+  // e.g., "nike.com" -> subdomain: null, domain: "nike.com"
+  // e.g., "example.co.uk" -> subdomain: null, domain: "example.co.uk"
+  // e.g., "shop.example.co.uk" -> subdomain: "shop", domain: "example.co.uk"
+  const parsed = parseDomain(domain);
+  const subdomain = parsed.subdomain || null;
+
+  // CNAME host is the subdomain if present, otherwise "@" for apex domain
+  const cnameHost = subdomain ?? "@";
 
   // TXT host must include subdomain to match verification lookup
   // Verification looks up: _avelero-verification.{domain}
   // e.g., "passport.nike.com" -> TXT host "_avelero-verification.passport" creates _avelero-verification.passport.nike.com
   // e.g., "nike.com" -> TXT host "_avelero-verification" creates _avelero-verification.nike.com
-  const txtHost =
-    parts.length > 2
-      ? `_avelero-verification.${parts.slice(0, -2).join(".")}`
-      : "_avelero-verification";
+  const txtHost = subdomain
+    ? `_avelero-verification.${subdomain}`
+    : "_avelero-verification";
 
   return {
     txt: {

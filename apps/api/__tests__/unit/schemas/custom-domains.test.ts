@@ -287,12 +287,12 @@ describe("customDomainAddSchema", () => {
     }
   });
 
-  it("rejects extra fields (strict mode)", () => {
+  it("allows extra fields (Zod strips unknown keys by default)", () => {
     const result = customDomainAddSchema.safeParse({
       domain: "passport.nike.com",
-      extraField: "should fail",
+      extraField: "should be stripped",
     });
-    // Zod by default strips unknown keys, so this will pass
+    // Zod by default strips unknown keys, so this passes
     // If strict mode is needed, schema should use .strict()
     expect(result.success).toBe(true);
   });

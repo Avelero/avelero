@@ -1019,6 +1019,7 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+      - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Install dependencies
         run: bun install
       - name: 🗑️ Archive Trigger.dev Preview
@@ -1034,4 +1035,14 @@ jobs:
             supabase branches delete "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID
           else
             echo "Branch $BRANCH_NAME does not exist, skipping."
+          fi
+      - name: 🗑️ Delete Fly.io Preview App
+        run: |
+          APP_NAME="pr-${{ github.event.number }}-avelero-api"
+          echo "Checking for Fly.io app: $APP_NAME"
+          if fly apps list | grep -q "$APP_NAME"; then
+            echo "Deleting Fly.io app $APP_NAME..."
+            fly apps destroy "$APP_NAME" --yes
+          else
+            echo "App $APP_NAME does not exist, skipping."
           fi

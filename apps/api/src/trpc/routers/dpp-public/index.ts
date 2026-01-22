@@ -226,10 +226,11 @@ export const dppPublicRouter = createTRPCRouter({
    * Resolve a custom domain to its brand.
    *
    * Used by the DPP proxy to identify which brand owns a custom domain.
-   * Only returns verified domains.
+   * Returns domain info with verification status, allowing caller to decide
+   * how to handle unverified domains.
    *
    * @param domain - The custom domain hostname (e.g., "passport.nike.com")
-   * @returns Brand info if domain is verified, null otherwise
+   * @returns Brand info with isVerified flag, or null if domain not found
    */
   resolveDomain: publicProcedure
     .input(
@@ -278,7 +279,11 @@ export const dppPublicRouter = createTRPCRouter({
     .input(
       z.object({
         brandId: z.string().uuid(),
-        barcode: z.string().min(1).max(14),
+        barcode: z
+          .string()
+          .min(8, "Barcode must be at least 8 digits")
+          .max(14, "Barcode must be at most 14 digits")
+          .regex(/^\d+$/, "Barcode must contain only digits"),
       }),
     )
     .query(async ({ ctx, input }) => {

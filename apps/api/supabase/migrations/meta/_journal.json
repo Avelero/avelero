@@ -148,6 +148,13 @@
       "when": 1769104681132,
       "tag": "20260122175801_empty_kitty_pryde",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1769119913679,
+      "tag": "20260122221153_chubby_swordsman",
+      "breakpoints": true
     }
   ]
 }

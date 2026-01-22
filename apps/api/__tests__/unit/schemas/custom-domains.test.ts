@@ -309,9 +309,9 @@ describe("customDomainStatusSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts 'failed' status", () => {
+  it("rejects 'failed' status (no longer a valid status)", () => {
     const result = customDomainStatusSchema.safeParse("failed");
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("rejects invalid status", () => {

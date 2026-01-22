@@ -79,6 +79,7 @@ describe("verifyDomainDns", () => {
 
       expect(result.success).toBe(true);
       expect(result.error).toBeUndefined();
+      // TXT lookup is on _avelero-verification.{domain}
       expect(mockResolveTxt).toHaveBeenCalledWith(
         "_avelero-verification.passport.nike.com",
       );
@@ -182,8 +183,9 @@ describe("verifyDomainDns", () => {
     });
 
     it("returns failure when TXT record exists but token mismatches", async () => {
+      // Use an avelero-verify token that doesn't match
       mockResolveTxt.mockImplementation(() =>
-        Promise.resolve([["wrong-token"]]),
+        Promise.resolve([["avelero-verify-wrong-token"]]),
       );
 
       const result = await verifyDomainDns(
@@ -261,31 +263,30 @@ describe("verifyDomainDns", () => {
   });
 
   describe("DNS host construction", () => {
-    it("constructs correct TXT host for subdomain", async () => {
+    it("looks up TXT on _avelero-verification.{domain} for subdomain", async () => {
       mockResolveTxt.mockImplementation(() =>
         Promise.resolve([["avelero-verify-abc123"]]),
       );
 
       await verifyDomainDns("passport.nike.com", "avelero-verify-abc123");
 
+      // TXT lookup is on _avelero-verification.{domain}
       expect(mockResolveTxt).toHaveBeenCalledWith(
         "_avelero-verification.passport.nike.com",
       );
     });
 
-    it("constructs correct TXT host for root domain", async () => {
+    it("looks up TXT on _avelero-verification.{domain} for root domain", async () => {
       mockResolveTxt.mockImplementation(() =>
         Promise.resolve([["avelero-verify-abc123"]]),
       );
 
       await verifyDomainDns("nike.com", "avelero-verify-abc123");
 
-      expect(mockResolveTxt).toHaveBeenCalledWith(
-        "_avelero-verification.nike.com",
-      );
+      expect(mockResolveTxt).toHaveBeenCalledWith("_avelero-verification.nike.com");
     });
 
-    it("constructs correct TXT host for deep subdomain", async () => {
+    it("looks up TXT on _avelero-verification.{domain} for deep subdomain", async () => {
       mockResolveTxt.mockImplementation(() =>
         Promise.resolve([["avelero-verify-abc123"]]),
       );
@@ -300,12 +301,13 @@ describe("verifyDomainDns", () => {
 });
 
 describe("buildDnsInstructions", () => {
-  it("returns TXT record instructions", () => {
+  it("returns TXT record with subdomain included in host for subdomain", () => {
     const instructions = buildDnsInstructions(
       "passport.nike.com",
       "avelero-verify-abc123",
     );
 
+    // TXT host includes subdomain to match verification lookup
     expect(instructions.txt).toEqual({
       recordType: "TXT",
       host: "_avelero-verification.passport",
@@ -314,7 +316,7 @@ describe("buildDnsInstructions", () => {
     });
   });
 
-  it("returns CNAME record instructions", () => {
+  it("returns CNAME record with subdomain as host", () => {
     const instructions = buildDnsInstructions(
       "passport.nike.com",
       "avelero-verify-abc123",
@@ -323,20 +325,21 @@ describe("buildDnsInstructions", () => {
     expect(instructions.cname).toEqual({
       recordType: "CNAME",
       host: "passport",
-      value: "dpp.avelero.com",
+      value: "cname.avelero.com",
       ttl: 300,
     });
   });
 
-  it("handles root domain correctly", () => {
+  it("handles root domain with @ for CNAME and plain _avelero-verification for TXT", () => {
     const instructions = buildDnsInstructions(
       "nike.com",
       "avelero-verify-abc123",
     );
 
-    // For root domain, the subdomain is the domain itself
-    expect(instructions.txt.host).toBe("_avelero-verification.nike.com");
-    expect(instructions.cname.host).toBe("nike.com");
+    // TXT host is _avelero-verification for root domain
+    expect(instructions.txt.host).toBe("_avelero-verification");
+    // CNAME host is @ for root domain
+    expect(instructions.cname.host).toBe("@");
   });
 
   it("handles deep subdomain correctly", () => {
@@ -345,7 +348,9 @@ describe("buildDnsInstructions", () => {
       "avelero-verify-abc123",
     );
 
+    // TXT host includes full subdomain
     expect(instructions.txt.host).toBe("_avelero-verification.eu.passport");
+    // CNAME host is the full subdomain part
     expect(instructions.cname.host).toBe("eu.passport");
   });
 
@@ -356,14 +361,14 @@ describe("buildDnsInstructions", () => {
     expect(instructions.txt.value).toBe(token);
   });
 
-  it("always uses dpp.avelero.com as CNAME target", () => {
+  it("always uses cname.avelero.com as CNAME target", () => {
     const instructions1 = buildDnsInstructions("passport.nike.com", "token1");
     const instructions2 = buildDnsInstructions("dpp.adidas.com", "token2");
     const instructions3 = buildDnsInstructions("brand.io", "token3");
 
-    expect(instructions1.cname.value).toBe("dpp.avelero.com");
-    expect(instructions2.cname.value).toBe("dpp.avelero.com");
-    expect(instructions3.cname.value).toBe("dpp.avelero.com");
+    expect(instructions1.cname.value).toBe("cname.avelero.com");
+    expect(instructions2.cname.value).toBe("cname.avelero.com");
+    expect(instructions3.cname.value).toBe("cname.avelero.com");
   });
 
   it("uses 300 as TTL for both records", () => {
@@ -374,5 +379,18 @@ describe("buildDnsInstructions", () => {
 
     expect(instructions.txt.ttl).toBe(300);
     expect(instructions.cname.ttl).toBe(300);
+  });
+
+  it("TXT host includes subdomain to match verification lookup", () => {
+    const instructions1 = buildDnsInstructions("passport.nike.com", "token1");
+    const instructions2 = buildDnsInstructions("nike.com", "token2");
+    const instructions3 = buildDnsInstructions("eu.passport.brand.io", "token3");
+
+    // Subdomain: _avelero-verification.{subdomain}
+    expect(instructions1.txt.host).toBe("_avelero-verification.passport");
+    // Root domain: just _avelero-verification
+    expect(instructions2.txt.host).toBe("_avelero-verification");
+    // Deep subdomain: _avelero-verification.{full.subdomain}
+    expect(instructions3.txt.host).toBe("_avelero-verification.eu.passport");
   });
 });

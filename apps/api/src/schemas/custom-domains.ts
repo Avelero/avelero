@@ -72,7 +72,9 @@ export const customDomainAddSchema = z.object({
 
 /**
  * Domain verification status enum.
+ * Only "pending" and "verified" states exist - failed verification attempts
+ * remain in "pending" status until successfully verified.
  */
-export const customDomainStatusSchema = z.enum(["pending", "verified", "failed"]);
+export const customDomainStatusSchema = z.enum(["pending", "verified"]);
 
 export type CustomDomainStatus = z.infer<typeof customDomainStatusSchema>;

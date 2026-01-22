@@ -8,6 +8,12 @@ import { useUserBrandsQuery } from "@/hooks/use-brand";
 import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@v1/ui/tooltip";
 import { useState } from "react";
 import { CustomDomainModal } from "../modals/custom-domain-modal";
 
@@ -19,27 +25,54 @@ interface Brand {
 
 /**
  * Status badge for custom domain verification state.
+ * Shows "Verification Needed" in red when there's an error, with a tooltip.
  */
-function DomainStatusBadge({ status }: { status: CustomDomainStatus }) {
-  const config: Record<
-    CustomDomainStatus,
-    { label: string; dotColor: string }
-  > = {
-    pending: { label: "Pending", dotColor: "bg-yellow-500" },
-    verified: { label: "Verified", dotColor: "bg-brand" },
-    failed: { label: "Failed", dotColor: "bg-destructive" },
-  };
+function DomainStatusBadge({
+  status,
+  hasError,
+}: {
+  status: CustomDomainStatus;
+  hasError?: boolean;
+}) {
+  // When there's an error, show "Verification Needed" in red
+  const isErrorState = hasError && status !== "verified";
 
-  const { label, dotColor } = config[status];
+  const label = isErrorState
+    ? "Verification Needed"
+    : status === "verified"
+      ? "Verified"
+      : "Pending";
 
-  return (
-    <span className="inline-flex items-center px-1.5 h-6 rounded-full border border-border bg-background">
+  const dotColor = isErrorState
+    ? "bg-destructive"
+    : status === "verified"
+      ? "bg-brand"
+      : "bg-yellow-500";
+
+  const badge = (
+    <span className="inline-flex items-center px-1.5 h-6 rounded-full border border-border bg-background cursor-default select-none">
       <div className="flex h-3 w-3 items-center justify-center">
         <span className={cn("h-2 w-2 rounded-full", dotColor)} />
       </div>
       <span className="type-small text-foreground px-1">{label}</span>
     </span>
   );
+
+  // Wrap with tooltip if there's an error
+  if (isErrorState) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{badge}</TooltipTrigger>
+          <TooltipContent>
+            <p>Please add the DNS records and verify domain.</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return badge;
 }
 
 /**
@@ -73,6 +106,7 @@ function SetDomain() {
   const domain = domainData?.domain ?? null;
   const hasDomain = domain !== null;
   const domainStatus = domain?.status as CustomDomainStatus | undefined;
+  const hasVerificationError = !!domain?.verificationError;
 
   return (
     <div className="flex flex-row p-6 border justify-between items-center">
@@ -81,7 +115,12 @@ function SetDomain() {
         {hasDomain ? (
           <div className="flex items-center gap-3">
             <p className="text-secondary">{domain.domain}</p>
-            {domainStatus && <DomainStatusBadge status={domainStatus} />}
+            {domainStatus && (
+              <DomainStatusBadge
+                status={domainStatus}
+                hasError={hasVerificationError}
+              />
+            )}
           </div>
         ) : (
           <p className="text-secondary">

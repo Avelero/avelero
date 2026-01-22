@@ -17,8 +17,8 @@ type RouterOutputs = inferRouterOutputs<AppRouter>;
 /** Custom domain data returned from brand.customDomains.get */
 export type CustomDomain = RouterOutputs["brand"]["customDomains"]["get"];
 
-/** Custom domain status type */
-export type CustomDomainStatus = "pending" | "verified" | "failed";
+/** Custom domain status type - only pending and verified exist */
+export type CustomDomainStatus = "pending" | "verified";
 
 /**
  * Fetches the current brand's custom domain configuration.
@@ -94,7 +94,6 @@ export function useAddCustomDomainMutation() {
   return useMutation(
     trpc.brand.customDomains.add.mutationOptions({
       onSuccess: async () => {
-        toast.success("Domain added. Please configure DNS records.");
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.customDomains.get.queryKey(),
         });
@@ -138,16 +137,17 @@ export function useVerifyCustomDomainMutation() {
   return useMutation(
     trpc.brand.customDomains.verify.mutationOptions({
       onSuccess: async (result) => {
+        // Only show toast on success - errors are shown inline in the modal
         if (result.success) {
           toast.success("Domain verified successfully!");
-        } else {
-          toast.error(result.error || "DNS verification failed.");
         }
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.customDomains.get.queryKey(),
         });
       },
       onError: (error) => {
+        // Only show toast for unexpected errors (network issues, etc.)
+        // Not for DNS verification failures which are shown inline
         const message =
           error.message || "Failed to verify domain. Please try again.";
         toast.error(message);

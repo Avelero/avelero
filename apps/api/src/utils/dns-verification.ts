@@ -45,8 +45,10 @@ export function generateVerificationToken(): string {
 /**
  * Verifies domain ownership by checking for the expected TXT record.
  *
- * Looks up: _avelero-verification.{domain}
- * Expected value: The verification token
+ * Looks up TXT records on _avelero-verification.{domain}
+ * Expected value: The verification token (e.g., "avelero-verify-abc123...")
+ *
+ * Using _avelero-verification as the TXT host avoids wildcard DNS warnings.
  *
  * @param domain - The domain to verify (e.g., "passport.nike.com")
  * @param expectedToken - The verification token that should be in the TXT record
@@ -64,6 +66,7 @@ export async function verifyDomainDns(
   domain: string,
   expectedToken: string,
 ): Promise<DnsVerificationResult> {
+  // TXT lookup on _avelero-verification.{domain}
   const txtHost = `_avelero-verification.${domain}`;
 
   try {
@@ -87,9 +90,16 @@ export async function verifyDomainDns(
       return { success: true, foundRecords: flatRecords };
     }
 
+    // Check if there are any avelero-verify records (helps with debugging)
+    const hasAveleroRecord = flatRecords.some((r) =>
+      r.includes("avelero-verify"),
+    );
+
     return {
       success: false,
-      error: "TXT record found but token does not match",
+      error: hasAveleroRecord
+        ? "TXT record found but token does not match"
+        : "No matching TXT record found. Please add the DNS record and wait for propagation.",
       foundRecords: flatRecords,
     };
   } catch (err) {
@@ -120,6 +130,9 @@ export async function verifyDomainDns(
 /**
  * Builds DNS instructions for the user to add their verification record.
  *
+ * TXT record host includes the subdomain to match the verification lookup.
+ * CNAME record host is the subdomain if exists, otherwise @ for root domain.
+ *
  * @param domain - The domain being verified
  * @param verificationToken - The token to include in the TXT record
  * @returns DNS record instructions
@@ -141,23 +154,32 @@ export function buildDnsInstructions(
     ttl: number;
   };
 } {
-  // Extract the subdomain part for the host field
+  // Extract the subdomain part for the CNAME host field
   // e.g., "passport.nike.com" -> "passport" (user adds this to nike.com DNS)
-  // e.g., "nike.com" -> "@" or "nike.com" (root domain)
+  // e.g., "nike.com" -> "@" (root domain, represented by @ in DNS)
   const parts = domain.split(".");
-  const subdomain = parts.length > 2 ? parts.slice(0, -2).join(".") : domain;
+  const cnameHost = parts.length > 2 ? parts.slice(0, -2).join(".") : "@";
+
+  // TXT host must include subdomain to match verification lookup
+  // Verification looks up: _avelero-verification.{domain}
+  // e.g., "passport.nike.com" -> TXT host "_avelero-verification.passport" creates _avelero-verification.passport.nike.com
+  // e.g., "nike.com" -> TXT host "_avelero-verification" creates _avelero-verification.nike.com
+  const txtHost =
+    parts.length > 2
+      ? `_avelero-verification.${parts.slice(0, -2).join(".")}`
+      : "_avelero-verification";
 
   return {
     txt: {
       recordType: "TXT",
-      host: `_avelero-verification.${subdomain}`,
+      host: txtHost,
       value: verificationToken,
       ttl: 300,
     },
     cname: {
       recordType: "CNAME",
-      host: subdomain,
-      value: "dpp.avelero.com",
+      host: cnameHost, // Subdomain or @ for root domain
+      value: "cname.avelero.com",
       ttl: 300,
     },
   };

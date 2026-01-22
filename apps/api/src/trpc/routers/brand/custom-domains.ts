@@ -51,7 +51,7 @@ const getProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
       domain: {
         id: domain.id,
         domain: domain.domain,
-        status: domain.status as "pending" | "verified" | "failed",
+        status: domain.status as "pending" | "verified",
         verificationToken: domain.verificationToken,
         verificationError: domain.verificationError,
         verifiedAt: domain.verifiedAt,
@@ -193,11 +193,11 @@ const verifyProcedure = brandRequiredProcedure
         };
       }
 
-      // Update to failed status with error message
+      // Keep status as pending, just record the error
+      // Status only changes to "verified" on success - failed attempts remain pending
       await db
         .update(brandCustomDomains)
         .set({
-          status: "failed",
           lastVerificationAttempt: now,
           verificationError: result.error ?? "Verification failed",
           updatedAt: now,
@@ -206,7 +206,7 @@ const verifyProcedure = brandRequiredProcedure
 
       return {
         success: false,
-        status: "failed" as const,
+        status: "pending" as const,
         error: result.error,
       };
     } catch (error) {

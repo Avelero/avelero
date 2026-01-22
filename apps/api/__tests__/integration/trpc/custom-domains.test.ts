@@ -86,7 +86,7 @@ async function createBrandMembership(
 async function createCustomDomain(options: {
   brandId: string;
   domain: string;
-  status?: "pending" | "verified" | "failed";
+  status?: "pending" | "verified";
   verificationToken?: string;
   verificationError?: string | null;
   verifiedAt?: string | null;
@@ -241,20 +241,20 @@ describe("Custom Domains Router", () => {
       expect(result.domain?.verifiedAt).not.toBeNull();
     });
 
-    it("includes error message for failed domain", async () => {
+    it("includes error message for pending domain with verification error", async () => {
       const ctx = createMockContext({ brandId, userId, userEmail });
       const errorMessage = "No TXT record found";
 
       await createCustomDomain({
         brandId,
         domain: "passport.mybrand.org",
-        status: "failed",
+        status: "pending",
         verificationError: errorMessage,
       });
 
       const result = await callGet(ctx);
 
-      expect(result.domain?.status).toBe("failed");
+      expect(result.domain?.status).toBe("pending");
       expect(result.domain?.verificationError).toBe(errorMessage);
     });
   });
@@ -465,7 +465,7 @@ describe("Custom Domains Router", () => {
         await createCustomDomain({
           brandId,
           domain: "passport.mybrand.org",
-          status: "failed",
+          status: "pending",
           verificationToken: token,
           verificationError: "Previous error",
         });
@@ -503,7 +503,7 @@ describe("Custom Domains Router", () => {
     });
 
     describe("failure cases", () => {
-      it("updates status to failed on DNS failure", async () => {
+      it("keeps status as pending on DNS failure", async () => {
         const ctx = createMockContext({ brandId, userId, userEmail });
 
         await createCustomDomain({
@@ -522,7 +522,7 @@ describe("Custom Domains Router", () => {
         const result = await callVerify(ctx);
 
         expect(result.success).toBe(false);
-        expect(result.status).toBe("failed");
+        expect(result.status).toBe("pending");
       });
 
       it("stores error message", async () => {
@@ -569,7 +569,7 @@ describe("Custom Domains Router", () => {
         expect(dbDomain?.lastVerificationAttempt).toBeDefined();
       });
 
-      it("fails when token does not match", async () => {
+      it("keeps status as pending when token does not match", async () => {
         const ctx = createMockContext({ brandId, userId, userEmail });
 
         await createCustomDomain({
@@ -587,7 +587,7 @@ describe("Custom Domains Router", () => {
         const result = await callVerify(ctx);
 
         expect(result.success).toBe(false);
-        expect(result.status).toBe("failed");
+        expect(result.status).toBe("pending");
         expect(result.error).toContain("token does not match");
       });
     });
@@ -614,14 +614,14 @@ describe("Custom Domains Router", () => {
         await expect(callVerify(ctx)).rejects.toThrow("Your domain is already verified");
       });
 
-      it("allows retry on failed domain", async () => {
+      it("allows retry on pending domain with previous error", async () => {
         const ctx = createMockContext({ brandId, userId, userEmail });
         const token = "avelero-verify-test-token-xyz";
 
         await createCustomDomain({
           brandId,
           domain: "passport.mybrand.org",
-          status: "failed",
+          status: "pending",
           verificationToken: token,
           verificationError: "Previous failure",
         });
@@ -713,13 +713,13 @@ describe("Custom Domains Router", () => {
       expect(dbDomain).toBeNull();
     });
 
-    it("deletes failed domain", async () => {
+    it("deletes pending domain with verification error", async () => {
       const ctx = createMockContext({ brandId, userId, userEmail });
 
       await createCustomDomain({
         brandId,
         domain: "passport.mybrand.org",
-        status: "failed",
+        status: "pending",
         verificationError: "Some error",
       });
 

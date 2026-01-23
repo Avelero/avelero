@@ -2,6 +2,7 @@ import { and, eq, inArray } from "@v1/db/queries";
 import {
   batchCreatePassportsForVariants,
   batchOrphanPassportsByVariantIds,
+  batchSyncPassportMetadata,
   clearAllVariantOverrides,
   createPassportForVariant,
   getPassportByVariantId,
@@ -9,6 +10,7 @@ import {
   getVariantOverridesOnly,
   listVariantsForProduct,
   orphanPassport,
+  syncPassportMetadata,
 } from "@v1/db/queries/products";
 import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
 import {
@@ -660,6 +662,14 @@ export const productVariantsRouter = createTRPCRouter({
             .update(productVariants)
             .set(updatePayload)
             .where(eq(productVariants.id, variantId));
+
+          // Sync passport metadata (barcode/SKU) to keep passports in sync with variants
+          if (input.sku !== undefined || input.barcode !== undefined) {
+            await syncPassportMetadata(db, variantId, {
+              sku: input.sku,
+              barcode: input.barcode,
+            });
+          }
         }
 
         // Update attribute assignments if provided
@@ -868,6 +878,12 @@ export const productVariantsRouter = createTRPCRouter({
           overrides: NonNullable<(typeof input.variants)[number]["overrides"]>;
         }> = [];
 
+        // Track metadata updates for passport sync
+        const passportMetadataUpdates = new Map<
+          string,
+          { sku?: string | null; barcode?: string | null }
+        >();
+
         await db.transaction(async (tx) => {
           for (const variantInput of input.variants) {
             // Find variant by UPID
@@ -898,6 +914,17 @@ export const productVariantsRouter = createTRPCRouter({
                 .update(productVariants)
                 .set(updatePayload)
                 .where(eq(productVariants.id, variant.id));
+
+              // Track for passport sync if sku or barcode changed
+              if (
+                variantInput.sku !== undefined ||
+                variantInput.barcode !== undefined
+              ) {
+                passportMetadataUpdates.set(variant.id, {
+                  sku: variantInput.sku,
+                  barcode: variantInput.barcode,
+                });
+              }
             }
 
             // Update attribute assignments if provided
@@ -928,6 +955,11 @@ export const productVariantsRouter = createTRPCRouter({
             updated++;
           }
         });
+
+        // Sync passport metadata (barcode/SKU) to keep passports in sync with variants
+        if (passportMetadataUpdates.size > 0) {
+          await batchSyncPassportMetadata(db, passportMetadataUpdates);
+        }
 
         // Apply overrides outside transaction (existing pattern from single update)
         for (const { variantId, overrides } of variantOverridesToApply) {
@@ -1066,6 +1098,10 @@ export const productVariantsRouter = createTRPCRouter({
         const createdVariants: Array<{ id: string; upid: string }> = [];
         let updatedCount = 0;
         let deletedCount = 0;
+        const passportMetadataUpdates = new Map<
+          string,
+          { sku?: string | null; barcode?: string | null }
+        >();
 
         await db.transaction(async (tx) => {
           // Orphan passports for variants being deleted (inside transaction for consistency)
@@ -1141,6 +1177,14 @@ export const productVariantsRouter = createTRPCRouter({
                 .where(eq(productVariants.id, variantId));
             }
 
+            // Track metadata updates for passport sync
+            if (variantInput.sku !== undefined || variantInput.barcode !== undefined) {
+              passportMetadataUpdates.set(variantId, {
+                sku: variantInput.sku,
+                barcode: variantInput.barcode,
+              });
+            }
+
             // Update attribute assignments
             await tx
               .delete(productVariantAttributes)
@@ -1159,6 +1203,11 @@ export const productVariantsRouter = createTRPCRouter({
             updatedCount++;
           }
         });
+
+        // Sync passport metadata for updated variants (barcode/SKU changes)
+        if (passportMetadataUpdates.size > 0) {
+          await batchSyncPassportMetadata(db, passportMetadataUpdates);
+        }
 
         // Create passports for newly created variants
         if (createdVariants.length > 0) {

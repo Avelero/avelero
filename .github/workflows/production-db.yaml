@@ -50,7 +50,7 @@ jobs:
       - name: ✅ Migration Complete
         run: |
           echo "✅ Database migrations applied to production successfully"
-          supabase migration list --linked
+          supabase migration list --db-url "${{ secrets.PRODUCTION_DATABASE_URL }}"
         working-directory: ./apps/api
 
       - name: 🧹 Cleanup .env

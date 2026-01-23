@@ -266,6 +266,122 @@ export async function updatePassportCurrentVersion(
 }
 
 /**
+ * Sync passport SKU and barcode fields when variant data is updated.
+ *
+ * This keeps the passport's identifier fields in sync with the working variant.
+ * Only updates fields that are explicitly provided (undefined = no change, null = clear).
+ *
+ * @param db - Database instance
+ * @param variantId - The variant ID whose passport should be updated
+ * @param updates - Object with optional sku and barcode fields to update
+ * @returns The updated passport, or null if no passport exists for this variant
+ */
+export async function syncPassportMetadata(
+  db: DatabaseOrTransaction,
+  variantId: string,
+  updates: {
+    sku?: string | null;
+    barcode?: string | null;
+  },
+) {
+  // Only proceed if there are fields to update
+  const hasSkuUpdate = updates.sku !== undefined;
+  const hasBarcodeUpdate = updates.barcode !== undefined;
+
+  if (!hasSkuUpdate && !hasBarcodeUpdate) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const updatePayload: Record<string, unknown> = {
+    updatedAt: now,
+  };
+
+  if (hasSkuUpdate) {
+    updatePayload.sku = updates.sku;
+  }
+
+  if (hasBarcodeUpdate) {
+    updatePayload.barcode = updates.barcode;
+  }
+
+  const [updated] = await db
+    .update(productPassports)
+    .set(updatePayload)
+    .where(eq(productPassports.workingVariantId, variantId))
+    .returning({
+      id: productPassports.id,
+      upid: productPassports.upid,
+      brandId: productPassports.brandId,
+      workingVariantId: productPassports.workingVariantId,
+      currentVersionId: productPassports.currentVersionId,
+      status: productPassports.status,
+      orphanedAt: productPassports.orphanedAt,
+      sku: productPassports.sku,
+      barcode: productPassports.barcode,
+      firstPublishedAt: productPassports.firstPublishedAt,
+      createdAt: productPassports.createdAt,
+      updatedAt: productPassports.updatedAt,
+    });
+
+  return updated ?? null;
+}
+
+/**
+ * Batch sync passport SKU and barcode fields for multiple variants.
+ *
+ * Used during bulk operations where multiple variants' metadata changes.
+ * Updates all passports that have a workingVariantId in the provided map.
+ *
+ * @param db - Database instance
+ * @param updates - Map of variantId -> { sku?, barcode? }
+ * @returns Count of updated passports
+ */
+export async function batchSyncPassportMetadata(
+  db: DatabaseOrTransaction,
+  updates: Map<string, { sku?: string | null; barcode?: string | null }>,
+) {
+  if (updates.size === 0) {
+    return { updated: 0 };
+  }
+
+  let updatedCount = 0;
+
+  // Process updates one by one (could be optimized with CASE statements for large batches)
+  for (const [variantId, metadata] of updates) {
+    const hasSkuUpdate = metadata.sku !== undefined;
+    const hasBarcodeUpdate = metadata.barcode !== undefined;
+
+    if (!hasSkuUpdate && !hasBarcodeUpdate) {
+      continue;
+    }
+
+    const now = new Date().toISOString();
+    const updatePayload: Record<string, unknown> = {
+      updatedAt: now,
+    };
+
+    if (hasSkuUpdate) {
+      updatePayload.sku = metadata.sku;
+    }
+
+    if (hasBarcodeUpdate) {
+      updatePayload.barcode = metadata.barcode;
+    }
+
+    const result = await db
+      .update(productPassports)
+      .set(updatePayload)
+      .where(eq(productPassports.workingVariantId, variantId))
+      .returning({ id: productPassports.id });
+
+    updatedCount += result.length;
+  }
+
+  return { updated: updatedCount };
+}
+
+/**
  * Check if a passport exists for a variant, or create one if it doesn't.
  * This is the main entry point for the publish flow.
  *

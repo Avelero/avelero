@@ -64,6 +64,12 @@ export const productVariants = pgTable(
     uniqueIndex("idx_unique_upid_per_brand")
       .on(table.upid, sql`get_product_brand_id(product_id)`)
       .where(sql`upid IS NOT NULL AND upid != ''`),
+    // Unique constraint: Barcode must be unique within a brand
+    // Uses get_product_brand_id function to resolve brand from product
+    // Only enforced for non-null, non-empty barcodes (multiple null/empty allowed)
+    uniqueIndex("idx_unique_barcode_per_brand")
+      .on(table.barcode, sql`get_product_brand_id(product_id)`)
+      .where(sql`barcode IS NOT NULL AND barcode != ''`),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_variants_select_for_brand_members", {
       as: "permissive",

@@ -13,33 +13,33 @@
 // Load setup first (loads .env.test and configures cleanup)
 import "../../setup";
 
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 import { cleanupTables, createTestBrand, createTestUser, testDb } from "@v1/db/testing";
 import type { AuthenticatedTRPCContext } from "../../../src/trpc/init";
 
 // ============================================================================
-// Google DoH Mock Setup
+// DNS Mock Setup
 // ============================================================================
 
 /**
- * Creates a mock Google DoH JSON response for TXT records.
- * Google DoH wraps TXT values in quotes.
+ * Creates a mock Google DoH JSON response for NS records.
+ * The refactored DNS verification uses DoH only for NS lookups.
  */
-function createDohResponse(
-  txtRecords: string[][],
+function createNsResponse(
+  nameservers: string[],
   status = 0,
 ): { Status: number; Answer?: Array<{ type: number; data: string }> } {
-  if (status === 3 || txtRecords.length === 0) {
+  if (status !== 0 || nameservers.length === 0) {
     return { Status: status };
   }
 
   return {
     Status: status,
-    Answer: txtRecords.map((chunks) => ({
-      type: 16, // TXT record type
-      data: `"${chunks.join("")}"`,
+    Answer: nameservers.map((ns) => ({
+      type: 2, // NS record type
+      data: `${ns}.`, // NS records have trailing dot
     })),
   };
 }
@@ -55,22 +55,43 @@ function createMockResponse(body: object, ok = true, status = 200): Response {
   } as Response;
 }
 
-// Store original fetch and track mock configuration
+// Store original fetch
 const originalFetch = globalThis.fetch;
-let mockDnsResponse: () => Promise<Response>;
 
-// Setup fetch mock before importing router
-mockDnsResponse = async () => createMockResponse(createDohResponse([["avelero-verify-mock-token"]]));
+// Mock DNS resolver state
+let mockTxtRecords: string[][] = [["avelero-verify-mock-token"]];
+let mockTxtError: Error | null = null;
 
+// Setup fetch mock for NS lookups (DoH)
 (globalThis as any).fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input.toString();
-  // Only mock Google DoH requests
-  if (url.includes("dns.google")) {
-    return mockDnsResponse();
+  // Mock Google DoH NS requests - return fake nameservers
+  if (url.includes("dns.google") && url.includes("type=NS")) {
+    return createMockResponse(createNsResponse(["ns1.mock.com", "ns2.mock.com"]));
   }
   // Pass through other requests to original fetch
   return originalFetch(input, init);
 };
+
+// Mock node:dns/promises Resolver class
+// The refactored DNS verification uses native DNS for TXT lookups
+import { mock } from "bun:test";
+
+const MockResolver = class {
+  setServers = mock(() => {});
+  resolve4 = mock(async () => ["1.2.3.4", "5.6.7.8"]);
+  resolveTxt = mock(async () => {
+    if (mockTxtError) {
+      throw mockTxtError;
+    }
+    return mockTxtRecords;
+  });
+};
+
+// Apply the mock before importing the router
+mock.module("node:dns/promises", () => ({
+  Resolver: MockResolver,
+}));
 
 // Import router AFTER mocking fetch
 import { brandCustomDomainsRouter } from "../../../src/trpc/routers/brand/custom-domains";
@@ -187,18 +208,23 @@ async function callRemove(ctx: AuthenticatedTRPCContext & { brandId: string }) {
 }
 
 /**
- * Helper to set mock DNS response for tests.
- * Simulates node:dns/promises resolveTxt API shape for easy migration.
+ * Helper to set mock DNS TXT response for tests.
+ * Sets the records that the mocked native DNS Resolver will return.
  */
 function setMockDnsResponse(txtRecords: string[][]) {
-  mockDnsResponse = async () => createMockResponse(createDohResponse(txtRecords));
+  mockTxtRecords = txtRecords;
+  mockTxtError = null;
 }
 
 /**
  * Helper to set mock DNS error (ENOTFOUND/NXDOMAIN).
+ * Simulates no TXT record found.
  */
 function setMockDnsNotFound() {
-  mockDnsResponse = async () => createMockResponse(createDohResponse([], 3));
+  mockTxtRecords = [];
+  const error = new Error("queryTxt ENOTFOUND") as Error & { code: string };
+  error.code = "ENOTFOUND";
+  mockTxtError = error;
 }
 
 // ============================================================================
@@ -212,8 +238,8 @@ describe("Custom Domains Router", () => {
 
   beforeEach(async () => {
     // Reset DNS mock to default
-    mockDnsResponse = async () =>
-      createMockResponse(createDohResponse([["avelero-verify-mock-token"]]));
+    mockTxtRecords = [["avelero-verify-mock-token"]];
+    mockTxtError = null;
 
     // Clean database
     await cleanupTables();
@@ -231,14 +257,14 @@ describe("Custom Domains Router", () => {
   });
 
   afterEach(() => {
-    // Restore original fetch after all tests
-    (globalThis as any).fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === "string" ? input : input.toString();
-      if (url.includes("dns.google")) {
-        return mockDnsResponse();
-      }
-      return originalFetch(input, init);
-    };
+    // Reset mock to default behavior between tests
+    mockTxtRecords = [["avelero-verify-mock-token"]];
+    mockTxtError = null;
+  });
+
+  afterAll(() => {
+    // Restore original fetch after all tests in this file
+    globalThis.fetch = originalFetch;
   });
 
   // ==========================================================================

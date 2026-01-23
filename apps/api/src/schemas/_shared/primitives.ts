@@ -160,3 +160,50 @@ export const paginationLimitSchema = intSchema.min(1).max(100);
  * Used for bulk operations, associations, etc.
  */
 export const uuidArraySchema = z.array(uuidSchema);
+
+// ============================================================================
+// Barcode Primitives
+// ============================================================================
+
+/**
+ * GS1 GTIN barcode validation schema.
+ * Accepts 8, 12, 13, or 14 digit numeric strings (GTIN-8, GTIN-12/UPC, GTIN-13/EAN, GTIN-14).
+ * Does NOT validate check digits (brands may have legacy data with invalid checksums).
+ * @example "12345678", "123456789012", "1234567890123", "12345678901234"
+ */
+export const barcodeSchema = z
+  .string()
+  .regex(
+    /^(\d{8}|\d{12}|\d{13}|\d{14})$/,
+    "Barcode must be exactly 8, 12, 13, or 14 digits",
+  )
+  .optional();
+
+/**
+ * Validates barcode format without making it required.
+ * Returns undefined for empty/whitespace strings.
+ * @param value - The barcode value to normalize
+ * @returns The trimmed barcode, or undefined if empty/null
+ */
+export function normalizeBarcode(
+  value: string | null | undefined,
+): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed;
+}
+
+/**
+ * Normalizes a barcode to GTIN-14 format for GS1 Digital Link compatibility.
+ * Pads shorter GTINs with leading zeros.
+ *
+ * NOTE: We store barcodes in normalized GTIN-14 format for consistency.
+ * The DPP resolution layer handles various input formats - see apps/dpp/src/lib/validation.ts
+ *
+ * @param barcode - The barcode to normalize (8, 12, 13, or 14 digits)
+ * @returns The barcode padded to 14 digits with leading zeros
+ */
+export function normalizeToGtin14(barcode: string): string {
+  return barcode.padStart(14, "0");
+}

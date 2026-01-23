@@ -38,7 +38,17 @@ export {
   type CreateSyncContextOptions,
 } from "./context";
 
-// Export test helpers
+// Simple product/variant helpers
+export {
+  createTestProduct,
+  createTestVariant,
+  type CreateTestProductOptions,
+  type CreateTestVariantOptions,
+  type TestProduct,
+  type TestVariant,
+} from "./product";
+
+// Export test helpers (full-featured for export testing)
 export {
   createTestProductForExport,
   createTestVariantWithOverrides,

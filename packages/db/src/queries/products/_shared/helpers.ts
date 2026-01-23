@@ -459,14 +459,19 @@ export async function loadCategoryPathsForProducts(
 export interface ProductPassportData {
   /** UPID of the first variant's passport (for viewing the public passport) */
   firstVariantUpid: string | null;
+  /** Total number of non-ghost variants for this product */
+  variantCount: number;
+  /** Number of non-ghost variants that have a non-empty barcode */
+  variantsWithBarcode: number;
 }
 
 /**
  * Batch loads passport data for multiple products.
  *
  * For each product, fetches:
- * - lastPublishedAt: The most recent publish timestamp across all variant passports
  * - firstVariantUpid: The UPID of the first variant's passport (by creation order)
+ * - variantCount: Total number of non-ghost variants
+ * - variantsWithBarcode: Number of non-ghost variants with a non-empty barcode
  *
  * Optimizes N+1 query problems when loading product lists with passport info.
  */
@@ -480,31 +485,59 @@ export async function loadPassportDataForProducts(
   // Import the passport table schema
   const { productPassports } = await import("../../../schema");
 
-  // Get all variants for the products in one query
+  // Get all non-ghost variants for the products in one query
   const variantRows = await db
     .select({
       id: productVariants.id,
       productId: productVariants.productId,
+      barcode: productVariants.barcode,
       createdAt: productVariants.createdAt,
     })
     .from(productVariants)
-    .where(inArray(productVariants.productId, [...productIds]))
+    .where(
+      and(
+        inArray(productVariants.productId, [...productIds]),
+        eq(productVariants.isGhost, false),
+      ),
+    )
     .orderBy(asc(productVariants.createdAt));
+
+  // Build maps for variant counts and first variant per product
+  const firstVariantByProduct = new Map<string, string>();
+  const variantCountByProduct = new Map<string, number>();
+  const variantsWithBarcodeByProduct = new Map<string, number>();
+
+  for (const row of variantRows) {
+    // Track first variant (for passport lookup)
+    if (!firstVariantByProduct.has(row.productId)) {
+      firstVariantByProduct.set(row.productId, row.id);
+    }
+
+    // Count total variants
+    variantCountByProduct.set(
+      row.productId,
+      (variantCountByProduct.get(row.productId) ?? 0) + 1,
+    );
+
+    // Count variants with barcodes (non-null, non-empty)
+    if (row.barcode && row.barcode.trim() !== "") {
+      variantsWithBarcodeByProduct.set(
+        row.productId,
+        (variantsWithBarcodeByProduct.get(row.productId) ?? 0) + 1,
+      );
+    }
+  }
 
   if (variantRows.length === 0) {
     // No variants = no passport data, return empty entries
     for (const productId of productIds) {
-      map.set(productId, { firstVariantUpid: null });
+      map.set(productId, {
+        firstVariantUpid: null,
+        variantCount: 0,
+        variantsWithBarcode: 0,
+      });
     }
     return map;
-  }
-
-  // Build a map of productId -> first variant ID (by creation order)
-  const firstVariantByProduct = new Map<string, string>();
-  for (const row of variantRows) {
-    if (!firstVariantByProduct.has(row.productId)) {
-      firstVariantByProduct.set(row.productId, row.id);
-    }
   }
 
   const variantIds = variantRows.map((v) => v.id);
@@ -534,7 +567,11 @@ export async function loadPassportDataForProducts(
       ? passportByVariant.get(firstVariantId) ?? null
       : null;
 
-    map.set(productId, { firstVariantUpid });
+    map.set(productId, {
+      firstVariantUpid,
+      variantCount: variantCountByProduct.get(productId) ?? 0,
+      variantsWithBarcode: variantsWithBarcodeByProduct.get(productId) ?? 0,
+    });
   }
 
   return map;

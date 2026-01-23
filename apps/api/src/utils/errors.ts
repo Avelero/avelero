@@ -277,6 +277,8 @@ const CONSTRAINT_MESSAGES: Record<string, string> = {
     "An eco-claim with this text already exists",
   categories_brand_id_name_parent_id_unq:
     "A category with this name already exists at this level",
+  idx_unique_barcode_per_brand:
+    "This barcode was just claimed by another operation. Please try a different barcode.",
 };
 
 /**
@@ -321,6 +323,33 @@ function getConstraintMessage(error: unknown): string | null {
     return CONSTRAINT_MESSAGES[constraintName];
   }
   return null;
+}
+
+/**
+ * Checks if an error is a unique constraint violation for a specific constraint.
+ *
+ * @param error - Error to check
+ * @param constraintName - Name of the constraint to check for
+ * @returns True if the error is a violation of the specified constraint
+ *
+ * @example
+ * ```ts
+ * try {
+ *   await db.insert(productVariants).values({ ... });
+ * } catch (error) {
+ *   if (isUniqueConstraintViolation(error, 'idx_unique_barcode_per_brand')) {
+ *     throw badRequest("This barcode was just claimed by another operation.");
+ *   }
+ *   throw error;
+ * }
+ * ```
+ */
+export function isUniqueConstraintViolation(
+  error: unknown,
+  constraintName: string,
+): boolean {
+  const foundConstraint = findConstraintName(error);
+  return foundConstraint === constraintName;
 }
 
 /**

@@ -52,8 +52,7 @@ export async function createProductPassport(
 
   if (!variant.upid) {
     throw new Error(
-      `Cannot create passport for variant ${variantId}: variant has no UPID assigned. ` +
-        `Variants must have a UPID before they can have a passport.`,
+      `Cannot create passport for variant ${variantId}: variant has no UPID assigned. Variants must have a UPID before they can have a passport.`,
     );
   }
 

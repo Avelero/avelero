@@ -39,11 +39,18 @@ import {
 import { z } from "zod";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import {
+  barcodeSchema,
+  normalizeBarcode,
+  normalizeToGtin14,
   paginationLimitSchema,
   shortStringSchema,
   uuidSchema,
 } from "../../../schemas/_shared/primitives.js";
 import { upidSchema } from "../../../schemas/products.js";
+import {
+  getBatchTakenBarcodes,
+  isBarcodeTakenInBrand,
+} from "@v1/db/queries/products";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
   createEntityResponse,
@@ -115,7 +122,7 @@ const variantOverridesSchema = z
 const createVariantInputSchema = z.object({
   attributeValueIds: z.array(z.string().uuid()).optional().default([]),
   sku: z.string().max(100).optional(),
-  barcode: z.string().max(100).optional(),
+  barcode: barcodeSchema,
   overrides: variantOverridesSchema,
 });
 
@@ -123,7 +130,7 @@ const updateVariantInputSchema = z.object({
   variantUpid: z.string().min(1),
   attributeValueIds: z.array(z.string().uuid()).optional(),
   sku: z.string().max(100).optional(),
-  barcode: z.string().max(100).optional(),
+  barcode: barcodeSchema,
   overrides: variantOverridesSchema,
 });
 
@@ -131,7 +138,7 @@ const syncVariantInputSchema = z.object({
   upid: z.string().optional(),
   attributeValueIds: z.array(z.string().uuid()).optional().default([]),
   sku: z.string().max(100).optional(),
-  barcode: z.string().max(100).optional(),
+  barcode: barcodeSchema,
   isGhost: z.boolean().optional(),
 });
 
@@ -412,6 +419,31 @@ export const productVariantsRouter = createTRPCRouter({
     }),
 
   /**
+   * Checks if a barcode is available for use within the brand.
+   * Used for real-time validation during barcode editing.
+   */
+  checkBarcode: brandRequiredProcedure
+    .input(
+      z.object({
+        barcode: z.string().min(1),
+        excludeVariantId: z.string().uuid().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const { db, brandId } = ctx as BrandContext;
+
+      // Check if barcode is taken by another variant (excluding specified variant for updates)
+      const taken = await isBarcodeTakenInBrand(
+        db,
+        brandId,
+        input.barcode,
+        input.excludeVariantId,
+      );
+
+      return { available: !taken };
+    }),
+
+  /**
    * Get a single variant by UPID.
    * Returns passport UPID if the variant has been published.
    */
@@ -509,7 +541,7 @@ export const productVariantsRouter = createTRPCRouter({
         productHandle: shortStringSchema,
         attributeValueIds: z.array(z.string().uuid()).optional().default([]),
         sku: z.string().max(100).optional(),
-        barcode: z.string().max(100).optional(),
+        barcode: barcodeSchema,
         overrides: variantOverridesSchema,
       }),
     )
@@ -522,6 +554,21 @@ export const productVariantsRouter = createTRPCRouter({
           brandId,
           input.productHandle,
         );
+
+        // Normalize and validate barcode uniqueness
+        const normalizedBarcode = normalizeBarcode(input.barcode);
+        if (normalizedBarcode) {
+          const barcodeTaken = await isBarcodeTakenInBrand(
+            db,
+            brandId,
+            normalizedBarcode,
+          );
+          if (barcodeTaken) {
+            throw badRequest(
+              "This barcode is already used by another variant in your brand",
+            );
+          }
+        }
 
         // Check for duplicate attribute combination
         if (input.attributeValueIds.length > 0) {
@@ -569,6 +616,11 @@ export const productVariantsRouter = createTRPCRouter({
         // Generate UPID
         const [upid] = await generateGloballyUniqueUpids(db, 1);
 
+        // Normalize barcode to GTIN-14 format for storage
+        const barcodeToStore = normalizedBarcode
+          ? normalizeToGtin14(normalizedBarcode)
+          : null;
+
         // Use transaction to ensure atomicity - if any step fails, rollback
         const variant = await db.transaction(async (tx) => {
           // Create variant
@@ -578,7 +630,7 @@ export const productVariantsRouter = createTRPCRouter({
               productId: product.id,
               upid,
               sku: input.sku ?? null,
-              barcode: input.barcode ?? null,
+              barcode: barcodeToStore,
             })
             .returning({
               id: productVariants.id,
@@ -604,7 +656,7 @@ export const productVariantsRouter = createTRPCRouter({
           await createPassportForVariant(tx, newVariant.id, brandId, {
             upid: newVariant.upid!,
             sku: input.sku,
-            barcode: input.barcode,
+            barcode: barcodeToStore,
           });
 
           return newVariant;
@@ -635,7 +687,7 @@ export const productVariantsRouter = createTRPCRouter({
       variantIdentifierSchema.extend({
         attributeValueIds: z.array(z.string().uuid()).optional(),
         sku: z.string().max(100).optional(),
-        barcode: z.string().max(100).optional(),
+        barcode: barcodeSchema,
         overrides: variantOverridesSchema,
       }),
     )
@@ -650,12 +702,37 @@ export const productVariantsRouter = createTRPCRouter({
           input.variantUpid,
         );
 
+        // Normalize and validate barcode uniqueness if provided
+        let normalizedBarcode: string | undefined;
+        let barcodeToStore: string | null | undefined;
+
+        if (input.barcode !== undefined) {
+          normalizedBarcode = normalizeBarcode(input.barcode);
+          if (normalizedBarcode) {
+            const barcodeTaken = await isBarcodeTakenInBrand(
+              db,
+              brandId,
+              normalizedBarcode,
+              variantId, // Exclude current variant
+            );
+            if (barcodeTaken) {
+              throw badRequest(
+                "This barcode is already used by another variant in your brand",
+              );
+            }
+            barcodeToStore = normalizeToGtin14(normalizedBarcode);
+          } else {
+            // Explicitly clearing the barcode
+            barcodeToStore = null;
+          }
+        }
+
         // Update core variant fields
         const updatePayload: Record<string, unknown> = {
           updatedAt: new Date().toISOString(),
         };
         if (input.sku !== undefined) updatePayload.sku = input.sku;
-        if (input.barcode !== undefined) updatePayload.barcode = input.barcode;
+        if (barcodeToStore !== undefined) updatePayload.barcode = barcodeToStore;
 
         if (Object.keys(updatePayload).length > 1) {
           await db
@@ -664,10 +741,10 @@ export const productVariantsRouter = createTRPCRouter({
             .where(eq(productVariants.id, variantId));
 
           // Sync passport metadata (barcode/SKU) to keep passports in sync with variants
-          if (input.sku !== undefined || input.barcode !== undefined) {
+          if (input.sku !== undefined || barcodeToStore !== undefined) {
             await syncPassportMetadata(db, variantId, {
               sku: input.sku,
-              barcode: input.barcode,
+              barcode: barcodeToStore,
             });
           }
         }
@@ -762,6 +839,49 @@ export const productVariantsRouter = createTRPCRouter({
           input.productHandle,
         );
 
+        // ── Barcode Validation ────────────────────────────────────────────────
+        // Normalize all barcodes and check for duplicates within the batch
+        const normalizedBarcodes: Array<string | null> = [];
+        const seenBarcodes = new Set<string>();
+        const duplicatesInBatch: string[] = [];
+
+        for (const variantInput of input.variants) {
+          const normalized = normalizeBarcode(variantInput.barcode);
+          const toStore = normalized ? normalizeToGtin14(normalized) : null;
+          normalizedBarcodes.push(toStore);
+
+          if (toStore) {
+            if (seenBarcodes.has(toStore)) {
+              duplicatesInBatch.push(variantInput.barcode!);
+            } else {
+              seenBarcodes.add(toStore);
+            }
+          }
+        }
+
+        if (duplicatesInBatch.length > 0) {
+          throw badRequest(
+            `Duplicate barcodes in batch: ${duplicatesInBatch.join(", ")}`,
+          );
+        }
+
+        // Check barcodes against database
+        const barcodesToCheck = Array.from(seenBarcodes);
+        if (barcodesToCheck.length > 0) {
+          const takenBarcodes = await getBatchTakenBarcodes(
+            db,
+            brandId,
+            barcodesToCheck,
+          );
+
+          if (takenBarcodes.length > 0) {
+            throw badRequest(
+              `The following barcodes are already in use: ${takenBarcodes.join(", ")}`,
+            );
+          }
+        }
+        // ───────────────────────────────────────────────────────────────────────
+
         // Generate UPIDs for all variants
         const upids = await generateGloballyUniqueUpids(
           db,
@@ -780,6 +900,7 @@ export const productVariantsRouter = createTRPCRouter({
           for (let i = 0; i < input.variants.length; i++) {
             const variantInput = input.variants[i]!;
             const upid = upids[i]!;
+            const barcodeToStore = normalizedBarcodes[i] ?? null;
 
             const [variant] = await tx
               .insert(productVariants)
@@ -787,7 +908,7 @@ export const productVariantsRouter = createTRPCRouter({
                 productId: product.id,
                 upid,
                 sku: variantInput.sku ?? null,
-                barcode: variantInput.barcode ?? null,
+                barcode: barcodeToStore,
               })
               .returning({
                 id: productVariants.id,
@@ -828,7 +949,7 @@ export const productVariantsRouter = createTRPCRouter({
               variantId: v.id,
               upid: v.upid,
               sku: input.variants[i]?.sku,
-              barcode: input.variants[i]?.barcode,
+              barcode: normalizedBarcodes[i] ?? null,
             })),
           );
         }
@@ -870,6 +991,74 @@ export const productVariantsRouter = createTRPCRouter({
           input.productHandle,
         );
 
+        // First, resolve all variant UPIDs to IDs so we can check barcode uniqueness
+        const variantIdMap = new Map<string, string>(); // upid -> id
+        const existingVariants = await db
+          .select({ id: productVariants.id, upid: productVariants.upid })
+          .from(productVariants)
+          .where(eq(productVariants.productId, product.id));
+
+        for (const v of existingVariants) {
+          if (v.upid) {
+            variantIdMap.set(v.upid, v.id);
+          }
+        }
+
+        // ── Barcode Validation ────────────────────────────────────────────────
+        // Normalize all barcodes and check for duplicates within the batch
+        const normalizedBarcodes: Array<{
+          normalized: string | undefined;
+          toStore: string | null | undefined;
+        }> = [];
+        const seenBarcodes = new Set<string>();
+        const duplicatesInBatch: string[] = [];
+
+        for (const variantInput of input.variants) {
+          if (variantInput.barcode !== undefined) {
+            const normalized = normalizeBarcode(variantInput.barcode);
+            const toStore = normalized ? normalizeToGtin14(normalized) : null;
+            normalizedBarcodes.push({ normalized, toStore });
+
+            if (toStore) {
+              if (seenBarcodes.has(toStore)) {
+                duplicatesInBatch.push(variantInput.barcode!);
+              } else {
+                seenBarcodes.add(toStore);
+              }
+            }
+          } else {
+            normalizedBarcodes.push({ normalized: undefined, toStore: undefined });
+          }
+        }
+
+        if (duplicatesInBatch.length > 0) {
+          throw badRequest(
+            `Duplicate barcodes in batch: ${duplicatesInBatch.join(", ")}`,
+          );
+        }
+
+        // Check barcodes against database (excluding variants being updated)
+        const barcodesToCheck = Array.from(seenBarcodes);
+        if (barcodesToCheck.length > 0) {
+          const excludeVariantIds = input.variants
+            .map((v) => variantIdMap.get(v.variantUpid))
+            .filter((id): id is string => Boolean(id));
+
+          const takenBarcodes = await getBatchTakenBarcodes(
+            db,
+            brandId,
+            barcodesToCheck,
+            excludeVariantIds,
+          );
+
+          if (takenBarcodes.length > 0) {
+            throw badRequest(
+              `The following barcodes are already in use: ${takenBarcodes.join(", ")}`,
+            );
+          }
+        }
+        // ───────────────────────────────────────────────────────────────────────
+
         let updated = 0;
 
         // Track variant overrides to apply after transaction
@@ -885,7 +1074,10 @@ export const productVariantsRouter = createTRPCRouter({
         >();
 
         await db.transaction(async (tx) => {
-          for (const variantInput of input.variants) {
+          for (let i = 0; i < input.variants.length; i++) {
+            const variantInput = input.variants[i]!;
+            const barcodeInfo = normalizedBarcodes[i]!;
+
             // Find variant by UPID
             const [variant] = await tx
               .select({ id: productVariants.id })
@@ -906,8 +1098,8 @@ export const productVariantsRouter = createTRPCRouter({
             };
             if (variantInput.sku !== undefined)
               updatePayload.sku = variantInput.sku;
-            if (variantInput.barcode !== undefined)
-              updatePayload.barcode = variantInput.barcode;
+            if (barcodeInfo.toStore !== undefined)
+              updatePayload.barcode = barcodeInfo.toStore;
 
             if (Object.keys(updatePayload).length > 1) {
               await tx
@@ -918,11 +1110,11 @@ export const productVariantsRouter = createTRPCRouter({
               // Track for passport sync if sku or barcode changed
               if (
                 variantInput.sku !== undefined ||
-                variantInput.barcode !== undefined
+                barcodeInfo.toStore !== undefined
               ) {
                 passportMetadataUpdates.set(variant.id, {
                   sku: variantInput.sku,
-                  barcode: variantInput.barcode,
+                  barcode: barcodeInfo.toStore,
                 });
               }
             }
@@ -1067,23 +1259,29 @@ export const productVariantsRouter = createTRPCRouter({
           existingVariants.filter((v) => v.upid).map((v) => [v.upid!, v.id]),
         );
 
-        // Categorize input variants
-        const toCreate: Array<(typeof input.variants)[number]> = [];
+        // Categorize input variants (track original indices for barcode map lookup)
+        const toCreate: Array<{
+          input: (typeof input.variants)[number];
+          originalIndex: number;
+        }> = [];
         const toUpdate: Array<{
           variantId: string;
           input: (typeof input.variants)[number];
+          originalIndex: number;
         }> = [];
         const inputUpids = new Set<string>();
 
-        for (const variantInput of input.variants) {
+        for (let i = 0; i < input.variants.length; i++) {
+          const variantInput = input.variants[i]!;
           if (variantInput.upid && existingByUpid.has(variantInput.upid)) {
             toUpdate.push({
               variantId: existingByUpid.get(variantInput.upid)!,
               input: variantInput,
+              originalIndex: i,
             });
             inputUpids.add(variantInput.upid);
           } else {
-            toCreate.push(variantInput);
+            toCreate.push({ input: variantInput, originalIndex: i });
           }
         }
 
@@ -1091,6 +1289,56 @@ export const productVariantsRouter = createTRPCRouter({
         const toDelete = existingVariants.filter(
           (v) => v.upid && !inputUpids.has(v.upid),
         );
+
+        // ── Barcode Validation ──────────────────────────────────────────────────
+        // Normalize all barcodes and check for duplicates within the batch
+        const barcodeMap = new Map<
+          number,
+          { normalized: string | undefined; toStore: string | null }
+        >();
+        const seenBarcodes = new Set<string>();
+        const duplicatesInBatch: string[] = [];
+
+        for (let i = 0; i < input.variants.length; i++) {
+          const variantInput = input.variants[i]!;
+          const normalized = normalizeBarcode(variantInput.barcode);
+          const toStore = normalized ? normalizeToGtin14(normalized) : null;
+          barcodeMap.set(i, { normalized, toStore });
+
+          if (toStore) {
+            if (seenBarcodes.has(toStore)) {
+              duplicatesInBatch.push(variantInput.barcode!);
+            } else {
+              seenBarcodes.add(toStore);
+            }
+          }
+        }
+
+        if (duplicatesInBatch.length > 0) {
+          throw badRequest(
+            `Duplicate barcodes in batch: ${duplicatesInBatch.join(", ")}`,
+          );
+        }
+
+        // Check barcodes against database (excluding variants being updated)
+        const barcodesToCheck = Array.from(seenBarcodes);
+        if (barcodesToCheck.length > 0) {
+          // Get IDs of variants being updated (they can keep their own barcodes)
+          const excludeVariantIds = toUpdate.map((u) => u.variantId);
+          const takenBarcodes = await getBatchTakenBarcodes(
+            db,
+            brandId,
+            barcodesToCheck,
+            excludeVariantIds,
+          );
+
+          if (takenBarcodes.length > 0) {
+            throw badRequest(
+              `The following barcodes are already in use: ${takenBarcodes.join(", ")}`,
+            );
+          }
+        }
+        // ─────────────────────────────────────────────────────────────────────────
 
         // Generate UPIDs for new variants
         const newUpids = await generateGloballyUniqueUpids(db, toCreate.length);
@@ -1125,8 +1373,10 @@ export const productVariantsRouter = createTRPCRouter({
 
           // Create new variants
           for (let i = 0; i < toCreate.length; i++) {
-            const variantInput = toCreate[i]!;
+            const { input: variantInput, originalIndex } = toCreate[i]!;
             const upid = newUpids[i]!;
+            const barcodeInfo = barcodeMap.get(originalIndex);
+            const barcodeToStore = barcodeInfo?.toStore ?? null;
 
             const [variant] = await tx
               .insert(productVariants)
@@ -1134,7 +1384,7 @@ export const productVariantsRouter = createTRPCRouter({
                 productId: product.id,
                 upid,
                 sku: variantInput.sku ?? null,
-                barcode: variantInput.barcode ?? null,
+                barcode: barcodeToStore,
                 isGhost: variantInput.isGhost ?? false,
               })
               .returning({
@@ -1159,14 +1409,19 @@ export const productVariantsRouter = createTRPCRouter({
           }
 
           // Update existing variants
-          for (const { variantId, input: variantInput } of toUpdate) {
+          for (const { variantId, input: variantInput, originalIndex } of toUpdate) {
+            const barcodeInfo = barcodeMap.get(originalIndex);
+            const barcodeToStore = variantInput.barcode !== undefined
+              ? (barcodeInfo?.toStore ?? null)
+              : undefined;
+
             const updatePayload: Record<string, unknown> = {
               updatedAt: new Date().toISOString(),
             };
             if (variantInput.sku !== undefined)
               updatePayload.sku = variantInput.sku;
-            if (variantInput.barcode !== undefined)
-              updatePayload.barcode = variantInput.barcode;
+            if (barcodeToStore !== undefined)
+              updatePayload.barcode = barcodeToStore;
             if (variantInput.isGhost !== undefined)
               updatePayload.isGhost = variantInput.isGhost;
 
@@ -1178,10 +1433,10 @@ export const productVariantsRouter = createTRPCRouter({
             }
 
             // Track metadata updates for passport sync
-            if (variantInput.sku !== undefined || variantInput.barcode !== undefined) {
+            if (variantInput.sku !== undefined || barcodeToStore !== undefined) {
               passportMetadataUpdates.set(variantId, {
                 sku: variantInput.sku,
-                barcode: variantInput.barcode,
+                barcode: barcodeToStore,
               });
             }
 
@@ -1214,12 +1469,16 @@ export const productVariantsRouter = createTRPCRouter({
           await batchCreatePassportsForVariants(
             db,
             brandId,
-            createdVariants.map((v, i) => ({
-              variantId: v.id,
-              upid: v.upid,
-              sku: toCreate[i]?.sku,
-              barcode: toCreate[i]?.barcode,
-            })),
+            createdVariants.map((v, i) => {
+              const createInfo = toCreate[i]!;
+              const barcodeInfo = barcodeMap.get(createInfo.originalIndex);
+              return {
+                variantId: v.id,
+                upid: v.upid,
+                sku: createInfo.input.sku,
+                barcode: barcodeInfo?.toStore ?? null,
+              };
+            }),
           );
         }
 

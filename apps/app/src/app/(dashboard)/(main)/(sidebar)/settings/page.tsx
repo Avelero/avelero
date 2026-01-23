@@ -1,5 +1,6 @@
 import { DeleteBrand } from "@/components/settings/delete-brand";
 import { SetCountry } from "@/components/settings/set-country";
+import { SetDomain } from "@/components/settings/set-domain";
 import { SetEmail } from "@/components/settings/set-email";
 import { SetLogo } from "@/components/settings/set-logo";
 import { SetName } from "@/components/settings/set-name";
@@ -13,6 +14,7 @@ export default async function SettingsPage() {
   batchPrefetch([
     trpc.user.brands.list.queryOptions(),
     trpc.composite.membersWithInvites.queryOptions({}),
+    trpc.brand.customDomains.get.queryOptions(),
   ]);
 
   return (
@@ -24,6 +26,7 @@ export default async function SettingsPage() {
           <SetSlug />
           <SetEmail />
           <SetCountry />
+          <SetDomain />
           <DeleteBrand />
         </div>
       </div>

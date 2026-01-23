@@ -16,6 +16,7 @@ import {
   brandUpdateProcedure,
 } from "./base.js";
 import { brandCollectionsRouter } from "./collections.js";
+import { brandCustomDomainsRouter } from "./custom-domains.js";
 import { brandInvitesRouter } from "./invites.js";
 import { brandMembersRouter } from "./members.js";
 import { themePreviewRouter } from "./theme-preview.js";
@@ -32,6 +33,7 @@ export const brandRouter = createTRPCRouter({
   theme: brandThemeRouter,
   themePreview: themePreviewRouter,
   collections: brandCollectionsRouter,
+  customDomains: brandCustomDomainsRouter,
 });
 
 type BrandRouter = typeof brandRouter;

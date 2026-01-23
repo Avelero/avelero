@@ -267,3 +267,29 @@ export async function fetchPassportDpp(
     [`dpp-passport-${upid}`],
   );
 }
+
+/**
+ * Fetch DPP data for a passport by barcode within a specific brand.
+ * URL: /01/{barcode} (on custom domains only)
+ *
+ * This endpoint is used for GS1 Digital Link resolution. It requires
+ * a brand context (provided via custom domain) because barcodes are
+ * only unique within a brand, not globally.
+ *
+ * Cache tags used for on-demand revalidation:
+ * - `dpp-barcode-{brandId}-{barcode}` - Invalidated when passport is republished
+ *
+ * @param brandId - The brand UUID (obtained from domain resolution)
+ * @param barcode - The GTIN/barcode to look up
+ * @returns PassportDppApiResponse or null if not found
+ */
+export async function fetchPassportByBarcode(
+  brandId: string,
+  barcode: string,
+): Promise<PassportDppApiResponse | null> {
+  return trpcQuery<PassportDppApiResponse>(
+    "dppPublic.getByBarcode",
+    { brandId, barcode },
+    [`dpp-barcode-${brandId}-${barcode}`],
+  );
+}

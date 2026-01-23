@@ -47,12 +47,12 @@ jobs:
         run: supabase db push --db-url "${{ secrets.PRODUCTION_DATABASE_URL }}"
         working-directory: ./apps/api
 
-      - name: 🧹 Cleanup .env
-        if: always()
-        run: rm -f ./apps/api/.env
-
       - name: ✅ Migration Complete
         run: |
           echo "✅ Database migrations applied to production successfully"
           supabase migration list --linked
         working-directory: ./apps/api
+
+      - name: 🧹 Cleanup .env
+        if: always()
+        run: rm -f ./apps/api/.env

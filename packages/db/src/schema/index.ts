@@ -8,6 +8,7 @@ export * from "./brands/brand-members";
 export * from "./brands/brand-invites";
 export * from "./brands/brand-tags";
 export * from "./brands/brand-theme";
+export * from "./brands/brand-custom-domains";
 
 // Catalog schemas
 export * from "./catalog/brand-attributes";

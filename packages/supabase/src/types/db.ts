@@ -212,6 +212,53 @@ export type Database = {
           },
         ];
       };
+      brand_custom_domains: {
+        Row: {
+          brand_id: string;
+          created_at: string;
+          domain: string;
+          id: string;
+          last_verification_attempt: string | null;
+          status: string;
+          updated_at: string;
+          verification_error: string | null;
+          verification_token: string;
+          verified_at: string | null;
+        };
+        Insert: {
+          brand_id: string;
+          created_at?: string;
+          domain: string;
+          id?: string;
+          last_verification_attempt?: string | null;
+          status?: string;
+          updated_at?: string;
+          verification_error?: string | null;
+          verification_token: string;
+          verified_at?: string | null;
+        };
+        Update: {
+          brand_id?: string;
+          created_at?: string;
+          domain?: string;
+          id?: string;
+          last_verification_attempt?: string | null;
+          status?: string;
+          updated_at?: string;
+          verification_error?: string | null;
+          verification_token?: string;
+          verified_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_custom_domains_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       brand_integrations: {
         Row: {
           brand_id: string;

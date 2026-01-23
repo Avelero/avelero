@@ -1,0 +1,1 @@
+DROP INDEX "idx_brand_custom_domains_domain";

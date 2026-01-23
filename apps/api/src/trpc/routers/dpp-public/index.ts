@@ -1,7 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBrandBySlug, getBrandTheme } from "@v1/db/queries";
 import { getPublicDppByUpid } from "@v1/db/queries/dpp";
+import {
+  brandCustomDomains,
+  brands,
+  productPassports,
+} from "@v1/db/schema";
 import { getPublicUrl } from "@v1/supabase/storage";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 /**
  * Public DPP (Digital Product Passport) router.
  *
@@ -196,6 +202,156 @@ export const dppPublicRouter = createTRPCRouter({
       );
 
       // Return the snapshot data with theme information
+      return {
+        dppData: {
+          ...result.snapshot,
+          productAttributes: {
+            ...result.snapshot.productAttributes,
+            image: productImageUrl ?? "",
+          },
+        },
+        themeConfig: resolvedThemeConfig,
+        themeStyles: result.theme?.styles ?? null,
+        stylesheetUrl,
+        googleFontsUrl: result.theme?.googleFontsUrl ?? null,
+        passport: {
+          upid: result.upid,
+          isInactive: result.isInactive,
+          version: result.version,
+        },
+      };
+    }),
+
+  /**
+   * Resolve a custom domain to its brand.
+   *
+   * Used by the DPP proxy to identify which brand owns a custom domain.
+   * Returns domain info with verification status, allowing caller to decide
+   * how to handle unverified domains.
+   *
+   * @param domain - The custom domain hostname (e.g., "passport.nike.com")
+   * @returns Brand info with isVerified flag, or null if domain not found
+   */
+  resolveDomain: publicProcedure
+    .input(
+      z.object({
+        domain: z.string().min(1).max(255),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const [result] = await ctx.db
+        .select({
+          brandId: brandCustomDomains.brandId,
+          brandSlug: brands.slug,
+          domain: brandCustomDomains.domain,
+          status: brandCustomDomains.status,
+        })
+        .from(brandCustomDomains)
+        .innerJoin(brands, eq(brands.id, brandCustomDomains.brandId))
+        .where(eq(brandCustomDomains.domain, input.domain.toLowerCase()))
+        .limit(1);
+
+      if (!result) {
+        return null;
+      }
+
+      return {
+        brandId: result.brandId,
+        brandSlug: result.brandSlug,
+        domain: result.domain,
+        isVerified: result.status === "verified",
+      };
+    }),
+
+  /**
+   * Fetch DPP data by barcode within a specific brand.
+   * URL: /barcode/{barcode} (on custom domains only)
+   *
+   * This endpoint is used for GS1 Digital Link resolution. It requires
+   * a brand context (provided via custom domain) because barcodes are
+   * only unique within a brand, not globally.
+   *
+   * @param brandId - The brand UUID (obtained from domain resolution)
+   * @param barcode - The GTIN/barcode (8-14 digits)
+   * @returns DPP snapshot data with theme, or null if not found/not published
+   */
+  getByBarcode: publicProcedure
+    .input(
+      z.object({
+        brandId: z.string().uuid(),
+        barcode: z
+          .string()
+          .min(8, "Barcode must be at least 8 digits")
+          .max(14, "Barcode must be at most 14 digits")
+          .regex(/^\d+$/, "Barcode must contain only digits"),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Normalize barcode to 14 digits for consistent lookup
+      const normalizedBarcode = input.barcode.padStart(14, "0");
+
+      // Search for both original and normalized versions
+      const barcodes = [input.barcode];
+      if (normalizedBarcode !== input.barcode) {
+        barcodes.push(normalizedBarcode);
+      }
+
+      // Find the passport by barcode within this brand
+      const [passport] = await ctx.db
+        .select({
+          upid: productPassports.upid,
+        })
+        .from(productPassports)
+        .where(
+          and(
+            eq(productPassports.brandId, input.brandId),
+            inArray(productPassports.barcode, barcodes),
+            isNotNull(productPassports.currentVersionId),
+          ),
+        )
+        .limit(1);
+
+      if (!passport) {
+        return null;
+      }
+
+      // Delegate to existing getPublicDppByUpid for full data retrieval
+      const result = await getPublicDppByUpid(ctx.db, passport.upid);
+
+      if (!result.found || !result.snapshot) {
+        return null;
+      }
+
+      // Resolve stylesheet URL if present
+      const stylesheetUrl = result.theme?.stylesheetPath
+        ? getPublicUrl(ctx.supabase, "dpp-themes", result.theme.stylesheetPath)
+        : null;
+
+      // Resolve product image in the snapshot to public URL
+      let productImageUrl: string | null = null;
+      const snapshotImage = result.snapshot.productAttributes?.image;
+      if (snapshotImage && typeof snapshotImage === "string") {
+        if (
+          snapshotImage.startsWith("http://") ||
+          snapshotImage.startsWith("https://")
+        ) {
+          productImageUrl = snapshotImage;
+        } else {
+          productImageUrl = getPublicUrl(
+            ctx.supabase,
+            "products",
+            snapshotImage,
+          );
+        }
+      }
+
+      // Resolve image paths in themeConfig to full URLs
+      const resolvedThemeConfig = resolveThemeConfigImageUrls(
+        ctx.supabase,
+        (result.theme?.config as Record<string, unknown>) ?? null,
+      );
+
+      // Return same structure as getByPassportUpid
       return {
         dppData: {
           ...result.snapshot,

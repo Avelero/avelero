@@ -304,6 +304,10 @@ function buildConditionClause(
     case "tagId":
       return buildTagClause(schema, operator, value, db, brandId);
 
+    // Barcode status
+    case "barcodeStatus":
+      return buildBarcodeStatusClause(schema, operator, value);
+
     default:
       return null;
   }
@@ -1206,6 +1210,101 @@ function buildSeasonClause(
       return isNull(schema.products.seasonId);
     case "is not empty":
       return isNotNull(schema.products.seasonId);
+    default:
+      return null;
+  }
+}
+
+// ============================================================================
+// Barcode Status Clause Builder
+// ============================================================================
+
+/**
+ * Builds barcode status clause for filtering products by barcode completion status.
+ *
+ * Options:
+ * - complete: All non-ghost variants have barcodes
+ * - incomplete: Some but not all non-ghost variants have barcodes
+ * - none: No non-ghost variants have barcodes
+ */
+function buildBarcodeStatusClause(
+  schema: SchemaRefs,
+  operator: string,
+  value: any,
+): SQL | null {
+  const statuses = Array.isArray(value) ? value : [value];
+
+  // Build individual status conditions
+  const statusConditions: SQL[] = [];
+
+  for (const status of statuses) {
+    switch (status) {
+      case "complete":
+        // All non-ghost variants have barcodes (and there is at least one variant)
+        statusConditions.push(sql`(
+          (SELECT COUNT(*) FROM ${schema.productVariants} pv
+           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false) > 0
+          AND
+          (SELECT COUNT(*) FROM ${schema.productVariants} pv
+           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false) =
+          (SELECT COUNT(*) FROM ${schema.productVariants} pv
+           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+           AND pv.barcode IS NOT NULL AND pv.barcode != '')
+        )`);
+        break;
+      case "incomplete":
+        // Some but not all non-ghost variants have barcodes
+        statusConditions.push(sql`(
+          (SELECT COUNT(*) FROM ${schema.productVariants} pv
+           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+           AND pv.barcode IS NOT NULL AND pv.barcode != '') > 0
+          AND
+          (SELECT COUNT(*) FROM ${schema.productVariants} pv
+           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+           AND pv.barcode IS NOT NULL AND pv.barcode != '') <
+          (SELECT COUNT(*) FROM ${schema.productVariants} pv
+           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false)
+        )`);
+        break;
+      case "none":
+        // No non-ghost variants have barcodes
+        statusConditions.push(sql`(
+          (SELECT COUNT(*) FROM ${schema.productVariants} pv
+           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+           AND pv.barcode IS NOT NULL AND pv.barcode != '') = 0
+        )`);
+        break;
+    }
+  }
+
+  if (statusConditions.length === 0) {
+    return null;
+  }
+
+  // Handle operators
+  switch (operator) {
+    case "is any of":
+      // OR logic: match any of the selected statuses
+      return statusConditions.length === 1
+        ? statusConditions[0]!
+        : or(...statusConditions)!;
+    case "is none of":
+      // NOT any of the selected statuses
+      return statusConditions.length === 1
+        ? sql`NOT ${statusConditions[0]}`
+        : sql`NOT (${or(...statusConditions)})`;
+    case "is empty":
+      // Products with no variants at all
+      return sql`NOT EXISTS (
+        SELECT 1 FROM ${schema.productVariants} pv
+        WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+      )`;
+    case "is not empty":
+      // Products with at least one variant
+      return sql`EXISTS (
+        SELECT 1 FROM ${schema.productVariants} pv
+        WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+      )`;
     default:
       return null;
   }

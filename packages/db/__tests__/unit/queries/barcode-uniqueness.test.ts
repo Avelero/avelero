@@ -154,9 +154,10 @@ describe("Barcode Uniqueness Functions", () => {
       ]);
 
       expect(result).toHaveLength(2);
-      expect(result).toContain("1234567890123");
-      expect(result).toContain("1111111111111");
-      expect(result).not.toContain("9999999999999");
+      // Results are returned in GTIN-14 normalized format
+      expect(result).toContain("01234567890123");
+      expect(result).toContain("01111111111111");
+      expect(result).not.toContain("09999999999999");
     });
 
     it("returns empty array when no barcodes are taken", async () => {
@@ -180,9 +181,9 @@ describe("Barcode Uniqueness Functions", () => {
         "1234567890123",
       ]);
 
-      // Should only find the valid barcode
+      // Should only find the valid barcode (returned in GTIN-14 format)
       expect(result).toHaveLength(1);
-      expect(result).toContain("1234567890123");
+      expect(result).toContain("01234567890123");
     });
 
     it("excludes specified variant IDs", async () => {
@@ -194,9 +195,10 @@ describe("Barcode Uniqueness Functions", () => {
       );
 
       // Should only find 1111111111111 since 1234567890123's variant is excluded
+      // Results are returned in GTIN-14 normalized format
       expect(result).toHaveLength(1);
-      expect(result).toContain("1111111111111");
-      expect(result).not.toContain("1234567890123");
+      expect(result).toContain("01111111111111");
+      expect(result).not.toContain("01234567890123");
     });
 
     it("returns barcodes only from specified brand", async () => {
@@ -215,9 +217,10 @@ describe("Barcode Uniqueness Functions", () => {
         "1111111111111", // This one is only in first brand
       ]);
 
+      // Results are returned in GTIN-14 normalized format
       expect(result).toHaveLength(1);
-      expect(result).toContain("1234567890123");
-      expect(result).not.toContain("1111111111111");
+      expect(result).toContain("01234567890123");
+      expect(result).not.toContain("01111111111111");
     });
 
     it("handles duplicate barcodes in input", async () => {
@@ -227,9 +230,9 @@ describe("Barcode Uniqueness Functions", () => {
         "1234567890123", // Another duplicate
       ]);
 
-      // Should deduplicate and return only once
+      // Should deduplicate and return only once (in GTIN-14 format)
       expect(result).toHaveLength(1);
-      expect(result).toContain("1234567890123");
+      expect(result).toContain("01234567890123");
     });
   });
 });

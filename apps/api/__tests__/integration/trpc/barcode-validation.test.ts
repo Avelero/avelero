@@ -12,10 +12,11 @@
 // Load setup first (loads .env.test and configures cleanup)
 import "../../setup";
 
-import { describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { eq } from "@v1/db/queries";
 import { brandMembers, productVariants, products } from "@v1/db/schema";
 import {
+  cleanupTables,
   createTestBrand,
   createTestProduct,
   createTestUser,
@@ -24,6 +25,23 @@ import {
 } from "@v1/db/testing";
 import type { AuthenticatedTRPCContext } from "../../../src/trpc/init";
 import { productVariantsRouter } from "../../../src/trpc/routers/products/variants";
+
+// ============================================================================
+// Shared Test State
+// ============================================================================
+
+let userId: string;
+let userEmail: string;
+
+// Clean database between tests and create shared user
+beforeEach(async () => {
+  await cleanupTables();
+
+  // Create unique email for each test to avoid conflicts
+  const uniqueSuffix = Math.random().toString(36).substring(2, 10);
+  userEmail = `test-${uniqueSuffix}@example.com`;
+  userId = await createTestUser(userEmail);
+});
 
 // ============================================================================
 // Test Helpers
@@ -77,12 +95,11 @@ async function createBrandMembership(
 
 describe("products.variants.checkBarcode", () => {
   it("returns available: true for unused barcode", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     await createTestProduct(brandId, { productHandle: "test-product" });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.checkBarcode({
@@ -93,7 +110,6 @@ describe("products.variants.checkBarcode", () => {
   });
 
   it("returns available: false for existing barcode", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     const product = await createTestProduct(brandId, {
@@ -101,7 +117,7 @@ describe("products.variants.checkBarcode", () => {
     });
     await createTestVariant(product.id, { barcode: "00001234567890123" }); // Normalized GTIN-14
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.checkBarcode({
@@ -112,7 +128,6 @@ describe("products.variants.checkBarcode", () => {
   });
 
   it("returns available: true when excluding own variant", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     const product = await createTestProduct(brandId, {
@@ -122,7 +137,7 @@ describe("products.variants.checkBarcode", () => {
       barcode: "00001234567890123",
     });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.checkBarcode({
@@ -134,8 +149,6 @@ describe("products.variants.checkBarcode", () => {
   });
 
   it("returns available: true for barcode in different brand", async () => {
-    const userId = await createTestUser("test@example.com");
-
     // Brand 1 with barcode
     const brandId1 = await createTestBrand("Brand 1");
     await createBrandMembership(userId, brandId1);
@@ -149,7 +162,7 @@ describe("products.variants.checkBarcode", () => {
     await createBrandMembership(userId, brandId2);
     await createTestProduct(brandId2, { productHandle: "test-product" });
 
-    const ctx = createMockContext({ userId, brandId: brandId2 });
+    const ctx = createMockContext({ userId, brandId: brandId2, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.checkBarcode({
@@ -166,12 +179,11 @@ describe("products.variants.checkBarcode", () => {
 
 describe("products.variants.create with barcode", () => {
   it("creates variant with valid unique barcode (normalized to GTIN-14)", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     await createTestProduct(brandId, { productHandle: "test-product" });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.create({
@@ -193,7 +205,6 @@ describe("products.variants.create with barcode", () => {
   });
 
   it("rejects duplicate barcode in same brand", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     const product = await createTestProduct(brandId, {
@@ -201,7 +212,7 @@ describe("products.variants.create with barcode", () => {
     });
     await createTestVariant(product.id, { barcode: "01234567890123" }); // Normalized
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     await expect(
@@ -214,12 +225,11 @@ describe("products.variants.create with barcode", () => {
   });
 
   it("allows variant creation without barcode", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     await createTestProduct(brandId, { productHandle: "test-product" });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.create({
@@ -231,12 +241,11 @@ describe("products.variants.create with barcode", () => {
   });
 
   it("rejects invalid barcode format (wrong length)", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     await createTestProduct(brandId, { productHandle: "test-product" });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     await expect(
@@ -249,12 +258,11 @@ describe("products.variants.create with barcode", () => {
   });
 
   it("rejects invalid barcode format (non-numeric)", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     await createTestProduct(brandId, { productHandle: "test-product" });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     await expect(
@@ -267,8 +275,6 @@ describe("products.variants.create with barcode", () => {
   });
 
   it("allows same barcode in different brand", async () => {
-    const userId = await createTestUser("test@example.com");
-
     // Brand 1 with barcode
     const brandId1 = await createTestBrand("Brand 1");
     await createBrandMembership(userId, brandId1);
@@ -282,7 +288,7 @@ describe("products.variants.create with barcode", () => {
     await createBrandMembership(userId, brandId2);
     await createTestProduct(brandId2, { productHandle: "test-product" });
 
-    const ctx = createMockContext({ userId, brandId: brandId2 });
+    const ctx = createMockContext({ userId, brandId: brandId2, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.create({
@@ -301,7 +307,6 @@ describe("products.variants.create with barcode", () => {
 
 describe("products.variants.update with barcode", () => {
   it("updates variant with new unique barcode", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     const product = await createTestProduct(brandId, {
@@ -309,7 +314,7 @@ describe("products.variants.update with barcode", () => {
     });
     const variant = await createTestVariant(product.id, { barcode: null });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.update({
@@ -331,7 +336,6 @@ describe("products.variants.update with barcode", () => {
   });
 
   it("allows keeping same barcode", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     const product = await createTestProduct(brandId, {
@@ -341,7 +345,7 @@ describe("products.variants.update with barcode", () => {
       barcode: "01234567890123",
     });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.update({
@@ -354,7 +358,6 @@ describe("products.variants.update with barcode", () => {
   });
 
   it("rejects changing to another variant's barcode", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     const product = await createTestProduct(brandId, {
@@ -367,7 +370,7 @@ describe("products.variants.update with barcode", () => {
       barcode: "09876543210987",
     });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     await expect(
@@ -380,7 +383,6 @@ describe("products.variants.update with barcode", () => {
   });
 
   it("allows clearing barcode", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     const product = await createTestProduct(brandId, {
@@ -390,7 +392,7 @@ describe("products.variants.update with barcode", () => {
       barcode: "01234567890123",
     });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     // Note: In current implementation, setting empty string should clear it
@@ -411,12 +413,11 @@ describe("products.variants.update with barcode", () => {
 
 describe("products.variants.sync with barcodes", () => {
   it("creates new variants with unique barcodes", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     await createTestProduct(brandId, { productHandle: "test-product" });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.sync({
@@ -431,12 +432,11 @@ describe("products.variants.sync with barcodes", () => {
   });
 
   it("rejects sync with duplicate barcodes in batch", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     await createTestProduct(brandId, { productHandle: "test-product" });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     await expect(
@@ -451,7 +451,6 @@ describe("products.variants.sync with barcodes", () => {
   });
 
   it("rejects sync with barcode matching existing variant", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     const product = await createTestProduct(brandId, {
@@ -459,7 +458,7 @@ describe("products.variants.sync with barcodes", () => {
     });
     await createTestVariant(product.id, { barcode: "01234567890123" });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     await expect(
@@ -473,12 +472,11 @@ describe("products.variants.sync with barcodes", () => {
   });
 
   it("allows sync with mix of barcodes and no-barcodes", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     await createTestProduct(brandId, { productHandle: "test-product" });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.sync({
@@ -494,7 +492,6 @@ describe("products.variants.sync with barcodes", () => {
   });
 
   it("allows updating existing variant to keep its own barcode during sync", async () => {
-    const userId = await createTestUser("test@example.com");
     const brandId = await createTestBrand("Test Brand");
     await createBrandMembership(userId, brandId);
     const product = await createTestProduct(brandId, {
@@ -504,7 +501,7 @@ describe("products.variants.sync with barcodes", () => {
       barcode: "01234567890123",
     });
 
-    const ctx = createMockContext({ userId, brandId });
+    const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
     const result = await caller.sync({

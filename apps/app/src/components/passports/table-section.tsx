@@ -490,6 +490,7 @@ function TableContent({
         createdAt: p.created_at ?? p.createdAt ?? "",
         updatedAt: p.updated_at ?? p.updatedAt ?? "",
         variantCount: visibleVariants.length,
+        variantsWithBarcode: p.variants_with_barcode ?? 0,
         tags: tags.map((t: any) => ({
           id: t.id ?? t.tag_id ?? "",
           name: t.name ?? null,

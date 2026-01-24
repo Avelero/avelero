@@ -45,6 +45,7 @@ interface MultiAttributeTableProps {
   savedVariants?: Map<
     string,
     {
+      id: string;
       upid: string;
       hasOverrides: boolean;
       sku: string | null;
@@ -219,6 +220,7 @@ export function MultiAttributeTable({
                     isClickable={!!isClickable}
                     onClick={() => navigateToVariant(key)}
                     isLastRow={isVeryLastRow}
+                    variantId={savedVariant?.id}
                   />
                 );
               })}

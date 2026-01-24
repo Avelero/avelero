@@ -26,10 +26,11 @@ interface VariantTableProps {
   isEditMode?: boolean;
   /** Product handle for building variant edit URLs */
   productHandle?: string;
-  /** Saved variants with UPIDs, override status, and metadata, keyed by the value id key (e.g., "valueId1|valueId2") */
+  /** Saved variants with IDs, UPIDs, override status, and metadata, keyed by the value id key (e.g., "valueId1|valueId2") */
   savedVariants?: Map<
     string,
     {
+      id: string;
       upid: string;
       hasOverrides: boolean;
       sku: string | null;

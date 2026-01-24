@@ -30,6 +30,7 @@ interface SingleAttributeTableProps {
   savedVariants?: Map<
     string,
     {
+      id: string;
       upid: string;
       hasOverrides: boolean;
       sku: string | null;
@@ -89,6 +90,7 @@ export function SingleAttributeTable({
             isClickable={!!isClickable}
             onClick={() => navigateToVariant(key)}
             isLastRow={isLastRow}
+            variantId={savedVariant?.id}
           />
         );
       })}

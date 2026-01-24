@@ -38,6 +38,7 @@ export interface ProductPassportRow {
 export interface PassportTableRow extends ProductPassportRow {
   passportIds: string[]; // legacy hook for bulk selection, maps to product/row id
   variantCount: number; // number of variants for this product
+  variantsWithBarcode: number; // number of variants with barcodes
   tags: Array<{ id: string; name: string | null; hex: string | null }>; // product tags with swatches
   /** First variant's passport UPID (for viewing the public passport) */
   firstVariantUpid?: string | null;

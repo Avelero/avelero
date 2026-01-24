@@ -17,6 +17,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import * as schema from "@v1/db/schema";
 import {
+  cleanupTables,
   createTestBrand,
   createTestProductForExport,
   testDb,
@@ -27,6 +28,9 @@ describe("Barcode Uniqueness Constraint", () => {
   let productId: string;
 
   beforeEach(async () => {
+    // Clean database between tests to avoid conflicts
+    await cleanupTables();
+
     // Create a test brand and product for each test
     brandId = await createTestBrand("Constraint Test Brand");
     productId = await createTestProductForExport(brandId, {
@@ -52,13 +56,22 @@ describe("Barcode Uniqueness Constraint", () => {
       });
 
       // Second insert with same barcode should fail
-      await expect(
-        testDb.insert(schema.productVariants).values({
+      let error: Error | null = null;
+      try {
+        await testDb.insert(schema.productVariants).values({
           productId,
           barcode: "6666666666666", // Duplicate
           upid: generateUpid(),
-        }),
-      ).rejects.toThrow(/unique constraint|duplicate/i);
+        });
+      } catch (e) {
+        error = e as Error;
+      }
+
+      expect(error).not.toBeNull();
+      // Drizzle wraps the PostgresError in cause
+      const pgError = (error as any)?.cause;
+      expect(pgError?.code).toBe("23505"); // unique_violation
+      expect(pgError?.constraint_name).toBe("idx_unique_barcode_per_brand");
     });
 
     it("prevents duplicate barcode across different products in same brand", async () => {
@@ -76,13 +89,21 @@ describe("Barcode Uniqueness Constraint", () => {
       });
 
       // Insert with same barcode in different product should fail
-      await expect(
-        testDb.insert(schema.productVariants).values({
+      let error: Error | null = null;
+      try {
+        await testDb.insert(schema.productVariants).values({
           productId: otherProductId,
           barcode: "3333333333333", // Same barcode
           upid: generateUpid(),
-        }),
-      ).rejects.toThrow(/unique constraint|duplicate/i);
+        });
+      } catch (e) {
+        error = e as Error;
+      }
+
+      expect(error).not.toBeNull();
+      const pgError = (error as any)?.cause;
+      expect(pgError?.code).toBe("23505");
+      expect(pgError?.constraint_name).toBe("idx_unique_barcode_per_brand");
     });
 
     it("allows same barcode in different brands at DB level", async () => {
@@ -205,12 +226,20 @@ describe("Barcode Uniqueness Constraint", () => {
         .returning({ id: schema.productVariants.id });
 
       // Try to update second variant to use first variant's barcode
-      await expect(
-        testDb
+      let error: Error | null = null;
+      try {
+        await testDb
           .update(schema.productVariants)
           .set({ barcode: "8888888888888" }) // First variant's barcode
-          .where(eq(schema.productVariants.id, secondVariant!.id)),
-      ).rejects.toThrow(/unique constraint|duplicate/i);
+          .where(eq(schema.productVariants.id, secondVariant!.id));
+      } catch (e) {
+        error = e as Error;
+      }
+
+      expect(error).not.toBeNull();
+      const pgError = (error as any)?.cause;
+      expect(pgError?.code).toBe("23505");
+      expect(pgError?.constraint_name).toBe("idx_unique_barcode_per_brand");
     });
 
     it("allows clearing barcode (setting to null)", async () => {

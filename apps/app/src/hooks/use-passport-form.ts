@@ -375,6 +375,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       return new Map<
         string,
         {
+          id: string;
           upid: string;
           hasOverrides: boolean;
           sku: string | null;
@@ -388,6 +389,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     const map = new Map<
       string,
       {
+        id: string;
         upid: string;
         hasOverrides: boolean;
         sku: string | null;
@@ -397,8 +399,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     >();
 
     for (const variant of variants) {
+      const id = variant.id;
       const upid = variant.upid ?? variant.unique_product_id;
-      if (!upid) continue;
+      if (!id || !upid) continue;
 
       const attrs = variant.attributes ?? [];
       const valueKeys = attrs
@@ -414,6 +417,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       if (valueKeys.length > 0) {
         const key = valueKeys.join("|");
         map.set(key, {
+          id,
           upid,
           hasOverrides: variant.hasOverrides ?? false,
           sku: variant.sku ?? null,
@@ -432,6 +436,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const prevSavedVariantsRef = React.useRef<Map<
     string,
     {
+      id: string;
       upid: string;
       hasOverrides: boolean;
       sku: string | null;

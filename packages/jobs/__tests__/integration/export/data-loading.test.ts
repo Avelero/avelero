@@ -103,7 +103,8 @@ describe("getProductsForExport()", () => {
     const variant = product.variants[0]!;
     expect(variant.upid).toBe("TEST-UPID-001");
     expect(variant.sku).toBe("SKU-001");
-    expect(variant.barcode).toBe("1234567890123");
+    // Barcodes are normalized to GTIN-14 format (padded with leading zeros)
+    expect(variant.barcode).toBe("01234567890123");
     expect(variant.attributes.length).toBe(2);
   });
 

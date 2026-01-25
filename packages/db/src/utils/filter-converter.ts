@@ -1267,8 +1267,11 @@ function buildBarcodeStatusClause(
         )`);
         break;
       case "none":
-        // No non-ghost variants have barcodes
+        // No non-ghost variants have barcodes (but has at least one non-ghost variant)
         statusConditions.push(sql`(
+          (SELECT COUNT(*) FROM ${schema.productVariants} pv
+           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false) > 0
+          AND
           (SELECT COUNT(*) FROM ${schema.productVariants} pv
            WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
            AND pv.barcode IS NOT NULL AND pv.barcode != '') = 0

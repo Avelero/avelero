@@ -425,7 +425,8 @@ export const productVariantsRouter = createTRPCRouter({
   checkBarcode: brandRequiredProcedure
     .input(
       z.object({
-        barcode: z.string().min(1),
+        // Use same validation as create/update (unwrap removes .optional())
+        barcode: barcodeSchema.unwrap(),
         excludeVariantId: z.string().uuid().optional(),
       }),
     )
@@ -675,6 +676,15 @@ export const productVariantsRouter = createTRPCRouter({
           upid: variant.upid,
         });
       } catch (error) {
+        // Handle barcode uniqueness constraint violation (race condition)
+        if (
+          error instanceof Error &&
+          error.message.includes("idx_unique_barcode_per_brand")
+        ) {
+          throw badRequest(
+            "This barcode is already used by another variant in your brand",
+          );
+        }
         throw wrapError(error, "Failed to create variant");
       }
     }),
@@ -776,6 +786,15 @@ export const productVariantsRouter = createTRPCRouter({
 
         return createEntityResponse({ success: true, variantId });
       } catch (error) {
+        // Handle barcode uniqueness constraint violation (race condition)
+        if (
+          error instanceof Error &&
+          error.message.includes("idx_unique_barcode_per_brand")
+        ) {
+          throw badRequest(
+            "This barcode is already used by another variant in your brand",
+          );
+        }
         throw wrapError(error, "Failed to update variant");
       }
     }),
@@ -967,6 +986,15 @@ export const productVariantsRouter = createTRPCRouter({
           variants: createdVariants,
         });
       } catch (error) {
+        // Handle barcode uniqueness constraint violation (race condition)
+        if (
+          error instanceof Error &&
+          error.message.includes("idx_unique_barcode_per_brand")
+        ) {
+          throw badRequest(
+            "One or more barcodes are already used by another variant in your brand",
+          );
+        }
         throw wrapError(error, "Failed to batch create variants");
       }
     }),
@@ -1163,6 +1191,15 @@ export const productVariantsRouter = createTRPCRouter({
 
         return createEntityResponse({ updated });
       } catch (error) {
+        // Handle barcode uniqueness constraint violation (race condition)
+        if (
+          error instanceof Error &&
+          error.message.includes("idx_unique_barcode_per_brand")
+        ) {
+          throw badRequest(
+            "One or more barcodes are already used by another variant in your brand",
+          );
+        }
         throw wrapError(error, "Failed to batch update variants");
       }
     }),
@@ -1502,6 +1539,15 @@ export const productVariantsRouter = createTRPCRouter({
           ],
         });
       } catch (error) {
+        // Handle barcode uniqueness constraint violation (race condition)
+        if (
+          error instanceof Error &&
+          error.message.includes("idx_unique_barcode_per_brand")
+        ) {
+          throw badRequest(
+            "One or more barcodes are already used by another variant in your brand",
+          );
+        }
         throw wrapError(error, "Failed to sync variants");
       }
     }),

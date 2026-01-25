@@ -115,13 +115,14 @@ describe("products.variants.checkBarcode", () => {
     const product = await createTestProduct(brandId, {
       productHandle: "test-product",
     });
-    await createTestVariant(product.id, { barcode: "00001234567890123" }); // Normalized GTIN-14
+    await createTestVariant(product.id, { barcode: "01234567890123" }); // Normalized GTIN-14
 
     const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
+    // Check with the 13-digit version (will be normalized for comparison)
     const result = await caller.checkBarcode({
-      barcode: "00001234567890123",
+      barcode: "1234567890123",
     });
 
     expect(result.available).toBe(false);
@@ -134,14 +135,15 @@ describe("products.variants.checkBarcode", () => {
       productHandle: "test-product",
     });
     const variant = await createTestVariant(product.id, {
-      barcode: "00001234567890123",
+      barcode: "01234567890123", // Normalized GTIN-14
     });
 
     const ctx = createMockContext({ userId, brandId, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
+    // Check with valid 13-digit format, excluding own variant
     const result = await caller.checkBarcode({
-      barcode: "00001234567890123",
+      barcode: "1234567890123",
       excludeVariantId: variant.id,
     });
 
@@ -155,7 +157,7 @@ describe("products.variants.checkBarcode", () => {
     const product1 = await createTestProduct(brandId1, {
       productHandle: "test-product",
     });
-    await createTestVariant(product1.id, { barcode: "00001234567890123" });
+    await createTestVariant(product1.id, { barcode: "01234567890123" }); // Normalized GTIN-14
 
     // Brand 2 checking same barcode
     const brandId2 = await createTestBrand("Brand 2");
@@ -165,8 +167,9 @@ describe("products.variants.checkBarcode", () => {
     const ctx = createMockContext({ userId, brandId: brandId2, userEmail });
     const caller = productVariantsRouter.createCaller(ctx);
 
+    // Check with valid 13-digit format - should be available in different brand
     const result = await caller.checkBarcode({
-      barcode: "00001234567890123",
+      barcode: "1234567890123",
     });
 
     expect(result.available).toBe(true);

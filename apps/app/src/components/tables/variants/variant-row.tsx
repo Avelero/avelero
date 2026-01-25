@@ -67,6 +67,8 @@ export interface VariantRowProps {
   isLastRow?: boolean;
   /** Variant ID (for excluding from uniqueness check on updates) */
   variantId?: string;
+  /** Other barcodes in local state (for duplicate detection) */
+  otherLocalBarcodes?: string[];
 }
 
 export function VariantRow({
@@ -83,18 +85,37 @@ export function VariantRow({
   onClick,
   isLastRow = false,
   variantId,
+  otherLocalBarcodes = [],
 }: VariantRowProps) {
   const trpc = useTRPC();
 
-  // Debounce barcode for availability check (500ms delay)
+  // Debounce barcode for all validation (500ms delay)
   const trimmedBarcode = barcode.trim();
   const debouncedBarcode = useDebounce(trimmedBarcode, 500);
 
-  // Barcode format validation
-  const isEmpty = trimmedBarcode.length === 0;
-  const isFormatValid = isEmpty || BARCODE_REGEX.test(trimmedBarcode);
+  // All validation uses debounced value
+  const isEmpty = debouncedBarcode.length === 0;
+  const isDebouncing = trimmedBarcode !== debouncedBarcode;
 
-  // Check barcode availability using tRPC query
+  // Barcode format validation (only check after debounce settles)
+  const isFormatValid = isEmpty || BARCODE_REGEX.test(debouncedBarcode);
+
+  // Check for duplicates in local state (normalized to GTIN-14 for comparison)
+  const normalizeToGtin14 = (bc: string) => bc.padStart(14, "0");
+  const normalizedBarcode = debouncedBarcode
+    ? normalizeToGtin14(debouncedBarcode)
+    : "";
+  const isDuplicateInLocal =
+    !isEmpty &&
+    isFormatValid &&
+    otherLocalBarcodes.some(
+      (other) =>
+        other.trim() &&
+        BARCODE_REGEX.test(other.trim()) &&
+        normalizeToGtin14(other.trim()) === normalizedBarcode,
+    );
+
+  // Check barcode availability using tRPC query (only if not a local duplicate)
   const barcodeCheckQuery = useQuery({
     ...trpc.products.variants.checkBarcode.queryOptions({
       barcode: debouncedBarcode,
@@ -103,27 +124,26 @@ export function VariantRow({
     enabled: Boolean(
       debouncedBarcode &&
         isFormatValid &&
+        !isDuplicateInLocal &&
         debouncedBarcode.length >= 8 &&
         // Only check when debounce has settled
-        debouncedBarcode === trimmedBarcode,
+        !isDebouncing,
     ),
     staleTime: 10000, // Cache for 10 seconds
   });
 
   // Determine if we're currently checking availability
   const isChecking =
-    barcodeCheckQuery.isLoading ||
-    (trimmedBarcode !== debouncedBarcode && !isEmpty && isFormatValid);
-
-  const isAvailable = barcodeCheckQuery.data?.available ?? null;
-  const isTaken = isAvailable === false;
-
-  // Only show availability status when we have a valid barcode that has been checked
-  const showStatus =
     !isEmpty &&
     isFormatValid &&
-    debouncedBarcode === trimmedBarcode &&
-    !isChecking;
+    !isDuplicateInLocal &&
+    (barcodeCheckQuery.isLoading || isDebouncing);
+
+  const isAvailable = barcodeCheckQuery.data?.available ?? null;
+  const isTakenInDb = isAvailable === false;
+
+  // Only show status when debounce has settled and we're not checking
+  const showStatus = !isEmpty && !isDebouncing && !isChecking;
 
   return (
     <div
@@ -202,8 +222,9 @@ export function VariantRow({
           placeholder="Barcode"
           className={cn(
             "h-full w-full rounded-none border-0 bg-transparent type-p px-4 pr-10 focus-visible:ring-[1.5px] focus-visible:ring-brand",
-            !isFormatValid && "text-destructive",
-            isTaken && showStatus && "text-destructive",
+            showStatus && !isFormatValid && "text-destructive",
+            showStatus && isDuplicateInLocal && "text-destructive",
+            showStatus && isTakenInDb && "text-destructive",
           )}
         />
         {/* Loading spinner */}
@@ -212,21 +233,8 @@ export function VariantRow({
             <Icons.Loader2 className="h-4 w-4 animate-spin text-secondary" />
           </div>
         )}
-        {/* Error indicator - taken barcode */}
-        {showStatus && isTaken && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <Icons.AlertCircle className="h-4 w-4 text-destructive" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>Barcode already in use</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
         {/* Error indicator - invalid format */}
-        {!isEmpty && !isFormatValid && (
+        {showStatus && !isFormatValid && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -235,6 +243,32 @@ export function VariantRow({
                 </div>
               </TooltipTrigger>
               <TooltipContent>Must be 8, 12, 13, or 14 digits</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        {/* Error indicator - duplicate in local state */}
+        {showStatus && isFormatValid && isDuplicateInLocal && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Icons.AlertCircle className="h-4 w-4 text-destructive" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Barcode must be unique</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        {/* Error indicator - taken in database */}
+        {showStatus && isFormatValid && !isDuplicateInLocal && isTakenInDb && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Icons.AlertCircle className="h-4 w-4 text-destructive" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Barcode already in use</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         )}

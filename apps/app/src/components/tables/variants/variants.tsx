@@ -267,6 +267,7 @@ export function VariantTable({
         isEditMode={isEditMode}
         savedVariants={savedVariants}
         navigateToVariant={navigateToVariant}
+        enabledVariantKeys={enabledVariantKeys}
       />
     );
   }

@@ -26,6 +26,7 @@ export function ProductFormActions() {
   const {
     isSubmitting,
     hasUnsavedChanges,
+    hasBarcodeErrors,
     productHandle,
     pendingNavigationUrl,
     setPendingNavigationUrl,
@@ -106,7 +107,7 @@ export function ProductFormActions() {
         variant="brand"
         type="submit"
         form="passport-form"
-        disabled={isSubmitting}
+        disabled={isSubmitting || hasBarcodeErrors}
       >
         {isSubmitting ? "Saving..." : "Save"}
       </Button>

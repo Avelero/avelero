@@ -102,6 +102,74 @@ const initialFormValues: PassportFormValues = {
 };
 
 // ============================================================================
+// Barcode Validation
+// ============================================================================
+
+/** GS1 GTIN barcode format: 8, 12, 13, or 14 digits */
+const BARCODE_REGEX = /^(\d{8}|\d{12}|\d{13}|\d{14})$/;
+
+/** Normalize barcode to GTIN-14 for comparison (pad with leading zeros) */
+function normalizeToGtin14(barcode: string): string {
+  return barcode.padStart(14, "0");
+}
+
+/**
+ * Validates all barcodes in the form for:
+ * 1. Format validity (8, 12, 13, or 14 digits)
+ * 2. Local duplicates (same barcode used on multiple variants)
+ *
+ * Returns true if there are any barcode errors.
+ */
+function computeHasBarcodeErrors(
+  variantMetadata: Record<string, { sku?: string; barcode?: string }>,
+  explicitVariants: Array<{ sku: string; barcode: string }>,
+  enabledVariantKeys: Set<string>,
+): boolean {
+  // Collect all barcodes from enabled variants
+  const allBarcodes: string[] = [];
+
+  // Check variantMetadata barcodes (attribute-based variants)
+  for (const [key, meta] of Object.entries(variantMetadata)) {
+    // Only check enabled variants
+    if (!enabledVariantKeys.has(key)) continue;
+
+    const barcode = meta.barcode?.trim();
+    if (!barcode) continue;
+
+    // Check format validity
+    if (!BARCODE_REGEX.test(barcode)) {
+      return true; // Invalid format
+    }
+
+    allBarcodes.push(normalizeToGtin14(barcode));
+  }
+
+  // Check explicit variants (no-attribute variants)
+  for (const variant of explicitVariants) {
+    const barcode = variant.barcode?.trim();
+    if (!barcode) continue;
+
+    // Check format validity
+    if (!BARCODE_REGEX.test(barcode)) {
+      return true; // Invalid format
+    }
+
+    allBarcodes.push(normalizeToGtin14(barcode));
+  }
+
+  // Check for duplicates (same normalized barcode appearing more than once)
+  const seenBarcodes = new Set<string>();
+  for (const normalizedBarcode of allBarcodes) {
+    if (seenBarcodes.has(normalizedBarcode)) {
+      return true; // Duplicate found
+    }
+    seenBarcodes.add(normalizedBarcode);
+  }
+
+  return false;
+}
+
+// ============================================================================
 // Validation
 // ============================================================================
 
@@ -1650,6 +1718,21 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }
   }, [isEditMode, setFields, resetFormValues, computeComparableState]);
 
+  // Compute barcode validation errors for disabling save button
+  const hasBarcodeErrors = React.useMemo(
+    () =>
+      computeHasBarcodeErrors(
+        formValues.variantMetadata,
+        formValues.explicitVariants,
+        formValues.enabledVariantKeys,
+      ),
+    [
+      formValues.variantMetadata,
+      formValues.explicitVariants,
+      formValues.enabledVariantKeys,
+    ],
+  );
+
   return {
     state,
     setField,
@@ -1664,6 +1747,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     isInitializing:
       isEditMode && (!hasHydratedRef.current || passportFormQuery.isLoading),
     hasUnsavedChanges,
+    // Barcode validation
+    hasBarcodeErrors,
     // Navigation support for variant editing
     savedVariantsMap,
     productHandle,

@@ -108,6 +108,30 @@ export function MultiAttributeTable({
   // Get all combinations that should be shown based on product state
   const allChildCombinations = generateCombinations(otherDims);
 
+  // Build list of all barcodes from enabled variants for local duplicate detection
+  const allBarcodesByKey = React.useMemo(() => {
+    const result: Record<string, string> = {};
+    for (const groupValue of firstDim.effectiveValues) {
+      for (const combo of allChildCombinations) {
+        const fullCombo = [groupValue, ...combo];
+        const key = buildKey(fullCombo);
+        // Only include if this key is enabled
+        if (!enabledVariantKeys.has(key)) continue;
+        const meta = variantMetadata[key];
+        if (meta?.barcode) {
+          result[key] = meta.barcode;
+        }
+      }
+    }
+    return result;
+  }, [
+    firstDim.effectiveValues,
+    allChildCombinations,
+    buildKey,
+    variantMetadata,
+    enabledVariantKeys,
+  ]);
+
   // Determine which first-dimension values to show
   // Show groups that have at least one enabled combination
   const groupValuesToShow = firstDim.effectiveValues.filter((value) => {
@@ -204,6 +228,11 @@ export function MultiAttributeTable({
                   return name;
                 });
 
+                // Get other barcodes (excluding this variant's barcode)
+                const otherLocalBarcodes = Object.entries(allBarcodesByKey)
+                  .filter(([k]) => k !== key)
+                  .map(([, bc]) => bc);
+
                 return (
                   <VariantRow
                     key={key}
@@ -221,6 +250,7 @@ export function MultiAttributeTable({
                     onClick={() => navigateToVariant(key)}
                     isLastRow={isVeryLastRow}
                     variantId={savedVariant?.id}
+                    otherLocalBarcodes={otherLocalBarcodes}
                   />
                 );
               })}

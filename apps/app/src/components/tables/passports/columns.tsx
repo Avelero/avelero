@@ -269,8 +269,8 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       return <span className="type-p text-primary">{count}</span>;
     },
     meta: {
-      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
-      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      headerClassName: cn("w-[120px] min-w-[120px] max-w-[120px]"),
+      cellClassName: cn("w-[120px] min-w-[120px] max-w-[120px]"),
     },
   },
   // Tags
@@ -329,6 +329,35 @@ export const columns: ColumnDef<PassportTableRow>[] = [
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+      );
+    },
+    meta: {
+      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+    },
+  },
+  // Barcode coverage
+  {
+    id: "barcodeCoverage",
+    header: "Barcodes",
+    cell: ({ row }) => {
+      const variantsWithBarcode = row.original.variantsWithBarcode ?? 0;
+      const totalVariants = row.original.variantCount ?? 0;
+      const percentage =
+        totalVariants > 0 ? (variantsWithBarcode / totalVariants) * 100 : 0;
+
+      return (
+        <div className="flex items-center gap-1.5">
+          <span className="type-p text-secondary whitespace-nowrap">
+            {variantsWithBarcode} / {totalVariants}
+          </span>
+          <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden min-w-[60px]">
+            <div
+              className="h-full bg-brand rounded-full transition-all"
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+        </div>
       );
     },
     meta: {

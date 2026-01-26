@@ -295,10 +295,11 @@ interface VariantSectionProps {
   isEditMode?: boolean;
   /** Product handle for building variant edit URLs */
   productHandle?: string;
-  /** Saved variants with UPIDs, override status, and metadata, keyed by the value id key (e.g., "valueId1|valueId2") */
+  /** Saved variants with IDs, UPIDs, override status, and metadata, keyed by the value id key (e.g., "valueId1|valueId2") */
   savedVariants?: Map<
     string,
     {
+      id: string;
       upid: string;
       hasOverrides: boolean;
       sku: string | null;
@@ -340,9 +341,9 @@ export function VariantSection({
   const [addSearchTerm, setAddSearchTerm] = React.useState("");
 
   // Track collapsed variant mappings when dimensions are removed locally
-  // This maps new collapsed keys to the original UPID/override info
+  // This maps new collapsed keys to the original ID/UPID/override info
   const [collapsedVariantMappings, setCollapsedVariantMappings] =
-    React.useState<Map<string, { upid: string; hasOverrides: boolean }>>(
+    React.useState<Map<string, { id: string; upid: string; hasOverrides: boolean }>>(
       new Map(),
     );
 
@@ -351,6 +352,7 @@ export function VariantSection({
     const effective = new Map<
       string,
       {
+        id: string;
         upid: string;
         hasOverrides: boolean;
         sku: string | null;
@@ -577,7 +579,7 @@ export function VariantSection({
       setCollapsedVariantMappings((prev) => {
         const remapped = new Map<
           string,
-          { upid: string; hasOverrides: boolean }
+          { id: string; upid: string; hasOverrides: boolean }
         >();
         for (const [key, value] of prev) {
           remapped.set(remapKey(key), value);
@@ -719,7 +721,7 @@ export function VariantSection({
 
       // Remap collapsed variant mappings
       setCollapsedVariantMappings((prev) => {
-        const next = new Map<string, { upid: string; hasOverrides: boolean }>();
+        const next = new Map<string, { id: string; upid: string; hasOverrides: boolean }>();
         for (const [key, value] of prev) {
           let newKey = key;
           for (const [oldVal, newVal] of valueRemapping) {
@@ -790,10 +792,10 @@ export function VariantSection({
     // Build a map of "variants to preserve" from all sources
     const variantsToPreserve = new Map<
       string,
-      { upid: string | null; hasOverrides: boolean }
+      { id: string | null; upid: string | null; hasOverrides: boolean }
     >();
 
-    // Add saved variants (from DB with UPIDs)
+    // Add saved variants (from DB with IDs and UPIDs)
     if (savedVariants) {
       for (const [key, value] of savedVariants) {
         variantsToPreserve.set(key, value);
@@ -815,7 +817,7 @@ export function VariantSection({
         const meta = variantMetadata[key];
         // Include if has metadata OR if we're changing dimension count
         if (meta?.sku || meta?.barcode || isDimensionCountChange) {
-          variantsToPreserve.set(key, { upid: null, hasOverrides: false });
+          variantsToPreserve.set(key, { id: null, upid: null, hasOverrides: false });
         }
       }
     }
@@ -867,7 +869,7 @@ export function VariantSection({
       const nextEnabled = new Set<string>();
       const nextExpandedMappings = new Map<
         string,
-        { upid: string; hasOverrides: boolean }
+        { id: string; upid: string; hasOverrides: boolean }
       >();
       const nextMetadata: Record<string, { sku?: string; barcode?: string }> =
         {};
@@ -882,9 +884,10 @@ export function VariantSection({
 
         if (newKeysSet.has(expandedKey)) {
           nextEnabled.add(expandedKey);
-          // Preserve the UPID for the expanded key (if it has one)
-          if (variantInfo.upid) {
+          // Preserve the ID and UPID for the expanded key (if it has one)
+          if (variantInfo.id && variantInfo.upid) {
             nextExpandedMappings.set(expandedKey, {
+              id: variantInfo.id,
               upid: variantInfo.upid,
               hasOverrides: variantInfo.hasOverrides,
             });
@@ -1003,16 +1006,16 @@ export function VariantSection({
         return nextEnabled;
       });
 
-      // Update collapsed variant mappings to preserve UPIDs
+      // Update collapsed variant mappings to preserve IDs and UPIDs
       if (variantsToPreserve.size > 0) {
         const nextCollapsedMappings = new Map<
           string,
-          { upid: string; hasOverrides: boolean }
+          { id: string; upid: string; hasOverrides: boolean }
         >();
         const seenCollapsedKeys = new Set<string>();
 
         for (const [originalKey, variantInfo] of variantsToPreserve) {
-          if (!variantInfo.upid) continue; // Only track variants with UPIDs
+          if (!variantInfo.id || !variantInfo.upid) continue; // Only track variants with IDs and UPIDs
 
           const keyParts = originalKey.split("|");
           const containsRemovedValue = keyParts.some((part) =>
@@ -1030,6 +1033,7 @@ export function VariantSection({
               !seenCollapsedKeys.has(collapsedKey)
             ) {
               nextCollapsedMappings.set(collapsedKey, {
+                id: variantInfo.id,
                 upid: variantInfo.upid,
                 hasOverrides: variantInfo.hasOverrides,
               });
@@ -1239,7 +1243,7 @@ export function VariantSection({
     // since deleting a dimension is a dimension count change
     const variantsToPreserve = new Map<
       string,
-      { upid: string | null; hasOverrides: boolean }
+      { id: string | null; upid: string | null; hasOverrides: boolean }
     >();
 
     if (savedVariants) {
@@ -1257,7 +1261,7 @@ export function VariantSection({
     // Include ALL enabled variants for collapse (dimension count is changing)
     for (const key of enabledVariantKeys) {
       if (!variantsToPreserve.has(key)) {
-        variantsToPreserve.set(key, { upid: null, hasOverrides: false });
+        variantsToPreserve.set(key, { id: null, upid: null, hasOverrides: false });
       }
     }
 
@@ -1266,6 +1270,7 @@ export function VariantSection({
       string,
       Array<{
         originalKey: string;
+        id: string | null;
         upid: string | null;
         hasOverrides: boolean;
       }>
@@ -1283,6 +1288,7 @@ export function VariantSection({
       }
       collapsedGroups.get(collapsedKey)!.push({
         originalKey,
+        id: variantInfo.id,
         upid: variantInfo.upid,
         hasOverrides: variantInfo.hasOverrides,
       });
@@ -1293,7 +1299,7 @@ export function VariantSection({
     const nextMetadata: Record<string, { sku?: string; barcode?: string }> = {};
     const nextCollapsedMappings = new Map<
       string,
-      { upid: string; hasOverrides: boolean }
+      { id: string; upid: string; hasOverrides: boolean }
     >();
 
     for (const [collapsedKey, variants] of collapsedGroups) {
@@ -1314,9 +1320,10 @@ export function VariantSection({
         if (originalMeta) {
           nextMetadata[collapsedKey] = originalMeta;
         }
-        // Store the collapsed mapping if it has a UPID
-        if (keptVariant.upid) {
+        // Store the collapsed mapping if it has an ID and UPID
+        if (keptVariant.id && keptVariant.upid) {
           nextCollapsedMappings.set(collapsedKey, {
+            id: keptVariant.id,
             upid: keptVariant.upid,
             hasOverrides: keptVariant.hasOverrides,
           });

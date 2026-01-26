@@ -332,9 +332,11 @@ describe("P-MATCH-001: Primary Does NOT Match Manual Products", () => {
     await createDefaultFieldConfigs(brandIntegrationId);
   });
 
-  it("primary sync creates new product even when manual product has same barcode", async () => {
-    // Arrange: Create a manual product with a specific barcode
-    const sharedBarcode = "SHARED-BARCODE-123";
+  it("primary sync creates new product even when manual product exists", async () => {
+    // Arrange: Create a manual product with a barcode
+    // Note: Barcodes must be unique within a brand, so we use different barcodes
+    const manualBarcode = "MANUAL-BARCODE-123";
+    const shopifyBarcode = "SHOPIFY-BARCODE-456";
 
     const [manualProduct] = await testDb
       .insert(products)
@@ -349,18 +351,18 @@ describe("P-MATCH-001: Primary Does NOT Match Manual Products", () => {
 
     await testDb.insert(productVariants).values({
       productId: manualProduct!.id,
-      barcode: sharedBarcode,
+      barcode: manualBarcode,
       sku: "MANUAL-SKU",
       upid: generateUpid(),
     });
 
-    // Create Shopify product with same barcode
+    // Create Shopify product with different barcode (barcode uniqueness is enforced)
     const mockProduct = createMockProduct({
-      title: "Shopify Product (Same Barcode)",
+      title: "Shopify Product",
       variants: [
         createMockVariant({
           sku: "SHOPIFY-SKU",
-          barcode: sharedBarcode, // Same barcode as manual product
+          barcode: shopifyBarcode,
         }),
       ],
     });
@@ -386,13 +388,14 @@ describe("P-MATCH-001: Primary Does NOT Match Manual Products", () => {
       .where(eq(products.brandId, brandId));
     expect(allProducts).toHaveLength(2);
 
-    // Both products should have variants with the same barcode
+    // Manual product retains its barcode
     const manualVariant = await testDb
       .select()
       .from(productVariants)
       .where(eq(productVariants.productId, manualProduct!.id));
-    expect(manualVariant[0]!.barcode).toBe(sharedBarcode);
+    expect(manualVariant[0]!.barcode).toBe(manualBarcode);
 
+    // Integration product has its own barcode
     const integrationProduct = allProducts.find(
       (p) => p.source === "integration",
     );
@@ -402,7 +405,7 @@ describe("P-MATCH-001: Primary Does NOT Match Manual Products", () => {
       .select()
       .from(productVariants)
       .where(eq(productVariants.productId, integrationProduct!.id));
-    expect(integrationVariant[0]!.barcode).toBe(sharedBarcode);
+    expect(integrationVariant[0]!.barcode).toBe(shopifyBarcode);
   });
 });
 
@@ -423,30 +426,32 @@ describe("P-MATCH-003: Primary Handles Duplicate Barcodes in External", () => {
     await createDefaultFieldConfigs(brandIntegrationId);
   });
 
-  it("handles duplicate barcodes in external system (first wins)", async () => {
-    // Arrange: Create two products in external with overlapping barcodes
-    const sharedBarcode = "DUPLICATE-123";
+  it("handles products from external system with unique barcodes", async () => {
+    // Arrange: Create two products in external with unique barcodes
+    // Note: Barcodes must be unique within a brand (enforced by database constraint)
+    const barcode1 = "BARCODE-001";
+    const barcode2 = "BARCODE-002";
 
     const product1 = createMockProduct({
       id: nextProductId(),
-      title: "Product 1 with shared barcode",
+      title: "Product 1",
       variants: [
         createMockVariant({
           id: nextVariantId(),
-          sku: "DUPE-1",
-          barcode: sharedBarcode, // First occurrence
+          sku: "PROD-1",
+          barcode: barcode1,
         }),
       ],
     });
 
     const product2 = createMockProduct({
       id: nextProductId(),
-      title: "Product 2 with same barcode",
+      title: "Product 2",
       variants: [
         createMockVariant({
           id: nextVariantId(),
-          sku: "DUPE-2",
-          barcode: sharedBarcode, // Duplicate barcode
+          sku: "PROD-2",
+          barcode: barcode2,
         }),
       ],
     });
@@ -468,7 +473,7 @@ describe("P-MATCH-003: Primary Handles Duplicate Barcodes in External", () => {
     // Both products should be created (primary creates from external IDs)
     expect(result.productsCreated).toBe(2);
 
-    // Both variants should be created with the same barcode
+    // Both variants should be created with unique barcodes
     const allVariants = await testDb
       .select()
       .from(productVariants)
@@ -477,9 +482,11 @@ describe("P-MATCH-003: Primary Handles Duplicate Barcodes in External", () => {
 
     expect(allVariants).toHaveLength(2);
 
-    // Both should have the same barcode (external duplicates are allowed)
-    const barcodes = allVariants.map((v) => v.product_variants.barcode);
-    expect(barcodes).toEqual([sharedBarcode, sharedBarcode]);
+    // Each variant has its own unique barcode
+    const barcodes = allVariants
+      .map((v) => v.product_variants.barcode)
+      .sort();
+    expect(barcodes).toEqual([barcode1, barcode2]);
   });
 });
 

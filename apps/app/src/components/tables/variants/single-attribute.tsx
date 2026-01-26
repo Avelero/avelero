@@ -30,6 +30,7 @@ interface SingleAttributeTableProps {
   savedVariants?: Map<
     string,
     {
+      id: string;
       upid: string;
       hasOverrides: boolean;
       sku: string | null;
@@ -39,6 +40,8 @@ interface SingleAttributeTableProps {
   >;
   /** Navigate to variant callback */
   navigateToVariant: (key: string) => void;
+  /** All variant keys that are enabled (for building barcode list) */
+  enabledVariantKeys?: Set<string>;
 }
 
 /**
@@ -54,7 +57,23 @@ export function SingleAttributeTable({
   isEditMode,
   savedVariants,
   navigateToVariant,
+  enabledVariantKeys,
 }: SingleAttributeTableProps) {
+  // Build list of all barcodes from enabled variants for local duplicate detection
+  const allBarcodesByKey = React.useMemo(() => {
+    const result: Record<string, string> = {};
+    for (const value of valuesToRender) {
+      const key = buildKey([value]);
+      // Only include if this key is enabled (if enabledVariantKeys is provided)
+      if (enabledVariantKeys && !enabledVariantKeys.has(key)) continue;
+      const meta = variantMetadata[key];
+      if (meta?.barcode) {
+        result[key] = meta.barcode;
+      }
+    }
+    return result;
+  }, [valuesToRender, buildKey, variantMetadata, enabledVariantKeys]);
+
   return (
     <div className="border-t border-border">
       <div className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] bg-accent-light border-b border-border">
@@ -74,6 +93,11 @@ export function SingleAttributeTable({
         // A variant is "new" if it's enabled but doesn't exist in savedVariants
         const isNewVariant = !savedVariants?.has(key);
 
+        // Get other barcodes (excluding this variant's barcode)
+        const otherLocalBarcodes = Object.entries(allBarcodesByKey)
+          .filter(([k]) => k !== key)
+          .map(([, bc]) => bc);
+
         return (
           <VariantRow
             key={key}
@@ -89,6 +113,8 @@ export function SingleAttributeTable({
             isClickable={!!isClickable}
             onClick={() => navigateToVariant(key)}
             isLastRow={isLastRow}
+            variantId={savedVariant?.id}
+            otherLocalBarcodes={otherLocalBarcodes}
           />
         );
       })}

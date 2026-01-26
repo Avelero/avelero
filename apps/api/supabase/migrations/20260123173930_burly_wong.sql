@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "idx_unique_barcode_per_brand" ON "product_variants" USING btree ("barcode",get_product_brand_id(product_id)) WHERE barcode IS NOT NULL AND barcode != '';

@@ -276,6 +276,11 @@ export async function createTestVariantWithOverrides(
 ): Promise<string> {
   const randomSuffix = Math.random().toString(36).substring(2, 8);
 
+  // Normalize barcode to GTIN-14 format if provided (matches API behavior)
+  const normalizedBarcode = options.barcode?.trim()
+    ? options.barcode.trim().padStart(14, "0")
+    : options.barcode;
+
   // Create the variant
   const [variant] = await testDb
     .insert(schema.productVariants)
@@ -283,7 +288,7 @@ export async function createTestVariantWithOverrides(
       productId,
       upid: options.upid ?? `UPID-${randomSuffix}`,
       sku: options.sku,
-      barcode: options.barcode,
+      barcode: normalizedBarcode,
       name: options.nameOverride,
       description: options.descriptionOverride,
       imagePath: options.imagePathOverride,

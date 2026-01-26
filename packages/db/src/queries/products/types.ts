@@ -157,6 +157,10 @@ export interface ProductWithRelations extends ProductRecord {
   attributes?: ProductAttributesBundle;
   /** UPID of the first variant's passport (for viewing the public passport) */
   first_variant_upid?: string | null;
+  /** Total number of non-ghost variants for this product */
+  variant_count?: number;
+  /** Number of non-ghost variants that have a non-empty barcode */
+  variants_with_barcode?: number;
 }
 
 /**

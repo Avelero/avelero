@@ -237,21 +237,22 @@ describe("Phase 5: Product Matching (Secondary Integration)", () => {
   // Test 5.3: Primary Creates New Product (No Matching)
   // =========================================================================
 
-  it("5.3 - primary creates new product even when existing product has same barcode", async () => {
+  it("5.3 - primary creates new product alongside existing product", async () => {
     // Arrange: Pre-create a product with a barcode
+    // Note: Barcodes must be unique within a brand (enforced by database constraint)
     await createExistingProduct({
       brandId,
       name: "Existing Product",
-      variants: [{ sku: "EXIST-SKU", barcode: "SHARED-BARCODE" }],
+      variants: [{ sku: "EXIST-SKU", barcode: "EXISTING-BARCODE" }],
     });
 
-    // Create mock Shopify product with same barcode
+    // Create mock Shopify product with different barcode (barcode uniqueness enforced)
     const mockProduct = createMockProduct({
       title: "New Shopify Product",
       variants: [
         createMockVariant({
           sku: "NEW-SKU",
-          barcode: "SHARED-BARCODE", // Same barcode
+          barcode: "NEW-BARCODE",
         }),
       ],
     });

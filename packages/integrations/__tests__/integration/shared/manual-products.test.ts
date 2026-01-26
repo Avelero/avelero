@@ -415,22 +415,24 @@ describe("MANUAL-002: Manual Product with Same Barcode as Integration", () => {
     await createDefaultFieldConfigs(brandIntegrationId);
   });
 
-  it("primary integration creates new product even with duplicate barcode", async () => {
-    // Arrange: Create manual product with specific barcode
-    const sharedBarcode = "SHARED-BARCODE-123";
+  it("primary integration creates new product alongside manual product", async () => {
+    // Arrange: Create manual product with a barcode
+    // Note: Barcodes must be unique within a brand (enforced by database constraint)
+    const manualBarcode = "MANUAL-BARCODE-123";
+    const shopifyBarcode = "SHOPIFY-BARCODE-456";
     const { product: manualProduct } = await createManualProduct({
       brandId,
       name: "Manual Product",
-      variants: [{ sku: "MANUAL-SKU", barcode: sharedBarcode }],
+      variants: [{ sku: "MANUAL-SKU", barcode: manualBarcode }],
     });
 
-    // Shopify product with same barcode
+    // Shopify product with different barcode (barcode uniqueness enforced)
     const mockProduct = createMockProduct({
-      title: "Shopify Product (Same Barcode)",
+      title: "Shopify Product",
       variants: [
         createMockVariant({
           sku: "SHOPIFY-SKU",
-          barcode: sharedBarcode,
+          barcode: shopifyBarcode,
         }),
       ],
     });

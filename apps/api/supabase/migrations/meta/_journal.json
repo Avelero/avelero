@@ -155,6 +155,13 @@
       "when": 1769119913679,
       "tag": "20260122221153_chubby_swordsman",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1769189970333,
+      "tag": "20260123173930_burly_wong",
+      "breakpoints": true
     }
   ]
 }

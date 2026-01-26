@@ -5,7 +5,7 @@
  * Uses @v1/testing for shared test utilities.
  */
 
-import { resolve } from "path";
+import { resolve } from "node:path";
 // Load .env.test FIRST before any other imports that depend on DATABASE_URL
 import { config } from "dotenv";
 config({ path: resolve(import.meta.dir, "../.env.test") });

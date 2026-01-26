@@ -221,6 +221,8 @@ export async function listProductsWithIncludes(
     if (passportDataMap) {
       const passportData = passportDataMap.get(product.id);
       enriched.first_variant_upid = passportData?.firstVariantUpid ?? null;
+      enriched.variant_count = passportData?.variantCount ?? 0;
+      enriched.variants_with_barcode = passportData?.variantsWithBarcode ?? 0;
     }
     return enriched;
   });

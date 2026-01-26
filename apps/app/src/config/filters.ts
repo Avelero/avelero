@@ -78,6 +78,12 @@ export const STATUS_OPTIONS: SelectOption[] = [
   { value: "unpublished", label: "Unpublished" },
 ];
 
+export const BARCODE_STATUS_OPTIONS: SelectOption[] = [
+  { value: "complete", label: "Complete" },
+  { value: "incomplete", label: "Incomplete" },
+  { value: "none", label: "No barcode" },
+];
+
 export const RELATIVE_DATE_OPTIONS: SelectOption[] = [
   { value: "today", label: "Today" },
   { value: "yesterday", label: "Yesterday" },
@@ -139,6 +145,17 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     operators: [...OPERATORS.multiSelect] as FilterOperator[],
     placeholder: "e.g., SS24, AW25",
     description: "Filter by product season",
+  },
+
+  barcodeStatus: {
+    id: "barcodeStatus",
+    label: "Barcode",
+    tier: 1,
+    category: "metadata",
+    inputType: "multi-select",
+    operators: [...OPERATORS.multiSelect] as FilterOperator[],
+    options: BARCODE_STATUS_OPTIONS,
+    description: "Filter by barcode completion status",
   },
 
   // ==========================================================================
@@ -341,7 +358,7 @@ export const FIELD_CATEGORIES = {
   },
   metadata: {
     label: "Metadata",
-    fields: ["status", "tagId", "createdAt", "updatedAt"],
+    fields: ["status", "tagId", "barcodeStatus", "createdAt", "updatedAt"],
   },
 } as const;
 
@@ -445,7 +462,7 @@ export function getAdvancedFieldsByCategoryForUI(): Array<{
   fields: FilterFieldConfig[];
 }> {
   // Fields that should be available in advanced filters even though they're Tier 1
-  const tier1FieldsInAdvanced = ["status", "categoryId", "tagId", "season"];
+  const tier1FieldsInAdvanced = ["status", "categoryId", "tagId", "season", "barcodeStatus"];
 
   return Object.entries(FIELD_CATEGORIES)
     .map(([category, config]) => ({

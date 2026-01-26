@@ -107,6 +107,7 @@ function ProductFormInner({
   const {
     setIsSubmitting,
     setHasUnsavedChanges,
+    setHasBarcodeErrors,
     requestNavigation,
     formResetCallbackRef,
     setProductId,
@@ -130,6 +131,7 @@ function ProductFormInner({
     submit,
     isSubmitting,
     hasUnsavedChanges,
+    hasBarcodeErrors,
     revertToSaved,
     savedVariantsMap,
     productHandle: savedProductHandle,
@@ -151,6 +153,11 @@ function ProductFormInner({
     setProductId(productId);
     setPublishingStatus(dbPublishingStatus);
   }, [productId, setProductId, dbPublishingStatus, setPublishingStatus]);
+
+  // Sync barcode validation errors with context for Save button state
+  React.useEffect(() => {
+    setHasBarcodeErrors(hasBarcodeErrors);
+  }, [hasBarcodeErrors, setHasBarcodeErrors]);
 
   // Clear errors when fields change (after first submit attempt)
   React.useEffect(() => {

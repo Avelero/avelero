@@ -41,6 +41,10 @@ interface PassportFormContextType {
   hasUnsavedChanges: boolean;
   setHasUnsavedChanges: (value: boolean) => void;
 
+  // Barcode validation errors (prevents save when true)
+  hasBarcodeErrors: boolean;
+  setHasBarcodeErrors: (value: boolean) => void;
+
   // Navigation control
   pendingNavigationUrl: string | null;
   setPendingNavigationUrl: (url: string | null) => void;
@@ -86,6 +90,9 @@ export function PassportFormProvider({
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
 
+  // Barcode validation errors
+  const [hasBarcodeErrors, setHasBarcodeErrors] = React.useState(false);
+
   // Navigation control
   const [pendingNavigationUrl, setPendingNavigationUrl] = React.useState<
     string | null
@@ -122,6 +129,8 @@ export function PassportFormProvider({
       setIsSubmitting,
       hasUnsavedChanges,
       setHasUnsavedChanges,
+      hasBarcodeErrors,
+      setHasBarcodeErrors,
       pendingNavigationUrl,
       setPendingNavigationUrl,
       requestNavigation,
@@ -135,6 +144,7 @@ export function PassportFormProvider({
       publishingStatus,
       isSubmitting,
       hasUnsavedChanges,
+      hasBarcodeErrors,
       pendingNavigationUrl,
       requestNavigation,
     ],

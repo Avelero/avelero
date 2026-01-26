@@ -104,6 +104,7 @@ export function TableSection() {
       "category",
       "season",
       "variantCount",
+      "barcodeCoverage",
       "tags",
       "actions",
     ],
@@ -117,6 +118,7 @@ export function TableSection() {
       category: true,
       season: true,
       variantCount: true,
+      barcodeCoverage: true,
       tags: true,
       actions: true,
     }),
@@ -490,6 +492,7 @@ function TableContent({
         createdAt: p.created_at ?? p.createdAt ?? "",
         updatedAt: p.updated_at ?? p.updatedAt ?? "",
         variantCount: visibleVariants.length,
+        variantsWithBarcode: p.variants_with_barcode ?? 0,
         tags: tags.map((t: any) => ({
           id: t.id ?? t.tag_id ?? "",
           name: t.name ?? null,

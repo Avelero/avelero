@@ -1,16 +1,18 @@
 /**
  * Product variant query functions.
  *
- * Provides functions for listing variants for a product with attributes.
+ * Provides functions for listing variants for a product with attributes,
+ * and barcode uniqueness checking within brands.
  */
 
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
   brandAttributeValues,
   brandAttributes,
   productVariantAttributes,
   productVariants,
+  products,
 } from "../../schema";
 import { normalizeLimit, parseCursor } from "../_shared/pagination.js";
 import { getProduct, getProductByHandle } from "./get";
@@ -129,4 +131,122 @@ export async function listVariantsForProduct(
     attributes: attributesByVariant.get(row.id) ?? [],
     isGhost: row.isGhost,
   }));
+}
+
+// ============================================================================
+// Barcode Uniqueness Functions
+// ============================================================================
+
+/**
+ * Checks if a barcode is already taken within a brand.
+ *
+ * Normalizes the input barcode to GTIN-14 format before checking,
+ * since all barcodes are stored normalized in the database.
+ *
+ * @param db - Database instance
+ * @param brandId - The brand ID to check within
+ * @param barcode - The barcode to check (any valid GTIN format)
+ * @param excludeVariantId - Optional variant ID to exclude (for updates)
+ * @returns true if barcode is taken, false if available
+ */
+export async function isBarcodeTakenInBrand(
+  db: Database,
+  brandId: string,
+  barcode: string,
+  excludeVariantId?: string,
+): Promise<boolean> {
+  // Empty barcodes are always available (not unique constraint enforced)
+  if (!barcode || barcode.trim() === "") {
+    return false;
+  }
+
+  // Normalize to GTIN-14 format for comparison (barcodes are stored normalized)
+  const normalizedBarcode = barcode.trim().padStart(14, "0");
+
+  const conditions = [
+    eq(productVariants.barcode, normalizedBarcode),
+    eq(products.brandId, brandId),
+  ];
+
+  if (excludeVariantId) {
+    conditions.push(ne(productVariants.id, excludeVariantId));
+  }
+
+  const rows = await db
+    .select({ id: productVariants.id })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(and(...conditions))
+    .limit(1);
+
+  return rows.length > 0;
+}
+
+/**
+ * Checks multiple barcodes at once and returns the ones that are already taken.
+ * Used during sync/import operations for efficiency.
+ *
+ * Normalizes input barcodes to GTIN-14 format before checking,
+ * since all barcodes are stored normalized in the database.
+ * Returns the normalized (GTIN-14) versions of taken barcodes.
+ *
+ * @param db - Database instance
+ * @param brandId - The brand ID to check within
+ * @param barcodes - Array of barcodes to check (any valid GTIN format)
+ * @param excludeVariantIds - Optional variant IDs to exclude (for updates)
+ * @returns Array of barcodes (in GTIN-14 format) that are already taken
+ */
+export async function getBatchTakenBarcodes(
+  db: Database,
+  brandId: string,
+  barcodes: string[],
+  excludeVariantIds?: string[],
+): Promise<string[]> {
+  // Filter out empty/whitespace barcodes and normalize to GTIN-14
+  const normalizedBarcodes = barcodes
+    .map((b) => b?.trim())
+    .filter((b): b is string => Boolean(b))
+    .map((b) => b.padStart(14, "0"));
+
+  if (normalizedBarcodes.length === 0) {
+    return [];
+  }
+
+  const conditions = [
+    inArray(productVariants.barcode, normalizedBarcodes),
+    eq(products.brandId, brandId),
+  ];
+
+  if (excludeVariantIds && excludeVariantIds.length > 0) {
+    conditions.push(
+      // Using SQL to express NOT IN since drizzle's ne doesn't support arrays directly
+      // We need to use a different approach - filter after query or use raw SQL
+      // For simplicity, we'll filter the results in JS
+    );
+  }
+
+  let rows = await db
+    .select({
+      id: productVariants.id,
+      barcode: productVariants.barcode,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(and(...conditions));
+
+  // Filter out excluded variants if provided
+  if (excludeVariantIds && excludeVariantIds.length > 0) {
+    const excludeSet = new Set(excludeVariantIds);
+    rows = rows.filter((row) => !excludeSet.has(row.id));
+  }
+
+  // Return unique barcodes that are taken
+  const takenBarcodes = new Set<string>();
+  for (const row of rows) {
+    if (row.barcode) {
+      takenBarcodes.add(row.barcode);
+    }
+  }
+
+  return Array.from(takenBarcodes);
 }

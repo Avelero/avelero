@@ -123,34 +123,27 @@ describe("ID-003: Duplicate Identifier in Avelero", () => {
     await createDefaultFieldConfigs(secondaryIntegrationId);
   });
 
-  it("matches first variant when multiple variants have same barcode", async () => {
-    // Arrange: Create 2 products, each with a variant sharing the same barcode
-    // This simulates a data integrity issue or intentional duplicate
-    const sharedBarcode = "DUPLICATE-BARCODE-001";
+  it("matches variant by barcode when barcode is unique", async () => {
+    // Arrange: Create a product with a unique barcode
+    // Note: Barcodes must be unique within a brand (enforced by database constraint)
+    const barcode = "UNIQUE-BARCODE-001";
 
     const { product: product1, variants: variants1 } =
       await createExistingProduct({
         brandId,
-        name: "Product 1 with Duplicate",
-        variants: [{ sku: "PROD1-SKU", barcode: sharedBarcode }],
+        name: "Product with Barcode",
+        variants: [{ sku: "PROD1-SKU", barcode: barcode }],
       });
 
-    const { product: product2, variants: variants2 } =
-      await createExistingProduct({
-        brandId,
-        name: "Product 2 with Duplicate",
-        variants: [{ sku: "PROD2-SKU", barcode: sharedBarcode }],
-      });
-
-    // Shopify product with same barcode
+    // Shopify product with same barcode - should match
     const mockProduct = createMockProduct({
       id: nextProductId(),
-      title: "Shopify Duplicate Test",
+      title: "Shopify Barcode Match Test",
       variants: [
         createMockVariant({
           id: nextVariantId(),
           sku: "SHOP-SKU",
-          barcode: sharedBarcode,
+          barcode: barcode,
         }),
       ],
     });
@@ -167,10 +160,10 @@ describe("ID-003: Duplicate Identifier in Avelero", () => {
     // Act
     const result = await syncProducts(ctx);
 
-    // Assert: Sync completes (first match wins)
+    // Assert: Sync completes successfully
     expect(result.success).toBe(true);
 
-    // Only 1 variant link created (to first matched variant)
+    // 1 variant link created (matched by barcode)
     const variantLinks = await testDb
       .select()
       .from(integrationVariantLinks)
@@ -179,9 +172,9 @@ describe("ID-003: Duplicate Identifier in Avelero", () => {
       );
     expect(variantLinks).toHaveLength(1);
 
-    // Should match one of the existing variants (typically first one found)
+    // Should match the existing variant
     const matchedVariantId = variantLinks[0]!.variantId;
-    expect([variants1[0]!.id, variants2[0]!.id]).toContain(matchedVariantId);
+    expect(matchedVariantId).toBe(variants1[0]!.id);
   });
 
   it("handles duplicate SKUs by matching first occurrence", async () => {

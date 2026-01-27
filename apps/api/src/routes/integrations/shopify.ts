@@ -33,7 +33,11 @@ import {
   findOAuthState,
 } from "@v1/db/queries/integrations";
 import { encryptCredentials } from "@v1/db/utils";
-import { exchangeCodeForToken, validateShopifyHmac } from "@v1/integrations";
+import {
+  exchangeCodeForToken,
+  isValidShopDomain,
+  validateShopifyHmac,
+} from "@v1/integrations";
 import { Hono } from "hono";
 
 // Shopify OAuth configuration
@@ -161,6 +165,12 @@ shopifyOAuthRouter.get("/app", async (c) => {
       return c.redirect(
         `${APP_URL}/settings/integrations?error=invalid_signature`,
       );
+    }
+
+    // Validate shop domain format
+    if (!isValidShopDomain(shop)) {
+      console.error("Shopify OAuth app: Invalid shop domain format");
+      return c.redirect(`${APP_URL}/settings/integrations?error=invalid_shop`);
     }
 
     // Verify state token exists

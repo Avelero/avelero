@@ -92,24 +92,6 @@ export async function exchangeCodeForToken(
 }
 
 /**
- * Build the Shopify OAuth authorization URL.
- */
-export function buildAuthorizationUrl(
-  shop: string,
-  clientId: string,
-  scopes: string,
-  redirectUri: string,
-  state: string,
-): string {
-  const url = new URL(`https://${shop}/admin/oauth/authorize`);
-  url.searchParams.set("client_id", clientId);
-  url.searchParams.set("scope", scopes);
-  url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("state", state);
-  return url.toString();
-}
-
-/**
  * Verifies the HMAC signature of a Shopify webhook.
  *
  * Shopify sends webhooks with an `X-Shopify-Hmac-Sha256` header containing

@@ -1,11 +1,11 @@
 "use client";
 
 import { ConnectIntegrationModal } from "@/components/modals/connect-integration-modal";
-import { ConnectShopifyModal } from "@/components/modals/connect-shopify-modal";
 import {
   type Integration,
   useIntegrationsQuerySuspense,
 } from "@/hooks/use-integrations";
+import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useState } from "react";
 import { IntegrationCard } from "./integration-card";
 
@@ -16,21 +16,26 @@ import { IntegrationCard } from "./integration-card";
  */
 export function IntegrationsList() {
   const { data } = useIntegrationsQuerySuspense();
+  const { data: user } = useUserQuerySuspense();
+  const brandId = user?.brand_id ?? null;
 
   // API key integration modal state
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [selectedIntegration, setSelectedIntegration] =
     useState<Integration | null>(null);
 
-  // Shopify OAuth modal state
-  const [shopifyModalOpen, setShopifyModalOpen] = useState(false);
-
   const integrations = data?.data ?? [];
 
   function handleConnect(integration: Integration) {
-    // For Shopify (OAuth), open the Shopify-specific modal
+    // For Shopify (OAuth), redirect directly to the install endpoint
+    // This uses Shopify's managed install flow - no shop URL input needed
     if (integration.slug === "shopify") {
-      setShopifyModalOpen(true);
+      if (!brandId) {
+        console.error("Cannot connect Shopify: no brand_id");
+        return;
+      }
+      const installUrl = `${process.env.NEXT_PUBLIC_API_URL}/integrations/shopify/install?brand_id=${brandId}`;
+      window.location.href = installUrl;
       return;
     }
 
@@ -69,12 +74,6 @@ export function IntegrationsList() {
         integration={selectedIntegration}
         open={connectModalOpen}
         onOpenChange={setConnectModalOpen}
-      />
-
-      {/* Shopify OAuth Modal */}
-      <ConnectShopifyModal
-        open={shopifyModalOpen}
-        onOpenChange={setShopifyModalOpen}
       />
     </div>
   );

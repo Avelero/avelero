@@ -177,7 +177,14 @@ function ProductFormInner({
       state.productHandle &&
       state.validationErrors.productHandle
     ) {
-      clearValidationError("productHandle");
+      // Only clear if the value is now valid (lowercase letters, numbers, and dashes only)
+      const isValidFormat = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(
+        state.productHandle,
+      );
+      const isValidLength = state.productHandle.length <= 100;
+      if (isValidFormat && isValidLength) {
+        clearValidationError("productHandle");
+      }
     }
   }, [
     state.productHandle,
@@ -241,6 +248,41 @@ function ProductFormInner({
     clearValidationError,
   ]);
 
+  React.useEffect(() => {
+    if (
+      state.hasAttemptedSubmit &&
+      state.weightGrams &&
+      state.validationErrors.weightGrams
+    ) {
+      const weightValue = Number.parseFloat(state.weightGrams);
+      if (!Number.isNaN(weightValue) && weightValue >= 0) {
+        clearValidationError("weightGrams");
+      }
+    }
+  }, [
+    state.weightGrams,
+    state.hasAttemptedSubmit,
+    state.validationErrors.weightGrams,
+    clearValidationError,
+  ]);
+
+  React.useEffect(() => {
+    if (
+      state.hasAttemptedSubmit &&
+      state.description &&
+      state.validationErrors.description
+    ) {
+      if (state.description.length <= 2000) {
+        clearValidationError("description");
+      }
+    }
+  }, [
+    state.description,
+    state.hasAttemptedSubmit,
+    state.validationErrors.description,
+    clearValidationError,
+  ]);
+
   // Sync with context
   React.useEffect(() => {
     setIsSubmitting(isSubmitting);
@@ -264,8 +306,10 @@ function ProductFormInner({
 
   // Refs for focusing invalid fields
   const nameInputRef = React.useRef<HTMLInputElement>(null);
+  const descriptionRef = React.useRef<HTMLTextAreaElement>(null);
   const productHandleInputRef = React.useRef<HTMLInputElement>(null);
   const materialsSectionRef = React.useRef<HTMLDivElement>(null);
+  const environmentSectionRef = React.useRef<HTMLDivElement>(null);
 
   // Perform the actual form submission
   const executeSubmit = React.useCallback(async () => {
@@ -297,15 +341,23 @@ function ProductFormInner({
 
       const fieldOrder: Array<keyof PassportFormValidationErrors> = [
         "name",
+        "description",
         "productHandle",
         "materials",
         "carbonKgCo2e",
         "waterLiters",
+        "weightGrams",
       ];
       const firstInvalidField = getFirstInvalidField(errors, fieldOrder);
       if (firstInvalidField === "name") {
         nameInputRef.current?.focus();
         nameInputRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else if (firstInvalidField === "description") {
+        descriptionRef.current?.focus();
+        descriptionRef.current?.scrollIntoView({
           behavior: "smooth",
           block: "center",
         });
@@ -318,6 +370,15 @@ function ProductFormInner({
       } else if (firstInvalidField === "materials") {
         materialsSectionRef.current?.focus();
         materialsSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else if (
+        firstInvalidField === "carbonKgCo2e" ||
+        firstInvalidField === "waterLiters" ||
+        firstInvalidField === "weightGrams"
+      ) {
+        environmentSectionRef.current?.scrollIntoView({
           behavior: "smooth",
           block: "center",
         });
@@ -386,7 +447,13 @@ function ProductFormInner({
                   ? state.validationErrors.name
                   : undefined
               }
+              descriptionError={
+                state.hasAttemptedSubmit
+                  ? state.validationErrors.description
+                  : undefined
+              }
               nameInputRef={nameInputRef}
+              descriptionRef={descriptionRef}
               productHandle={state.productHandle}
               setProductHandle={(value) => setField("productHandle", value)}
               required={true}
@@ -462,6 +529,7 @@ function ProductFormInner({
                   ? state.validationErrors.weightGrams
                   : undefined
               }
+              sectionRef={environmentSectionRef}
             />
             <MaterialsSection
               materials={state.materialData}

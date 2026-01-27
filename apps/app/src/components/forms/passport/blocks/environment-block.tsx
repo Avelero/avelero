@@ -1,9 +1,8 @@
 "use client";
 
-import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
-import * as React from "react";
+import type * as React from "react";
 
 interface EnvironmentSectionProps {
   carbonKgCo2e: string;
@@ -15,6 +14,7 @@ interface EnvironmentSectionProps {
   carbonError?: string;
   waterError?: string;
   weightError?: string;
+  sectionRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export function EnvironmentSection({
@@ -27,6 +27,7 @@ export function EnvironmentSection({
   carbonError,
   waterError,
   weightError,
+  sectionRef,
 }: EnvironmentSectionProps) {
   // Normalize numeric input: handle commas, spaces, multiple decimals, and precision
   const normalizeNumericInput = (value: string): string => {
@@ -88,7 +89,7 @@ export function EnvironmentSection({
   };
 
   return (
-    <div className="border border-border bg-background">
+    <div ref={sectionRef} className="border border-border bg-background">
       <div className="p-4 flex flex-col gap-3">
         <p className="type-p !font-medium text-primary">Environment</p>
 
@@ -107,11 +108,9 @@ export function EnvironmentSection({
               }
               onBlur={(e) => handleNumericBlur(e.target.value, setCarbonKgCo2e)}
               placeholder="Enter carbon value"
-              className={cn(
-                "h-9 flex-1",
-                carbonError &&
-                  "focus-visible:ring-destructive focus-visible:border-destructive",
-              )}
+              className="h-9 flex-1"
+              error={Boolean(carbonError)}
+              aria-invalid={Boolean(carbonError)}
             />
           </div>
           {carbonError && (
@@ -134,11 +133,9 @@ export function EnvironmentSection({
               }
               onBlur={(e) => handleNumericBlur(e.target.value, setWaterLiters)}
               placeholder="Enter water value"
-              className={cn(
-                "h-9 flex-1",
-                waterError &&
-                  "focus-visible:ring-destructive focus-visible:border-destructive",
-              )}
+              className="h-9 flex-1"
+              error={Boolean(waterError)}
+              aria-invalid={Boolean(waterError)}
             />
           </div>
           {waterError && (
@@ -161,11 +158,9 @@ export function EnvironmentSection({
               }
               onBlur={(e) => handleNumericBlur(e.target.value, setWeightGrams)}
               placeholder="Enter product weight"
-              className={cn(
-                "h-9 flex-1",
-                weightError &&
-                  "focus-visible:ring-destructive focus-visible:border-destructive",
-              )}
+              className="h-9 flex-1"
+              error={Boolean(weightError)}
+              aria-invalid={Boolean(weightError)}
             />
           </div>
           {weightError && (

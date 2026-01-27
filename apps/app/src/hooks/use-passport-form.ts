@@ -209,7 +209,7 @@ const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
     },
   ],
   description: [
-    rules.maxLength(1000, "Description must be 1000 characters or less"),
+    rules.maxLength(2000, "Description must be 2000 characters or less"),
   ],
   carbonKgCo2e: [
     rules.positiveNumeric("Carbon value must be a valid positive number"),
@@ -818,6 +818,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     initialSnapshot !== null && serializedState !== initialSnapshot;
 
   const validate = React.useCallback((): PassportFormValidationErrors => {
+    setHasAttemptedSubmit(true);
     const errors = getPassportValidationErrors(formValues);
     setValidationErrors(errors);
     return errors;

@@ -2,7 +2,7 @@
 
 client_id = "0072e586e47d47ca4f367de0247bea92"
 name = "Avelero"
-application_url = "https://app.avelero.com/settings/integrations"
+application_url = "https://api.avelero.com/integrations/shopify/app"
 embedded = false
 
 [webhooks]
@@ -16,7 +16,6 @@ uri = "https://api.avelero.com/integrations/webhooks/compliance"
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_products"
 optional_scopes = [ ]
-use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [

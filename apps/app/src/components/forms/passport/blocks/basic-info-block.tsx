@@ -4,7 +4,6 @@ import { ImageUploader } from "@/components/image-upload";
 import { generateProductHandle } from "@/utils/product-handle";
 import { BUCKETS } from "@/utils/storage-config";
 import { normalizeToDisplayUrl } from "@/utils/storage-urls";
-import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { Textarea } from "@v1/ui/textarea";
@@ -19,7 +18,9 @@ interface BasicInfoSectionProps {
   setImageFile: (file: File | null) => void;
   existingImageUrl?: string | null;
   nameError?: string;
+  descriptionError?: string;
   nameInputRef?: React.RefObject<HTMLInputElement | null>;
+  descriptionRef?: React.RefObject<HTMLTextAreaElement | null>;
   productHandle?: string;
   setProductHandle?: (value: string) => void;
   /** Whether the name field is required. Defaults to true for product forms. */
@@ -35,7 +36,9 @@ export function BasicInfoSection({
   setImageFile,
   existingImageUrl = null,
   nameError,
+  descriptionError,
   nameInputRef,
+  descriptionRef,
   productHandle,
   setProductHandle,
   required = true,
@@ -100,11 +103,7 @@ export function BasicInfoSection({
           onFocus={handleNameFocus}
           onBlur={handleNameBlur}
           placeholder="Enter product name"
-          className={cn(
-            "h-9",
-            nameError &&
-              "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
-          )}
+          error={Boolean(nameError)}
           aria-invalid={Boolean(nameError)}
           aria-required={required}
         />
@@ -117,11 +116,17 @@ export function BasicInfoSection({
       <div className="space-y-1.5">
         <Label>Description</Label>
         <Textarea
+          ref={descriptionRef}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Enter product description"
           className="h-24"
+          error={Boolean(descriptionError)}
+          aria-invalid={Boolean(descriptionError)}
         />
+        {descriptionError && (
+          <p className="type-small text-destructive">{descriptionError}</p>
+        )}
       </div>
 
       {/* Image Upload */}

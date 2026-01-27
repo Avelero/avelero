@@ -348,10 +348,10 @@ export const columns: ColumnDef<PassportTableRow>[] = [
 
       return (
         <div className="flex items-center gap-1.5">
-          <span className="type-p text-secondary whitespace-nowrap">
+          <span className="type-p text-secondary whitespace-nowrap min-w-[4.5ch] tabular-nums flex-shrink-0">
             {variantsWithBarcode} / {totalVariants}
           </span>
-          <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden min-w-[60px]">
+          <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
             <div
               className="h-full bg-brand rounded-full transition-all"
               style={{ width: `${percentage}%` }}

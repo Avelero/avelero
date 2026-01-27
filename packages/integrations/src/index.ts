@@ -101,7 +101,6 @@ export { shopifySchema } from "./connectors/shopify/schema";
 export {
   validateShopifyHmac,
   exchangeCodeForToken,
-  buildAuthorizationUrl,
   verifyShopifyWebhookHmac,
 } from "./connectors/shopify/oauth";
 export {

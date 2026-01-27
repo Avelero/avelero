@@ -4,9 +4,18 @@
  * These are raw HTTP endpoints (not tRPC) because Shopify redirects
  * directly to them during the OAuth flow.
  *
+ * Flow (Shopify managed installation for non-embedded apps):
+ * 1. Frontend redirects to https://admin.shopify.com/oauth/install?client_id=xxx&state=yyy
+ * 2. Shopify handles login, store selection, and grant screen
+ * 3. Shopify redirects to /app (application_url) with shop, hmac, timestamp, state
+ * 4. /app validates HMAC, finds brand_id from state, redirects to OAuth authorize
+ * 5. Shopify redirects to /callback with code
+ * 6. /callback exchanges code for token and stores credentials
+ *
  * Endpoints:
- * - GET /integrations/shopify/install - Initiate OAuth flow
- * - GET /integrations/shopify/callback - Handle OAuth callback
+ * - GET /integrations/shopify/install - Create state and redirect to Shopify install
+ * - GET /integrations/shopify/app - Handle post-install redirect, initiate OAuth
+ * - GET /integrations/shopify/callback - Handle OAuth callback, exchange code for token
  *
  * @module routes/integrations/shopify
  */
@@ -25,8 +34,8 @@ import {
 } from "@v1/db/queries/integrations";
 import { encryptCredentials } from "@v1/db/utils";
 import {
-  buildAuthorizationUrl,
   exchangeCodeForToken,
+  isValidShopDomain,
   validateShopifyHmac,
 } from "@v1/integrations";
 import { Hono } from "hono";
@@ -50,41 +59,29 @@ export const shopifyOAuthRouter = new Hono();
 /**
  * GET /install
  *
- * Initiates the Shopify OAuth flow.
+ * Initiates the Shopify OAuth flow using Shopify's managed install.
+ *
+ * This endpoint uses Shopify's install URL (https://admin.shopify.com/oauth/install)
+ * which handles login and store selection automatically - no shop URL input needed.
+ * This complies with Shopify App Store requirement 2.3.1:
+ * "Apps must not request the manual entry of a myshopify.com URL"
  *
  * Query params:
- * - shop: Shopify shop domain (e.g., "my-store.myshopify.com")
  * - brand_id: Brand ID to associate the integration with
  *
  * Steps:
- * 1. Validate shop domain format
+ * 1. Validate brand_id
  * 2. Generate CSRF state token
- * 3. Store state in database with brand_id
- * 4. Redirect to Shopify OAuth authorize URL
+ * 3. Store state in database with brand_id (shop domain comes later)
+ * 4. Redirect to Shopify's managed install URL
  */
 shopifyOAuthRouter.get("/install", async (c) => {
   try {
-    const shop = c.req.query("shop");
     const brandId = c.req.query("brand_id");
 
     // Validate required parameters
-    if (!shop) {
-      return c.json({ error: "Missing required parameter: shop" }, 400);
-    }
     if (!brandId) {
       return c.json({ error: "Missing required parameter: brand_id" }, 400);
-    }
-
-    // Validate shop domain format
-    const shopRegex = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i;
-    if (!shopRegex.test(shop)) {
-      return c.json(
-        {
-          error:
-            "Invalid shop domain. Must be a valid Shopify domain (e.g., my-store.myshopify.com)",
-        },
-        400,
-      );
     }
 
     // Validate Shopify credentials are configured
@@ -102,22 +99,17 @@ shopifyOAuthRouter.get("/install", async (c) => {
       state,
       brandId,
       integrationSlug: "shopify",
-      shopDomain: shop,
+      shopDomain: null,
       expiresAt,
     });
 
-    // Build Shopify OAuth URL using shared utility
-    const redirectUri = `${API_URL}/integrations/shopify/callback`;
-    const installUrl = buildAuthorizationUrl(
-      shop,
-      SHOPIFY_CLIENT_ID,
-      SHOPIFY_SCOPES,
-      redirectUri,
-      state,
-    );
+    // Build Shopify's managed install URL
+    const installUrl = new URL("https://admin.shopify.com/oauth/install");
+    installUrl.searchParams.set("client_id", SHOPIFY_CLIENT_ID);
+    installUrl.searchParams.set("state", state);
 
-    // Redirect to Shopify
-    return c.redirect(installUrl);
+    // Redirect to Shopify's managed install
+    return c.redirect(installUrl.toString());
   } catch (error) {
     console.error("Shopify OAuth install error:", error);
     return c.json({ error: "Failed to initiate OAuth flow" }, 500);
@@ -125,12 +117,112 @@ shopifyOAuthRouter.get("/install", async (c) => {
 });
 
 /**
- * GET /callback
+ * GET /app
  *
- * Handles the Shopify OAuth callback.
+ * Handles the redirect from Shopify after managed installation.
+ * This is the application_url configured in shopify.app.avelero.toml.
+ *
+ * For non-embedded apps, Shopify redirects here after the user approves the installation.
+ * This endpoint then initiates the OAuth authorization code flow to get a code.
  *
  * Query params (from Shopify):
- * - code: Authorization code
+ * - shop: Shop domain (e.g., my-store.myshopify.com)
+ * - hmac: HMAC signature for verification
+ * - timestamp: Request timestamp
+ * - state: CSRF state token (passed through from /install)
+ *
+ * Steps:
+ * 1. Validate HMAC signature
+ * 2. Verify state token and get brand_id
+ * 3. Update state with shop domain
+ * 4. Redirect to OAuth authorize to get authorization code
+ */
+shopifyOAuthRouter.get("/app", async (c) => {
+  try {
+    const { shop, hmac, timestamp, state } = c.req.query();
+
+    // Validate required parameters
+    if (!shop || !hmac || !timestamp || !state) {
+      console.error("Shopify OAuth app: Missing parameters", {
+        shop: !!shop,
+        hmac: !!hmac,
+        timestamp: !!timestamp,
+        state: !!state,
+      });
+      return c.redirect(
+        `${APP_URL}/settings/integrations?error=missing_params`,
+      );
+    }
+
+    // Validate HMAC signature
+    const isValidHmac = validateShopifyHmac(
+      c.req.query() as Record<string, string>,
+      hmac,
+      SHOPIFY_CLIENT_SECRET,
+    );
+    if (!isValidHmac) {
+      console.error("Shopify OAuth app: Invalid HMAC signature");
+      return c.redirect(
+        `${APP_URL}/settings/integrations?error=invalid_signature`,
+      );
+    }
+
+    // Validate shop domain format
+    if (!isValidShopDomain(shop)) {
+      console.error("Shopify OAuth app: Invalid shop domain format");
+      return c.redirect(`${APP_URL}/settings/integrations?error=invalid_shop`);
+    }
+
+    // Verify state token exists
+    const oauthState = await findOAuthState(db, state);
+    if (!oauthState) {
+      console.error("Shopify OAuth app: Invalid or expired state token");
+      return c.redirect(`${APP_URL}/settings/integrations?error=invalid_state`);
+    }
+
+    // Generate a new state for the OAuth authorize step
+    // (We keep the same brand association but generate a fresh nonce)
+    const newState = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    // Create new state with shop domain
+    await createOAuthState(db, {
+      state: newState,
+      brandId: oauthState.brandId,
+      integrationSlug: "shopify",
+      shopDomain: shop,
+      expiresAt,
+    });
+
+    // Clean up old state
+    await deleteOAuthState(db, oauthState.id);
+
+    // Build OAuth authorize URL
+    // This will redirect back to /callback with the authorization code
+    const authorizeUrl = new URL(`https://${shop}/admin/oauth/authorize`);
+    authorizeUrl.searchParams.set("client_id", SHOPIFY_CLIENT_ID);
+    authorizeUrl.searchParams.set("scope", SHOPIFY_SCOPES);
+    authorizeUrl.searchParams.set(
+      "redirect_uri",
+      `${API_URL}/integrations/shopify/callback`,
+    );
+    authorizeUrl.searchParams.set("state", newState);
+
+    // Redirect to Shopify OAuth authorize
+    return c.redirect(authorizeUrl.toString());
+  } catch (error) {
+    console.error("Shopify OAuth app error:", error);
+    return c.redirect(`${APP_URL}/settings/integrations?error=app_failed`);
+  }
+});
+
+/**
+ * GET /callback
+ *
+ * Handles the Shopify OAuth callback with the authorization code.
+ *
+ * Query params (from Shopify):
+ * - code: Authorization code to exchange for access token
  * - hmac: HMAC signature for verification
  * - shop: Shop domain
  * - state: CSRF state token
@@ -155,14 +247,14 @@ shopifyOAuthRouter.get("/callback", async (c) => {
       );
     }
 
-    // Validate HMAC signature using shared utility
+    // Validate HMAC signature
     const isValidHmac = validateShopifyHmac(
       c.req.query() as Record<string, string>,
       hmac,
       SHOPIFY_CLIENT_SECRET,
     );
     if (!isValidHmac) {
-      console.error("Shopify OAuth: Invalid HMAC signature");
+      console.error("Shopify OAuth callback: Invalid HMAC signature");
       return c.redirect(
         `${APP_URL}/settings/integrations?error=invalid_signature`,
       );
@@ -171,18 +263,11 @@ shopifyOAuthRouter.get("/callback", async (c) => {
     // Verify state token
     const oauthState = await findOAuthState(db, state);
     if (!oauthState) {
-      console.error("Shopify OAuth: Invalid or expired state token");
+      console.error("Shopify OAuth callback: Invalid or expired state token");
       return c.redirect(`${APP_URL}/settings/integrations?error=invalid_state`);
     }
 
-    // Verify shop domain matches
-    if (oauthState.shopDomain !== shop) {
-      console.error("Shopify OAuth: Shop domain mismatch");
-      await deleteOAuthState(db, oauthState.id);
-      return c.redirect(`${APP_URL}/settings/integrations?error=shop_mismatch`);
-    }
-
-    // Exchange code for access token using shared utility
+    // Exchange code for access token
     const accessToken = await exchangeCodeForToken(
       shop,
       code,
@@ -195,9 +280,6 @@ shopifyOAuthRouter.get("/callback", async (c) => {
         `${APP_URL}/settings/integrations?error=token_exchange_failed`,
       );
     }
-
-    // Note: Compliance webhooks (customers/data_request, customers/redact, shop/redact)
-    // are configured in shopify.app.avelero.toml and registered automatically by Shopify.
 
     // Get the Shopify integration type
     const integration = await getIntegrationBySlug(db, "shopify");
@@ -246,7 +328,7 @@ shopifyOAuthRouter.get("/callback", async (c) => {
     // Clean up OAuth state
     await deleteOAuthState(db, oauthState.id);
 
-    // Redirect to integration detail page (status comes from database, not URL)
+    // Redirect to integration detail page
     return c.redirect(`${APP_URL}/settings/integrations/shopify`);
   } catch (error) {
     console.error("Shopify OAuth callback error:", error);

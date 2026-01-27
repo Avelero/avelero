@@ -22,7 +22,6 @@ import {
   type SyncJobStatus,
   SyncProgressBlock,
 } from "@/components/integrations/integration-status";
-import { ConnectShopifyModal } from "@/components/modals/connect-shopify-modal";
 import { DisconnectIntegrationModal } from "@/components/modals/disconnect-integration-modal";
 import { PromoteToPrimaryModal } from "@/components/modals/promote-to-primary-modal";
 import {
@@ -125,7 +124,6 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
 
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
   const [promoteModalOpen, setPromoteModalOpen] = useState(false);
-  const [shopifyModalOpen, setShopifyModalOpen] = useState(false);
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
 
   // Optimistic sync state - shows "In progress" immediately when user clicks sync
@@ -422,6 +420,16 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     );
   }
 
+  // Handler for connecting Shopify - redirects directly to OAuth install flow
+  function handleConnectShopify() {
+    if (!brandId) {
+      console.error("Cannot connect Shopify: no brand_id");
+      return;
+    }
+    const installUrl = `${process.env.NEXT_PUBLIC_API_URL}/integrations/shopify/install?brand_id=${brandId}`;
+    window.location.href = installUrl;
+  }
+
   // Not connected state
   if (!connection) {
     return (
@@ -438,15 +446,9 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
             </p>
           </div>
           {slug === "shopify" ? (
-            <>
-              <Button onClick={() => setShopifyModalOpen(true)}>
-                Connect {integrationInfo?.name ?? "Shopify"}
-              </Button>
-              <ConnectShopifyModal
-                open={shopifyModalOpen}
-                onOpenChange={setShopifyModalOpen}
-              />
-            </>
+            <Button onClick={handleConnectShopify}>
+              Connect {integrationInfo?.name ?? "Shopify"}
+            </Button>
           ) : (
             <Button asChild>
               <Link href="/settings/integrations" prefetch>

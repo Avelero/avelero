@@ -118,11 +118,7 @@ export function IdentifiersSidebar({
             value={productHandle}
             onChange={(e) => setProductHandle(e.target.value)}
             placeholder="Enter product handle"
-            className={cn(
-              "h-9",
-              productHandleError &&
-                "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
-            )}
+            error={Boolean(productHandleError)}
             aria-invalid={Boolean(productHandleError)}
           />
           {productHandleError && (

@@ -278,6 +278,12 @@ function EmptyStateAttributeSelect({
 // Main Component
 // ============================================================================
 
+/** Mapping from expanded/collapsed keys to their original variant ID/UPID */
+export type ExpandedVariantMappings = Map<
+  string,
+  { id: string; upid: string; hasOverrides: boolean }
+>;
+
 interface VariantSectionProps {
   dimensions: VariantDimension[];
   setDimensions: React.Dispatch<React.SetStateAction<VariantDimension[]>>;
@@ -317,6 +323,16 @@ interface VariantSectionProps {
    * This allows the parent to intercept navigation and show unsaved changes modal.
    */
   onNavigateToVariant?: (url: string) => void;
+  /**
+   * Mapping from expanded/collapsed keys to their original variant ID/UPID.
+   * This is used to preserve variant identity when dimensions are added/removed.
+   * Must be lifted to parent so it can be used during form submission.
+   */
+  expandedVariantMappings?: ExpandedVariantMappings;
+  /** Setter for expandedVariantMappings */
+  setExpandedVariantMappings?: React.Dispatch<
+    React.SetStateAction<ExpandedVariantMappings>
+  >;
 }
 
 export function VariantSection({
@@ -333,6 +349,8 @@ export function VariantSection({
   savedVariants,
   isNewProduct = false,
   onNavigateToVariant,
+  expandedVariantMappings: externalExpandedMappings,
+  setExpandedVariantMappings: setExternalExpandedMappings,
 }: VariantSectionProps) {
   const { taxonomyAttributes, brandAttributes } = useBrandCatalog();
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -340,12 +358,19 @@ export function VariantSection({
   const [addPopoverOpen, setAddPopoverOpen] = React.useState(false);
   const [addSearchTerm, setAddSearchTerm] = React.useState("");
 
-  // Track collapsed variant mappings when dimensions are removed locally
-  // This maps new collapsed keys to the original ID/UPID/override info
-  const [collapsedVariantMappings, setCollapsedVariantMappings] =
+  // Track expanded/collapsed variant mappings when dimensions are added/removed locally
+  // This maps new keys to the original ID/UPID/override info
+  // Use external state if provided (for form submission), otherwise use local state
+  const [localExpandedMappings, setLocalExpandedMappings] =
     React.useState<Map<string, { id: string; upid: string; hasOverrides: boolean }>>(
       new Map(),
     );
+
+  // Use external mappings if provided, otherwise fall back to local state
+  const collapsedVariantMappings =
+    externalExpandedMappings ?? localExpandedMappings;
+  const setCollapsedVariantMappings =
+    setExternalExpandedMappings ?? setLocalExpandedMappings;
 
   // Effective saved variants = original savedVariants + locally collapsed mappings
   const effectiveSavedVariants = React.useMemo(() => {

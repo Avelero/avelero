@@ -11,7 +11,7 @@ const inputVariants = cva(
         small: "h-[30px] !type-small",
       },
       error: {
-        true: "focus-visible:ring-0 border-destructive",
+        true: "focus-visible:!ring-destructive",
         false: "",
       },
     },

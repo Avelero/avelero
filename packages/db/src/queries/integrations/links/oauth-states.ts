@@ -15,7 +15,7 @@ export async function createOAuthState(
   db: Database,
   input: {
     state: string;
-    brandId: string;
+    brandId?: string | null;
     integrationSlug: string;
     shopDomain?: string | null;
     expiresAt: string;
@@ -25,7 +25,7 @@ export async function createOAuthState(
     .insert(oauthStates)
     .values({
       state: input.state,
-      brandId: input.brandId,
+      brandId: input.brandId ?? null,
       integrationSlug: input.integrationSlug,
       shopDomain: input.shopDomain ?? null,
       expiresAt: input.expiresAt,

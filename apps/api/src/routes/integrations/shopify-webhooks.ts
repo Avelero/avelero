@@ -1,5 +1,8 @@
 import { db } from "@v1/db/client";
-import { deleteBrandIntegrationByShopDomain } from "@v1/db/queries/integrations";
+import {
+  deleteBrandIntegrationByShopDomain,
+  deletePendingInstallation,
+} from "@v1/db/queries/integrations";
 import { verifyShopifyWebhookHmac } from "@v1/integrations";
 /**
  * Shopify Compliance Webhook Handlers.
@@ -187,6 +190,7 @@ async function handleCustomersRedact(
  * 48 hours after a store uninstalls the app, Shopify sends this webhook.
  * We delete the brand integration record for this shop. Product data is
  * retained as it belongs to the brand, not the Shopify integration.
+ * We also delete any pending installations for this shop.
  */
 async function handleShopRedact(
   c: Context,
@@ -216,6 +220,25 @@ async function handleShopRedact(
     }
   } catch (error) {
     console.error("Shopify webhook: error deleting brand integration", {
+      shopDomain: payload.shop_domain,
+      error,
+    });
+    // Still return 200 to prevent Shopify from retrying
+  }
+
+  // Also delete any pending installations for this shop
+  try {
+    const deletedPending = await deletePendingInstallation(
+      db,
+      payload.shop_domain,
+    );
+    if (deletedPending) {
+      console.log("Shopify webhook: deleted pending installation", {
+        shopDomain: payload.shop_domain,
+      });
+    }
+  } catch (error) {
+    console.error("Shopify webhook: error deleting pending installation", {
       shopDomain: payload.shop_domain,
       error,
     });

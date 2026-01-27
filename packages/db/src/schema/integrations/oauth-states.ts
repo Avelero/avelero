@@ -27,10 +27,11 @@ export const oauthStates = pgTable(
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     /** The state token (random string for CSRF protection) */
     state: text("state").notNull(),
-    /** Brand ID that initiated the OAuth flow */
-    brandId: uuid("brand_id")
-      .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
-      .notNull(),
+    /** Brand ID that initiated the OAuth flow (nullable for Shopify App Store initiated installs) */
+    brandId: uuid("brand_id").references(() => brands.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
     /** Integration slug (e.g., "shopify") */
     integrationSlug: text("integration_slug").notNull(),
     /** Shop domain for Shopify (e.g., "my-store.myshopify.com") */

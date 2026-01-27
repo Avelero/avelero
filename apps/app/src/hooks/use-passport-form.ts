@@ -1,4 +1,5 @@
 import type {
+  ExpandedVariantMappings,
   VariantDimension,
   VariantMetadata,
 } from "@/components/forms/passport/blocks/variant-block";
@@ -46,6 +47,12 @@ export interface PassportFormValues {
    * cartesian product need to exist.
    */
   enabledVariantKeys: Set<string>;
+  /**
+   * Maps expanded/collapsed variant keys to their original variant ID/UPID.
+   * When dimensions are added/removed, this preserves the link between new keys
+   * and existing variants so they can be updated rather than recreated.
+   */
+  expandedVariantMappings: ExpandedVariantMappings;
 
   // Materials
   materialData: Array<{ materialId: string; percentage: number }>;
@@ -93,6 +100,7 @@ const initialFormValues: PassportFormValues = {
   variantMetadata: {},
   explicitVariants: [],
   enabledVariantKeys: new Set<string>(),
+  expandedVariantMappings: new Map(),
   materialData: [],
   journeySteps: [],
   carbonKgCo2e: "",
@@ -1271,10 +1279,14 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               if (resolvedValueIds.length === tokens.length) {
                 const resolvedKey = resolvedValueIds.join("|");
                 const metadata = variantMetadataForUpsert?.[resolvedKey];
+                // Look up UPID from savedVariantsMap first, then check expandedVariantMappings
+                // (which holds mappings when dimensions are added/removed)
                 const savedVariant = savedVariantsMap.get(resolvedKey);
+                const expandedMapping =
+                  formValues.expandedVariantMappings.get(resolvedKey);
 
                 variantsForSync.push({
-                  upid: savedVariant?.upid,
+                  upid: savedVariant?.upid ?? expandedMapping?.upid,
                   attributeValueIds: resolvedValueIds,
                   sku: metadata?.sku || undefined,
                   barcode: metadata?.barcode || undefined,

@@ -506,6 +506,14 @@ function ProductFormInner({
                 !isEditMode || !savedVariantsMap || savedVariantsMap.size === 0
               }
               onNavigateToVariant={requestNavigation}
+              expandedVariantMappings={state.expandedVariantMappings}
+              setExpandedVariantMappings={(value) => {
+                if (typeof value === "function") {
+                  updateField("expandedVariantMappings", value);
+                } else {
+                  setField("expandedVariantMappings", value);
+                }
+              }}
             />
             <EnvironmentSection
               carbonKgCo2e={state.carbonKgCo2e}

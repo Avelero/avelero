@@ -18,7 +18,7 @@
  * 5. Shopify redirects to /callback with code
  * 6. /callback exchanges code for token:
  *    - If brand_id in state: auto-claim to brand_integrations
- *    - If no brand_id: save to pending_installations, redirect to /connect/shopify
+ *    - If no brand_id: save to pending_installations, redirect to /settings/integrations/shopify?claim=<shop>
  *
  * @module routes/integrations/shopify
  */
@@ -224,7 +224,7 @@ shopifyOAuthRouter.get("/app", async (c) => {
  * 3. Exchange code for access token
  * 4. Encrypt credentials
  * 5. If brand_id in state: auto-claim to brand_integrations, redirect to settings
- * 6. If no brand_id: save to pending_installations, redirect to /connect/shopify
+ * 6. If no brand_id: save to pending_installations, redirect to /settings/integrations/shopify?claim=<shop>
  */
 shopifyOAuthRouter.get("/callback", async (c) => {
   try {
@@ -333,9 +333,10 @@ shopifyOAuthRouter.get("/callback", async (c) => {
       expiresAt,
     });
 
-    // Redirect to Avelero claim page
+    // Redirect to integration settings page with claim parameter
+    // The page will auto-claim the pending installation
     return c.redirect(
-      `${APP_URL}/connect/shopify?shop=${encodeURIComponent(shop)}`,
+      `${APP_URL}/settings/integrations/shopify?claim=${encodeURIComponent(shop)}`,
     );
   } catch (error) {
     console.error("Shopify OAuth callback error:", error);

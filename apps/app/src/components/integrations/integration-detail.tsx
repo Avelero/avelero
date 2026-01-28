@@ -25,6 +25,7 @@ import {
 import { DisconnectIntegrationModal } from "@/components/modals/disconnect-integration-modal";
 import { PromoteToPrimaryModal } from "@/components/modals/promote-to-primary-modal";
 import {
+  useClaimInstallationMutation,
   useFieldMappingsQuery,
   useIntegrationBySlugQuerySuspense,
   usePromoteToPrimaryMutation,
@@ -52,8 +53,8 @@ import { Icons } from "@v1/ui/icons";
 import { Skeleton } from "@v1/ui/skeleton";
 import { toast } from "@v1/ui/sonner";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface IntegrationDetailProps {
   slug: string;
@@ -118,9 +119,48 @@ export function IntegrationDetailSkeleton() {
  */
 export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: connectionData } = useIntegrationBySlugQuerySuspense(slug);
   const { data: user } = useUserQuerySuspense();
   const brandId = user?.brand_id ?? null;
+
+  // Check for claim parameter (from Shopify App Store install flow)
+  const claimShop = searchParams.get("claim");
+  const claimAttemptedRef = useRef(false);
+  const [claimStatus, setClaimStatus] = useState<
+    "idle" | "claiming" | "success" | "error"
+  >("idle");
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const claimMutation = useClaimInstallationMutation();
+
+  // Auto-claim pending installation if claim param is present
+  useEffect(() => {
+    if (
+      claimShop &&
+      slug === "shopify" &&
+      !claimAttemptedRef.current &&
+      claimStatus === "idle"
+    ) {
+      claimAttemptedRef.current = true;
+      setClaimStatus("claiming");
+
+      claimMutation.mutate(
+        { shopDomain: claimShop },
+        {
+          onSuccess: () => {
+            setClaimStatus("success");
+            // Clear the claim param from URL without full page reload
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, "", newUrl);
+          },
+          onError: (err) => {
+            setClaimStatus("error");
+            setClaimError(err.message);
+          },
+        },
+      );
+    }
+  }, [claimShop, slug, claimStatus, claimMutation]);
 
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
   const [promoteModalOpen, setPromoteModalOpen] = useState(false);
@@ -430,8 +470,39 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     window.location.href = installUrl;
   }
 
+  // Show claiming state if we're claiming a pending installation
+  if (claimStatus === "claiming") {
+    return <IntegrationDetailSkeleton />;
+  }
+
   // Not connected state
   if (!connection) {
+    // Show error if claim failed
+    if (claimStatus === "error") {
+      return (
+        <div className="space-y-6">
+          <div className="border border-dashed border-border p-8 flex flex-col items-center justify-center gap-4 text-center">
+            <IntegrationLogo slug={slug} size="lg" />
+            <div className="flex flex-col gap-1">
+              <h5 className="text-foreground font-medium">Connection Failed</h5>
+              <p className="text-secondary text-sm max-w-[400px]">
+                {claimError ??
+                  "We couldn't connect your Shopify store. Please try again."}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={handleConnectShopify}>Try Again</Button>
+              <Button variant="outline" asChild>
+                <Link href="/settings/integrations" prefetch>
+                  Go to Integrations
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
         <div className="border border-dashed border-border p-8 flex flex-col items-center justify-center gap-4 text-center">

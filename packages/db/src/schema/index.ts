@@ -56,6 +56,7 @@ export * from "./integrations/brand-integrations";
 export * from "./integrations/field-configs";
 export * from "./integrations/integrations";
 export * from "./integrations/oauth-states";
+export * from "./integrations/pending-installations";
 export * from "./integrations/sync-jobs";
 export * from "./integrations/promotion-operations";
 export * from "./integrations/links/entity-links";

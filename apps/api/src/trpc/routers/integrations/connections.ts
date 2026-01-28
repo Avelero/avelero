@@ -14,6 +14,8 @@ import { auth, tasks } from "@trigger.dev/sdk/v3";
 import {
   createBrandIntegration,
   deleteBrandIntegration,
+  deletePendingInstallation,
+  findPendingInstallation,
   getBrandIntegration,
   getBrandIntegrationBySlug,
   getCurrentPrimaryIntegration,
@@ -26,6 +28,7 @@ import {
 import { decryptCredentials, encryptCredentials } from "@v1/db/utils";
 import { testIntegrationConnection } from "@v1/integrations";
 import {
+  claimInstallationSchema,
   connectApiKeySchema,
   disconnectSchema,
   getIntegrationBySlugSchema,
@@ -434,6 +437,61 @@ export const connectionsRouter = createTRPCRouter({
         });
       } catch (error) {
         throw wrapError(error, "Failed to start promotion");
+      }
+    }),
+
+  /**
+   * Claim a pending Shopify installation.
+   *
+   * Used when a user installs from Shopify App Store first, then logs into Avelero.
+   * This moves credentials from pending_installations to brand_integrations.
+   */
+  claimInstallation: brandRequiredProcedure
+    .input(claimInstallationSchema)
+    .mutation(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      try {
+        // 1. Find pending installation
+        const pending = await findPendingInstallation(
+          brandCtx.db,
+          input.shopDomain,
+        );
+        if (!pending) {
+          throw notFound("Pending installation", input.shopDomain);
+        }
+
+        // 2. Check brand doesn't already have Shopify connected
+        const existing = await getBrandIntegrationBySlug(
+          brandCtx.db,
+          brandCtx.brandId,
+          "shopify",
+        );
+        if (existing) {
+          throw alreadyExists("Shopify connection", "this brand");
+        }
+
+        // 3. Get Shopify integration type
+        const integration = await getIntegrationBySlug(brandCtx.db, "shopify");
+        if (!integration) {
+          throw notFound("Integration type", "shopify");
+        }
+
+        // 4. Create brand integration with credentials from pending
+        await createBrandIntegration(brandCtx.db, brandCtx.brandId, {
+          integrationId: integration.id,
+          credentials: pending.credentials,
+          credentialsIv: pending.credentialsIv,
+          shopDomain: pending.shopDomain,
+          syncInterval: 86400, // 24 hours
+          status: "active",
+        });
+
+        // 5. Delete pending installation
+        await deletePendingInstallation(brandCtx.db, input.shopDomain);
+
+        return createSuccessResponse();
+      } catch (error) {
+        throw wrapError(error, "Failed to claim installation");
       }
     }),
 });

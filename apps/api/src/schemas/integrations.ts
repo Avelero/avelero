@@ -244,6 +244,21 @@ export const getSyncJobSchema = z.object({
 // =============================================================================
 
 /**
+ * Schema for claiming a pending Shopify installation.
+ * Used when a user installs from Shopify App Store, then logs into Avelero.
+ */
+export const claimInstallationSchema = z.object({
+  /** Shop domain (e.g., "my-store.myshopify.com") */
+  shopDomain: z
+    .string()
+    .min(1)
+    .regex(
+      /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i,
+      "Invalid Shopify shop domain",
+    ),
+});
+
+/**
  * Schema for initiating Shopify OAuth flow.
  * Used by the install endpoint.
  */
@@ -301,5 +316,6 @@ type ListSyncHistoryInput = z.infer<typeof listSyncHistorySchema>;
 type GetSyncStatusInput = z.infer<typeof getSyncStatusSchema>;
 type GetSyncJobInput = z.infer<typeof getSyncJobSchema>;
 
+type ClaimInstallationInput = z.infer<typeof claimInstallationSchema>;
 type ShopifyInstallInput = z.infer<typeof shopifyInstallSchema>;
 type ShopifyCallbackInput = z.infer<typeof shopifyCallbackSchema>;

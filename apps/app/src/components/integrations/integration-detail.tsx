@@ -131,7 +131,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     "idle" | "claiming" | "success" | "error"
   >("idle");
   const [claimError, setClaimError] = useState<string | null>(null);
-  const claimMutation = useClaimInstallationMutation();
+  const { mutate: claimInstallation } = useClaimInstallationMutation();
 
   // Auto-claim pending installation if claim param is present
   useEffect(() => {
@@ -144,7 +144,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       claimAttemptedRef.current = true;
       setClaimStatus("claiming");
 
-      claimMutation.mutate(
+      claimInstallation(
         { shopDomain: claimShop },
         {
           onSuccess: () => {
@@ -160,7 +160,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
         },
       );
     }
-  }, [claimShop, slug, claimStatus, claimMutation]);
+  }, [claimShop, slug, claimStatus, claimInstallation]);
 
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
   const [promoteModalOpen, setPromoteModalOpen] = useState(false);

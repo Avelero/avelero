@@ -83,6 +83,35 @@ export function useConnectIntegrationMutation() {
 }
 
 /**
+ * Claim a pending Shopify installation.
+ * Used when a user installs from Shopify App Store first, then logs into Avelero.
+ */
+export function useClaimInstallationMutation() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    trpc.integrations.connections.claimInstallation.mutationOptions({
+      onSuccess: async () => {
+        // Invalidate all connection-related queries
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.integrations.connections.list.queryKey({}),
+          }),
+          queryClient.invalidateQueries({
+            predicate: (query) =>
+              Array.isArray(query.queryKey) &&
+              query.queryKey[0]?.[0] === "integrations" &&
+              query.queryKey[0]?.[1] === "connections" &&
+              query.queryKey[0]?.[2] === "getBySlug",
+          }),
+        ]);
+      },
+    }),
+  );
+}
+
+/**
  * Disconnect an integration.
  */
 export function useDisconnectIntegrationMutation() {

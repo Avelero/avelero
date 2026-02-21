@@ -35,6 +35,9 @@ interface ExportProductsModalProps {
   filterState?: FilterState;
   searchValue?: string;
   disabled?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
 type ExportState = "initial" | "exporting" | "completed" | "failed";
@@ -49,9 +52,12 @@ export function ExportProductsModal({
   filterState,
   searchValue,
   disabled = false,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
 }: ExportProductsModalProps) {
   const trpc = useTRPC();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [exportState, setExportState] = useState<ExportState>("initial");
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [activeAccessToken, setActiveAccessToken] = useState<string | null>(
@@ -63,6 +69,7 @@ export function ExportProductsModal({
 
   const hasSelection = selectedCount > 0;
   const isButtonDisabled = disabled || !hasSelection;
+  const open = controlledOpen ?? internalOpen;
 
   // Subscribe to real-time updates
   const { progress: exportProgress, runStatus: exportRunStatus } =
@@ -141,7 +148,11 @@ export function ExportProductsModal({
         downloadTriggeredRef.current = false;
       }, 350);
     }
-    setOpen(newOpen);
+
+    if (controlledOpen === undefined) {
+      setInternalOpen(newOpen);
+    }
+    onOpenChange?.(newOpen);
   };
 
   const handleStartExport = () => {
@@ -188,20 +199,21 @@ export function ExportProductsModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {isButtonDisabled && !hasSelection ? (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-block">{buttonElement}</span>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              Select products to export
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : (
-        <DialogTrigger asChild>{buttonElement}</DialogTrigger>
-      )}
+      {!hideTrigger &&
+        (isButtonDisabled && !hasSelection ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-block">{buttonElement}</span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                Select products to export
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <DialogTrigger asChild>{buttonElement}</DialogTrigger>
+        ))}
       <DialogContent size="xl" className="p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle>Export products</DialogTitle>

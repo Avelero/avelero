@@ -46,6 +46,7 @@ export * from "./data/file-assets";
 export * from "./data/import-jobs";
 export * from "./data/import-rows";
 export * from "./data/export-jobs";
+export * from "./data/qr-export-jobs";
 export * from "./data/user-notifications";
 
 // Import schemas

@@ -53,9 +53,11 @@ export {
   createTestProductForExport,
   createTestVariantWithOverrides,
   createTestExportJob,
+  createTestQrExportJob,
   type CreateTestProductForExportOptions,
   type CreateTestVariantWithOverridesOptions,
   type CreateTestExportJobOptions,
+  type CreateTestQrExportJobOptions,
 } from "./export";
 
 // Bulk import helpers

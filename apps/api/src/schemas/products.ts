@@ -526,6 +526,29 @@ export const productsDomainListSchema = listProductsSchema.extend({
 type ProductsDomainListInput = z.infer<typeof productsDomainListSchema>;
 
 /**
+ * Input payload for `products.count`.
+ *
+ * Returns selected product and variant counters for explicit or "all" selection.
+ */
+export const productsCountSchema = z.object({
+  selection: z.discriminatedUnion("mode", [
+    z.object({
+      mode: z.literal("all"),
+      excludeIds: uuidArraySchema.optional(),
+    }),
+    z.object({
+      mode: z.literal("explicit"),
+      includeIds: uuidArraySchema.min(1),
+    }),
+  ]),
+  filterState: filterStateSchema.optional(),
+  search: shortStringSchema.optional(),
+  brand_id: uuidSchema.optional(),
+});
+
+type ProductsCountInput = z.infer<typeof productsCountSchema>;
+
+/**
  * Input payload for `products.get`.
  *
  * Supports optional include flags that match the corresponding list payload.

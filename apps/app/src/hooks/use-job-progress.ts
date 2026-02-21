@@ -177,3 +177,25 @@ export function useTriggerExportProgress(
     "exportProgress",
   );
 }
+
+/**
+ * QR export progress metadata structure.
+ */
+export interface QrExportProgressMetadata extends JobProgressMetadata {
+  context?: { qrExportJobId?: string };
+  downloadUrl?: string | null;
+}
+
+/**
+ * Hook to subscribe to QR export job progress via Trigger.dev native realtime.
+ */
+export function useTriggerQrExportProgress(
+  runId: string | null,
+  accessToken: string | null,
+) {
+  return useTriggerJobProgress<QrExportProgressMetadata>(
+    runId,
+    accessToken,
+    "qrExportProgress",
+  );
+}

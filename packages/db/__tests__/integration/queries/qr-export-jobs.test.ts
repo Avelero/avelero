@@ -172,4 +172,25 @@ describe("QR Export Job CRUD", () => {
     const loaded = await getQrExportJobStatus(testDb, created.id);
     expect(loaded?.status).toBe("FAILED");
   });
+
+  it("throws when no update fields are provided", async () => {
+    const created = await createQrExportJob(testDb, {
+      brandId,
+      userId,
+      userEmail,
+      selectionMode: "all",
+      includeIds: [],
+      excludeIds: [],
+      filterState: null,
+      searchQuery: null,
+      customDomain: "passport.example.com",
+      status: "PROCESSING",
+    });
+
+    await expect(
+      updateQrExportJobStatus(testDb, {
+        jobId: created.id,
+      }),
+    ).rejects.toThrow("No update fields provided for QR export job");
+  });
 });

@@ -192,11 +192,10 @@ describe("Bulk QR Export Router", () => {
       expect(mockTrigger).toHaveBeenCalledTimes(1);
       expect(mockTrigger).toHaveBeenCalledWith(
         "export-qr-codes",
-        expect.objectContaining({
+        {
           jobId: result.jobId,
           brandId,
-          customDomain: "passport.example.com",
-        }),
+        },
       );
     });
 

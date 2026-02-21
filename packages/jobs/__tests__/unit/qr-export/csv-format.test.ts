@@ -6,8 +6,10 @@ import { describe, expect, it } from "bun:test";
 import {
   QR_EXPORT_CSV_HEADER,
   buildGs1DigitalLink,
+  buildQrPngCacheFilename,
   generateQrExportCsv,
   generateQrPng,
+  getQrWidthForQuality,
 } from "../../../src/lib/qr-export";
 
 describe("QR export CSV helpers", () => {
@@ -20,6 +22,33 @@ describe("QR export CSV helpers", () => {
   it("builds GS1 URL in exact required format", () => {
     const url = buildGs1DigitalLink("passport.example.com", "01234567890123");
     expect(url).toBe("https://passport.example.com/01/01234567890123");
+  });
+
+  it("resolves QR width by quality preset", () => {
+    expect(getQrWidthForQuality("standard")).toBe(1024);
+    expect(getQrWidthForQuality("print")).toBe(2048);
+  });
+
+  it("builds deterministic QR cache filenames", () => {
+    const first = buildQrPngCacheFilename(
+      "passport.example.com",
+      "01234567890123",
+      { width: 1024 },
+    );
+    const same = buildQrPngCacheFilename(
+      "https://passport.example.com/",
+      "01234567890123",
+      { width: 1024 },
+    );
+    const different = buildQrPngCacheFilename(
+      "passport.example.com",
+      "01234567890123",
+      { width: 2048 },
+    );
+
+    expect(first).toBe(same);
+    expect(first.endsWith(".png")).toBe(true);
+    expect(first).not.toBe(different);
   });
 
   it("writes empty variant_upid when variant UPID is missing", () => {

@@ -26,7 +26,7 @@ export interface Notification {
   /** URL for click-through action */
   actionUrl: string | null;
   /** Additional action data */
-  actionData: Record<string, unknown> | null;
+  actionData: unknown | null;
   /** When the notification was seen (null = unread) */
   seenAt: string | null;
   /** When the notification was created */
@@ -61,7 +61,7 @@ export function useNotifications() {
 
   const recentNotificationsQuery = useSuspenseQuery(
     trpc.notifications.getRecent.queryOptions({
-      limit: 10,
+      limit: 30,
       unreadOnly: false,
       includeDismissed: false,
     }),
@@ -84,11 +84,16 @@ export function useNotifications() {
         // Optimistically update the cache - mark notification as seen immediately
         queryClient.setQueryData(
           trpc.notifications.getRecent.queryKey(),
-          (old: { notifications: Notification[] } | undefined) => ({
-            notifications: (old?.notifications ?? []).map((n) =>
-              n.id === id ? { ...n, seenAt: new Date().toISOString() } : n,
-            ),
-          }),
+          (old) => {
+            if (!old) return old;
+
+            return {
+              ...old,
+              notifications: old.notifications.map((n) =>
+                n.id === id ? { ...n, seenAt: new Date().toISOString() } : n,
+              ),
+            };
+          },
         );
 
         return { previousNotifications };
@@ -116,6 +121,19 @@ export function useNotifications() {
 
   const markAllAsSeen = useMutation(
     trpc.notifications.markAllAsSeen.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      },
+    }),
+  );
+
+  const markManyAsSeen = useMutation(
+    trpc.notifications.markManyAsSeen.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
           queryKey: trpc.notifications.getUnreadCount.queryKey(),
@@ -158,10 +176,9 @@ export function useNotifications() {
     markAsSeen,
     /** Mark all notifications as seen */
     markAllAsSeen,
+    /** Mark multiple notifications as seen */
+    markManyAsSeen,
     /** Dismiss a notification */
     dismiss,
   };
 }
-
-// Keep the old name as alias for backwards compatibility during migration
-export { useNotifications as useNotificationsSuspense };

@@ -64,13 +64,13 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
       <DialogContent size="md" className="p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">Delete brand</DialogTitle>
+        </DialogHeader>
+
+        <div className="px-6 py-4 space-y-3">
           <DialogDescription className="text-secondary">
             This action is irreversible. All brand data including members and
             invites will be permanently deleted. Type DELETE to confirm.
           </DialogDescription>
-        </DialogHeader>
-
-        <div className="px-6 py-4 space-y-3">
           <Input
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}

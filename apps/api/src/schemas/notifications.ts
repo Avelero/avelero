@@ -24,6 +24,14 @@ export const markNotificationAsSeenSchema = z.object({
 });
 
 /**
+ * Mark multiple notifications as seen.
+ */
+export const markNotificationsAsSeenSchema = z.object({
+  /** Notification IDs to mark as seen */
+  ids: z.array(z.string().uuid()).min(1).max(100),
+});
+
+/**
  * Dismiss notification
  */
 export const dismissNotificationSchema = z.object({

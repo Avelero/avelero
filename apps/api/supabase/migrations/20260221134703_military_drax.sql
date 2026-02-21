@@ -1,0 +1,1 @@
+ALTER POLICY "qr_export_jobs_update_by_brand_member" ON "qr_export_jobs" TO authenticated,service_role USING (is_brand_member(brand_id)) WITH CHECK (is_brand_member(brand_id));

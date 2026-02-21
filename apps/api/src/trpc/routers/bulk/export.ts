@@ -86,6 +86,7 @@ export const exportRouter = createTRPCRouter({
           handle = await tasks.trigger("export-products", {
             jobId: job.id,
             brandId,
+            userId,
             userEmail,
             selectionMode,
             includeIds,

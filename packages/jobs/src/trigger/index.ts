@@ -8,7 +8,6 @@ export { validateAndStage } from "./bulk/validate-and-stage";
 export { commitToProduction } from "./bulk/commit-to-production";
 export { exportProducts } from "./bulk/export-products";
 export { exportQrCodes } from "./bulk/export-qr-codes";
-export { sendQrExportReadyEmail } from "./bulk/send-qr-export-ready-email";
 export { deleteBrand } from "./delete-brand";
 
 // Integration sync tasks.

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { and, eq, inArray } from "@v1/db/queries";
 /**
  * Products domain router implementation.
@@ -29,7 +30,12 @@ import {
   upsertProductMaterials,
   upsertProductWeight,
 } from "@v1/db/queries/products";
-import { productVariants, products } from "@v1/db/schema";
+import {
+  brandCustomDomains,
+  productVariants,
+  products,
+  qrExportJobs,
+} from "@v1/db/schema";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import { generateProductHandle } from "../../../schemas/_shared/primitives.js";
 import {
@@ -86,6 +92,142 @@ type AttributeInput = {
   };
   tag_ids?: string[];
 };
+
+const PRODUCT_IMAGES_BUCKET = "products";
+const PRODUCT_QR_CODES_BUCKET = "product-qr-codes";
+const STORAGE_REMOVE_BATCH_SIZE = 1000;
+const QR_CACHE_NAMESPACE = "00000000-0000-0000-0000-000000000000";
+
+// Keep in sync with packages/jobs/src/lib/qr-export.ts.
+const QR_CACHE_KEY_VERSION = "v2";
+const DEFAULT_QR_WIDTH = 1024;
+const PRINT_QR_WIDTH = 2048;
+const DEFAULT_QR_MARGIN = 1;
+const DEFAULT_QR_ERROR_CORRECTION_LEVEL = "H";
+
+function normalizeDomain(domain: string): string {
+  return domain
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/+$/g, "")
+    .toLowerCase();
+}
+
+function buildQrPngCacheFilename(
+  domain: string,
+  barcode: string,
+  width: number,
+): string {
+  const key = [
+    QR_CACHE_KEY_VERSION,
+    normalizeDomain(domain),
+    barcode.trim(),
+    String(width),
+    String(DEFAULT_QR_MARGIN),
+    DEFAULT_QR_ERROR_CORRECTION_LEVEL,
+  ].join("|");
+
+  const digest = createHash("sha256").update(key).digest("hex");
+  return `${digest}.png`;
+}
+
+function buildQrCachePath(brandId: string, domain: string, barcode: string): string[] {
+  const normalizedDomain = normalizeDomain(domain);
+  const normalizedBarcode = barcode.trim();
+
+  return [DEFAULT_QR_WIDTH, PRINT_QR_WIDTH].map((width) => {
+    const filename = buildQrPngCacheFilename(
+      normalizedDomain,
+      normalizedBarcode,
+      width,
+    );
+    return `${brandId}/${QR_CACHE_NAMESPACE}/${filename}`;
+  });
+}
+
+async function removeStoragePathsInBatches(
+  supabase: BrandContext["supabase"],
+  bucket: string,
+  paths: string[],
+): Promise<void> {
+  for (let i = 0; i < paths.length; i += STORAGE_REMOVE_BATCH_SIZE) {
+    const chunk = paths.slice(i, i + STORAGE_REMOVE_BATCH_SIZE);
+    if (chunk.length === 0) {
+      continue;
+    }
+
+    const { error } = await supabase.storage.from(bucket).remove(chunk);
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+}
+
+async function getQrCachePathsForDeletedProducts(
+  ctx: BrandContext,
+  brandId: string,
+  productIds: string[],
+): Promise<string[]> {
+  if (productIds.length === 0) {
+    return [];
+  }
+
+  const variantRows = await ctx.db
+    .select({
+      barcode: productVariants.barcode,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(productVariants.productId, products.id))
+    .where(
+      and(eq(products.brandId, brandId), inArray(productVariants.productId, productIds)),
+    );
+
+  const barcodes = Array.from(
+    new Set(
+      variantRows
+        .map((row) => row.barcode?.trim() ?? null)
+        .filter((barcode): barcode is string => !!barcode),
+    ),
+  );
+
+  if (barcodes.length === 0) {
+    return [];
+  }
+
+  const [currentDomainRows, historicalDomainRows] = await Promise.all([
+    ctx.db
+      .select({ domain: brandCustomDomains.domain })
+      .from(brandCustomDomains)
+      .where(eq(brandCustomDomains.brandId, brandId)),
+    ctx.db
+      .selectDistinct({ domain: qrExportJobs.customDomain })
+      .from(qrExportJobs)
+      .where(eq(qrExportJobs.brandId, brandId)),
+  ]);
+
+  const domains = Array.from(
+    new Set(
+      [...currentDomainRows, ...historicalDomainRows]
+        .map((row) => normalizeDomain(row.domain))
+        .filter((domain) => domain.length > 0),
+    ),
+  );
+
+  if (domains.length === 0) {
+    return [];
+  }
+
+  const paths = new Set<string>();
+  for (const domain of domains) {
+    for (const barcode of barcodes) {
+      for (const path of buildQrCachePath(brandId, domain, barcode)) {
+        paths.add(path);
+      }
+    }
+  }
+
+  return Array.from(paths);
+}
 
 export const productsRouter = createTRPCRouter({
   list: brandRequiredProcedure
@@ -386,6 +528,28 @@ export const productsRouter = createTRPCRouter({
       );
 
       try {
+        const productIdsForCacheCleanup = Array.from(
+          new Set(
+            "selection" in input
+              ? input.selection.mode === "all"
+                ? await resolveSelectedProductIds(brandCtx.db, brandId, {
+                    selectionMode: "all",
+                    includeIds: [],
+                    excludeIds: input.selection.excludeIds ?? [],
+                    filterState: input.selection.filters ?? null,
+                    searchQuery: input.selection.search ?? null,
+                  })
+                : input.selection.ids
+              : [input.id],
+          ),
+        );
+        const qrCachePaths = await getQrCachePathsForDeletedProducts(
+          brandCtx,
+          brandId,
+          productIdsForCacheCleanup,
+        );
+        const storageClient = ctx.supabaseAdmin ?? ctx.supabase;
+
         // Check if this is a bulk operation (has selection property)
         if ("selection" in input) {
           const selection = input.selection;
@@ -408,11 +572,26 @@ export const productsRouter = createTRPCRouter({
           }
 
           // Clean up product images from storage after deletion
-          if (result.imagePaths.length > 0 && ctx.supabase) {
+          if (result.imagePaths.length > 0) {
             try {
-              await ctx.supabase.storage
-                .from("products")
-                .remove(result.imagePaths);
+              await removeStoragePathsInBatches(
+                storageClient,
+                PRODUCT_IMAGES_BUCKET,
+                result.imagePaths,
+              );
+            } catch {
+              // Silently ignore storage cleanup errors - products are already deleted
+            }
+          }
+
+          // Invalidate QR PNG cache for deleted product barcodes
+          if (qrCachePaths.length > 0) {
+            try {
+              await removeStoragePathsInBatches(
+                storageClient,
+                PRODUCT_QR_CODES_BUCKET,
+                qrCachePaths,
+              );
             } catch {
               // Silently ignore storage cleanup errors - products are already deleted
             }
@@ -435,11 +614,26 @@ export const productsRouter = createTRPCRouter({
         const deleted = await deleteProduct(brandCtx.db, brandId, input.id);
 
         // Clean up product image from storage after successful deletion
-        if (deleted && productRow?.imagePath && ctx.supabase) {
+        if (deleted && productRow?.imagePath) {
           try {
-            await ctx.supabase.storage
-              .from("products")
-              .remove([productRow.imagePath]);
+            await removeStoragePathsInBatches(
+              storageClient,
+              PRODUCT_IMAGES_BUCKET,
+              [productRow.imagePath],
+            );
+          } catch {
+            // Silently ignore storage cleanup errors - product is already deleted
+          }
+        }
+
+        // Invalidate QR PNG cache for deleted product barcodes
+        if (deleted && qrCachePaths.length > 0) {
+          try {
+            await removeStoragePathsInBatches(
+              storageClient,
+              PRODUCT_QR_CODES_BUCKET,
+              qrCachePaths,
+            );
           } catch {
             // Silently ignore storage cleanup errors - product is already deleted
           }

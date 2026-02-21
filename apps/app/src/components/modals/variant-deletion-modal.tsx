@@ -63,14 +63,14 @@ export function VariantDeletionModal({
           <DialogTitle>
             {isSingle ? "Remove variant?" : `Remove ${count} variants?`}
           </DialogTitle>
+        </DialogHeader>
+
+        <div className="px-6 py-4 space-y-4">
           <DialogDescription className="text-secondary">
             {isSingle
               ? "This variant has an active passport. Removing it will orphan the passport page."
               : `These ${count} variants have active passports. Removing them will orphan their passport pages.`}
           </DialogDescription>
-        </DialogHeader>
-
-        <div className="px-6 py-4 space-y-4">
           {/* Variant table */}
           <div className="border border-border max-h-[200px] overflow-y-auto">
             {/* Header */}

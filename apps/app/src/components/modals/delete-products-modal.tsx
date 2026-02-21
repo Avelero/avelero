@@ -123,14 +123,15 @@ function DeleteProductsModal({
           <DialogTitle className="text-foreground">
             {isBulk ? `Delete ${count} products?` : "Delete product?"}
           </DialogTitle>
+        </DialogHeader>
+
+        <div className="px-6 py-4">
           <DialogDescription className="text-secondary">
             {isBulk
               ? `This will permanently delete ${count} products and all their associated data including variants and passport information. This action cannot be undone.`
               : "This will permanently delete this product and all its associated data including variants and passport information. This action cannot be undone."}
           </DialogDescription>
-        </DialogHeader>
-
-        <div className="px-6 py-4 min-h-[60px]" />
+        </div>
 
         <DialogFooter className="px-6 py-4 border-t border-border">
           <Button

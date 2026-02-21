@@ -1,6 +1,5 @@
 "use client";
 
-import { useNotificationsSuspense } from "@/hooks/use-notifications";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,7 +17,7 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // ============================================================================
 // Types & Constants
@@ -54,93 +53,6 @@ function ImportProductsModalContent({
   const [mode, setMode] = useState<ImportMode>("CREATE");
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
-
-  // Use the suspense notifications hook
-  const { notifications, markAsSeen } = useNotificationsSuspense();
-
-  // Find import failure notification (if any)
-  const importFailureNotification = useMemo(() => {
-    return notifications.find((n) => n.type === "import_failure" && !n.seenAt);
-  }, [notifications]);
-
-  // Query for recent imports to get the failed import details (for error report download)
-  const recentImportsQuery = useQuery({
-    ...trpc.bulk.import.getRecentImports.queryOptions({ limit: 1 }),
-    // Only fetch when we have an import failure notification
-    enabled: !!importFailureNotification,
-  });
-
-  // Get the recent failed import for the error report download
-  const recentFailedImport = useMemo(() => {
-    const job = recentImportsQuery.data?.jobs[0];
-    if (!job?.hasExportableFailures) return null;
-    if ((job.summary as Record<string, unknown>)?.dismissed) return null;
-    return job;
-  }, [recentImportsQuery.data]);
-
-  // Show notification dot based on unread import failure notifications
-  const showNotificationDot = !!importFailureNotification;
-
-  // Track which notifications we've already initiated markAsSeen for
-  // This prevents the loop caused by query invalidation + broadcast causing re-renders
-  const markedAsSeenRef = useRef<Set<string>>(new Set());
-
-  // Mark notification as seen when modal opens (only once per notification ID)
-  useEffect(() => {
-    if (
-      open &&
-      importFailureNotification &&
-      !markedAsSeenRef.current.has(importFailureNotification.id)
-    ) {
-      markedAsSeenRef.current.add(importFailureNotification.id);
-      markAsSeen.mutate({ id: importFailureNotification.id });
-    }
-  }, [open, importFailureNotification, markAsSeen]);
-
-  // Helper function to download file using fetch + blob (same as template download)
-  const downloadFile = async (url: string, filename: string) => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Download failed");
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-    } catch {
-      toast.error("Failed to download error report");
-    }
-  };
-
-  // Mutation for exporting corrections
-  const exportCorrectionsMutation = useMutation(
-    trpc.bulk.import.exportCorrections.mutationOptions({
-      onSuccess: async (data) => {
-        if (data.status === "ready" && data.downloadUrl) {
-          // Download using fetch + blob
-          const filename = `${recentFailedImport?.filename ?? "import"}-corrections.xlsx`;
-          await downloadFile(data.downloadUrl, filename);
-          setIsDownloadingReport(false);
-        } else if (data.status === "generating") {
-          toast.success(
-            "Error report is being generated. Check your email shortly.",
-          );
-          setIsDownloadingReport(false);
-        }
-      },
-      onError: (error) => {
-        toast.error(error.message || "Failed to download error report");
-        setIsDownloadingReport(false);
-      },
-    }),
-  );
-
-  // Handler for downloading error report
   // Ref to track resetState timeout for cleanup
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -152,29 +64,6 @@ function ImportProductsModalContent({
       }
     };
   }, []);
-
-  const handleDownloadErrorReport = async () => {
-    if (!recentFailedImport) return;
-
-    // If URL exists and not expired, download directly using fetch + blob
-    if (
-      recentFailedImport.correctionDownloadUrl &&
-      recentFailedImport.correctionExpiresAt
-    ) {
-      const expiresAt = new Date(recentFailedImport.correctionExpiresAt);
-      if (expiresAt > new Date()) {
-        setIsDownloadingReport(true);
-        const filename = `${recentFailedImport.filename ?? "import"}-corrections.xlsx`;
-        await downloadFile(recentFailedImport.correctionDownloadUrl, filename);
-        setIsDownloadingReport(false);
-        return;
-      }
-    }
-
-    // Otherwise trigger generation
-    setIsDownloadingReport(true);
-    exportCorrectionsMutation.mutate({ jobId: recentFailedImport.id });
-  };
 
   const resetState = useCallback(() => {
     // Clear any pending reset timeout
@@ -326,9 +215,6 @@ function ImportProductsModalContent({
         <Button variant="outline" size="default" className="relative">
           <Icons.Upload className="h-[14px] w-[14px]" />
           <span className="px-1">Import</span>
-          {showNotificationDot && (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-destructive rounded-full" />
-          )}
         </Button>
       </DialogTrigger>
       <DialogContent size="xl" className="p-0 gap-0">
@@ -408,53 +294,6 @@ function ImportProductsModalContent({
                 </div>
               </div>
 
-              {/* Recent Import Failures Banner */}
-              {recentFailedImport && (
-                <div className="mt-6 pt-6 border-t border-border">
-                  <div className="flex items-start gap-3 p-4 bg-destructive/5 border border-destructive/20">
-                    <Icons.AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="type-p text-foreground font-medium">
-                        {(() => {
-                          const summary = recentFailedImport.summary as Record<
-                            string,
-                            unknown
-                          > | null;
-                          const blocked =
-                            (summary?.blockedProducts as number) ?? 0;
-                          const warnings =
-                            (summary?.warningProducts as number) ?? 0;
-                          const totalIssues = blocked + warnings;
-                          return `${totalIssues} product${totalIssues !== 1 ? "s" : ""} had issues during your most recent import`;
-                        })()}
-                      </p>
-                      <p className="type-small text-secondary mt-1">
-                        Download the error report to see which products need
-                        corrections.
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-3"
-                        onClick={handleDownloadErrorReport}
-                        disabled={isDownloadingReport}
-                      >
-                        {isDownloadingReport ? (
-                          <>
-                            <Icons.Loader className="w-4 h-4 animate-spin mr-2" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Icons.Download className="w-4 h-4 mr-2" />
-                            Download Error Report
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             <DialogFooter className="px-6 py-4 border-t border-border">

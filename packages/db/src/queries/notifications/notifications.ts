@@ -4,7 +4,7 @@
  * Handles CRUD operations for user notifications.
  */
 
-import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Database } from "../../client";
 import { userNotifications } from "../../schema";
 import type {
@@ -13,8 +13,8 @@ import type {
   UserNotification,
 } from "./types";
 
-/** Default expiration time: 24 hours */
-const DEFAULT_EXPIRES_MS = 24 * 60 * 60 * 1000;
+/** Default expiration time: 7 days */
+const DEFAULT_EXPIRES_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Creates a new notification for a user.
@@ -23,10 +23,7 @@ export async function createNotification(
   db: Database,
   params: CreateNotificationParams,
 ): Promise<UserNotification> {
-  const expiresAt =
-    params.expiresInMs !== undefined
-      ? new Date(Date.now() + params.expiresInMs).toISOString()
-      : new Date(Date.now() + DEFAULT_EXPIRES_MS).toISOString();
+  const expiresAt = computeExpiresAt(params.expiresInMs);
 
   const results = await db
     .insert(userNotifications)
@@ -50,6 +47,35 @@ export async function createNotification(
   }
 
   return mapNotification(notification);
+}
+
+/**
+ * Creates multiple notifications in a single insert.
+ */
+export async function createNotificationsBulk(
+  db: Database,
+  params: CreateNotificationParams[],
+): Promise<UserNotification[]> {
+  if (params.length === 0) {
+    return [];
+  }
+
+  const values = params.map((notification) => ({
+    userId: notification.userId,
+    brandId: notification.brandId,
+    type: notification.type,
+    title: notification.title,
+    message: notification.message ?? null,
+    resourceType: notification.resourceType ?? null,
+    resourceId: notification.resourceId ?? null,
+    actionUrl: notification.actionUrl ?? null,
+    actionData: notification.actionData ?? null,
+    expiresAt: computeExpiresAt(notification.expiresInMs),
+  }));
+
+  const results = await db.insert(userNotifications).values(values).returning();
+
+  return results.map(mapNotification);
 }
 
 /**
@@ -200,6 +226,35 @@ export async function markAllNotificationsAsSeen(
 }
 
 /**
+ * Marks many notifications as seen for a user.
+ */
+export async function markNotificationsAsSeen(
+  db: Database,
+  userId: string,
+  brandId: string,
+  ids: string[],
+): Promise<number> {
+  if (ids.length === 0) {
+    return 0;
+  }
+
+  const result = await db
+    .update(userNotifications)
+    .set({ seenAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(userNotifications.userId, userId),
+        eq(userNotifications.brandId, brandId),
+        inArray(userNotifications.id, ids),
+        isNull(userNotifications.seenAt),
+      ),
+    )
+    .returning({ id: userNotifications.id });
+
+  return result.length;
+}
+
+/**
  * Dismisses a notification.
  */
 export async function dismissNotification(
@@ -315,4 +370,9 @@ function mapNotification(
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
   };
+}
+
+function computeExpiresAt(expiresInMs?: number): string {
+  const durationMs = expiresInMs ?? DEFAULT_EXPIRES_MS;
+  return new Date(Date.now() + durationMs).toISOString();
 }

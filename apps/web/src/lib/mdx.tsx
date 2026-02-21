@@ -2,6 +2,43 @@ import { DPPDemoCallout } from "@/components/updates/dpp-demo-callout";
 import { InteractiveTimeline } from "@/components/updates/interactive-timeline";
 import type { MDXComponents } from "mdx/types";
 import Link from "next/link";
+import { isValidElement, type ReactNode } from "react";
+
+function getTextContent(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(getTextContent).join("");
+  }
+
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return getTextContent(node.props.children);
+  }
+
+  return "";
+}
+
+function slugifyHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, " and ")
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getHeadingId(children: ReactNode, id?: string): string | undefined {
+  if (id) {
+    return id;
+  }
+
+  const text = getTextContent(children);
+  const slug = slugifyHeading(text);
+  return slug || undefined;
+}
 
 /**
  * MDX component mappings for styling markdown elements
@@ -17,16 +54,44 @@ export const mdxComponents: MDXComponents = {
       {children}
     </h1>
   ),
-  h2: ({ children, ...props }) => (
-    <h2 className="text-h5 mb-4 mt-8" {...props}>
-      {children}
-    </h2>
-  ),
-  h3: ({ children, ...props }) => (
-    <h3 className="text-h6 mb-3 mt-6" {...props}>
-      {children}
-    </h3>
-  ),
+  h2: ({ children, id, ...props }) => {
+    const headingId = getHeadingId(children, id);
+    const headingText = getTextContent(children);
+
+    return (
+      <h2 id={headingId} className="group text-h5 mb-4 mt-8 scroll-mt-28" {...props}>
+        {children}
+        {headingId ? (
+          <a
+            href={`#${headingId}`}
+            className="ml-2 text-foreground/40 no-underline opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus:opacity-100"
+            aria-label={`Link to section: ${headingText}`}
+          >
+            #
+          </a>
+        ) : null}
+      </h2>
+    );
+  },
+  h3: ({ children, id, ...props }) => {
+    const headingId = getHeadingId(children, id);
+    const headingText = getTextContent(children);
+
+    return (
+      <h3 id={headingId} className="group text-h6 mb-3 mt-6 scroll-mt-28" {...props}>
+        {children}
+        {headingId ? (
+          <a
+            href={`#${headingId}`}
+            className="ml-2 text-foreground/40 no-underline opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus:opacity-100"
+            aria-label={`Link to section: ${headingText}`}
+          >
+            #
+          </a>
+        ) : null}
+      </h3>
+    );
+  },
   h4: ({ children, ...props }) => (
     <h4 className="text-body mb-2 mt-4" {...props}>
       {children}

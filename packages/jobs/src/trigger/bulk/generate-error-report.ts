@@ -9,13 +9,11 @@
  * 3. Upload to Supabase storage
  * 4. Generate signed download URL (7 days expiry)
  * 5. Update import job with correction file info
- * 6. Send email notification if user email is available
  *
  * @module generate-error-report
  */
 
 import "../configure-trigger";
-import { render } from "@react-email/render";
 import { createClient } from "@supabase/supabase-js";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { serviceDb as db } from "@v1/db/client";
@@ -25,10 +23,8 @@ import {
 } from "@v1/db/queries/bulk";
 import type { NormalizedRowData } from "@v1/db/queries/bulk";
 import * as schema from "@v1/db/schema";
-import ImportFailuresEmail from "@v1/email/emails/import-failures";
 import { asc, eq } from "drizzle-orm";
 import { type ErrorReportRow, generateErrorReportExcel } from "../../lib/excel";
-import { getResend } from "../../utils/resend";
 
 // ============================================================================
 // Types
@@ -37,7 +33,7 @@ import { getResend } from "../../utils/resend";
 interface GenerateErrorReportPayload {
   jobId: string;
   brandId: string;
-  userEmail: string | null;
+  userEmail?: string | null;
 }
 
 // ============================================================================
@@ -46,9 +42,6 @@ interface GenerateErrorReportPayload {
 
 /** Download URL expiry in days */
 const DOWNLOAD_EXPIRY_DAYS = 7;
-
-/** Email from address */
-const EMAIL_FROM = "Avelero <noreply@welcome.avelero.com>";
 
 /** Storage bucket for correction files */
 const STORAGE_BUCKET = "product-imports";
@@ -64,7 +57,7 @@ export const generateErrorReport = task({
   retry: { maxAttempts: 2 },
 
   run: async (payload: GenerateErrorReportPayload) => {
-    const { jobId, brandId, userEmail } = payload;
+    const { jobId, brandId } = payload;
 
     logger.info("Starting error report generation", { jobId, brandId });
 
@@ -229,49 +222,6 @@ export const generateErrorReport = task({
         jobId,
         downloadUrl: `${downloadUrl.substring(0, 50)}...`,
       });
-
-      // 8. Send email notification if user email is available
-      if (userEmail) {
-        try {
-          const summary = job.summary as Record<string, number> | null;
-          const totalProducts = summary?.totalProducts ?? 0;
-          const issueProductCount = blockedCount + warningsCount;
-          const successfulProductCount = totalProducts - issueProductCount;
-
-          const html = await render(
-            ImportFailuresEmail({
-              issueProductCount,
-              successfulProductCount: Math.max(0, successfulProductCount),
-              downloadUrl,
-              expiresAt,
-              filename: job.filename,
-            }),
-          );
-
-          const resend = getResend();
-          const subject = `${issueProductCount} product${issueProductCount !== 1 ? "s" : ""} had issues during your import`;
-
-          await resend.emails.send({
-            from: EMAIL_FROM,
-            to: [userEmail],
-            subject,
-            html,
-          });
-
-          logger.info("Error report notification email sent", {
-            to: userEmail,
-          });
-        } catch (emailError) {
-          logger.error("Failed to send error report notification email", {
-            error:
-              emailError instanceof Error
-                ? emailError.message
-                : String(emailError),
-          });
-        }
-      } else {
-        logger.info("No user email provided, skipping notification", { jobId });
-      }
 
       logger.info("Error report generation completed", {
         jobId,

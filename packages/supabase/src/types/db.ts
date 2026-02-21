@@ -2169,6 +2169,93 @@ export type Database = {
           },
         ];
       };
+      qr_export_jobs: {
+        Row: {
+          brand_id: string;
+          custom_domain: string;
+          download_url: string | null;
+          eligible_variants: number | null;
+          exclude_ids: string[] | null;
+          expires_at: string | null;
+          file_path: string | null;
+          filter_state: Json | null;
+          finished_at: string | null;
+          id: string;
+          include_ids: string[] | null;
+          search_query: string | null;
+          selection_mode: string;
+          started_at: string;
+          status: string;
+          summary: Json | null;
+          total_products: number | null;
+          total_variants: number | null;
+          user_email: string;
+          user_id: string;
+          variants_processed: number | null;
+        };
+        Insert: {
+          brand_id: string;
+          custom_domain: string;
+          download_url?: string | null;
+          eligible_variants?: number | null;
+          exclude_ids?: string[] | null;
+          expires_at?: string | null;
+          file_path?: string | null;
+          filter_state?: Json | null;
+          finished_at?: string | null;
+          id?: string;
+          include_ids?: string[] | null;
+          search_query?: string | null;
+          selection_mode: string;
+          started_at?: string;
+          status?: string;
+          summary?: Json | null;
+          total_products?: number | null;
+          total_variants?: number | null;
+          user_email: string;
+          user_id: string;
+          variants_processed?: number | null;
+        };
+        Update: {
+          brand_id?: string;
+          custom_domain?: string;
+          download_url?: string | null;
+          eligible_variants?: number | null;
+          exclude_ids?: string[] | null;
+          expires_at?: string | null;
+          file_path?: string | null;
+          filter_state?: Json | null;
+          finished_at?: string | null;
+          id?: string;
+          include_ids?: string[] | null;
+          search_query?: string | null;
+          selection_mode?: string;
+          started_at?: string;
+          status?: string;
+          summary?: Json | null;
+          total_products?: number | null;
+          total_variants?: number | null;
+          user_email?: string;
+          user_id?: string;
+          variants_processed?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "qr_export_jobs_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_export_jobs_user_id_users_id_fk";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       taxonomy_attributes: {
         Row: {
           created_at: string;

@@ -1510,7 +1510,7 @@ export type Database = {
       };
       oauth_states: {
         Row: {
-          brand_id: string;
+          brand_id: string | null;
           created_at: string;
           expires_at: string;
           id: string;
@@ -1519,7 +1519,7 @@ export type Database = {
           state: string;
         };
         Insert: {
-          brand_id: string;
+          brand_id?: string | null;
           created_at?: string;
           expires_at: string;
           id?: string;
@@ -1528,7 +1528,7 @@ export type Database = {
           state: string;
         };
         Update: {
-          brand_id?: string;
+          brand_id?: string | null;
           created_at?: string;
           expires_at?: string;
           id?: string;
@@ -1545,6 +1545,33 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      pending_installations: {
+        Row: {
+          created_at: string;
+          credentials: string;
+          credentials_iv: string;
+          expires_at: string;
+          id: string;
+          shop_domain: string;
+        };
+        Insert: {
+          created_at?: string;
+          credentials: string;
+          credentials_iv: string;
+          expires_at: string;
+          id?: string;
+          shop_domain: string;
+        };
+        Update: {
+          created_at?: string;
+          credentials?: string;
+          credentials_iv?: string;
+          expires_at?: string;
+          id?: string;
+          shop_domain?: string;
+        };
+        Relationships: [];
       };
       product_commercial: {
         Row: {

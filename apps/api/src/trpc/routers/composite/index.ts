@@ -23,7 +23,12 @@ import {
   listTaxonomyValues,
 } from "@v1/db/queries/taxonomy";
 import { getUserById } from "@v1/db/queries/user";
-import { brandInvites, brandMembers, users } from "@v1/db/schema";
+import {
+  brandCustomDomains,
+  brandInvites,
+  brandMembers,
+  users,
+} from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
 /**
  * Composite endpoints router implementation.
@@ -318,7 +323,9 @@ export const compositeRouter = createTRPCRouter({
       getBrandsByUserId(db, user.id),
     ]);
 
-    const [brands, invites] = await Promise.all([
+    const activeBrandId = profileRecord?.brandId ?? null;
+
+    const [brands, invites, verifiedDomain] = await Promise.all([
       mapWorkflowBrands(db, memberships),
       (async () => {
         if (!email) {
@@ -327,12 +334,32 @@ export const compositeRouter = createTRPCRouter({
         const inviteRows = await listPendingInvitesForEmail(db, email);
         return inviteRows.map(mapInvite);
       })(),
+      (async () => {
+        if (!activeBrandId) return null;
+        const [domain] = await db
+          .select({ id: brandCustomDomains.id })
+          .from(brandCustomDomains)
+          .where(
+            and(
+              eq(brandCustomDomains.brandId, activeBrandId),
+              eq(brandCustomDomains.status, "verified"),
+            ),
+          )
+          .limit(1);
+        return domain ?? null;
+      })(),
     ]);
 
     return {
       user: mapUserProfile(profileRecord, email),
       brands,
       myInvites: invites,
+      activeBrand: activeBrandId
+        ? {
+            id: activeBrandId,
+            hasVerifiedCustomDomain: !!verifiedDomain,
+          }
+        : null,
     };
   }),
 

@@ -297,10 +297,45 @@ export const exportJobStatusSchema = z.enum([
   "FAILED",
 ]);
 
+// ============================================================================
+// QR Export Schemas
+// ============================================================================
+
+/**
+ * Schema for starting a QR export
+ *
+ * Uses the same selection schema as product export.
+ */
+export const startQrExportSchema = z.object({
+  selection: bulkSelectionSchema,
+  filterState: z.any().optional(), // preserve current filter state (JSON)
+  search: z.string().optional(), // preserve current search query
+});
+
+/**
+ * Schema for getting QR export job status
+ */
+export const getQrExportStatusSchema = z.object({
+  jobId: uuidSchema,
+});
+
+/**
+ * QR export job status enum
+ */
+export const qrExportJobStatusSchema = z.enum([
+  "PENDING",
+  "PROCESSING",
+  "COMPLETED",
+  "FAILED",
+]);
+
 // Export types
 type StartExportInput = z.infer<typeof startExportSchema>;
 type GetExportStatusInput = z.infer<typeof getExportStatusSchema>;
 type ExportJobStatus = z.infer<typeof exportJobStatusSchema>;
+type StartQrExportInput = z.infer<typeof startQrExportSchema>;
+type GetQrExportStatusInput = z.infer<typeof getQrExportStatusSchema>;
+type QrExportJobStatus = z.infer<typeof qrExportJobStatusSchema>;
 
 type BulkSelectionInput = z.infer<typeof bulkSelectionSchema>;
 type BulkImportInput = z.infer<typeof bulkImportSchema>;

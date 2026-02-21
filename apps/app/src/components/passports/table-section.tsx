@@ -141,6 +141,29 @@ export function TableSection() {
     return hasSearch || hasFilterGroups;
   }, [deferredSearch, filterState.groups]);
 
+  // If user selected "all" and changes filters, clear selection.
+  const filterSignature = useMemo(
+    () => JSON.stringify(filterState.groups),
+    [filterState.groups],
+  );
+  const previousFilterSignatureRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (previousFilterSignatureRef.current === null) {
+      previousFilterSignatureRef.current = filterSignature;
+      return;
+    }
+
+    if (filterSignature !== previousFilterSignatureRef.current) {
+      previousFilterSignatureRef.current = filterSignature;
+
+      if (selection.mode === "all") {
+        setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+        setSelectedCount(0);
+      }
+    }
+  }, [filterSignature, selection.mode]);
+
   // Sync selection state to context (for Export button in layout)
   const selectionContext = useSelectionContextSafe();
   useEffect(() => {

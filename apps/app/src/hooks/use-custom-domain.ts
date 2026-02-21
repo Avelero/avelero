@@ -97,6 +97,9 @@ export function useAddCustomDomainMutation() {
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.customDomains.get.queryKey(),
         });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.composite.initDashboard.queryKey(),
+        });
       },
       onError: (error) => {
         const message =
@@ -144,6 +147,9 @@ export function useVerifyCustomDomainMutation() {
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.customDomains.get.queryKey(),
         });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.composite.initDashboard.queryKey(),
+        });
       },
       onError: (error) => {
         // Only show toast for unexpected errors (network issues, etc.)
@@ -183,6 +189,9 @@ export function useRemoveCustomDomainMutation() {
         toast.success("Domain removed successfully.");
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.customDomains.get.queryKey(),
+        });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.composite.initDashboard.queryKey(),
         });
       },
       onError: (error) => {

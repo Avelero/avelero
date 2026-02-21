@@ -18,7 +18,9 @@ import {
   createProduct,
   deleteProduct,
   getProductWithIncludes,
+  getProductSelectionCounts,
   listProductsWithIncludes,
+  resolveSelectedProductIds,
   publishProduct,
   setProductJourneySteps,
   setProductTags,
@@ -32,6 +34,7 @@ import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import { generateProductHandle } from "../../../schemas/_shared/primitives.js";
 import {
   productUnifiedGetSchema,
+  productsCountSchema,
   productsDomainCreateSchema,
   productsDomainListSchema,
   unifiedDeleteSchema,
@@ -118,6 +121,37 @@ export const productsRouter = createTRPCRouter({
         cursor: result.meta.cursor,
         hasMore: result.meta.hasMore,
       });
+    }),
+
+  /**
+   * Count selected products and variants for export workflows.
+   */
+  count: brandRequiredProcedure
+    .input(productsCountSchema)
+    .query(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = ensureBrandScope(
+        brandCtx,
+        normalizeBrandId(input.brand_id),
+      );
+
+      const selectionMode = input.selection.mode;
+      const includeIds =
+        selectionMode === "explicit" ? input.selection.includeIds : [];
+      const excludeIds =
+        selectionMode === "all" ? input.selection.excludeIds ?? [] : [];
+
+      const productIds = await resolveSelectedProductIds(brandCtx.db, brandId, {
+        selectionMode,
+        includeIds,
+        excludeIds,
+        filterState: input.filterState ?? null,
+        searchQuery: input.search ?? null,
+      });
+
+      return createEntityResponse(
+        await getProductSelectionCounts(brandCtx.db, brandId, productIds),
+      );
     }),
 
   /**

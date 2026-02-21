@@ -23,6 +23,39 @@ let connectionClosed = false;
 let _client: ReturnType<typeof postgres> | undefined;
 let _testDb: ReturnType<typeof drizzle<typeof schema>> | undefined;
 
+const LOCAL_DEV_DB_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+
+function isTruthyEnv(value?: string): boolean {
+  return /^(1|true|yes|on)$/i.test(value ?? "");
+}
+
+function isLocalDevDatabaseUrl(connectionString: string): boolean {
+  try {
+    const parsed = new URL(connectionString);
+    return (
+      LOCAL_DEV_DB_HOSTS.has(parsed.hostname.toLowerCase()) &&
+      parsed.port === "54322" &&
+      parsed.pathname === "/postgres"
+    );
+  } catch {
+    return (
+      connectionString ===
+      "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+    );
+  }
+}
+
+function assertSafeTestDatabase(connectionString: string): void {
+  const runningInCi = isTruthyEnv(process.env.CI);
+  const allowDevDbTests = isTruthyEnv(process.env.ALLOW_DEV_DB_TESTS);
+
+  if (!runningInCi && !allowDevDbTests && isLocalDevDatabaseUrl(connectionString)) {
+    throw new Error(
+      "Refusing to run tests against local development DB (127.0.0.1:54322/postgres). Run `bun run test` or `bun run test:isolated` for an isolated disposable DB. Set ALLOW_DEV_DB_TESTS=true only if you intentionally want to target dev DB.",
+    );
+  }
+}
+
 function getClient() {
   if (!_client) {
     const connectionString = process.env.DATABASE_URL;
@@ -31,6 +64,7 @@ function getClient() {
         "DATABASE_URL environment variable is required for tests",
       );
     }
+    assertSafeTestDatabase(connectionString);
     // IMPORTANT: max: 1 ensures all queries use the same connection,
     // which is required for transaction-based test isolation (BEGIN/ROLLBACK)
     _client = postgres(connectionString, {

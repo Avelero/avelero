@@ -372,7 +372,13 @@ export function ExportQrCodesModal({
           {exportState === "exporting" && (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
               <Icons.Loader className="w-5 h-5 animate-spin text-tertiary" />
-              <p className="type-small text-secondary">Generating QR export...</p>
+              <div className="text-center">
+                <p className="type-small text-secondary">
+                  We&apos;re preparing your QR export in the background. You can
+                  close this modal and we&apos;ll email you when it&apos;s ready,
+                  or leave it open and the download will start automatically.
+                </p>
+              </div>
             </div>
           )}
 

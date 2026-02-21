@@ -349,7 +349,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   // USER NOTIFICATIONS CHANNEL
   // =============================================
   // Separate subscription for user-scoped notifications (not brand-scoped).
-  // Shows toasts when import success/failure notifications arrive.
+  // Shows toasts for incoming notification events.
   useEffect(() => {
     if (!userId) return;
 
@@ -358,16 +358,24 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const channel = supabase
       .channel(topicName, { config: { private: true } })
       .on("broadcast", { event: "INSERT" }, (payload) => {
-        // Show toast for import notifications
+        // Show toast for user notification events
         // Payload structure from realtime.send(): { id, type, title, message }
         const data = payload.payload as
           | { type?: string; title?: string }
           | undefined;
 
-        if (data?.type === "import_success" && data.title) {
-          toast.success(data.title);
-        } else if (data?.type === "import_failure" && data.title) {
-          toast.error(data.title);
+        if (data?.title) {
+          switch (data.type) {
+            case "import_failure":
+              toast.error(data.title);
+              break;
+            case "import_success":
+            case "export_ready":
+            case "qr_export_ready":
+            case "invite_accepted":
+              toast.success(data.title);
+              break;
+          }
         }
 
         // Invalidate notification queries to update UI (badge count, list)

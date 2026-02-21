@@ -103,12 +103,12 @@ export function LeaveBrandModal({
       <DialogContent size="md" className="p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">{title}</DialogTitle>
+        </DialogHeader>
+
+        <div className="px-6 py-4 space-y-3 min-h-[40px]">
           <DialogDescription className="text-secondary">
             {descriptionNode}
           </DialogDescription>
-        </DialogHeader>
-
-        <div className="px-6 py-4 min-h-[40px]">
           {error ? (
             <p className="type-small text-destructive">{error}</p>
           ) : null}

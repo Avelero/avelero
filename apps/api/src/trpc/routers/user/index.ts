@@ -21,6 +21,7 @@ import {
   listPendingInvitesForEmail,
   setActiveBrand,
 } from "@v1/db/queries/brand";
+import { publishNotificationEvent } from "@v1/db/queries/notifications";
 import type { UserInviteSummaryRow } from "@v1/db/queries/brand";
 import {
   deleteUser,
@@ -394,6 +395,34 @@ export const userRouter = createTRPCRouter({
             },
             "Brand invite accepted",
           );
+
+          try {
+            await publishNotificationEvent(db, {
+              event: "invite_accepted",
+              brandId: res.brandId,
+              actorUserId: user.id,
+              payload: {
+                inviteId: input.invite_id,
+                acceptedUserId: user.id,
+                acceptedUserEmail: user.email ?? null,
+                acceptedUserName: null,
+                brandName: null,
+              },
+            });
+          } catch (notificationError) {
+            logger.warn(
+              {
+                inviteId: input.invite_id,
+                brandId: res.brandId,
+                err:
+                  notificationError instanceof Error
+                    ? notificationError.message
+                    : String(notificationError),
+              },
+              "Failed to publish invite accepted notification",
+            );
+          }
+
           return { success: true as const, brandId: res.brandId };
         } catch (error) {
           throw wrapError(error, "Failed to accept brand invite");

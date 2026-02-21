@@ -20,6 +20,7 @@ import { createClient } from "@supabase/supabase-js";
 import { logger, metadata, task } from "@trigger.dev/sdk/v3";
 import { serviceDb as db } from "@v1/db/client";
 import { updateExportJobStatus } from "@v1/db/queries/bulk";
+import { publishNotificationEvent } from "@v1/db/queries/notifications";
 import {
   type ListFilters,
   getProductsForExport,
@@ -36,6 +37,7 @@ import { getResend } from "../../utils/resend";
 interface ExportProductsPayload {
   jobId: string;
   brandId: string;
+  userId: string;
   userEmail: string;
   selectionMode: "all" | "explicit";
   includeIds: string[];
@@ -68,7 +70,7 @@ export const exportProducts = task({
   retry: { maxAttempts: 2 },
 
   run: async (payload: ExportProductsPayload) => {
-    const { jobId, brandId, userEmail } = payload;
+    const { jobId, brandId, userEmail, userId } = payload;
 
     logger.info("Starting product export", { jobId, brandId });
 
@@ -269,6 +271,28 @@ export const exportProducts = task({
             emailError instanceof Error
               ? emailError.message
               : String(emailError),
+        });
+      }
+
+      try {
+        await publishNotificationEvent(db, {
+          event: "export_ready",
+          brandId,
+          actorUserId: userId,
+          payload: {
+            jobId,
+            productsExported: allProductData.length,
+            downloadUrl,
+            expiresAt,
+            filename,
+          },
+        });
+      } catch (notificationError) {
+        logger.warn("Failed to publish export notification", {
+          error:
+            notificationError instanceof Error
+              ? notificationError.message
+              : String(notificationError),
         });
       }
 

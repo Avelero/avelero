@@ -19,20 +19,27 @@
 
 import "../configure-trigger";
 import { createHash } from "node:crypto";
+import { render } from "@react-email/render";
 import { type SupabaseClient, createClient } from "@supabase/supabase-js";
 import { logger, task, tasks } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
-import type { NormalizedRowData, NormalizedVariant } from "@v1/db/queries/bulk";
-import { createNotification } from "@v1/db/queries/notifications";
+import {
+  type NormalizedRowData,
+  type NormalizedVariant,
+  getImportJobStatus,
+} from "@v1/db/queries/bulk";
+import { publishNotificationEvent } from "@v1/db/queries/notifications";
 import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
 import * as schema from "@v1/db/schema";
 import { sendBulkBroadcast } from "@v1/db/utils";
+import ImportFailuresEmail from "@v1/email/emails/import-failures";
 import {
   downloadAndUploadImage,
   isExternalImageUrl,
 } from "@v1/supabase/utils/external-images";
 import { revalidateBrand } from "../../lib/dpp-revalidation";
+import { getResend } from "../../utils/resend";
 
 // ============================================================================
 // Types
@@ -223,6 +230,9 @@ const IMAGE_CONCURRENCY = 15;
 
 /** Image upload timeout in ms */
 const IMAGE_TIMEOUT_MS = 60_000;
+
+/** Email from address */
+const EMAIL_FROM = "Avelero <noreply@welcome.avelero.com>";
 
 // ============================================================================
 // Main Task
@@ -455,38 +465,78 @@ export const commitToProduction = task({
 
         logger.info("Error report generation completed", { jobId });
 
-        // Create failure notification with total issues count
-        if (payload.userId) {
-          const totalIssues = blockedProducts + warningProducts;
-          const title =
-            totalIssues > 0
-              ? `${totalIssues} product${totalIssues !== 1 ? "s" : ""} had issues during import`
-              : "Some products had issues during import";
+        const totalIssues = blockedProducts + warningProducts;
+        const importJob = await getImportJobStatus(db, jobId);
 
+        try {
+          await publishNotificationEvent(db, {
+            event: "import_failure",
+            brandId,
+            actorUserId: payload.userId ?? null,
+            payload: {
+              jobId,
+              totalIssues,
+              blockedProducts,
+              warningProducts,
+              correctionDownloadUrl: importJob?.correctionDownloadUrl ?? null,
+              correctionExpiresAt: importJob?.correctionExpiresAt ?? null,
+              correctionFilename: importJob?.filename
+                ? `${importJob.filename}-corrections.xlsx`
+                : null,
+            },
+          });
+        } catch (notificationError) {
+          logger.warn("Failed to publish import failure notification", {
+            error:
+              notificationError instanceof Error
+                ? notificationError.message
+                : "Unknown error",
+          });
+        }
+
+        if (payload.userEmail) {
           try {
-            await createNotification(db, {
-              userId: payload.userId,
-              brandId,
-              type: "import_failure",
-              title,
-              message:
-                "Download the error report to see which products need corrections.",
-              resourceType: "import_job",
-              resourceId: jobId,
-              actionUrl: "/products",
-              actionData: {
-                totalIssues,
-                blockedProducts,
-                warningProducts,
+            if (!importJob?.correctionDownloadUrl) {
+              logger.warn("Skipping import failure email - no correction URL", {
                 jobId,
-              },
-              expiresInMs: 24 * 60 * 60 * 1000, // 24 hours
-            });
-          } catch (notificationError) {
-            logger.warn("Failed to send failure notification", {
+              });
+            } else {
+              const totalProducts =
+                rowCounts.pending +
+                rowCounts.pendingWithWarnings +
+                rowCounts.blocked;
+              const successfulProductCount = Math.max(
+                0,
+                totalProducts - totalIssues,
+              );
+
+              const html = await render(
+                ImportFailuresEmail({
+                  issueProductCount: totalIssues,
+                  successfulProductCount,
+                  downloadUrl: importJob.correctionDownloadUrl,
+                  expiresAt:
+                    importJob?.correctionExpiresAt ??
+                    new Date(
+                      Date.now() + 7 * 24 * 60 * 60 * 1000,
+                    ).toISOString(),
+                  filename: importJob?.filename ?? "import",
+                }),
+              );
+
+              const resend = getResend();
+              await resend.emails.send({
+                from: EMAIL_FROM,
+                to: [payload.userEmail],
+                subject: `${totalIssues} product${totalIssues !== 1 ? "s" : ""} had issues during your import`,
+                html,
+              });
+            }
+          } catch (emailError) {
+            logger.warn("Failed to send import failure email", {
               error:
-                notificationError instanceof Error
-                  ? notificationError.message
+                emailError instanceof Error
+                  ? emailError.message
                   : "Unknown error",
             });
           }
@@ -517,24 +567,24 @@ export const commitToProduction = task({
       await revalidateBrandCache(brandId);
 
       // Create success notification (only if no failures)
-      if (payload.userId && finalStatus === "COMPLETED") {
+      if (finalStatus === "COMPLETED") {
         const totalProcessed =
           totalStats.productsCreated + totalStats.productsUpdated;
 
         try {
-          await createNotification(db, {
-            userId: payload.userId,
+          await publishNotificationEvent(db, {
+            event: "import_success",
             brandId,
-            type: "import_success",
-            title: `Import completed: ${totalProcessed} products processed`,
-            message: `${totalStats.productsCreated} created, ${totalStats.productsUpdated} updated`,
-            resourceType: "import_job",
-            resourceId: jobId,
-            actionUrl: "/products",
-            expiresInMs: 24 * 60 * 60 * 1000, // 24 hours
+            actorUserId: payload.userId ?? null,
+            payload: {
+              jobId,
+              productsCreated: totalStats.productsCreated,
+              productsUpdated: totalStats.productsUpdated,
+              totalProcessed,
+            },
           });
         } catch (notificationError) {
-          logger.warn("Failed to send success notification", {
+          logger.warn("Failed to publish import success notification", {
             error:
               notificationError instanceof Error
                 ? notificationError.message

@@ -91,6 +91,7 @@ export const qrExportJobs = pgTable(
       for: "update",
       to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
+      withCheck: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("qr_export_jobs_delete_by_brand_member", {
       as: "permissive",

@@ -11,6 +11,14 @@ interface UpdatePageProps {
   params: Promise<{ slug: string }>;
 }
 
+interface CreativeWorkCitation {
+  "@type": "CreativeWork";
+  name: string;
+  url: string;
+}
+
+const EXTERNAL_MARKDOWN_LINK_REGEX = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+
 /**
  * Format date to human-readable string
  */
@@ -21,6 +29,29 @@ function formatDate(dateString: string): string {
     month: "long",
     day: "numeric",
   });
+}
+
+function getExternalCitations(content: string): CreativeWorkCitation[] {
+  const citations: CreativeWorkCitation[] = [];
+  const seenUrls = new Set<string>();
+
+  for (const match of content.matchAll(EXTERNAL_MARKDOWN_LINK_REGEX)) {
+    const name = match[1]?.trim();
+    const url = match[2]?.trim();
+
+    if (!name || !url || seenUrls.has(url)) {
+      continue;
+    }
+
+    seenUrls.add(url);
+    citations.push({
+      "@type": "CreativeWork",
+      name,
+      url,
+    });
+  }
+
+  return citations;
 }
 
 /**
@@ -93,9 +124,10 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
 
   // JSON-LD structured data for SEO
   const canonicalUrl = `${baseUrl}/updates/${slug}/`;
+  const citations = getExternalCitations(update.content);
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "Article",
+    "@type": "BlogPosting",
     mainEntityOfPage: {
       "@type": "WebPage",
       "@id": canonicalUrl,
@@ -108,6 +140,7 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
     author: {
       "@type": "Person",
       name: update.author || "Avelero",
+      ...(update.linkedin ? { url: update.linkedin } : {}),
     },
     publisher: {
       "@type": "Organization",
@@ -117,18 +150,7 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
         url: `${baseUrl}/og-image.jpg`,
       },
     },
-    citation: [
-      {
-        "@type": "CreativeWork",
-        name: "ThredUp & GlobalData 2024 Resale Report",
-        url: "https://cf-assets-tup.thredup.com/resale_report/2024/ThredUp_2024_Resale%20Report.pdf",
-      },
-      {
-        "@type": "CreativeWork",
-        name: "WRAP: Extending Product Lifetimes - Clothing Durability",
-        url: "https://www.wrap.ngo/resources/case-study/extending-product-lifetimes-wraps-work-clothing-durability",
-      },
-    ],
+    ...(citations.length > 0 ? { citation: citations } : {}),
   };
 
   return (
@@ -151,7 +173,7 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
               >
                 {update.author || "Avelero"}
               </a>{" "}
-              · {formatDate(update.date)}
+              · <time dateTime={update.date}>{formatDate(update.date)}</time>
             </p>
 
             {/* Title */}

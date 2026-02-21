@@ -136,14 +136,6 @@ export const qrExportRouter = createTRPCRouter({
           handle = await tasks.trigger("export-qr-codes", {
             jobId: job.id,
             brandId,
-            userId,
-            userEmail,
-            selectionMode,
-            includeIds,
-            excludeIds,
-            filterState: input.filterState ?? null,
-            searchQuery: input.search ?? null,
-            customDomain: verifiedDomain,
           });
         } catch (triggerError) {
           await updateQrExportJobStatus(brandCtx.db, {

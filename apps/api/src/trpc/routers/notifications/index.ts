@@ -18,6 +18,7 @@ import {
   getRecentNotifications,
   getUnreadNotificationCount,
   markAllNotificationsAsSeen,
+  markNotificationsAsSeen,
   markNotificationAsSeen,
 } from "@v1/db/queries/notifications";
 import { logger } from "@v1/logger";
@@ -25,6 +26,7 @@ import {
   deleteNotificationSchema,
   dismissNotificationSchema,
   getRecentNotificationsSchema,
+  markNotificationsAsSeenSchema,
   markNotificationAsSeenSchema,
 } from "../../../schemas/notifications.js";
 import { wrapError } from "../../../utils/errors.js";
@@ -107,6 +109,35 @@ export const notificationsRouter = createTRPCRouter({
         return { success: true };
       } catch (error) {
         throw wrapError(error, "Failed to mark notification as seen");
+      }
+    }),
+
+  /**
+   * Mark multiple notifications as seen.
+   * Used when opening the notification center.
+   */
+  markManyAsSeen: brandRequiredProcedure
+    .input(markNotificationsAsSeenSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const count = await markNotificationsAsSeen(
+          ctx.db,
+          ctx.user.id,
+          ctx.brandId,
+          input.ids,
+        );
+
+        logger.info(
+          {
+            userId: ctx.user.id,
+            count,
+          },
+          "Notifications marked as seen",
+        );
+
+        return { success: true, count };
+      } catch (error) {
+        throw wrapError(error, "Failed to mark notifications as seen");
       }
     }),
 

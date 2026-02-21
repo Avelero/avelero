@@ -154,6 +154,10 @@ export async function updateQrExportJobStatus(
     updateData.summary = params.summary;
   }
 
+  if (Object.keys(updateData).length === 0) {
+    throw new Error(`No update fields provided for QR export job: ${params.jobId}`);
+  }
+
   const updated = await db
     .update(qrExportJobs)
     .set(updateData)

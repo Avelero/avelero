@@ -1,4 +1,5 @@
 import { HeaderNavigation } from "@/components/header-navigation";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 import { DataControl } from "@/components/theme-editor/data-control";
 import { UserMenu } from "@/components/user-menu";
 import { Icons } from "@v1/ui/icons";
@@ -74,7 +75,12 @@ export function Header({
           </div>
           <div className="flex items-center gap-4">
             {isEditor && <DataControl />}
-            {!hideUserMenu && <UserMenu />}
+            {!hideUserMenu && (
+              <>
+                <NotificationCenter />
+                <UserMenu />
+              </>
+            )}
           </div>
         </div>
       </div>

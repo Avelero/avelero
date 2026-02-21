@@ -4,6 +4,8 @@
 ## Key pages
 - / : Homepage with platform overview, features, and value proposition for Digital Product Passports.
 - /updates/ : Blog and news section with articles about DPPs, sustainability, and fashion industry trends.
+- /updates/fashion-digital-product-passport-data-requirements/ : Article on likely textile DPP data fields under ESPR, including traceability, materials, and lifecycle impacts.
+- /updates/fashion-digital-product-timeline/ : Timeline of confirmed and expected EU DPP milestones for fashion from 2022 through projected mid-2028 enforcement.
 - /updates/the-last-step-in-your-customer-journey/ : Article on using DPPs as a post-purchase customer engagement channel; includes resale market data, care/repair use cases, and circular economy insights.
 
 ## About Avelero

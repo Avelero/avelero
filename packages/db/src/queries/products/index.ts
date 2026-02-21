@@ -7,6 +7,7 @@
 export * from "./list";
 export * from "./get";
 export * from "./crud";
+export * from "./count";
 export * from "./variants";
 export * from "./variant-attributes";
 export * from "./attributes";
@@ -19,3 +20,4 @@ export * from "./dpp-versions";
 export * from "./snapshot";
 export * from "./publish";
 export * from "./upid-generation";
+export * from "./qr-export";

@@ -470,89 +470,8 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     window.location.href = installUrl;
   }
 
-  // Show claiming state if we're claiming a pending installation
-  if (claimStatus === "claiming") {
-    return <IntegrationDetailSkeleton />;
-  }
-
-  // Not connected state
-  if (!connection) {
-    // Show error if claim failed
-    if (claimStatus === "error") {
-      return (
-        <div className="space-y-6">
-          <div className="border border-dashed border-border p-8 flex flex-col items-center justify-center gap-4 text-center">
-            <IntegrationLogo slug={slug} size="lg" />
-            <div className="flex flex-col gap-1">
-              <h5 className="text-foreground font-medium">Connection Failed</h5>
-              <p className="text-secondary text-sm max-w-[400px]">
-                {claimError ??
-                  "We couldn't connect your Shopify store. Please try again."}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Button onClick={handleConnectShopify}>Try Again</Button>
-              <Button variant="outline" asChild>
-                <Link href="/settings/integrations" prefetch>
-                  Go to Integrations
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-6">
-        <div className="border border-dashed border-border p-8 flex flex-col items-center justify-center gap-4 text-center">
-          <IntegrationLogo slug={slug} size="lg" />
-          <div className="flex flex-col gap-1">
-            <h5 className="text-foreground font-medium">
-              {integrationInfo?.name ?? slug} is not connected
-            </h5>
-            <p className="text-secondary text-sm max-w-[400px]">
-              Connect this integration to start syncing product data
-              automatically.
-            </p>
-          </div>
-          {slug === "shopify" ? (
-            <Button onClick={handleConnectShopify}>
-              Connect {integrationInfo?.name ?? "Shopify"}
-            </Button>
-          ) : (
-            <Button asChild>
-              <Link href="/settings/integrations" prefetch>
-                Go to Integrations
-              </Link>
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const status = connection.status as IntegrationStatus;
-
   // Get latest job info for initial state (before WebSocket connects)
   const latestJob = syncStatusData?.data?.latestJob;
-
-  // Use sync status data for dates (more accurate than connection data)
-  // Falls back to latestJob.finishedAt if lastSyncAt isn't set on the connection
-  const lastSyncTime =
-    syncStatusData?.data?.lastSyncAt ??
-    (latestJob?.status === "completed" ? latestJob.finishedAt : null) ??
-    connection.lastSyncAt;
-
-  // Use nextSyncAt from sync status API (it calculates this server-side)
-  // Or calculate from lastSyncTime if available
-  const nextSyncTime =
-    syncStatusData?.data?.nextSyncAt ??
-    (lastSyncTime && connection.syncInterval
-      ? new Date(
-          new Date(lastSyncTime).getTime() + connection.syncInterval * 1000,
-        ).toISOString()
-      : null);
 
   // Determine sync job status - prioritize Trigger.dev realtime data
   const syncJobStatus: SyncJobStatus | undefined =
@@ -646,6 +565,92 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     promotionRunStatus,
     latestJob,
   ]);
+
+  // Show claiming state if we're claiming a pending installation
+  if (claimStatus === "claiming") {
+    return <IntegrationDetailSkeleton />;
+  }
+
+  // Keep showing loading while claim succeeded and connection query catches up
+  if (claimStatus === "success" && !connection) {
+    return <IntegrationDetailSkeleton />;
+  }
+
+  // Not connected state
+  if (!connection) {
+    // Show error if claim failed
+    if (claimStatus === "error") {
+      return (
+        <div className="space-y-6">
+          <div className="border border-dashed border-border p-8 flex flex-col items-center justify-center gap-4 text-center">
+            <IntegrationLogo slug={slug} size="lg" />
+            <div className="flex flex-col gap-1">
+              <h5 className="text-foreground font-medium">Connection Failed</h5>
+              <p className="text-secondary text-sm max-w-[400px]">
+                {claimError ??
+                  "We couldn't connect your Shopify store. Please try again."}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={handleConnectShopify}>Try Again</Button>
+              <Button variant="outline" asChild>
+                <Link href="/settings/integrations" prefetch>
+                  Go to Integrations
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="border border-dashed border-border p-8 flex flex-col items-center justify-center gap-4 text-center">
+          <IntegrationLogo slug={slug} size="lg" />
+          <div className="flex flex-col gap-1">
+            <h5 className="text-foreground font-medium">
+              {integrationInfo?.name ?? slug} is not connected
+            </h5>
+            <p className="text-secondary text-sm max-w-[400px]">
+              Connect this integration to start syncing product data
+              automatically.
+            </p>
+          </div>
+          {slug === "shopify" ? (
+            <Button onClick={handleConnectShopify}>
+              Connect {integrationInfo?.name ?? "Shopify"}
+            </Button>
+          ) : (
+            <Button asChild>
+              <Link href="/settings/integrations" prefetch>
+                Go to Integrations
+              </Link>
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const status = connection.status as IntegrationStatus;
+
+  // Use sync status data for dates (more accurate than connection data)
+  // Falls back to latestJob.finishedAt if lastSyncAt isn't set on the connection
+  const lastSyncTime =
+    syncStatusData?.data?.lastSyncAt ??
+    (latestJob?.status === "completed" ? latestJob.finishedAt : null) ??
+    connection.lastSyncAt;
+
+  // Use nextSyncAt from sync status API (it calculates this server-side)
+  // Or calculate from lastSyncTime if available
+  const nextSyncTime =
+    syncStatusData?.data?.nextSyncAt ??
+    (lastSyncTime && connection.syncInterval
+      ? new Date(
+          new Date(lastSyncTime).getTime() + connection.syncInterval * 1000,
+        ).toISOString()
+      : null);
 
   // Show setup wizard if not completed
   if (setupCompleted === false) {

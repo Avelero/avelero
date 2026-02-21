@@ -14,6 +14,7 @@ import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 import { exportRouter } from "./export.js";
 import { importRouter } from "./import.js";
+import { qrExportRouter } from "./qr-export.js";
 import { valuesRouter } from "./values.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
@@ -47,6 +48,7 @@ export const bulkRouter = createTRPCRouter({
    */
   import: importRouter,
   export: exportRouter,
+  qrExport: qrExportRouter,
   values: valuesRouter,
 });
 

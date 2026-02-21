@@ -1365,22 +1365,41 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             }),
           ]);
 
+          let normalizedVariantState:
+            | Pick<
+                PassportFormValues,
+                "variantDimensions" | "enabledVariantKeys" | "variantMetadata"
+              >
+            | undefined;
+
           // Now update dimension values to use resolved brand value IDs
-          // This replaces tax:-prefixed pending values with actual brand value IDs
+          // and replace tax:-prefixed attribute IDs with resolved brand attribute IDs.
           if (resolvedVariant.tokenMaps.length > 0) {
-            const updatedDimensions = formValues.variantDimensions.map(
-              (dim, dimIndex) => {
-                const tokenMap = resolvedVariant.tokenMaps[dimIndex];
-                if (!tokenMap || dim.isCustomInline) return dim;
+            let resolvedIndex = 0;
+            const updatedDimensions = formValues.variantDimensions.map((dim) => {
+              const hasValues = dim.isCustomInline
+                ? (dim.customValues ?? []).some((v) => v.trim().length > 0)
+                : dim.values.length > 0;
 
-                // Replace values with resolved brand value IDs
-                const updatedValues = dim.values.map(
-                  (valueId) => tokenMap.get(valueId) ?? valueId,
-                );
+              if (!hasValues) return dim;
 
-                return { ...dim, values: updatedValues };
-              },
-            );
+              const tokenMap = resolvedVariant.tokenMaps[resolvedIndex];
+              const resolvedDim = resolvedVariant.dimensions[resolvedIndex];
+              resolvedIndex += 1;
+
+              if (!tokenMap || dim.isCustomInline) return dim;
+
+              // Replace values with resolved brand value IDs
+              const updatedValues = dim.values.map(
+                (valueId) => tokenMap.get(valueId) ?? valueId,
+              );
+
+              return {
+                ...dim,
+                attributeId: resolvedDim?.attribute_id ?? dim.attributeId,
+                values: updatedValues,
+              };
+            });
 
             // Update enabledVariantKeys with resolved brand value IDs
             const updatedEnabledKeys = new Set<string>();
@@ -1409,16 +1428,20 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               updatedMetadata[resolvedTokens.join("|")] = value;
             }
 
-            setFields({
+            normalizedVariantState = {
               variantDimensions: updatedDimensions,
               enabledVariantKeys: updatedEnabledKeys,
               variantMetadata: updatedMetadata,
-            });
+            };
           }
 
+          const nextExistingImageUrl =
+            imagePath ?? formValues.existingImageUrl ?? null;
+
           setFields({
+            ...(normalizedVariantState ?? {}),
             imageFile: null,
-            existingImageUrl: imagePath ?? formValues.existingImageUrl ?? null,
+            existingImageUrl: nextExistingImageUrl,
           });
           setHasAttemptedSubmit(false);
           setValidationErrors({});
@@ -1426,9 +1449,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             JSON.stringify(
               computeComparableState({
                 ...formValues,
+                ...(normalizedVariantState ?? {}),
                 imageFile: null,
-                existingImageUrl:
-                  imagePath ?? formValues.existingImageUrl ?? null,
+                existingImageUrl: nextExistingImageUrl,
               }),
             ),
           );

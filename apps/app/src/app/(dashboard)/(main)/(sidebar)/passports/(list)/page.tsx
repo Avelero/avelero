@@ -25,6 +25,7 @@ export default async function PassportsPage() {
       includeAttributes: true,
     }),
     trpc.composite.catalogContent.queryOptions(),
+    trpc.brand.customDomains.get.queryOptions(),
     // Prefetch notification data for ImportProductsModal
     trpc.notifications.getUnreadCount.queryOptions(),
     trpc.notifications.getRecent.queryOptions({

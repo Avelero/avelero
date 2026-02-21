@@ -63,6 +63,23 @@ export interface CreateTestExportJobOptions {
   expiresAt?: string;
 }
 
+export interface CreateTestQrExportJobOptions {
+  status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  selectionMode?: "all" | "explicit";
+  includeIds?: string[];
+  excludeIds?: string[];
+  filterState?: unknown;
+  searchQuery?: string;
+  customDomain?: string;
+  totalProducts?: number;
+  totalVariants?: number;
+  eligibleVariants?: number;
+  variantsProcessed?: number;
+  filePath?: string;
+  downloadUrl?: string;
+  expiresAt?: string;
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -498,6 +515,46 @@ export async function createTestExportJob(
 
   if (!job) {
     throw new Error("Failed to create test export job");
+  }
+
+  return job.id;
+}
+
+/**
+ * Creates a test QR export job.
+ * Returns the QR export job ID.
+ */
+export async function createTestQrExportJob(
+  brandId: string,
+  userId: string,
+  userEmail: string,
+  options: CreateTestQrExportJobOptions = {},
+): Promise<string> {
+  const [job] = await testDb
+    .insert(schema.qrExportJobs)
+    .values({
+      brandId,
+      userId,
+      userEmail,
+      status: options.status ?? "PENDING",
+      selectionMode: options.selectionMode ?? "all",
+      includeIds: options.includeIds ?? [],
+      excludeIds: options.excludeIds ?? [],
+      filterState: options.filterState ?? null,
+      searchQuery: options.searchQuery ?? null,
+      customDomain: options.customDomain ?? "passport.example.com",
+      totalProducts: options.totalProducts ?? 0,
+      totalVariants: options.totalVariants ?? 0,
+      eligibleVariants: options.eligibleVariants ?? 0,
+      variantsProcessed: options.variantsProcessed ?? 0,
+      filePath: options.filePath,
+      downloadUrl: options.downloadUrl,
+      expiresAt: options.expiresAt,
+    })
+    .returning({ id: schema.qrExportJobs.id });
+
+  if (!job) {
+    throw new Error("Failed to create test QR export job");
   }
 
   return job.id;

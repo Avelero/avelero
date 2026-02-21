@@ -1,3 +1,5 @@
+import { DPPDemoCallout } from "@/components/updates/dpp-demo-callout";
+import { InteractiveTimeline } from "@/components/updates/interactive-timeline";
 import type { MDXComponents } from "mdx/types";
 import Link from "next/link";
 
@@ -6,6 +8,9 @@ import Link from "next/link";
  * Maps markdown syntax to your design system's typography
  */
 export const mdxComponents: MDXComponents = {
+  InteractiveTimeline,
+  DPPDemoCallout,
+
   // Headings
   h1: ({ children, ...props }) => (
     <h1 className="text-h4 mb-6 mt-8 first:mt-0" {...props}>

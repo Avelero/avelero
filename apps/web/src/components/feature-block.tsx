@@ -63,7 +63,7 @@ export function FeatureBlockImage({
           alt={imageAlt}
           fill
           loading="lazy"
-          sizes="(max-width: 640px) 90vw,(max-width: 768px) 85vw,(max-width: 1280px) 45vw, 559px"
+          sizes="(max-width: 639px) calc(100vw - 3rem), (max-width: 767px) calc(100vw - 8rem), (max-width: 1279px) calc((100vw - 8rem - 2rem) / 2), 560px"
           className="object-cover"
           quality={90}
         />

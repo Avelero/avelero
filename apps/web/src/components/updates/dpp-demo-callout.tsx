@@ -20,7 +20,7 @@ export function DPPDemoCallout() {
               alt="QR code linking to Avelero's digital product passport demo"
               fill
               loading="lazy"
-              sizes="(max-width: 768px) 100vw, 160px"
+              sizes="(max-width: 767px) calc(100vw - 3rem), 160px"
               className="object-cover"
             />
           </div>

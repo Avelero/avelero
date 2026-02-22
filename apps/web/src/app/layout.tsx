@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "https://avelero.com/og-image.jpg",
+        url: "https://avelero.com/hero-image.webp",
         width: 1200,
         height: 630,
         alt: "Avelero - Product passports that engage",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     title: "Avelero | Product passports that engage",
     description:
       "Avelero is built for fashion brands that want to launch EU-compliant product passports in days, not months.",
-    images: ["https://avelero.com/og-image.jpg"],
+    images: ["https://avelero.com/hero-image.webp"],
     creator: "@avelerodpp",
   },
   robots: {

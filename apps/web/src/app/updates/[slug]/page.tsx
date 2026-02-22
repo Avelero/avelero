@@ -147,7 +147,7 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
       name: "Avelero",
       logo: {
         "@type": "ImageObject",
-        url: `${baseUrl}/og-image.jpg`,
+        url: `${baseUrl}/hero-image.webp`,
       },
     },
     ...(citations.length > 0 ? { citation: citations } : {}),
@@ -190,7 +190,7 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
                 alt={update.title}
                 fill
                 priority
-                sizes="100vw"
+                sizes="(max-width: 639px) calc(100vw - 3rem), (max-width: 1103px) calc(100vw - 8rem), 976px"
                 className="object-cover"
                 quality={90}
               />

@@ -5,6 +5,8 @@ import { generateQrPng } from "./qr-export";
 
 const DEFAULT_MAX_WORKERS = 6;
 
+// SECURITY: Keep this worker source static and hardcoded. Never interpolate
+// runtime/user input because it is executed with `eval: true`.
 const WORKER_SOURCE = `
   const { parentPort } = require("node:worker_threads");
   const QRCode = require("qrcode");
@@ -35,6 +37,10 @@ const WORKER_SOURCE = `
   });
 `;
 
+function createWorkerThread(): Worker {
+  return new Worker(WORKER_SOURCE, { eval: true });
+}
+
 type WorkerResponse =
   | { id: number; success: true; bytes: Uint8Array }
   | { id: number; success: false; error: string };
@@ -48,6 +54,7 @@ interface QueueTask {
 }
 
 interface WorkerSlot {
+  index: number;
   worker: Worker;
   currentTaskId: number | null;
 }
@@ -93,6 +100,9 @@ class WorkerThreadQrPngGenerator implements QrPngGenerator {
     if (this.disposed) {
       return Promise.reject(new Error("QR worker pool is already disposed"));
     }
+    if (this.slots.length === 0) {
+      return Promise.reject(new Error("QR worker pool has no active workers"));
+    }
 
     return new Promise<Buffer>((resolve, reject) => {
       const task: QueueTask = {
@@ -128,37 +138,84 @@ class WorkerThreadQrPngGenerator implements QrPngGenerator {
   }
 
   private createSlot(index: number): WorkerSlot {
-    const worker = new Worker(WORKER_SOURCE, { eval: true });
-    const slot: WorkerSlot = { worker, currentTaskId: null };
+    const slot: WorkerSlot = {
+      index,
+      worker: createWorkerThread(),
+      currentTaskId: null,
+    };
+    this.bindWorkerEvents(slot, slot.worker);
+    return slot;
+  }
 
+  private bindWorkerEvents(slot: WorkerSlot, worker: Worker): void {
     worker.on("message", (message: WorkerResponse) => {
+      if (slot.worker !== worker) {
+        return;
+      }
+
       this.handleMessage(slot, message);
     });
 
     worker.on("error", (error) => {
-      this.failActiveTask(slot, error);
-      this.failAllQueued(
+      if (slot.worker !== worker) {
+        return;
+      }
+
+      this.handleWorkerFailure(
+        slot,
         new Error(
-          `QR worker thread ${index} crashed: ${error.message || "Unknown worker error"}`,
+          `QR worker thread ${slot.index} crashed: ${error.message || "Unknown worker error"}`,
         ),
       );
     });
 
     worker.on("exit", (code) => {
-      if (!this.disposed && code !== 0) {
-        this.failActiveTask(
-          slot,
-          new Error(`QR worker thread ${index} exited with code ${code}`),
-        );
-        this.failAllQueued(
-          new Error(
-            `QR worker thread ${index} exited unexpectedly with code ${code}`,
-          ),
-        );
+      if (slot.worker !== worker || this.disposed) {
+        return;
       }
-    });
 
-    return slot;
+      this.handleWorkerFailure(
+        slot,
+        new Error(
+          `QR worker thread ${slot.index} exited unexpectedly with code ${code}`,
+        ),
+      );
+    });
+  }
+
+  private handleWorkerFailure(slot: WorkerSlot, error: Error): void {
+    this.failActiveTask(slot, error);
+    if (this.disposed) {
+      return;
+    }
+
+    try {
+      const replacement = createWorkerThread();
+      slot.worker = replacement;
+      this.bindWorkerEvents(slot, replacement);
+      this.dispatch();
+      return;
+    } catch {
+      // Replacement failed; drop this slot and continue with remaining workers.
+    }
+
+    this.removeSlot(slot);
+    if (this.slots.length === 0) {
+      this.failAllQueued(
+        new Error(
+          "All QR worker threads are unavailable and queued QR tasks cannot continue",
+        ),
+      );
+      return;
+    }
+    this.dispatch();
+  }
+
+  private removeSlot(slot: WorkerSlot): void {
+    const index = this.slots.indexOf(slot);
+    if (index >= 0) {
+      this.slots.splice(index, 1);
+    }
   }
 
   private handleMessage(slot: WorkerSlot, message: WorkerResponse): void {
@@ -215,11 +272,21 @@ class WorkerThreadQrPngGenerator implements QrPngGenerator {
 
       slot.currentTaskId = task.id;
       this.pendingTasks.set(task.id, task);
-      slot.worker.postMessage({
-        id: task.id,
-        data: task.data,
-        options: task.options,
-      });
+      try {
+        slot.worker.postMessage({
+          id: task.id,
+          data: task.data,
+          options: task.options,
+        });
+      } catch (error) {
+        this.pendingTasks.delete(task.id);
+        slot.currentTaskId = null;
+        this.queue.unshift(task);
+        this.handleWorkerFailure(
+          slot,
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      }
     }
   }
 }

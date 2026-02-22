@@ -85,7 +85,7 @@ export function buildQrPngCacheFilename(
   const key = [
     QR_CACHE_KEY_VERSION,
     normalizeDomain(domain),
-    barcode.trim(),
+    barcode,
     String(width),
     String(margin),
     errorCorrectionLevel,

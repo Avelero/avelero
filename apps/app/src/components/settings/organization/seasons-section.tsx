@@ -1,7 +1,11 @@
 "use client";
 
 import { SeasonModal } from "@/components/modals/season-modal";
-import { EntityTableShell, EntityToolbar } from "@/components/tables/settings/shared";
+import {
+  DeleteConfirmationDialog,
+  EntityTableShell,
+  EntityToolbar,
+} from "@/components/tables/settings/shared";
 import { SeasonsTable, type SeasonListItem } from "@/components/tables/settings/seasons";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
@@ -15,6 +19,11 @@ function toDateOrNull(value?: string | Date | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+type DeleteDialogState =
+  | { mode: "single"; season: SeasonListItem }
+  | { mode: "bulk"; ids: string[] }
+  | null;
+
 export function SeasonsSection() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -22,6 +31,7 @@ export function SeasonsSection() {
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [editingSeason, setEditingSeason] = React.useState<SeasonListItem | null>(null);
+  const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
 
   const seasonsQuery = useSuspenseQuery(
     trpc.catalog.seasons.list.queryOptions(undefined),
@@ -70,7 +80,7 @@ export function SeasonsSection() {
     });
   }, [queryClient, trpc]);
 
-  const handleDeleteSeason = React.useCallback(
+  const deleteSeasonNow = React.useCallback(
     async (season: SeasonListItem) => {
       try {
         await deleteSeasonMutation.mutateAsync({ id: season.id });
@@ -85,10 +95,10 @@ export function SeasonsSection() {
     [deleteSeasonMutation, invalidateLists],
   );
 
-  const handleDeleteSelected = React.useCallback(async () => {
-    if (selectedIds.length === 0) return;
+  const deleteSelectedNow = React.useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
 
-    const currentIds = [...selectedIds];
+    const currentIds = [...ids];
     const results = await Promise.allSettled(
       currentIds.map((id) => deleteSeasonMutation.mutateAsync({ id })),
     );
@@ -120,7 +130,30 @@ export function SeasonsSection() {
           : "Failed to delete selected seasons",
       );
     }
-  }, [deleteSeasonMutation, invalidateLists, selectedIds]);
+  }, [deleteSeasonMutation, invalidateLists]);
+
+  const handleDeleteSeason = React.useCallback((season: SeasonListItem) => {
+    setDeleteDialog({ mode: "single", season });
+  }, []);
+
+  const handleDeleteSelected = React.useCallback(() => {
+    if (selectedIds.length === 0) return;
+    setDeleteDialog({ mode: "bulk", ids: [...selectedIds] });
+  }, [selectedIds]);
+
+  const handleConfirmDelete = React.useCallback(async () => {
+    if (!deleteDialog) return;
+
+    const currentDialog = deleteDialog;
+
+    if (currentDialog.mode === "single") {
+      await deleteSeasonNow(currentDialog.season);
+    } else {
+      await deleteSelectedNow(currentDialog.ids);
+    }
+
+    setDeleteDialog(null);
+  }, [deleteDialog, deleteSeasonNow, deleteSelectedNow]);
 
   return (
     <div className="w-full max-w-[1200px] h-full min-h-0">
@@ -180,6 +213,30 @@ export function SeasonsSection() {
         onSave={async () => {
           await invalidateLists();
         }}
+      />
+
+      <DeleteConfirmationDialog
+        open={deleteDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog(null);
+        }}
+        title={
+          deleteDialog?.mode === "bulk"
+            ? `Delete ${deleteDialog.ids.length} season${deleteDialog.ids.length === 1 ? "" : "s"}?`
+            : "Delete season?"
+        }
+        description={
+          deleteDialog?.mode === "bulk"
+            ? `You are about to permanently delete ${deleteDialog.ids.length} season${deleteDialog.ids.length === 1 ? "" : "s"}. This action cannot be undone.`
+            : "You are about to permanently delete this season. This action cannot be undone."
+        }
+        confirmLabel={
+          deleteDialog?.mode === "bulk"
+            ? `Delete ${deleteDialog.ids.length} season${deleteDialog.ids.length === 1 ? "" : "s"}`
+            : "Delete season"
+        }
+        onConfirm={handleConfirmDelete}
+        isPending={deleteSeasonMutation.isPending}
       />
     </div>
   );

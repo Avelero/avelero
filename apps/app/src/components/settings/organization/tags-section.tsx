@@ -2,6 +2,7 @@
 
 import { TagsTable, type TagListItem } from "@/components/tables/settings/tags";
 import {
+  DeleteConfirmationDialog,
   EntityTableShell,
   EntityToolbar,
 } from "@/components/tables/settings/shared";
@@ -18,12 +19,18 @@ function toTimestamp(value?: string | Date | null) {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
+type DeleteDialogState =
+  | { mode: "single"; tag: TagListItem }
+  | { mode: "bulk"; ids: string[] }
+  | null;
+
 export function TagsSection() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [searchValue, setSearchValue] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [createDraftRequestNonce, setCreateDraftRequestNonce] = React.useState<number | null>(null);
+  const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
 
   const tagsQuery = useSuspenseQuery(trpc.catalog.tags.list.queryOptions(undefined));
   const createTagMutation = useMutation(trpc.catalog.tags.create.mutationOptions());
@@ -73,7 +80,7 @@ export function TagsSection() {
     });
   }, [queryClient, trpc]);
 
-  const handleDeleteTag = React.useCallback(
+  const deleteTagNow = React.useCallback(
     async (tag: TagListItem) => {
       try {
         await deleteTagMutation.mutateAsync({ id: tag.id });
@@ -88,10 +95,10 @@ export function TagsSection() {
     [deleteTagMutation, invalidateLists],
   );
 
-  const handleDeleteSelected = React.useCallback(async () => {
-    if (selectedIds.length === 0) return;
+  const deleteSelectedNow = React.useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
 
-    const currentIds = [...selectedIds];
+    const currentIds = [...ids];
     const results = await Promise.allSettled(
       currentIds.map((id) => deleteTagMutation.mutateAsync({ id })),
     );
@@ -124,7 +131,30 @@ export function TagsSection() {
         ? reason.reason.message
         : "Failed to delete selected tags",
     );
-  }, [deleteTagMutation, invalidateLists, selectedIds]);
+  }, [deleteTagMutation, invalidateLists]);
+
+  const handleDeleteTag = React.useCallback((tag: TagListItem) => {
+    setDeleteDialog({ mode: "single", tag });
+  }, []);
+
+  const handleDeleteSelected = React.useCallback(() => {
+    if (selectedIds.length === 0) return;
+    setDeleteDialog({ mode: "bulk", ids: [...selectedIds] });
+  }, [selectedIds]);
+
+  const handleConfirmDelete = React.useCallback(async () => {
+    if (!deleteDialog) return;
+
+    const currentDialog = deleteDialog;
+
+    if (currentDialog.mode === "single") {
+      await deleteTagNow(currentDialog.tag);
+    } else {
+      await deleteSelectedNow(currentDialog.ids);
+    }
+
+    setDeleteDialog(null);
+  }, [deleteDialog, deleteSelectedNow, deleteTagNow]);
 
   const handleCreateTagInline = React.useCallback(
     async ({ name, hex }: { name: string; hex: string }) => {
@@ -282,6 +312,30 @@ export function TagsSection() {
           hasSearch={searchValue.trim().length > 0}
         />
       </EntityTableShell>
+
+      <DeleteConfirmationDialog
+        open={deleteDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog(null);
+        }}
+        title={
+          deleteDialog?.mode === "bulk"
+            ? `Delete ${deleteDialog.ids.length} tag${deleteDialog.ids.length === 1 ? "" : "s"}?`
+            : "Delete tag?"
+        }
+        description={
+          deleteDialog?.mode === "bulk"
+            ? `You are about to permanently delete ${deleteDialog.ids.length} tag${deleteDialog.ids.length === 1 ? "" : "s"}. This action cannot be undone.`
+            : "You are about to permanently delete this tag. This action cannot be undone."
+        }
+        confirmLabel={
+          deleteDialog?.mode === "bulk"
+            ? `Delete ${deleteDialog.ids.length} tag${deleteDialog.ids.length === 1 ? "" : "s"}`
+            : "Delete tag"
+        }
+        onConfirm={handleConfirmDelete}
+        isPending={deleteTagMutation.isPending}
+      />
     </div>
   );
 }

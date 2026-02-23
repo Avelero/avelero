@@ -1,5 +1,6 @@
 "use client";
 
+import { useTableScroll } from "@/hooks/use-table-scroll";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
@@ -28,12 +29,20 @@ export function FlatDataTable<TRow>({
 }) {
   const selectedSet = React.useMemo(() => new Set(selectedIds), [selectedIds]);
   const rowIds = React.useMemo(() => rows.map(rowKey), [rows, rowKey]);
-  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
   const [lastClickedRowIndex, setLastClickedRowIndex] = React.useState<number | null>(null);
-  const [scrollState, setScrollState] = React.useState({
-    isScrollable: false,
-    canScrollLeft: false,
-    canScrollRight: false,
+  const {
+    containerRef: scrollContainerRef,
+    canScrollLeft,
+    canScrollRight,
+    isScrollable,
+    scrollLeft,
+    scrollRight,
+  } = useTableScroll({
+    useColumnWidths: true,
+    startFromColumn: 1,
+    scrollAmount: 120,
+    scrollBehavior: "smooth",
+    enableKeyboardNavigation: true,
   });
 
   const allSelected = rowIds.length > 0 && rowIds.every((id) => selectedSet.has(id));
@@ -99,62 +108,6 @@ export function FlatDataTable<TRow>({
     [onSelectedIdsChange, rowIds, selectedSet],
   );
 
-  const updateScrollState = React.useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-
-    const next = {
-      isScrollable: el.scrollWidth > el.clientWidth + 1,
-      canScrollLeft: el.scrollLeft > 1,
-      canScrollRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
-    };
-
-    setScrollState((prev) => {
-      if (
-        prev.isScrollable === next.isScrollable &&
-        prev.canScrollLeft === next.canScrollLeft &&
-        prev.canScrollRight === next.canScrollRight
-      ) {
-        return prev;
-      }
-      return next;
-    });
-  }, []);
-
-  React.useEffect(() => {
-    updateScrollState();
-  }, [rows, columns, updateScrollState]);
-
-  React.useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-
-    const handleScroll = () => updateScrollState();
-    el.addEventListener("scroll", handleScroll, { passive: true });
-
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(() => updateScrollState());
-      resizeObserver.observe(el);
-      const table = el.querySelector("table");
-      if (table) resizeObserver.observe(table);
-    }
-
-    return () => {
-      el.removeEventListener("scroll", handleScroll);
-      resizeObserver?.disconnect();
-    };
-  }, [updateScrollState]);
-
-  const scrollByAmount = React.useCallback((direction: "left" | "right") => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    el.scrollBy({
-      left: direction === "left" ? -240 : 240,
-      behavior: "smooth",
-    });
-  }, []);
-
   if (rows.length === 0) {
     return <>{emptyState ?? null}</>;
   }
@@ -199,7 +152,7 @@ export function FlatDataTable<TRow>({
                             </div>
                             <div className="min-w-0 flex-1">{column.header}</div>
                           </div>
-                          {scrollState.isScrollable ? (
+                          {isScrollable ? (
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <Button
                                 type="button"
@@ -208,9 +161,9 @@ export function FlatDataTable<TRow>({
                                 aria-label="Scroll left"
                                 onClick={(event) => {
                                   event.preventDefault();
-                                  scrollByAmount("left");
+                                  scrollLeft();
                                 }}
-                                disabled={!scrollState.canScrollLeft}
+                                disabled={!canScrollLeft}
                               >
                                 <Icons.ChevronLeft className="h-[14px] w-[14px]" />
                               </Button>
@@ -221,9 +174,9 @@ export function FlatDataTable<TRow>({
                                 aria-label="Scroll right"
                                 onClick={(event) => {
                                   event.preventDefault();
-                                  scrollByAmount("right");
+                                  scrollRight();
                                 }}
-                                disabled={!scrollState.canScrollRight}
+                                disabled={!canScrollRight}
                               >
                                 <Icons.ChevronRight className="h-[14px] w-[14px]" />
                               </Button>

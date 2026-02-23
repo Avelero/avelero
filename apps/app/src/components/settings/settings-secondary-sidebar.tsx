@@ -29,14 +29,16 @@ export function SettingsSecondarySidebar() {
   const activeItem = getActiveSettingsNavItem(pathname);
 
   return (
-    <aside className="w-[192px] shrink-0 border-r border-border bg-background">
+    <aside className="w-[244px] shrink-0 border-r border-border bg-background">
       <nav className="h-full overflow-y-auto p-2" aria-label="Settings navigation">
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
           {SETTINGS_NAV_GROUPS.map((group) => (
-            <section key={group.label} className="flex flex-col gap-1">
-              <p className="px-2 pb-1 type-p text-secondary !font-medium">
-                {group.label}
-              </p>
+            <section key={group.label} className="flex flex-col">
+              {group.label !== "Brand" ? (
+                <p className="px-2 pb-2 type-small text-secondary !font-medium">
+                  {group.label}
+                </p>
+              ) : null}
 
               <div className="flex flex-col gap-0.5">
                 {group.items.map((item) => {
@@ -82,7 +84,7 @@ export function SettingsSecondarySidebar() {
                         />
                         <span
                           className={cn(
-                            "truncate type-p !font-medium",
+                            "truncate type-small !font-semimedium",
                             isActive
                               ? "text-primary"
                               : "text-secondary group-hover:text-primary",

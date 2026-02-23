@@ -1,8 +1,18 @@
-export default function SettingsAttributesPage() {
+import { AttributesSection } from "@/components/settings/organization/attributes-section";
+import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
+import { connection } from "next/server";
+
+export default async function SettingsAttributesPage() {
+  await connection();
+
+  await batchPrefetch([
+    trpc.catalog.attributes.listGrouped.queryOptions(undefined),
+    trpc.composite.catalogContent.queryOptions(),
+  ]);
+
   return (
-    <div className="w-full max-w-[700px]">
-      <p className="type-h5 text-foreground">Attributes</p>
-    </div>
+    <HydrateClient>
+      <AttributesSection />
+    </HydrateClient>
   );
 }
-

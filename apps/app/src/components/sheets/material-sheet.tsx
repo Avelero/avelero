@@ -27,7 +27,7 @@ import { CountrySelect } from "../select/country-select";
 /**
  * Material data shape returned when a material is created.
  */
-interface MaterialData {
+export interface MaterialData {
   /** Unique material identifier */
   id: string;
   /** Material name (e.g., "Organic Cotton", "Recycled Polyester") */
@@ -45,7 +45,7 @@ interface MaterialData {
 /**
  * Certification data shape for materials.
  */
-interface CertificationData {
+export interface CertificationData {
   /** Unique certification identifier */
   id: string;
   /** Certification title */
@@ -88,8 +88,12 @@ interface MaterialSheetProps {
   onOpenChange: (open: boolean) => void;
   /** Optional pre-filled material name */
   initialName?: string;
+  /** Optional material to edit */
+  initialMaterial?: MaterialData;
   /** Callback invoked with the created material data */
-  onMaterialCreated: (material: MaterialData) => void;
+  onMaterialCreated?: (material: MaterialData) => void;
+  /** Callback invoked after create/update succeeds (used by settings pages) */
+  onSave?: (material: MaterialData) => void | Promise<void>;
 }
 
 /** Internal page state for multi-page sheet flow */
@@ -123,7 +127,9 @@ export function MaterialSheet({
   open,
   onOpenChange,
   initialName = "",
+  initialMaterial,
   onMaterialCreated,
+  onSave,
 }: MaterialSheetProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -206,22 +212,40 @@ export function MaterialSheet({
   const createMaterialMutation = useMutation(
     trpc.catalog.materials.create.mutationOptions(),
   );
+  const updateMaterialMutation = useMutation(
+    trpc.catalog.materials.update.mutationOptions(),
+  );
   const createCertificationMutation = useMutation(
     trpc.catalog.certifications.create.mutationOptions(),
   );
+  const isEditMode = !!initialMaterial;
 
   // Compute loading state from mutations and uploads
   const isCreating =
     createMaterialMutation.isPending ||
+    updateMaterialMutation.isPending ||
     createCertificationMutation.isPending ||
     isUploading;
 
-  // Update name when initialName changes (when sheet opens with pre-filled name)
+  // Prefill fields when sheet opens (supports create and edit mode).
   React.useEffect(() => {
-    if (open && initialName) {
-      setName(initialName);
+    if (!open) return;
+
+    setCurrentPage("material");
+    setName(initialMaterial?.name ?? initialName);
+    setCountryOfOrigin(initialMaterial?.countryOfOrigin ?? "");
+    setRecyclable(initialMaterial ? initialMaterial.recyclable : false);
+    const initialCertificationId = initialMaterial?.certificationId ?? null;
+    setSelectedCertificationId(initialCertificationId);
+    setCertified(!!initialCertificationId);
+    setCertSearchTerm("");
+
+    // Reset nested certification draft form when opening.
+    resetCertificationForm();
+    if (!initialMaterial && !initialName) {
+      setName("");
     }
-  }, [open, initialName]);
+  }, [open, initialMaterial, initialName]);
 
   // Reset form when sheet closes (delayed to avoid flash during animation)
   React.useEffect(() => {
@@ -412,15 +436,23 @@ export function MaterialSheet({
     // Show loading toast and execute mutation
     await toast
       .loading(
-        "Creating material...",
+        isEditMode ? "Saving material..." : "Creating material...",
         (async () => {
-          // Create material via API
-          const result = await createMaterialMutation.mutateAsync({
+          const payload = {
             name: name.trim(),
             country_of_origin: countryOfOrigin || undefined,
             recyclable,
             certification_id: selectedCertificationId || undefined,
-          });
+          };
+          const result = isEditMode
+            ? await updateMaterialMutation.mutateAsync({
+                id: initialMaterial.id,
+                name: payload.name,
+                country_of_origin: countryOfOrigin || null,
+                recyclable: recyclable ?? null,
+                certification_id: selectedCertificationId || null,
+              })
+            : await createMaterialMutation.mutateAsync(payload);
 
           // Validate response
           const createdMaterial = result?.data;
@@ -440,18 +472,26 @@ export function MaterialSheet({
                 ...old,
                 brandCatalog: {
                   ...old.brandCatalog,
-                  materials: [
-                    ...old.brandCatalog.materials,
-                    {
+                  materials: (() => {
+                    const existingMaterials = old.brandCatalog.materials ?? [];
+                    const nextMaterial = {
                       id: materialId,
                       name: name.trim(),
                       country_of_origin: countryOfOrigin || null,
                       recyclable: recyclable ?? null,
                       certification_id: selectedCertificationId || null,
-                      created_at: now,
+                      created_at:
+                        existingMaterials.find((m: any) => m.id === materialId)
+                          ?.created_at ?? now,
                       updated_at: now,
-                    },
-                  ],
+                    };
+
+                    return isEditMode
+                      ? existingMaterials.map((material: any) =>
+                          material.id === materialId ? nextMaterial : material,
+                        )
+                      : [...existingMaterials, nextMaterial];
+                  })(),
                 },
               };
             },
@@ -477,8 +517,12 @@ export function MaterialSheet({
             certification: selectedCert || undefined,
           };
 
-          // Call parent callback with real data
-          onMaterialCreated(newMaterial);
+          if (isEditMode) {
+            await onSave?.(newMaterial);
+          } else {
+            onMaterialCreated?.(newMaterial);
+            await onSave?.(newMaterial);
+          }
 
           // Close sheet first
           onOpenChange(false);
@@ -487,11 +531,13 @@ export function MaterialSheet({
         })(),
         {
           delay: 500,
-          successMessage: "Material created successfully",
+          successMessage: isEditMode
+            ? "Material saved successfully"
+            : "Material created successfully",
         },
       )
       .catch((error) => {
-        console.error("Failed to create material:", error);
+        console.error("Failed to save material:", error);
       });
   };
 
@@ -622,7 +668,7 @@ export function MaterialSheet({
       >
         {/* Header */}
         <SheetBreadcrumbHeader
-          pages={["Create material", "Create certification"]}
+          pages={[isEditMode ? "Edit material" : "Create material", "Create certification"]}
           currentPageIndex={currentPage === "material" ? 0 : 1}
           onClose={() => onOpenChange(false)}
           onPageClick={(pageIndex) => {
@@ -1111,7 +1157,7 @@ export function MaterialSheet({
                 disabled={!isMaterialValid || isCreating}
                 className="w-[70px]"
               >
-                Create
+                {isEditMode ? "Save" : "Create"}
               </Button>
             </>
           ) : (

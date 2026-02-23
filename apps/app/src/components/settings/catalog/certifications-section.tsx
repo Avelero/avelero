@@ -1,18 +1,18 @@
 "use client";
 
 import {
-  type ManufacturerData,
-  ManufacturerSheet,
-} from "@/components/sheets/manufacturer-sheet";
+  CertificationSheet,
+  type CertificationSheetData,
+} from "@/components/sheets/certification-sheet";
 import {
   DeleteConfirmationDialog,
   EntityTableShell,
   EntityToolbar,
 } from "@/components/tables/settings/shared";
 import {
-  ManufacturersTable,
-  type ManufacturerListItem,
-} from "@/components/tables/settings/manufacturers";
+  CertificationsTable,
+  type CertificationListItem,
+} from "@/components/tables/settings/certifications";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
@@ -26,80 +26,90 @@ function toTimestamp(value?: string | Date | null) {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
-function mapManufacturerToSheetData(
-  manufacturer: ManufacturerListItem | null,
-): ManufacturerData | undefined {
-  if (!manufacturer) return undefined;
+function parseDate(value?: string | Date | null) {
+  if (!value) return undefined;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function mapCertificationToSheetData(
+  certification: CertificationListItem | null,
+): CertificationSheetData | undefined {
+  if (!certification) return undefined;
 
   return {
-    id: manufacturer.id,
-    name: manufacturer.name,
-    legalName: manufacturer.legal_name ?? undefined,
-    email: manufacturer.email ?? undefined,
-    phone: manufacturer.phone ?? undefined,
-    website: manufacturer.website ?? undefined,
-    addressLine1: manufacturer.address_line_1 ?? undefined,
-    addressLine2: manufacturer.address_line_2 ?? undefined,
-    city: manufacturer.city ?? undefined,
-    state: manufacturer.state ?? undefined,
-    zip: manufacturer.zip ?? undefined,
-    countryCode: manufacturer.country_code ?? undefined,
+    id: certification.id,
+    title: certification.title,
+    certificationCode: certification.certification_code ?? undefined,
+    instituteName: certification.institute_name ?? undefined,
+    instituteEmail: certification.institute_email ?? undefined,
+    instituteWebsite: certification.institute_website ?? undefined,
+    instituteAddressLine1: certification.institute_address_line_1 ?? undefined,
+    instituteAddressLine2: certification.institute_address_line_2 ?? undefined,
+    instituteCity: certification.institute_city ?? undefined,
+    instituteState: certification.institute_state ?? undefined,
+    instituteZip: certification.institute_zip ?? undefined,
+    instituteCountryCode: certification.institute_country_code ?? undefined,
+    issueDate: parseDate(certification.issue_date),
+    expiryDate: parseDate(certification.expiry_date),
+    certificationPath: certification.certification_path ?? undefined,
   };
 }
 
 type DeleteDialogState =
-  | { mode: "single"; manufacturer: ManufacturerListItem }
+  | { mode: "single"; certification: CertificationListItem }
   | { mode: "bulk"; ids: string[] }
   | null;
 
-export function ManufacturersSection() {
+export function CertificationsSection() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [searchValue, setSearchValue] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
-  const [editingManufacturer, setEditingManufacturer] =
-    React.useState<ManufacturerListItem | null>(null);
+  const [editingCertification, setEditingCertification] =
+    React.useState<CertificationListItem | null>(null);
   const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
 
-  const manufacturersQuery = useSuspenseQuery(
-    trpc.catalog.manufacturers.list.queryOptions(undefined),
+  const certificationsQuery = useSuspenseQuery(
+    trpc.catalog.certifications.list.queryOptions(undefined),
   );
-  const deleteManufacturerMutation = useMutation(
-    trpc.catalog.manufacturers.delete.mutationOptions(),
+  const deleteCertificationMutation = useMutation(
+    trpc.catalog.certifications.delete.mutationOptions(),
   );
 
   const allRows = React.useMemo(
     () =>
-      [...(manufacturersQuery.data?.data ?? [])].sort((a, b) => {
+      [...(certificationsQuery.data?.data ?? [])].sort((a, b) => {
         const updatedDiff = toTimestamp(b.updated_at) - toTimestamp(a.updated_at);
         if (updatedDiff !== 0) return updatedDiff;
 
         const createdDiff = toTimestamp(b.created_at) - toTimestamp(a.created_at);
         if (createdDiff !== 0) return createdDiff;
 
-        return a.name.localeCompare(b.name);
+        return a.title.localeCompare(b.title);
       }),
-    [manufacturersQuery.data],
+    [certificationsQuery.data],
   );
 
   const filteredRows = React.useMemo(() => {
     const term = searchValue.trim().toLowerCase();
     if (!term) return allRows;
 
-    return allRows.filter((row) => {
-      return [
-        row.name,
-        row.legal_name,
-        row.email,
-        row.website,
-        row.city,
-        row.state,
-        row.country_code,
+    return allRows.filter((row) =>
+      [
+        row.title,
+        row.certification_code,
+        row.institute_name,
+        row.institute_email,
+        row.institute_website,
+        row.institute_city,
+        row.institute_state,
+        row.institute_country_code,
       ]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term));
-    });
+        .some((value) => String(value).toLowerCase().includes(term)),
+    );
   }, [allRows, searchValue]);
 
   React.useEffect(() => {
@@ -114,33 +124,33 @@ export function ManufacturersSection() {
   }, [allRows]);
 
   React.useEffect(() => {
-    if (!editingManufacturer) return;
-    const exists = allRows.some((row) => row.id === editingManufacturer.id);
-    if (!exists) setEditingManufacturer(null);
-  }, [allRows, editingManufacturer]);
+    if (!editingCertification) return;
+    const exists = allRows.some((row) => row.id === editingCertification.id);
+    if (!exists) setEditingCertification(null);
+  }, [allRows, editingCertification]);
 
   const invalidateLists = React.useCallback(async () => {
     await invalidateSettingsEntityCaches({
       queryClient,
-      entityListQueryKey: trpc.catalog.manufacturers.list.queryKey(undefined),
+      entityListQueryKey: trpc.catalog.certifications.list.queryKey(undefined),
       compositeCatalogQueryKey: trpc.composite.catalogContent.queryKey(),
     });
   }, [queryClient, trpc]);
 
-  const deleteManufacturerNow = React.useCallback(
-    async (manufacturer: ManufacturerListItem) => {
+  const deleteCertificationNow = React.useCallback(
+    async (certification: CertificationListItem) => {
       try {
-        await deleteManufacturerMutation.mutateAsync({ id: manufacturer.id });
-        setSelectedIds((prev) => prev.filter((id) => id !== manufacturer.id));
+        await deleteCertificationMutation.mutateAsync({ id: certification.id });
+        setSelectedIds((prev) => prev.filter((id) => id !== certification.id));
         await invalidateLists();
-        toast.success("Manufacturer deleted");
+        toast.success("Certification deleted");
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to delete manufacturer";
+          error instanceof Error ? error.message : "Failed to delete certification";
         toast.error(message);
       }
     },
-    [deleteManufacturerMutation, invalidateLists],
+    [deleteCertificationMutation, invalidateLists],
   );
 
   const deleteSelectedNow = React.useCallback(async (ids: string[]) => {
@@ -148,7 +158,7 @@ export function ManufacturersSection() {
 
     const currentIds = [...ids];
     const results = await Promise.allSettled(
-      currentIds.map((id) => deleteManufacturerMutation.mutateAsync({ id })),
+      currentIds.map((id) => deleteCertificationMutation.mutateAsync({ id })),
     );
 
     const failures = results.filter((result) => result.status === "rejected");
@@ -164,7 +174,7 @@ export function ManufacturersSection() {
 
     if (failures.length === 0) {
       setSelectedIds([]);
-      toast.success(`${successes} manufacturer${successes === 1 ? "" : "s"} deleted`);
+      toast.success(`${successes} certification${successes === 1 ? "" : "s"} deleted`);
       return;
     }
 
@@ -177,13 +187,16 @@ export function ManufacturersSection() {
     toast.error(
       reason && reason.status === "rejected" && reason.reason instanceof Error
         ? reason.reason.message
-        : "Failed to delete selected manufacturers",
+        : "Failed to delete selected certifications",
     );
-  }, [deleteManufacturerMutation, invalidateLists]);
+  }, [deleteCertificationMutation, invalidateLists]);
 
-  const handleDeleteManufacturer = React.useCallback((manufacturer: ManufacturerListItem) => {
-    setDeleteDialog({ mode: "single", manufacturer });
-  }, []);
+  const handleDeleteCertification = React.useCallback(
+    (certification: CertificationListItem) => {
+      setDeleteDialog({ mode: "single", certification });
+    },
+    [],
+  );
 
   const handleDeleteSelected = React.useCallback(() => {
     if (selectedIds.length === 0) return;
@@ -196,57 +209,57 @@ export function ManufacturersSection() {
     const currentDialog = deleteDialog;
 
     if (currentDialog.mode === "single") {
-      await deleteManufacturerNow(currentDialog.manufacturer);
+      await deleteCertificationNow(currentDialog.certification);
     } else {
       await deleteSelectedNow(currentDialog.ids);
     }
 
     setDeleteDialog(null);
-  }, [deleteDialog, deleteManufacturerNow, deleteSelectedNow]);
+  }, [deleteCertificationNow, deleteDialog, deleteSelectedNow]);
 
   return (
     <div className="h-full min-h-0 w-full max-w-[1200px]">
       <EntityTableShell
-        title="Manufacturers"
+        title="Certifications"
         toolbar={
           <EntityToolbar
             searchValue={searchValue}
             onSearchChange={setSearchValue}
-            createLabel="Create manufacturer"
+            createLabel="Create certification"
             onCreate={() => {
-              setEditingManufacturer(null);
+              setEditingCertification(null);
               setIsSheetOpen(true);
             }}
             selectedCount={selectedIds.length}
             onDeleteSelected={handleDeleteSelected}
-            actionsDisabled={deleteManufacturerMutation.isPending}
+            actionsDisabled={deleteCertificationMutation.isPending}
           />
         }
       >
-        <ManufacturersTable
+        <CertificationsTable
           rows={filteredRows}
           selectedIds={selectedIds}
           onSelectedIdsChange={setSelectedIds}
-          onCreateManufacturer={() => {
-            setEditingManufacturer(null);
+          onCreateCertification={() => {
+            setEditingCertification(null);
             setIsSheetOpen(true);
           }}
-          onEditManufacturer={(manufacturer) => {
-            setEditingManufacturer(manufacturer);
+          onEditCertification={(certification) => {
+            setEditingCertification(certification);
             setIsSheetOpen(true);
           }}
-          onDeleteManufacturer={handleDeleteManufacturer}
+          onDeleteCertification={handleDeleteCertification}
           hasSearch={searchValue.trim().length > 0}
         />
       </EntityTableShell>
 
-      <ManufacturerSheet
+      <CertificationSheet
         open={isSheetOpen}
         onOpenChange={(open) => {
           setIsSheetOpen(open);
-          if (!open) setEditingManufacturer(null);
+          if (!open) setEditingCertification(null);
         }}
-        initialManufacturer={mapManufacturerToSheetData(editingManufacturer)}
+        initialCertification={mapCertificationToSheetData(editingCertification)}
         onSave={async () => {
           await invalidateLists();
         }}
@@ -259,21 +272,21 @@ export function ManufacturersSection() {
         }}
         title={
           deleteDialog?.mode === "bulk"
-            ? `Delete ${deleteDialog.ids.length} manufacturer${deleteDialog.ids.length === 1 ? "" : "s"}?`
-            : "Delete manufacturer?"
+            ? `Delete ${deleteDialog.ids.length} certification${deleteDialog.ids.length === 1 ? "" : "s"}?`
+            : "Delete certification?"
         }
         description={
           deleteDialog?.mode === "bulk"
-            ? `You are about to permanently delete ${deleteDialog.ids.length} manufacturer${deleteDialog.ids.length === 1 ? "" : "s"}. This action cannot be undone.`
-            : "You are about to permanently delete this manufacturer. This action cannot be undone."
+            ? `You are about to permanently delete ${deleteDialog.ids.length} certification${deleteDialog.ids.length === 1 ? "" : "s"}. This action cannot be undone.`
+            : "You are about to permanently delete this certification. This action cannot be undone."
         }
         confirmLabel={
           deleteDialog?.mode === "bulk"
-            ? `Delete ${deleteDialog.ids.length} manufacturer${deleteDialog.ids.length === 1 ? "" : "s"}`
-            : "Delete manufacturer"
+            ? `Delete ${deleteDialog.ids.length} certification${deleteDialog.ids.length === 1 ? "" : "s"}`
+            : "Delete certification"
         }
         onConfirm={handleConfirmDelete}
-        isPending={deleteManufacturerMutation.isPending}
+        isPending={deleteCertificationMutation.isPending}
       />
     </div>
   );

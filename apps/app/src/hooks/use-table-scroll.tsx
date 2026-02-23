@@ -133,6 +133,8 @@ export function useTableScroll(
 
     const { scrollWidth, clientWidth, scrollLeft } = container;
     const scrollable = scrollWidth > clientWidth + 1;
+    const atStart = scrollLeft <= 1;
+    const atEnd = scrollLeft >= scrollWidth - clientWidth - 1;
 
     if (useColumnWidths) {
       syncColumnIndex();
@@ -140,13 +142,14 @@ export function useTableScroll(
       const maxColumnIndex = positions.length - 1;
 
       setCanScrollLeft(
-        currentColumnIndex.current > startFromColumn || scrollLeft > 10,
+        !atStart &&
+          (currentColumnIndex.current > startFromColumn || scrollLeft > 10),
       );
-      setCanScrollRight(currentColumnIndex.current < maxColumnIndex);
+      setCanScrollRight(!atEnd && currentColumnIndex.current < maxColumnIndex);
       setIsScrollable(scrollable);
     } else {
-      setCanScrollLeft(scrollLeft > 1);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+      setCanScrollLeft(!atStart);
+      setCanScrollRight(!atEnd);
       setIsScrollable(scrollable);
     }
   }, [getColumnPositions, startFromColumn, syncColumnIndex, useColumnWidths]);

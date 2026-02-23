@@ -1,4 +1,5 @@
 export * from "./bulk-actions-menu";
+export * from "./delete-confirmation-dialog";
 export * from "./empty-state";
 export * from "./entity-table-shell";
 export * from "./entity-toolbar";

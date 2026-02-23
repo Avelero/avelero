@@ -1,7 +1,11 @@
 "use client";
 
 import { type OperatorData, OperatorSheet } from "@/components/sheets/operator-sheet";
-import { EntityTableShell, EntityToolbar } from "@/components/tables/settings/shared";
+import {
+  DeleteConfirmationDialog,
+  EntityTableShell,
+  EntityToolbar,
+} from "@/components/tables/settings/shared";
 import { OperatorsTable, type OperatorListItem } from "@/components/tables/settings/operators";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
@@ -35,6 +39,11 @@ function mapOperatorToSheetData(operator: OperatorListItem | null): OperatorData
   };
 }
 
+type DeleteDialogState =
+  | { mode: "single"; operator: OperatorListItem }
+  | { mode: "bulk"; ids: string[] }
+  | null;
+
 export function OperatorsSection() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -42,6 +51,7 @@ export function OperatorsSection() {
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [editingOperator, setEditingOperator] = React.useState<OperatorListItem | null>(null);
+  const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
 
   const operatorsQuery = useSuspenseQuery(trpc.catalog.operators.list.queryOptions(undefined));
   const deleteOperatorMutation = useMutation(trpc.catalog.operators.delete.mutationOptions());
@@ -103,7 +113,7 @@ export function OperatorsSection() {
     });
   }, [queryClient, trpc]);
 
-  const handleDeleteOperator = React.useCallback(
+  const deleteOperatorNow = React.useCallback(
     async (operator: OperatorListItem) => {
       try {
         await deleteOperatorMutation.mutateAsync({ id: operator.id });
@@ -118,10 +128,10 @@ export function OperatorsSection() {
     [deleteOperatorMutation, invalidateLists],
   );
 
-  const handleDeleteSelected = React.useCallback(async () => {
-    if (selectedIds.length === 0) return;
+  const deleteSelectedNow = React.useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
 
-    const currentIds = [...selectedIds];
+    const currentIds = [...ids];
     const results = await Promise.allSettled(
       currentIds.map((id) => deleteOperatorMutation.mutateAsync({ id })),
     );
@@ -154,7 +164,30 @@ export function OperatorsSection() {
         ? reason.reason.message
         : "Failed to delete selected operators",
     );
-  }, [deleteOperatorMutation, invalidateLists, selectedIds]);
+  }, [deleteOperatorMutation, invalidateLists]);
+
+  const handleDeleteOperator = React.useCallback((operator: OperatorListItem) => {
+    setDeleteDialog({ mode: "single", operator });
+  }, []);
+
+  const handleDeleteSelected = React.useCallback(() => {
+    if (selectedIds.length === 0) return;
+    setDeleteDialog({ mode: "bulk", ids: [...selectedIds] });
+  }, [selectedIds]);
+
+  const handleConfirmDelete = React.useCallback(async () => {
+    if (!deleteDialog) return;
+
+    const currentDialog = deleteDialog;
+
+    if (currentDialog.mode === "single") {
+      await deleteOperatorNow(currentDialog.operator);
+    } else {
+      await deleteSelectedNow(currentDialog.ids);
+    }
+
+    setDeleteDialog(null);
+  }, [deleteDialog, deleteOperatorNow, deleteSelectedNow]);
 
   return (
     <div className="h-full min-h-0 w-full max-w-[1200px]">
@@ -202,6 +235,30 @@ export function OperatorsSection() {
         onSave={async () => {
           await invalidateLists();
         }}
+      />
+
+      <DeleteConfirmationDialog
+        open={deleteDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog(null);
+        }}
+        title={
+          deleteDialog?.mode === "bulk"
+            ? `Delete ${deleteDialog.ids.length} operator${deleteDialog.ids.length === 1 ? "" : "s"}?`
+            : "Delete operator?"
+        }
+        description={
+          deleteDialog?.mode === "bulk"
+            ? `You are about to permanently delete ${deleteDialog.ids.length} operator${deleteDialog.ids.length === 1 ? "" : "s"}. This action cannot be undone.`
+            : "You are about to permanently delete this operator. This action cannot be undone."
+        }
+        confirmLabel={
+          deleteDialog?.mode === "bulk"
+            ? `Delete ${deleteDialog.ids.length} operator${deleteDialog.ids.length === 1 ? "" : "s"}`
+            : "Delete operator"
+        }
+        onConfirm={handleConfirmDelete}
+        isPending={deleteOperatorMutation.isPending}
       />
     </div>
   );

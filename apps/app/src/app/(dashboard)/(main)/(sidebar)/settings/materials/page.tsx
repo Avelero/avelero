@@ -1,8 +1,18 @@
-export default function SettingsMaterialsPage() {
+import { MaterialsSection } from "@/components/settings/catalog/materials-section";
+import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
+import { connection } from "next/server";
+
+export default async function SettingsMaterialsPage() {
+  await connection();
+
+  await batchPrefetch([
+    trpc.catalog.materials.list.queryOptions(undefined),
+    trpc.composite.catalogContent.queryOptions(),
+  ]);
+
   return (
-    <div className="w-full max-w-[700px]">
-      <p className="type-h5 text-foreground">Materials</p>
-    </div>
+    <HydrateClient>
+      <MaterialsSection />
+    </HydrateClient>
   );
 }
-

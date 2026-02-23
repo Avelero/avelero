@@ -316,8 +316,8 @@ export function CertificationSheet({
           institute_state: nextCertification.instituteState ?? null,
           institute_zip: nextCertification.instituteZip ?? null,
           institute_country_code: nextCertification.instituteCountryCode ?? null,
-          issue_date: issueDate ? issueDate.toISOString() : null,
-          expiry_date: expiryDate ? expiryDate.toISOString() : null,
+          issue_date: issueDateIso ?? null,
+          expiry_date: expiryDateIso ?? null,
           certification_path: nextCertification.certificationPath ?? null,
           created_at:
             existing.find((cert: any) => cert.id === certificationId)?.created_at ?? now,

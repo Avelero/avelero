@@ -318,7 +318,10 @@ export function AttributesTable({
       if (!idsInRange.length) return;
 
       const next = new Set(selectedSet);
-      for (const id of idsInRange) next.add(id);
+      for (const id of idsInRange) {
+        if (checked) next.add(id);
+        else next.delete(id);
+      }
       onSelectedValueIdsChange(Array.from(next));
     },
     [childIndexById, lastClickedChildIndex, onSelectedValueIdsChange, selectedSet, toggleValue, visibleChildIds],

@@ -156,6 +156,10 @@ export function getSettingsHeaderBreadcrumbs(
     ];
   }
 
+  const activeItem = getActiveSettingsNavItem(normalizedPath);
+  if (activeItem && normalizedPath !== "/settings") {
+    return [{ label: activeItem.label }];
+  }
+
   return [{ label: "Settings" }];
 }
-

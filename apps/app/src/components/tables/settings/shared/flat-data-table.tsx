@@ -85,7 +85,11 @@ export function FlatDataTable<TRow>({
 
       const next = new Set(selectedSet);
       for (const rangeId of idsInRange) {
-        next.add(rangeId);
+        if (checked) {
+          next.add(rangeId);
+        } else {
+          next.delete(rangeId);
+        }
       }
       onSelectedIdsChange(Array.from(next));
     },

@@ -1,8 +1,63 @@
 import { DPPDemoCallout } from "@/components/updates/dpp-demo-callout";
 import { InteractiveTimeline } from "@/components/updates/interactive-timeline";
+import { cn } from "@/lib/utils";
 import type { MDXComponents } from "mdx/types";
 import Link from "next/link";
+import NextImage, { type ImageProps as NextImageProps } from "next/image";
 import { isValidElement, type ReactNode } from "react";
+
+type MdxImageProps = Omit<NextImageProps, "src" | "alt" | "width" | "height"> & {
+  src: string;
+  alt: string;
+  width: number | string;
+  height: number | string;
+  caption?: ReactNode;
+  figureClassName?: string;
+};
+
+function toNumberDimension(value: number | string, name: "width" | "height"): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`MDX <Image> requires a valid numeric ${name} prop.`);
+  }
+
+  return parsed;
+}
+
+function MdxImage({
+  src,
+  alt,
+  width,
+  height,
+  caption,
+  className,
+  figureClassName,
+  sizes = "(max-width: 639px) calc(100vw - 3rem), 688px",
+  ...props
+}: MdxImageProps) {
+  const numericWidth = toNumberDimension(width, "width");
+  const numericHeight = toNumberDimension(height, "height");
+
+  return (
+    <figure className={cn("my-8 w-full sm:-mx-8 sm:w-[calc(100%+4rem)]", figureClassName)}>
+      <NextImage
+        src={src}
+        alt={alt}
+        width={numericWidth}
+        height={numericHeight}
+        sizes={sizes}
+        className={cn("h-auto w-full border border-border", className)}
+        {...props}
+      />
+      {caption ? (
+        <figcaption className="text-small mt-2 text-center text-foreground/60">
+          {caption}
+        </figcaption>
+      ) : null}
+    </figure>
+  );
+}
 
 function getTextContent(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
@@ -47,6 +102,7 @@ function getHeadingId(children: ReactNode, id?: string): string | undefined {
 export const mdxComponents: MDXComponents = {
   InteractiveTimeline,
   DPPDemoCallout,
+  Image: MdxImage,
 
   // Headings
   h1: ({ children, ...props }) => (

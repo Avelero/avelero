@@ -31,8 +31,8 @@ export default function AccountLayout({
   return (
     <div className="flex h-full min-h-0">
       <SettingsSecondarySidebar />
-      <div className="flex min-w-0 flex-1">
-        <div className="flex w-full h-full justify-center items-start p-8 overflow-y-auto scrollbar-hide">
+      <div className="flex min-h-0 min-w-0 flex-1">
+        <div className="flex h-full min-h-0 w-full items-stretch justify-center overflow-y-auto p-8 scrollbar-hide">
           <Suspense fallback={<SettingsPageSkeleton />}>{children}</Suspense>
         </div>
       </div>

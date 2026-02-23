@@ -1,8 +1,18 @@
-export default function SettingsTagsPage() {
+import { TagsSection } from "@/components/settings/organization/tags-section";
+import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
+import { connection } from "next/server";
+
+export default async function SettingsTagsPage() {
+  await connection();
+
+  await batchPrefetch([
+    trpc.catalog.tags.list.queryOptions(undefined),
+    trpc.composite.catalogContent.queryOptions(),
+  ]);
+
   return (
-    <div className="w-full max-w-[700px]">
-      <p className="type-h5 text-foreground">Tags</p>
-    </div>
+    <HydrateClient>
+      <TagsSection />
+    </HydrateClient>
   );
 }
-

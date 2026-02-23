@@ -1,8 +1,18 @@
-export default function SettingsManufacturersPage() {
+import { ManufacturersSection } from "@/components/settings/catalog/manufacturers-section";
+import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
+import { connection } from "next/server";
+
+export default async function SettingsManufacturersPage() {
+  await connection();
+
+  await batchPrefetch([
+    trpc.catalog.manufacturers.list.queryOptions(undefined),
+    trpc.composite.catalogContent.queryOptions(),
+  ]);
+
   return (
-    <div className="w-full max-w-[700px]">
-      <p className="type-h5 text-foreground">Manufacturers</p>
-    </div>
+    <HydrateClient>
+      <ManufacturersSection />
+    </HydrateClient>
   );
 }
-

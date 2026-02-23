@@ -1,8 +1,18 @@
-export default function SettingsSeasonsPage() {
+import { SeasonsSection } from "@/components/settings/organization/seasons-section";
+import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
+import { connection } from "next/server";
+
+export default async function SettingsSeasonsPage() {
+  await connection();
+
+  await batchPrefetch([
+    trpc.catalog.seasons.list.queryOptions(undefined),
+    trpc.composite.catalogContent.queryOptions(),
+  ]);
+
   return (
-    <div className="w-full max-w-[700px]">
-      <p className="type-h5 text-foreground">Seasons</p>
-    </div>
+    <HydrateClient>
+      <SeasonsSection />
+    </HydrateClient>
   );
 }
-

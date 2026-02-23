@@ -51,14 +51,18 @@ interface ManufacturerSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialName?: string;
-  onManufacturerCreated: (manufacturer: ManufacturerData) => void;
+  initialManufacturer?: ManufacturerData;
+  onManufacturerCreated?: (manufacturer: ManufacturerData) => void;
+  onSave?: (manufacturer: ManufacturerData) => void | Promise<void>;
 }
 
 export function ManufacturerSheet({
   open,
   onOpenChange,
   initialName = "",
+  initialManufacturer,
   onManufacturerCreated,
+  onSave,
 }: ManufacturerSheetProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -88,6 +92,10 @@ export function ManufacturerSheet({
   const createManufacturerMutation = useMutation(
     trpc.catalog.manufacturers.create.mutationOptions(),
   );
+  const updateManufacturerMutation = useMutation(
+    trpc.catalog.manufacturers.update.mutationOptions(),
+  );
+  const isEditMode = !!initialManufacturer;
 
   const validationSchema = React.useMemo<
     ValidationSchema<ManufacturerFormValues>
@@ -97,9 +105,12 @@ export function ManufacturerSheet({
         rules.required("Manufacturer name is required"),
         rules.maxLength(100, "Name must be 100 characters or less"),
         rules.uniqueCaseInsensitive(
-          existingManufacturers.map(
-            (manufacturer: { name: string }) => manufacturer.name,
-          ),
+          existingManufacturers
+            .filter(
+              (manufacturer: { id?: string; name: string }) =>
+                manufacturer.id !== initialManufacturer?.id,
+            )
+            .map((manufacturer: { name: string }) => manufacturer.name),
           "A manufacturer with this name already exists",
         ),
       ],
@@ -116,7 +127,7 @@ export function ManufacturerSheet({
         rules.url(),
       ],
     }),
-    [existingManufacturers],
+    [existingManufacturers, initialManufacturer?.id],
   );
 
   const clearFieldError = React.useCallback(
@@ -148,12 +159,23 @@ export function ManufacturerSheet({
     [name, email, phone, website, validationSchema],
   );
 
-  // Update name when initialName changes (when sheet opens with pre-filled name)
+  // Prefill fields when opening (supports both create and edit modes).
   React.useEffect(() => {
     if (open) {
-      setName(initialName);
+      setName(initialManufacturer?.name ?? initialName);
+      setLegalName(initialManufacturer?.legalName ?? "");
+      setEmail(initialManufacturer?.email ?? "");
+      setPhone(initialManufacturer?.phone ?? "");
+      setWebsite(initialManufacturer?.website ?? "");
+      setAddressLine1(initialManufacturer?.addressLine1 ?? "");
+      setAddressLine2(initialManufacturer?.addressLine2 ?? "");
+      setCity(initialManufacturer?.city ?? "");
+      setState(initialManufacturer?.state ?? "");
+      setZip(initialManufacturer?.zip ?? "");
+      setCountryCode(initialManufacturer?.countryCode ?? "");
+      setFieldErrors({});
     }
-  }, [open, initialName]);
+  }, [open, initialManufacturer, initialName]);
 
   // Reset form when sheet closes (delayed to avoid flash during animation)
   React.useEffect(() => {
@@ -211,23 +233,46 @@ export function ManufacturerSheet({
     try {
       // Execute mutation with toast.loading to handle loading/success/error states
       const mutationResult = await toast.loading(
-        "Creating manufacturer...",
-        createManufacturerMutation.mutateAsync({
-          name: name.trim(),
-          legal_name: legalName.trim() || undefined,
-          email: email.trim() || undefined,
-          phone: formattedPhone || undefined,
-          website: normalizedWebsite || undefined,
-          address_line_1: addressLine1.trim() || undefined,
-          address_line_2: addressLine2.trim() || undefined,
-          city: city.trim() || undefined,
-          state: state.trim() || undefined,
-          zip: zip.trim() || undefined,
-          country_code: countryCode || undefined,
-        }),
+        isEditMode ? "Saving manufacturer..." : "Creating manufacturer...",
+        (async () => {
+          const payload = {
+            name: name.trim(),
+            legal_name: legalName.trim() || undefined,
+            email: email.trim() || undefined,
+            phone: formattedPhone || undefined,
+            website: normalizedWebsite || undefined,
+            address_line_1: addressLine1.trim() || undefined,
+            address_line_2: addressLine2.trim() || undefined,
+            city: city.trim() || undefined,
+            state: state.trim() || undefined,
+            zip: zip.trim() || undefined,
+            country_code: countryCode || undefined,
+          };
+
+          if (isEditMode) {
+            return updateManufacturerMutation.mutateAsync({
+              id: initialManufacturer.id,
+              name: payload.name,
+              legal_name: legalName.trim() || null,
+              email: email.trim() || null,
+              phone: formattedPhone || null,
+              website: normalizedWebsite || null,
+              address_line_1: addressLine1.trim() || null,
+              address_line_2: addressLine2.trim() || null,
+              city: city.trim() || null,
+              state: state.trim() || null,
+              zip: zip.trim() || null,
+              country_code: countryCode || null,
+            });
+          }
+
+          return createManufacturerMutation.mutateAsync(payload);
+        })(),
         {
           delay: 500,
-          successMessage: "Manufacturer created successfully",
+          successMessage: isEditMode
+            ? "Manufacturer saved successfully"
+            : "Manufacturer created successfully",
         },
       );
 
@@ -237,34 +282,60 @@ export function ManufacturerSheet({
         throw new Error("No valid response returned from API");
       }
 
+      const manufacturerId = createdManufacturer.id;
+      const now = new Date().toISOString();
+      const manufacturerData: ManufacturerData = {
+        id: manufacturerId,
+        name: name.trim(),
+        legalName: legalName.trim() || undefined,
+        email: email.trim() || undefined,
+        phone: formattedPhone || undefined,
+        website: normalizedWebsite || undefined,
+        addressLine1: addressLine1.trim() || undefined,
+        addressLine2: addressLine2.trim() || undefined,
+        city: city.trim() || undefined,
+        state: state.trim() || undefined,
+        zip: zip.trim() || undefined,
+        countryCode: countryCode || undefined,
+      };
+
       // Optimistically update the cache immediately
       queryClient.setQueryData(
         trpc.composite.catalogContent.queryKey(),
         (old: any) => {
           if (!old) return old;
+          const nextManufacturer = {
+            id: manufacturerId,
+            name: manufacturerData.name,
+            legal_name: manufacturerData.legalName ?? null,
+            email: manufacturerData.email ?? null,
+            phone: manufacturerData.phone ?? null,
+            website: manufacturerData.website ?? null,
+            address_line_1: manufacturerData.addressLine1 ?? null,
+            address_line_2: manufacturerData.addressLine2 ?? null,
+            city: manufacturerData.city ?? null,
+            state: manufacturerData.state ?? null,
+            zip: manufacturerData.zip ?? null,
+            country_code: manufacturerData.countryCode ?? null,
+            created_at:
+              (old.brandCatalog?.manufacturers ?? []).find(
+                (m: any) => m.id === manufacturerId,
+              )?.created_at ?? now,
+            updated_at: now,
+          };
+
+          const existing = old.brandCatalog.manufacturers ?? [];
+          const nextManufacturers = isEditMode
+            ? existing.map((manufacturer: any) =>
+                manufacturer.id === manufacturerId ? nextManufacturer : manufacturer,
+              )
+            : [...existing, nextManufacturer];
+
           return {
             ...old,
             brandCatalog: {
               ...old.brandCatalog,
-              manufacturers: [
-                ...old.brandCatalog.manufacturers,
-                {
-                  id: createdManufacturer.id,
-                  name: createdManufacturer.name,
-                  legal_name: createdManufacturer.legal_name,
-                  email: createdManufacturer.email,
-                  phone: createdManufacturer.phone,
-                  website: createdManufacturer.website,
-                  address_line_1: createdManufacturer.address_line_1,
-                  address_line_2: createdManufacturer.address_line_2,
-                  city: createdManufacturer.city,
-                  state: createdManufacturer.state,
-                  zip: createdManufacturer.zip,
-                  country_code: createdManufacturer.country_code,
-                  created_at: createdManufacturer.created_at,
-                  updated_at: createdManufacturer.updated_at,
-                },
-              ],
+              manufacturers: nextManufacturers,
             },
           };
         },
@@ -275,33 +346,20 @@ export function ManufacturerSheet({
         queryKey: trpc.composite.catalogContent.queryKey(),
       });
 
-      // Transform API response to component format
-      const manufacturerData: ManufacturerData = {
-        id: createdManufacturer.id,
-        name: createdManufacturer.name,
-        legalName: createdManufacturer.legal_name || undefined,
-        email: createdManufacturer.email || undefined,
-        phone: createdManufacturer.phone || undefined,
-        website: createdManufacturer.website || undefined,
-        addressLine1: createdManufacturer.address_line_1 || undefined,
-        addressLine2: createdManufacturer.address_line_2 || undefined,
-        city: createdManufacturer.city || undefined,
-        state: createdManufacturer.state || undefined,
-        zip: createdManufacturer.zip || undefined,
-        countryCode: createdManufacturer.country_code || undefined,
-      };
-
-      // Call parent callback with real data
       setFieldErrors({});
-      onManufacturerCreated(manufacturerData);
+      if (isEditMode) {
+        await onSave?.(manufacturerData);
+      } else {
+        onManufacturerCreated?.(manufacturerData);
+        await onSave?.(manufacturerData);
+      }
 
-      // Close sheet first
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to create manufacturer:", error);
+      console.error("Failed to save manufacturer:", error);
 
       // Parse error for specific messages
-      let errorMessage = "Failed to create manufacturer. Please try again.";
+      let errorMessage = "Failed to save manufacturer. Please try again.";
 
       if (error instanceof Error) {
         if (
@@ -326,7 +384,8 @@ export function ManufacturerSheet({
   };
 
   const isNameValid = name.trim().length > 0 && !fieldErrors.name;
-  const isCreating = createManufacturerMutation.isPending;
+  const isSaving =
+    createManufacturerMutation.isPending || updateManufacturerMutation.isPending;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -338,7 +397,7 @@ export function ManufacturerSheet({
       >
         {/* Header */}
         <SheetBreadcrumbHeader
-          pages={["Create manufacturer"]}
+          pages={[isEditMode ? "Edit manufacturer" : "Create manufacturer"]}
           currentPageIndex={0}
           onClose={() => onOpenChange(false)}
         />
@@ -568,7 +627,7 @@ export function ManufacturerSheet({
             variant="outline"
             size="default"
             onClick={handleCancel}
-            disabled={isCreating}
+            disabled={isSaving}
             className="min-w-[70px]"
           >
             Cancel
@@ -577,10 +636,10 @@ export function ManufacturerSheet({
             variant="brand"
             size="default"
             onClick={handleCreate}
-            disabled={!isNameValid || isCreating}
+            disabled={!isNameValid || isSaving}
             className="min-w-[70px]"
           >
-            Create
+            {isEditMode ? "Save" : "Create"}
           </Button>
         </SheetFooter>
       </SheetContent>

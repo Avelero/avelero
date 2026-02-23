@@ -28,6 +28,13 @@ interface SeasonModalProps {
     isOngoing: boolean;
   }) => void;
   initialName?: string;
+  initialSeason?: {
+    id: string;
+    name: string;
+    startDate: Date | null;
+    endDate: Date | null;
+    isOngoing: boolean;
+  };
 }
 
 export function SeasonModal({
@@ -35,6 +42,7 @@ export function SeasonModal({
   onOpenChange,
   onSave,
   initialName,
+  initialSeason,
 }: SeasonModalProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -44,7 +52,6 @@ export function SeasonModal({
   const [startDate, setStartDate] = React.useState<Date | null>(null);
   const [endDate, setEndDate] = React.useState<Date | null>(null);
   const [ongoing, setOngoing] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Preserve dates when toggling ongoing to allow restoration
   const [preservedStartDate, setPreservedStartDate] =
@@ -60,6 +67,11 @@ export function SeasonModal({
   const createSeasonMutation = useMutation(
     trpc.catalog.seasons.create.mutationOptions(),
   );
+  const updateSeasonMutation = useMutation(
+    trpc.catalog.seasons.update.mutationOptions(),
+  );
+
+  const isEditMode = !!initialSeason;
 
   // Date formatting and parsing functions (memoized)
   const formatDate = React.useCallback((date: Date | null) => {
@@ -70,31 +82,18 @@ export function SeasonModal({
     return `${year}-${month}-${day}`;
   }, []);
 
-  const parseDate = React.useCallback(
-    (dateValue: string | Date | null | undefined): Date | null => {
-      if (!dateValue) return null;
-      // If it's already a Date object, return it directly
-      if (dateValue instanceof Date) return dateValue;
-      // If it's a string, parse it
-      if (typeof dateValue === "string") {
-        const parts = dateValue.split("-").map(Number);
-        if (parts.length !== 3) return null;
-        const [year, month, day] = parts;
-        if (year === undefined || month === undefined || day === undefined)
-          return null;
-        return new Date(year, month - 1, day);
-      }
-      return null;
-    },
-    [],
-  );
-
   // Prefill name when modal opens with provided initialName
   React.useEffect(() => {
     if (open) {
-      setName(initialName ?? "");
+      setName(initialSeason?.name ?? initialName ?? "");
+      setStartDate(initialSeason?.startDate ?? null);
+      setEndDate(initialSeason?.endDate ?? null);
+      setOngoing(initialSeason?.isOngoing ?? false);
+      setPreservedStartDate(null);
+      setPreservedEndDate(null);
+      setNameError("");
     }
-  }, [open, initialName]);
+  }, [open, initialName, initialSeason]);
 
   // Validation function for season name
   const validateName = (value: string): boolean => {
@@ -106,7 +105,9 @@ export function SeasonModal({
     }
 
     const isDuplicate = existingSeasons.some(
-      (season) => season.name.toLowerCase() === trimmedName.toLowerCase(),
+      (season) =>
+        season.name.toLowerCase() === trimmedName.toLowerCase() &&
+        season.id !== initialSeason?.id,
     );
 
     if (isDuplicate) {
@@ -176,41 +177,53 @@ export function SeasonModal({
     // toast.loading will automatically handle success/error toasts
     await toast
       .loading(
-        "Creating season...",
+        isEditMode ? "Saving season..." : "Creating season...",
         (async () => {
-          const result = await createSeasonMutation.mutateAsync({
+          const payload = {
             name: name.trim(),
             start_date: formatDate(startDate),
             end_date: formatDate(endDate),
             ongoing: ongoing,
-          });
+          };
+          const result = isEditMode
+            ? await updateSeasonMutation.mutateAsync({
+                id: initialSeason.id,
+                ...payload,
+              })
+            : await createSeasonMutation.mutateAsync(payload);
 
           const createdSeason = result?.data;
           if (!createdSeason?.id) {
             throw new Error("No valid response returned from API");
           }
 
-          // Optimistically update the cache immediately
+          // Optimistically update the catalog cache immediately
           queryClient.setQueryData(
             trpc.composite.catalogContent.queryKey(),
             (old: any) => {
               if (!old) return old;
+              const nextSeason = {
+                id: createdSeason.id,
+                name: createdSeason.name,
+                startDate: createdSeason.startDate,
+                endDate: createdSeason.endDate,
+                ongoing: createdSeason.ongoing,
+                createdAt: createdSeason.createdAt,
+                updatedAt: createdSeason.updatedAt,
+              };
+
+              const existingSeasons = old.brandCatalog.seasons ?? [];
+              const nextSeasons = isEditMode
+                ? existingSeasons.map((season: any) =>
+                    season.id === createdSeason.id ? nextSeason : season,
+                  )
+                : [...existingSeasons, nextSeason];
+
               return {
                 ...old,
                 brandCatalog: {
                   ...old.brandCatalog,
-                  seasons: [
-                    ...old.brandCatalog.seasons,
-                    {
-                      id: createdSeason.id,
-                      name: createdSeason.name,
-                      startDate: createdSeason.startDate,
-                      endDate: createdSeason.endDate,
-                      isOngoing: createdSeason.ongoing,
-                      createdAt: createdSeason.createdAt,
-                      updatedAt: createdSeason.updatedAt,
-                    },
-                  ],
+                  seasons: nextSeasons,
                 },
               };
             },
@@ -238,12 +251,14 @@ export function SeasonModal({
         })(),
         {
           delay: 500,
-          successMessage: "Season created successfully",
+          successMessage: isEditMode
+            ? "Season saved successfully"
+            : "Season created successfully",
         },
       )
       .catch((error) => {
         // toast.loading already handles error toast, but we can log for debugging
-        console.error("Failed to create season:", error);
+        console.error("Failed to save season:", error);
       });
   };
 
@@ -266,13 +281,15 @@ export function SeasonModal({
     onOpenChange(newOpen);
   };
 
-  const isCreating = createSeasonMutation.isPending;
+  const isSaving = createSeasonMutation.isPending || updateSeasonMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="lg" className="p-0 gap-0 overflow-visible">
         <DialogHeader className="px-6 py-4 border-b border-border">
-          <DialogTitle className="text-foreground">Add season</DialogTitle>
+          <DialogTitle className="text-foreground">
+            {isEditMode ? "Edit season" : "Add season"}
+          </DialogTitle>
         </DialogHeader>
 
         {/* Main content */}
@@ -289,7 +306,9 @@ export function SeasonModal({
                 setName(e.target.value);
                 if (nameError) validateName(e.target.value);
               }}
-              onBlur={() => validateName(name)}
+              onBlur={() => {
+                void validateName(name);
+              }}
               placeholder="Enter season name"
               maxLength={100}
               aria-required="true"
@@ -347,16 +366,16 @@ export function SeasonModal({
 
         {/* Footer */}
         <DialogFooter className="px-6 py-4 border-t border-border bg-background">
-          <Button
-            variant="outline"
-            onClick={handleCancel}
-            disabled={isCreating}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!name.trim() || isCreating}>
-            Create
-          </Button>
+            <Button
+              variant="outline"
+              onClick={handleCancel}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={!name.trim() || isSaving}>
+              {isEditMode ? "Save" : "Create"}
+            </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

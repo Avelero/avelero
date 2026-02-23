@@ -31,6 +31,7 @@ export interface OperatorData {
   legalName?: string;
   email?: string;
   phone?: string;
+  website?: string;
   addressLine1?: string;
   addressLine2?: string;
   city?: string;
@@ -49,14 +50,18 @@ interface OperatorSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialName?: string;
-  onOperatorCreated: (operator: OperatorData) => void;
+  initialOperator?: OperatorData;
+  onOperatorCreated?: (operator: OperatorData) => void;
+  onSave?: (operator: OperatorData) => void | Promise<void>;
 }
 
 export function OperatorSheet({
   open,
   onOpenChange,
   initialName = "",
+  initialOperator,
   onOperatorCreated,
+  onSave,
 }: OperatorSheetProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -86,6 +91,10 @@ export function OperatorSheet({
   const createOperatorMutation = useMutation(
     trpc.catalog.operators.create.mutationOptions(),
   );
+  const updateOperatorMutation = useMutation(
+    trpc.catalog.operators.update.mutationOptions(),
+  );
+  const isEditMode = !!initialOperator;
 
   const validationSchema = React.useMemo<ValidationSchema<OperatorFormValues>>(
     () => ({
@@ -93,7 +102,9 @@ export function OperatorSheet({
         rules.required("Operator name is required"),
         rules.maxLength(100, "Name must be 100 characters or less"),
         rules.uniqueCaseInsensitive(
-          existingOperators.map((operator) => operator.display_name),
+          existingOperators
+            .filter((operator) => operator.id !== initialOperator?.id)
+            .map((operator) => operator.display_name),
           "An operator with this name already exists",
         ),
       ],
@@ -106,7 +117,7 @@ export function OperatorSheet({
         rules.phone(),
       ],
     }),
-    [existingOperators],
+    [existingOperators, initialOperator?.id],
   );
 
   const clearFieldError = React.useCallback(
@@ -138,14 +149,25 @@ export function OperatorSheet({
   );
 
   // Compute loading state from mutation
-  const isCreating = createOperatorMutation.isPending;
+  const isSaving =
+    createOperatorMutation.isPending || updateOperatorMutation.isPending;
 
-  // Update name when initialName changes (when sheet opens with pre-filled name)
+  // Prefill fields when opening (supports both create and edit modes).
   React.useEffect(() => {
     if (open) {
-      setName(initialName);
+      setName(initialOperator?.name ?? initialName);
+      setLegalName(initialOperator?.legalName ?? "");
+      setEmail(initialOperator?.email ?? "");
+      setPhone(initialOperator?.phone ?? "");
+      setAddressLine1(initialOperator?.addressLine1 ?? "");
+      setAddressLine2(initialOperator?.addressLine2 ?? "");
+      setCity(initialOperator?.city ?? "");
+      setState(initialOperator?.state ?? "");
+      setZip(initialOperator?.zip ?? "");
+      setCountryCode(initialOperator?.countryCode ?? "");
+      setFieldErrors({});
     }
-  }, [open, initialName]);
+  }, [open, initialName, initialOperator]);
 
   // Reset form when sheet closes (delayed to avoid flash during animation)
   React.useEffect(() => {
@@ -193,21 +215,35 @@ export function OperatorSheet({
     try {
       // Show loading toast and execute mutation
       const mutationResult = await toast.loading(
-        "Creating operator...",
+        isEditMode ? "Saving operator..." : "Creating operator...",
         (async () => {
           // Create operator via API
-          const result = await createOperatorMutation.mutateAsync({
-            display_name: name.trim(),
-            legal_name: legalName.trim() || undefined,
-            email: email.trim() || undefined,
-            phone: formattedPhone || undefined,
-            address_line_1: addressLine1.trim() || undefined,
-            address_line_2: addressLine2.trim() || undefined,
-            city: city.trim() || undefined,
-            state: state.trim() || undefined,
-            zip: zip.trim() || undefined,
-            country_code: countryCode || undefined,
-          });
+          const result = isEditMode
+            ? await updateOperatorMutation.mutateAsync({
+                id: initialOperator.id,
+                display_name: name.trim(),
+                legal_name: legalName.trim() || null,
+                email: email.trim() || null,
+                phone: formattedPhone || null,
+                address_line_1: addressLine1.trim() || null,
+                address_line_2: addressLine2.trim() || null,
+                city: city.trim() || null,
+                state: state.trim() || null,
+                zip: zip.trim() || null,
+                country_code: countryCode || null,
+              })
+            : await createOperatorMutation.mutateAsync({
+                display_name: name.trim(),
+                legal_name: legalName.trim() || undefined,
+                email: email.trim() || undefined,
+                phone: formattedPhone || undefined,
+                address_line_1: addressLine1.trim() || undefined,
+                address_line_2: addressLine2.trim() || undefined,
+                city: city.trim() || undefined,
+                state: state.trim() || undefined,
+                zip: zip.trim() || undefined,
+                country_code: countryCode || undefined,
+              });
 
           // Validate response
           const createdOperator = result?.data;
@@ -227,9 +263,8 @@ export function OperatorSheet({
                 ...old,
                 brandCatalog: {
                   ...old.brandCatalog,
-                  operators: [
-                    ...old.brandCatalog.operators,
-                    {
+                  operators: (() => {
+                    const nextOperator = {
                       id: operatorId,
                       display_name: name.trim(),
                       legal_name: legalName.trim() || null,
@@ -241,10 +276,19 @@ export function OperatorSheet({
                       state: state.trim() || null,
                       zip: zip.trim() || null,
                       country_code: countryCode || null,
-                      created_at: now,
+                      created_at:
+                        (old.brandCatalog?.operators ?? []).find(
+                          (operator: any) => operator.id === operatorId,
+                        )?.created_at ?? now,
                       updated_at: now,
-                    },
-                  ],
+                    };
+                    const existing = old.brandCatalog.operators ?? [];
+                    return isEditMode
+                      ? existing.map((operator: any) =>
+                          operator.id === operatorId ? nextOperator : operator,
+                        )
+                      : [...existing, nextOperator];
+                  })(),
                 },
               };
             },
@@ -262,6 +306,7 @@ export function OperatorSheet({
             legalName: legalName.trim() || undefined,
             email: email.trim() || undefined,
             phone: phone.trim() || undefined,
+            website: initialOperator?.website,
             addressLine1: addressLine1.trim() || undefined,
             addressLine2: addressLine2.trim() || undefined,
             city: city.trim() || undefined,
@@ -270,8 +315,12 @@ export function OperatorSheet({
             countryCode: countryCode || undefined,
           };
 
-          // Call parent callback with real data
-          onOperatorCreated(newOperator);
+          if (isEditMode) {
+            await onSave?.(newOperator);
+          } else {
+            onOperatorCreated?.(newOperator);
+            await onSave?.(newOperator);
+          }
 
           // Close sheet first
           setFieldErrors({});
@@ -281,14 +330,16 @@ export function OperatorSheet({
         })(),
         {
           delay: 500,
-          successMessage: "Operator created successfully",
+          successMessage: isEditMode
+            ? "Operator saved successfully"
+            : "Operator created successfully",
         },
       );
     } catch (error) {
-      console.error("Failed to create operator:", error);
+      console.error("Failed to save operator:", error);
 
       // Parse error for specific messages
-      let errorMessage = "Failed to create operator. Please try again.";
+      let errorMessage = "Failed to save operator. Please try again.";
 
       if (error instanceof Error) {
         if (
@@ -324,7 +375,7 @@ export function OperatorSheet({
       >
         {/* Header */}
         <SheetBreadcrumbHeader
-          pages={["Create operator"]}
+          pages={[isEditMode ? "Edit operator" : "Create operator"]}
           currentPageIndex={0}
           onClose={() => onOpenChange(false)}
         />
@@ -505,7 +556,7 @@ export function OperatorSheet({
             variant="outline"
             size="default"
             onClick={handleCancel}
-            disabled={isCreating}
+            disabled={isSaving}
             className="w-[70px]"
           >
             Cancel
@@ -514,10 +565,10 @@ export function OperatorSheet({
             variant="brand"
             size="default"
             onClick={handleCreate}
-            disabled={!isNameValid || isCreating}
+            disabled={!isNameValid || isSaving}
             className="w-[70px]"
           >
-            Create
+            {isEditMode ? "Save" : "Create"}
           </Button>
         </SheetFooter>
       </SheetContent>

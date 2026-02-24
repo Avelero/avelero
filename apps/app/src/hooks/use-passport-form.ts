@@ -634,7 +634,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       {
         attributeId: string;
         name: string;
-        taxonomyAttributeId: string | null;
         values: Set<string>;
       }
     >();
@@ -648,15 +647,11 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const attrId = attr.attribute_id ?? attr.attributeId;
         const brandValueId = attr.value_id ?? attr.valueId;
         const attrName = attr.attribute_name ?? attr.attributeName ?? "Unknown";
-        const taxAttrId =
-          attr.taxonomy_attribute_id ?? attr.taxonomyAttributeId ?? null;
-
         if (attrId && brandValueId) {
           if (!dimensionMap.has(attrId)) {
             dimensionMap.set(attrId, {
               attributeId: attrId,
               name: attrName,
-              taxonomyAttributeId: taxAttrId,
               values: new Set(),
             });
           }
@@ -685,7 +680,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       id: `dim-${idx}`,
       attributeId: d.attributeId,
       attributeName: d.name,
-      taxonomyAttributeId: d.taxonomyAttributeId,
       values: Array.from(d.values),
     }));
 
@@ -835,8 +829,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   type ResolvedVariantDimensionsResult = {
     dimensions: Array<{ attribute_id: string; value_ids: string[] }>;
     /**
-     * Per-dimension mapping from the UI token used in variant keys (taxonomy value id,
-     * brand value id, or raw string) to the resolved brand attribute value id.
+     * Per-dimension mapping from the UI token used in variant keys
+     * (brand value id or raw string) to the resolved brand attribute value id.
      * This lets us translate `variantMetadata` keys into the server-expected
      * pipe-joined brand value IDs.
      */
@@ -904,9 +898,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
           // Check if attribute with this name already exists
           const existing = existingBrandAttrs.find(
-            (a: any) =>
-              a.name.toLowerCase() === attrName.toLowerCase() &&
-              !a.taxonomyAttributeId,
+            (a: any) => a.name.toLowerCase() === attrName.toLowerCase(),
           );
           if (existing) {
             brandAttrId = existing.id;
@@ -960,162 +952,43 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           continue;
         }
 
-        // Create brand attribute if it doesn't exist (indicated by tax: prefix)
-        if (brandAttrId?.startsWith("tax:")) {
-          const taxAttrId = brandAttrId.slice(4);
-          const existing = existingBrandAttrs.find(
-            (a: any) => a.taxonomyAttributeId === taxAttrId,
-          );
-          if (existing) {
-            brandAttrId = existing.id;
-          } else {
-            const result = await createAttributeMutation.mutateAsync({
-              name: dim.attributeName,
-              taxonomy_attribute_id: taxAttrId,
-            });
-            if (!result?.data?.id)
-              throw new Error("Failed to create attribute");
-            brandAttrId = result.data.id;
-            existingBrandAttrs.push(result.data);
-          }
-        }
-
         if (!brandAttrId) continue;
 
         // Resolve values
         const resolvedValueIds: string[] = [];
+        for (const valueId of dim.values) {
+          const existingBrandValue = existingBrandValues.find(
+            (v: any) => v.id === valueId && v.attributeId === brandAttrId,
+          );
 
-        if (dim.taxonomyAttributeId) {
-          // Taxonomy-linked: values can be brand value IDs or tax:-prefixed taxonomy value IDs
-          for (const valueId of dim.values) {
-            // Check if this is a tax:-prefixed pending taxonomy value
-            const isTaxPrefixed = valueId.startsWith("tax:");
-            const actualValueId = isTaxPrefixed ? valueId.slice(4) : valueId;
-
-            // First, check if it's already a brand value ID
-            const existingBrandValue = existingBrandValues.find(
-              (v: any) =>
-                v.id === actualValueId && v.attributeId === brandAttrId,
-            );
-
-            if (existingBrandValue) {
-              resolvedValueIds.push(existingBrandValue.id);
-              tokenToBrandValueId.set(valueId, existingBrandValue.id);
-              tokenToBrandValueId.set(actualValueId, existingBrandValue.id);
-              tokenToBrandValueId.set(
-                existingBrandValue.name,
-                existingBrandValue.id,
-              );
-            } else {
-              // Check if there's already a brand value linked to this taxonomy value
-              const existingByTaxonomy = existingBrandValues.find(
-                (v: any) =>
-                  v.attributeId === brandAttrId &&
-                  v.taxonomyValueId === actualValueId,
-              );
-              if (existingByTaxonomy) {
-                resolvedValueIds.push(existingByTaxonomy.id);
-                tokenToBrandValueId.set(valueId, existingByTaxonomy.id);
-                tokenToBrandValueId.set(actualValueId, existingByTaxonomy.id);
-                tokenToBrandValueId.set(
-                  existingByTaxonomy.name,
-                  existingByTaxonomy.id,
-                );
-                tokenToBrandValueId.set(
-                  existingByTaxonomy.id,
-                  existingByTaxonomy.id,
-                );
-              } else {
-                // Look up the taxonomy value to get its name
-                const taxValues = brandCatalogQuery?.taxonomy?.values ?? [];
-                const taxValue = taxValues.find(
-                  (v: any) => v.id === actualValueId,
-                );
-                const name = taxValue?.name ?? actualValueId;
-
-                // Check if there's already a brand value with the same name for this attribute
-                // This handles cases where:
-                // - The brand has a "Black" value created via integration (no taxonomy link)
-                // - The brand has a "Black" value created via modal without selecting taxonomy
-                // - The user now selects "Black" from the taxonomy dropdown
-                const existingByName = existingBrandValues.find(
-                  (v: any) =>
-                    v.attributeId === brandAttrId &&
-                    v.name.toLowerCase() === name.toLowerCase(),
-                );
-
-                if (existingByName) {
-                  // Use existing value found by name - no need to create a duplicate
-                  resolvedValueIds.push(existingByName.id);
-                  tokenToBrandValueId.set(valueId, existingByName.id);
-                  tokenToBrandValueId.set(actualValueId, existingByName.id);
-                  tokenToBrandValueId.set(
-                    existingByName.name,
-                    existingByName.id,
-                  );
-                  tokenToBrandValueId.set(existingByName.id, existingByName.id);
-                } else {
-                  // Create brand value for taxonomy value
-                  const result = await createAttributeValueMutation.mutateAsync(
-                    {
-                      attribute_id: brandAttrId,
-                      name,
-                      taxonomy_value_id: actualValueId,
-                    },
-                  );
-                  if (!result?.data?.id)
-                    throw new Error("Failed to create attribute value");
-                  resolvedValueIds.push(result.data.id);
-                  tokenToBrandValueId.set(valueId, result.data.id);
-                  tokenToBrandValueId.set(actualValueId, result.data.id);
-                  tokenToBrandValueId.set(
-                    result.data.name ?? name,
-                    result.data.id,
-                  );
-                  tokenToBrandValueId.set(result.data.id, result.data.id);
-                  existingBrandValues.push(result.data);
-                }
-              }
-            }
+          if (existingBrandValue) {
+            resolvedValueIds.push(existingBrandValue.id);
+            tokenToBrandValueId.set(valueId, existingBrandValue.id);
+            tokenToBrandValueId.set(existingBrandValue.name, existingBrandValue.id);
+            continue;
           }
-        } else {
-          // Existing custom attribute: values are brand value IDs (already created via modal)
-          for (const valueId of dim.values) {
-            // Check if this is already a valid brand value ID
-            const existingBrandValue = existingBrandValues.find(
-              (v: any) => v.id === valueId && v.attributeId === brandAttrId,
-            );
 
-            if (existingBrandValue) {
-              resolvedValueIds.push(existingBrandValue.id);
-              tokenToBrandValueId.set(valueId, existingBrandValue.id);
-              tokenToBrandValueId.set(
-                existingBrandValue.name,
-                existingBrandValue.id,
-              );
-            } else {
-              // Might be a value name if the attribute was previously custom inline
-              const existingByName = existingBrandValues.find(
-                (v: any) => v.attributeId === brandAttrId && v.name === valueId,
-              );
-              if (existingByName) {
-                resolvedValueIds.push(existingByName.id);
-                tokenToBrandValueId.set(valueId, existingByName.id);
-                tokenToBrandValueId.set(existingByName.id, existingByName.id);
-              } else {
-                const result = await createAttributeValueMutation.mutateAsync({
-                  attribute_id: brandAttrId,
-                  name: valueId,
-                });
-                if (!result?.data?.id)
-                  throw new Error("Failed to create attribute value");
-                resolvedValueIds.push(result.data.id);
-                tokenToBrandValueId.set(valueId, result.data.id);
-                tokenToBrandValueId.set(result.data.id, result.data.id);
-                existingBrandValues.push(result.data);
-              }
-            }
+          // Legacy fallback: some UI states may still hold raw value names.
+          const existingByName = existingBrandValues.find(
+            (v: any) => v.attributeId === brandAttrId && v.name === valueId,
+          );
+          if (existingByName) {
+            resolvedValueIds.push(existingByName.id);
+            tokenToBrandValueId.set(valueId, existingByName.id);
+            tokenToBrandValueId.set(existingByName.id, existingByName.id);
+            continue;
           }
+
+          const result = await createAttributeValueMutation.mutateAsync({
+            attribute_id: brandAttrId,
+            name: valueId,
+          });
+          if (!result?.data?.id)
+            throw new Error("Failed to create attribute value");
+          resolvedValueIds.push(result.data.id);
+          tokenToBrandValueId.set(valueId, result.data.id);
+          tokenToBrandValueId.set(result.data.id, result.data.id);
+          existingBrandValues.push(result.data);
         }
 
         resolved.push({
@@ -1372,8 +1245,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               >
             | undefined;
 
-          // Now update dimension values to use resolved brand value IDs
-          // and replace tax:-prefixed attribute IDs with resolved brand attribute IDs.
+          // Now update dimension values to use resolved brand value IDs.
           if (resolvedVariant.tokenMaps.length > 0) {
             let resolvedIndex = 0;
             const updatedDimensions = formValues.variantDimensions.map((dim) => {

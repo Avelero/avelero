@@ -10,12 +10,7 @@ import {
   batchCreateBrandAttributeValues,
   batchCreateBrandAttributes,
   batchCreateTags,
-  ensureBrandAttributeForTaxonomy,
 } from "@v1/db/queries/catalog";
-import {
-  getTaxonomyAttributeByFriendlyId,
-  listTaxonomyValuesByAttribute,
-} from "@v1/db/queries/taxonomy";
 import { parseSelectedOptions } from "../connectors/shopify/schema";
 import type { FetchedProductBatch } from "../types";
 import type { SyncCaches } from "./caches";
@@ -193,99 +188,32 @@ export async function createMissingEntities(
     }
   }
 
-  // Create/ensure missing attributes.
-  //
-  // Use taxonomy hints from linkedMetafield to link to taxonomy attributes.
-  // If no taxonomy hint, create a plain brand attribute with the original name.
+  // Create missing attributes as brand-owned catalog attributes.
   if (missingAttributeNames.length > 0) {
-    const plainAttributeNames: string[] = [];
-
-    for (const rawName of missingAttributeNames) {
-      if (!rawName.trim()) continue;
-
-      // Check if we have a taxonomy hint for this attribute (from linkedMetafield)
-      const taxonomyFriendlyId = extracted.attributeTaxonomyHints.get(rawName);
-
-      if (taxonomyFriendlyId) {
-        // We know this attribute should be linked to a taxonomy attribute
-        const taxonomyAttr = await getTaxonomyAttributeByFriendlyId(
-          db,
-          taxonomyFriendlyId,
-        );
-        if (taxonomyAttr) {
-          // Check if this attribute was already in the cache before calling ensureBrandAttributeForTaxonomy
-          // to determine if we're creating vs retrieving
-          const wasAlreadyCached =
-            caches.attributes.has(rawName.toLowerCase()) ||
-            caches.attributes.has(taxonomyFriendlyId);
-
-          const id = await ensureBrandAttributeForTaxonomy(
-            db,
-            brandId,
-            taxonomyAttr.id,
-            rawName, // Use the original name (e.g. "kleur") as the display name
-          );
-
-          // Cache under the original attribute name so we can find it later
-          caches.attributes.set(rawName.toLowerCase(), { id, created: false });
-          // Also cache under taxonomy friendly_id for reference
-          caches.attributes.set(taxonomyFriendlyId, { id, created: false });
-
-          // Only count as created if it wasn't already cached
-          if (!wasAlreadyCached) {
-            stats.attributesCreated++;
-          }
-          continue;
-        }
-      }
-
-      // No taxonomy link available - create plain brand attribute
-      plainAttributeNames.push(rawName);
-    }
-
-    if (plainAttributeNames.length > 0) {
-      const attrMap = await batchCreateBrandAttributes(
-        db,
-        brandId,
-        plainAttributeNames,
-      );
-      const newAttrNames = new Set(
-        plainAttributeNames.map((n) => n.toLowerCase()),
-      );
-      stats.attributesCreated += attrMap.size;
-      bulkCacheAttributes(caches, attrMap, newAttrNames);
-    }
+    const attrMap = await batchCreateBrandAttributes(
+      db,
+      brandId,
+      missingAttributeNames,
+    );
+    const newAttrNames = new Set(missingAttributeNames.map((n) => n.toLowerCase()));
+    stats.attributesCreated += attrMap.size;
+    bulkCacheAttributes(caches, attrMap, newAttrNames);
   }
 
   // Find missing attribute values
   const missingValues: Array<{
     attributeId: string;
     name: string;
-    taxonomyValueId?: string | null;
   }> = [];
   for (const [attrName, values] of extracted.attributeValuesByName) {
     const attrId = getCachedAttributeId(caches, attrName);
     if (!attrId) continue; // Should not happen after creating attributes
 
-    // Use taxonomy hint to find the right taxonomy attribute for value linking
-    const taxonomyFriendlyId = extracted.attributeTaxonomyHints.get(attrName);
-    const taxonomyValuesByName = new Map<string, string>();
-
-    if (taxonomyFriendlyId) {
-      const rows = await listTaxonomyValuesByAttribute(db, taxonomyFriendlyId);
-      for (const row of rows) {
-        taxonomyValuesByName.set(row.name.toLowerCase(), row.id);
-      }
-    }
-
     for (const valueName of values) {
       if (!getCachedAttributeValueId(caches, attrId, valueName)) {
-        const taxonomyValueId =
-          taxonomyValuesByName.get(valueName.trim().toLowerCase()) ?? null;
         missingValues.push({
           attributeId: attrId,
           name: valueName,
-          taxonomyValueId,
         });
       }
     }

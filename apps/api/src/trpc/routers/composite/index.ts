@@ -20,7 +20,6 @@ import {
 import {
   listTaxonomyAttributes,
   listTaxonomyCategories,
-  listTaxonomyValues,
 } from "@v1/db/queries/taxonomy";
 import { getUserById } from "@v1/db/queries/user";
 import {
@@ -403,7 +402,6 @@ export const compositeRouter = createTRPCRouter({
       const [
         categories,
         taxonomyAttributes,
-        taxonomyValues,
         brandAttributes,
         brandAttributeValues,
         materials,
@@ -415,7 +413,6 @@ export const compositeRouter = createTRPCRouter({
       ] = await Promise.all([
         listTaxonomyCategories(brandCtx.db),
         listTaxonomyAttributes(brandCtx.db),
-        listTaxonomyValues(brandCtx.db),
         listBrandAttributes(brandCtx.db, brandId),
         listAllBrandAttributeValues(brandCtx.db, brandId),
         listMaterials(brandCtx.db, brandId),
@@ -430,7 +427,6 @@ export const compositeRouter = createTRPCRouter({
         categories,
         taxonomy: {
           attributes: taxonomyAttributes,
-          values: taxonomyValues,
         },
         brandCatalog: {
           attributes: brandAttributes,

@@ -6,11 +6,6 @@ import {
   EntityTableShell,
   EntityToolbar,
 } from "@/components/tables/settings/shared";
-import {
-  useBrandCatalog,
-  type TaxonomyAttribute,
-  type TaxonomyValue,
-} from "@/hooks/use-brand-catalog";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
@@ -40,8 +35,6 @@ function matchesTerm(value: unknown, term: string) {
 export function AttributesSection() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { taxonomyAttributes, taxonomyValuesByAttribute } = useBrandCatalog();
-
   const [searchValue, setSearchValue] = React.useState("");
   const [selectedGroupIds, setSelectedGroupIds] = React.useState<string[]>([]);
   const [selectedValueIds, setSelectedValueIds] = React.useState<string[]>([]);
@@ -68,8 +61,9 @@ export function AttributesSection() {
       .map((group) => ({
         ...group,
         values: [...group.values].sort((a, b) => {
-          const createdDiff = toTimestamp(b.createdAt) - toTimestamp(a.createdAt);
-          if (createdDiff !== 0) return createdDiff;
+          const aSort = (a.sortOrder ?? Number.POSITIVE_INFINITY) as number;
+          const bSort = (b.sortOrder ?? Number.POSITIVE_INFINITY) as number;
+          if (aSort !== bSort) return aSort - bSort;
           const nameDiff = a.name.localeCompare(b.name);
           if (nameDiff !== 0) return nameDiff;
           return a.id.localeCompare(b.id);
@@ -105,16 +99,11 @@ export function AttributesSection() {
 
     const filtered: AttributeGroupListItem[] = [];
     for (const group of allGroups) {
-      const groupMatch =
-        matchesTerm(group.name, term) ||
-        matchesTerm(group.taxonomyAttribute?.name, term) ||
-        matchesTerm(group.taxonomyAttribute?.friendlyId, term);
+      const groupMatch = matchesTerm(group.name, term);
 
       const matchingValues = group.values.filter(
         (value: AttributeValueListItem) =>
-          matchesTerm(value.name, term) ||
-          matchesTerm(value.taxonomyValue?.name, term) ||
-          matchesTerm(value.taxonomyValue?.friendlyId, term),
+          matchesTerm(value.name, term),
       );
 
       if (!groupMatch && matchingValues.length === 0) continue;
@@ -389,7 +378,7 @@ export function AttributesSection() {
   const isDeletePending = deleteValueMutation.isPending || deleteAttributeMutation.isPending;
 
   const handleCreateGroupInline = React.useCallback(
-    async (input: { name: string; taxonomyAttributeId?: string | null }) => {
+    async (input: { name: string }) => {
       const trimmedName = input.name.trim();
       if (!trimmedName) {
         toast.error("Attribute name is required");
@@ -407,7 +396,6 @@ export function AttributesSection() {
       try {
         const result = await createAttributeMutation.mutateAsync({
           name: trimmedName,
-          taxonomy_attribute_id: input.taxonomyAttributeId ?? null,
         });
         await invalidateLists();
         return result.data?.id ?? null;
@@ -423,7 +411,7 @@ export function AttributesSection() {
   const handleCreateValueInline = React.useCallback(
     async (
       group: AttributeGroupListItem,
-      input: { name: string; taxonomyValueId?: string | null },
+      input: { name: string },
     ) => {
       const trimmedName = input.name.trim();
       if (!trimmedName) {
@@ -444,7 +432,6 @@ export function AttributesSection() {
         const result = await createValueMutation.mutateAsync({
           attribute_id: group.id,
           name: trimmedName,
-          taxonomy_value_id: input.taxonomyValueId ?? null,
         });
         await invalidateLists();
         return result.data?.id ?? null;
@@ -520,119 +507,6 @@ export function AttributesSection() {
       }
     },
     [invalidateLists, patchAttributesGroupedCache, queryClient, updateValueMutation],
-  );
-
-  const handleUpdateGroupTaxonomyLink = React.useCallback(
-    async (group: AttributeGroupListItem, taxonomyAttributeId: string | null) => {
-      const selectedTaxonomyAttribute = taxonomyAttributes.find(
-        (attribute) => attribute.id === taxonomyAttributeId,
-      );
-      const optimistic = patchAttributesGroupedCache((groups) =>
-        groups.map((item) =>
-          item.id === group.id
-            ? {
-                ...item,
-                taxonomyAttributeId,
-                taxonomyAttribute: taxonomyAttributeId
-                  ? {
-                      id: selectedTaxonomyAttribute?.id ?? taxonomyAttributeId,
-                      name: selectedTaxonomyAttribute?.name ?? item.taxonomyAttribute?.name ?? "",
-                      friendlyId:
-                        selectedTaxonomyAttribute?.friendlyId ??
-                        item.taxonomyAttribute?.friendlyId ??
-                        "",
-                    }
-                  : null,
-              }
-            : item,
-        ),
-      );
-      try {
-        await updateAttributeMutation.mutateAsync({
-          id: group.id,
-          taxonomy_attribute_id: taxonomyAttributeId,
-        });
-      } catch (error) {
-        queryClient.setQueryData(optimistic.queryKey, optimistic.previous);
-        toast.error(error instanceof Error ? error.message : "Failed to update standard link");
-        throw error;
-      }
-      try {
-        await invalidateLists();
-      } catch {
-        // Keep optimistic state if server mutation succeeded but refetch failed.
-      }
-    },
-    [
-      invalidateLists,
-      patchAttributesGroupedCache,
-      queryClient,
-      taxonomyAttributes,
-      updateAttributeMutation,
-    ],
-  );
-
-  const handleUpdateValueTaxonomyLink = React.useCallback(
-    async (
-      group: AttributeGroupListItem,
-      value: AttributeValueListItem,
-      taxonomyValueId: string | null,
-    ) => {
-      const selectedTaxonomyValue = group.taxonomyAttributeId
-        ? (taxonomyValuesByAttribute.get(group.taxonomyAttributeId) ?? []).find(
-            (entry: TaxonomyValue) => entry.id === taxonomyValueId,
-          )
-        : null;
-      const optimistic = patchAttributesGroupedCache((groups) =>
-        groups.map((item) => ({
-          ...item,
-          values: item.values.map((entry: AttributeValueListItem) =>
-            entry.id === value.id
-              ? {
-                  ...entry,
-                  taxonomyValueId,
-                  taxonomyValue: taxonomyValueId
-                    ? {
-                        id: selectedTaxonomyValue?.id ?? taxonomyValueId,
-                        name: selectedTaxonomyValue?.name ?? entry.taxonomyValue?.name ?? "",
-                        friendlyId:
-                          selectedTaxonomyValue?.friendlyId ??
-                          entry.taxonomyValue?.friendlyId ??
-                          "",
-                        metadata:
-                          selectedTaxonomyValue?.metadata ??
-                          entry.taxonomyValue?.metadata ??
-                          null,
-                      }
-                    : null,
-                }
-              : entry,
-          ),
-        })),
-      );
-      try {
-        await updateValueMutation.mutateAsync({
-          id: value.id,
-          taxonomy_value_id: taxonomyValueId,
-        });
-      } catch (error) {
-        queryClient.setQueryData(optimistic.queryKey, optimistic.previous);
-        toast.error(error instanceof Error ? error.message : "Failed to update standard link");
-        throw error;
-      }
-      try {
-        await invalidateLists();
-      } catch {
-        // Keep optimistic state if server mutation succeeded but refetch failed.
-      }
-    },
-    [
-      invalidateLists,
-      patchAttributesGroupedCache,
-      queryClient,
-      taxonomyValuesByAttribute,
-      updateValueMutation,
-    ],
   );
 
   const displayDeleteDialog = deleteDialog ?? lastDeleteDialogRef.current;
@@ -817,15 +691,11 @@ export function AttributesSection() {
           onCreateGroup={() => setCreateGroupDraftRequestNonce(Date.now())}
           createGroupDraftRequestNonce={createGroupDraftRequestNonce}
           onCreateGroupInline={handleCreateGroupInline}
-          taxonomyAttributes={taxonomyAttributes as TaxonomyAttribute[]}
-          taxonomyValuesByAttribute={taxonomyValuesByAttribute}
           onCreateValueInline={handleCreateValueInline}
           onDeleteGroup={handleDeleteGroup}
           onDeleteValue={handleDeleteValue}
           onRenameGroup={handleRenameGroup}
           onRenameValue={handleRenameValue}
-          onUpdateGroupTaxonomyLink={handleUpdateGroupTaxonomyLink}
-          onUpdateValueTaxonomyLink={handleUpdateValueTaxonomyLink}
           hasSearch={searchValue.trim().length > 0}
         />
       </EntityTableShell>

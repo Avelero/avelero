@@ -12,6 +12,7 @@
 export * from "./types";
 export * from "./attributes";
 export * from "./attribute-values";
+export * from "./seeding";
 export * from "./tags";
 export * from "./materials";
 export * from "./operators";

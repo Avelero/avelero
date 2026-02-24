@@ -20,15 +20,6 @@ export interface TaxonomyAttribute {
   name: string;
 }
 
-export interface TaxonomyValue {
-  id: string;
-  friendlyId: string;
-  attributeId: string;
-  name: string;
-  sortOrder: number;
-  metadata: unknown;
-}
-
 export interface BrandAttribute {
   id: string;
   name: string;
@@ -40,6 +31,18 @@ export interface BrandAttributeValue {
   attributeId: string;
   name: string;
   taxonomyValueId: string | null;
+  metadata: unknown;
+  sortOrder: number | null;
+}
+
+function extractHex(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const m = metadata as Record<string, unknown>;
+  if (typeof m.swatch === "string") return m.swatch;
+  if (typeof m.hex === "string") {
+    return m.hex.startsWith("#") ? m.hex : `#${m.hex}`;
+  }
+  return null;
 }
 
 /**
@@ -149,31 +152,6 @@ export function useBrandCatalog() {
     }));
   }, [data?.taxonomy?.attributes]);
 
-  // Taxonomy values grouped by attribute
-  const taxonomyValuesByAttribute = React.useMemo(() => {
-    const map = new Map<string, TaxonomyValue[]>();
-    for (const val of data?.taxonomy?.values ?? []) {
-      const list = map.get(val.attributeId) ?? [];
-      list.push({
-        id: val.id,
-        friendlyId: val.friendlyId,
-        attributeId: val.attributeId,
-        name: val.name,
-        sortOrder: val.sortOrder,
-        metadata: val.metadata,
-      });
-      map.set(val.attributeId, list);
-    }
-    // Sort each list by sortOrder
-    for (const [key, list] of map) {
-      map.set(
-        key,
-        list.sort((a, b) => a.sortOrder - b.sortOrder),
-      );
-    }
-    return map;
-  }, [data?.taxonomy?.values]);
-
   // Brand attributes
   const brandAttributes = React.useMemo<BrandAttribute[]>(() => {
     return (data?.brandCatalog.attributes ?? []).map((attr: any) => ({
@@ -193,8 +171,21 @@ export function useBrandCatalog() {
         attributeId: val.attributeId,
         name: val.name,
         taxonomyValueId: val.taxonomyValueId ?? null,
+        metadata: val.metadata ?? {},
+        sortOrder: val.sortOrder ?? null,
       });
       map.set(val.attributeId, list);
+    }
+    for (const [key, list] of map) {
+      map.set(
+        key,
+        [...list].sort((a, b) => {
+          const aOrder = a.sortOrder ?? Number.POSITIVE_INFINITY;
+          const bOrder = b.sortOrder ?? Number.POSITIVE_INFINITY;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+          return a.name.localeCompare(b.name);
+        }),
+      );
     }
     return map;
   }, [data?.brandCatalog.attributeValues]);
@@ -210,24 +201,19 @@ export function useBrandCatalog() {
     if (!brandAttr) return [];
 
     const values = brandAttributeValuesByAttribute.get(brandAttr.id) ?? [];
-    const taxValues = taxonomyValuesByAttribute.get(sizeAttr.id) ?? [];
 
     return values
-      .map((v, idx) => {
-        const taxVal = taxValues.find((tv) => tv.id === v.taxonomyValueId);
-        return {
-          id: v.id,
-          name: v.name,
-          displayHint: taxVal?.sortOrder ?? 1000 + idx,
-          isDefault: !!v.taxonomyValueId,
-        };
-      })
+      .map((v, idx) => ({
+        id: v.id,
+        name: v.name,
+        displayHint: v.sortOrder ?? 1000 + idx,
+        isDefault: v.sortOrder !== null || !!v.taxonomyValueId,
+      }))
       .sort((a, b) => a.displayHint - b.displayHint);
   }, [
     taxonomyAttributes,
     brandAttributes,
     brandAttributeValuesByAttribute,
-    taxonomyValuesByAttribute,
   ]);
 
   // Legacy: derive colors from "Color" attribute values (for filter components)
@@ -241,22 +227,16 @@ export function useBrandCatalog() {
     if (!brandAttr) return [];
 
     const values = brandAttributeValuesByAttribute.get(brandAttr.id) ?? [];
-    const taxValues = taxonomyValuesByAttribute.get(colorAttr.id) ?? [];
 
-    return values.map((v) => {
-      const taxVal = taxValues.find((tv) => tv.id === v.taxonomyValueId);
-      const meta = taxVal?.metadata as { hex?: string } | null;
-      return {
-        id: v.id,
-        name: v.name,
-        hex: meta?.hex ?? null,
-      };
-    });
+    return values.map((v) => ({
+      id: v.id,
+      name: v.name,
+      hex: extractHex(v.metadata),
+    }));
   }, [
     taxonomyAttributes,
     brandAttributes,
     brandAttributeValuesByAttribute,
-    taxonomyValuesByAttribute,
   ]);
 
   return {
@@ -267,7 +247,6 @@ export function useBrandCatalog() {
 
     // Taxonomy (global, read-only)
     taxonomyAttributes,
-    taxonomyValuesByAttribute,
 
     // Brand catalog
     brandAttributes,

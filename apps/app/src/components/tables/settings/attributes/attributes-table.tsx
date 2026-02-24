@@ -1,6 +1,5 @@
 "use client";
 
-import type { TaxonomyAttribute, TaxonomyValue } from "@/hooks/use-brand-catalog";
 import { useTableScroll } from "@/hooks/use-table-scroll";
 import {
   RowActionsMenu,
@@ -10,16 +9,7 @@ import {
 } from "@/components/tables/settings/shared";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { toast } from "@v1/ui/sonner";
 import {
   Table,
@@ -270,285 +260,6 @@ function InlineNameField({
   );
 }
 
-interface LinkOption {
-  id: string;
-  label: string;
-  hex?: string | null;
-}
-
-function InlineLinkPicker({
-  value,
-  placeholder,
-  options,
-  disabled = false,
-  disabledLabel,
-  disabledReason,
-  onChange,
-}: {
-  value: string | null;
-  placeholder: string;
-  options: LinkOption[];
-  disabled?: boolean;
-  disabledLabel?: string;
-  disabledReason?: string;
-  onChange: (nextId: string | null) => Promise<void>;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [isPending, setIsPending] = React.useState(false);
-  const [isTriggerHovered, setIsTriggerHovered] = React.useState(false);
-  const [activeCommandItemValue, setActiveCommandItemValue] = React.useState("");
-  const [isPointerSelectionArmed, setIsPointerSelectionArmed] = React.useState(false);
-  const popoverContentRef = React.useRef<HTMLDivElement | null>(null);
-
-  const selected = React.useMemo(
-    () => options.find((option) => option.id === value) ?? null,
-    [options, value],
-  );
-
-  const filteredOptions = React.useMemo(() => {
-    const term = searchQuery.trim().toLowerCase();
-    if (!term) return options;
-    return options.filter((option) => option.label.toLowerCase().includes(term));
-  }, [options, searchQuery]);
-
-  const selectedCommandItemValue = React.useMemo(() => {
-    if (!value) return "";
-    return options.some((option) => option.id === value) ? value : "";
-  }, [options, value]);
-
-  const handleSelect = React.useCallback(
-    async (nextId: string | null) => {
-      if (isPending) return;
-      const isDeselectingCurrent = Boolean(nextId && value && nextId === value);
-      const resolvedNextId = isDeselectingCurrent ? null : nextId;
-
-      if (!isDeselectingCurrent) {
-        setOpen(false);
-        setSearchQuery("");
-      }
-      if (isDeselectingCurrent) {
-        setActiveCommandItemValue("");
-      }
-
-      setIsPending(true);
-      try {
-        await onChange(resolvedNextId);
-      } finally {
-        setIsPending(false);
-      }
-    },
-    [isPending, onChange, value],
-  );
-
-  React.useEffect(() => {
-    if (!open) {
-      setSearchQuery("");
-      setIsPointerSelectionArmed(false);
-      return;
-    }
-    setSearchQuery("");
-    setActiveCommandItemValue(selectedCommandItemValue);
-    setIsPointerSelectionArmed(false);
-  }, [open, selectedCommandItemValue]);
-
-  React.useEffect(() => {
-    if (!open) return;
-    let rafA = 0;
-    let rafB = 0;
-    let rafC = 0;
-    let timeoutA: number | null = null;
-    let timeoutB: number | null = null;
-
-    const centerSelectedItem = () => {
-      const container = popoverContentRef.current;
-      if (!container) return;
-
-      const list = container.querySelector<HTMLElement>("[cmdk-list]");
-      const selectedNode = container.querySelector<HTMLElement>(
-        '[data-selected-link-item="true"]',
-      );
-
-      if (!list || !selectedNode) return;
-
-      // Compute item position relative to the scroll container and center it.
-      let offsetTop = selectedNode.offsetTop;
-      let currentParent = selectedNode.offsetParent as HTMLElement | null;
-      while (currentParent && currentParent !== list) {
-        offsetTop += currentParent.offsetTop;
-        currentParent = currentParent.offsetParent as HTMLElement | null;
-      }
-
-      const targetScrollTop =
-        offsetTop - (list.clientHeight / 2 - selectedNode.offsetHeight / 2);
-      const maxScrollTop = Math.max(0, list.scrollHeight - list.clientHeight);
-      const nextScrollTop = Math.min(maxScrollTop, Math.max(0, targetScrollTop));
-
-      list.scrollTop = nextScrollTop;
-    };
-
-    rafA = requestAnimationFrame(() => {
-      rafB = requestAnimationFrame(centerSelectedItem);
-    });
-
-    // cmdk may apply its own "nearest" scroll after open/selection; re-center after that.
-    timeoutA = window.setTimeout(() => {
-      rafC = requestAnimationFrame(centerSelectedItem);
-    }, 0);
-    timeoutB = window.setTimeout(centerSelectedItem, 80);
-
-    return () => {
-      cancelAnimationFrame(rafA);
-      cancelAnimationFrame(rafB);
-      cancelAnimationFrame(rafC);
-      if (timeoutA != null) {
-        window.clearTimeout(timeoutA);
-      }
-      if (timeoutB != null) {
-        window.clearTimeout(timeoutB);
-      }
-    };
-  }, [open, selectedCommandItemValue, filteredOptions.length]);
-
-  const showTriggerHighlight = !disabled && (isTriggerHovered || open);
-
-  const handleCommandListPointerMoveCapture = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (!isPointerSelectionArmed) {
-        setIsPointerSelectionArmed(true);
-      }
-
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const item = target.closest<HTMLElement>('[cmdk-item=""]');
-      const hoveredValue = item?.getAttribute("data-value");
-      if (hoveredValue && hoveredValue !== activeCommandItemValue) {
-        setActiveCommandItemValue(hoveredValue);
-      }
-    },
-    [activeCommandItemValue, isPointerSelectionArmed],
-  );
-
-  const triggerContent = (
-    <button
-      type="button"
-      onMouseDown={(event) => {
-        // Avoid stealing focus from inline name editors while opening the popover.
-        event.preventDefault();
-      }}
-      onMouseEnter={() => setIsTriggerHovered(true)}
-      onMouseLeave={() => setIsTriggerHovered(false)}
-      disabled={!disabled && isPending}
-      aria-disabled={disabled ? "true" : undefined}
-      tabIndex={disabled ? -1 : undefined}
-      className={cn(
-        "inline-flex max-w-full items-center py-1 text-left rounded",
-        disabled ? "cursor-default" : "cursor-pointer",
-      )}
-    >
-      <span
-        className={cn(
-          "truncate border-b type-p transition-colors",
-          disabled
-            ? "border-border/40 text-tertiary opacity-55"
-            : selected
-              ? cn(
-                  "border-border text-primary",
-                  showTriggerHighlight && "border-secondary text-secondary",
-                )
-              : cn(
-                  "border-border text-tertiary",
-                  showTriggerHighlight && "border-secondary text-secondary",
-                ),
-        )}
-      >
-        {disabled ? (disabledLabel ?? placeholder) : (selected?.label ?? placeholder)}
-      </span>
-    </button>
-  );
-
-  if (disabled) {
-    return (
-      <TooltipProvider delayDuration={120}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              className="flex h-full items-center"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-              }}
-              aria-disabled="true"
-            >
-              {triggerContent}
-            </span>
-          </TooltipTrigger>
-          {disabledReason ? (
-            <TooltipContent side="top" sideOffset={4}>
-              {disabledReason}
-            </TooltipContent>
-          ) : null}
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{triggerContent}</PopoverTrigger>
-      <PopoverContent
-        ref={popoverContentRef}
-        className="p-0 w-[260px] max-w-[260px]"
-        align="start"
-        sideOffset={4}
-      >
-        <Command
-          shouldFilter={false}
-          disablePointerSelection={!isPointerSelectionArmed}
-          value={activeCommandItemValue}
-          onValueChange={setActiveCommandItemValue}
-        >
-          <CommandInput
-            placeholder="Search..."
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-          />
-          <CommandList
-            className="max-h-56"
-            onPointerMoveCapture={handleCommandListPointerMoveCapture}
-          >
-            <CommandGroup>
-              {filteredOptions.map((option) => (
-                <CommandItem
-                  key={option.id}
-                  value={option.id}
-                  disabled={isPending}
-                  onSelect={() => void handleSelect(option.id)}
-                  className="justify-between"
-                  data-selected-link-item={value === option.id ? "true" : undefined}
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    {option.hex ? (
-                      <span
-                        className="h-3.5 w-3.5 shrink-0 rounded-full border border-border"
-                        style={{ backgroundColor: option.hex }}
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                    <span className="truncate type-p">{option.label}</span>
-                  </div>
-                  {value === option.id ? <Icons.Check className="h-4 w-4 text-brand" /> : null}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            {filteredOptions.length === 0 ? <CommandEmpty>No options found.</CommandEmpty> : null}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 export function AttributesTable({
   groups,
   collapsedGroupIds,
@@ -560,15 +271,11 @@ export function AttributesTable({
   onCreateGroup,
   createGroupDraftRequestNonce,
   onCreateGroupInline,
-  taxonomyAttributes,
-  taxonomyValuesByAttribute,
   onCreateValueInline,
   onDeleteGroup,
   onDeleteValue,
   onRenameGroup,
   onRenameValue,
-  onUpdateGroupTaxonomyLink,
-  onUpdateValueTaxonomyLink,
   hasSearch,
 }: {
   groups: AttributeGroupListItem[];
@@ -581,22 +288,14 @@ export function AttributesTable({
   onCreateGroup: () => void;
   createGroupDraftRequestNonce: number | null;
   onCreateGroupInline: (input: { name: string }) => Promise<string | null>;
-  taxonomyAttributes: TaxonomyAttribute[];
-  taxonomyValuesByAttribute: Map<string, TaxonomyValue[]>;
   onCreateValueInline: (
     group: AttributeGroupListItem,
-    input: { name: string; taxonomyValueId?: string | null },
+    input: { name: string },
   ) => Promise<string | null>;
   onDeleteGroup: (group: AttributeGroupListItem) => void | Promise<void>;
   onDeleteValue: (group: AttributeGroupListItem, value: AttributeValueListItem) => void | Promise<void>;
   onRenameGroup: (group: AttributeGroupListItem, nextName: string) => Promise<void>;
   onRenameValue: (group: AttributeGroupListItem, value: AttributeValueListItem, nextName: string) => Promise<void>;
-  onUpdateGroupTaxonomyLink: (group: AttributeGroupListItem, taxonomyAttributeId: string | null) => Promise<void>;
-  onUpdateValueTaxonomyLink: (
-    group: AttributeGroupListItem,
-    value: AttributeValueListItem,
-    taxonomyValueId: string | null,
-  ) => Promise<void>;
   hasSearch: boolean;
 }) {
   const selectedGroupSet = React.useMemo(() => new Set(selectedGroupIds), [selectedGroupIds]);
@@ -609,7 +308,6 @@ export function AttributesTable({
   const [draftValue, setDraftValue] = React.useState<{
     groupId: string;
     nonce: number;
-    taxonomyValueId: string | null;
   } | null>(null);
 
   React.useEffect(() => {
@@ -637,8 +335,7 @@ export function AttributesTable({
         onToggleGroup(group.id);
       }
 
-      const next = { groupId: group.id, nonce: Date.now() };
-      const nextState = { ...next, taxonomyValueId: null };
+      const nextState = { groupId: group.id, nonce: Date.now() };
       setDraftValue(nextState);
 
       if (options?.focus ?? true) {
@@ -851,7 +548,7 @@ export function AttributesTable({
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow className="h-14 border-b border-border">
-              {["Name", "Values", "Variants", "Standard link", "Created"].map((header, columnIndex) => {
+              {["Name", "Values", "Variants", "Created"].map((header, columnIndex) => {
                 const isFirstColumn = columnIndex === 0;
                 const stickyFirstColumnClass = isFirstColumn
                   ? "sticky left-0 z-[12] bg-background border-r-0 before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-accent-dark"
@@ -863,8 +560,6 @@ export function AttributesTable({
                       ? "w-[120px] min-w-[120px] max-w-[120px]"
                     : columnIndex === 2
                       ? "w-[120px] min-w-[120px] max-w-[120px]"
-                    : columnIndex === 3
-                      ? "w-[260px] min-w-[260px] max-w-[260px]"
                       : "w-[240px] min-w-[240px] max-w-[240px]";
 
                 return (
@@ -981,7 +676,6 @@ export function AttributesTable({
                                     const nextDraftValue = {
                                       groupId: createdGroupId,
                                       nonce: Date.now(),
-                                      taxonomyValueId: null,
                                     };
                                     setDraftValue(nextDraftValue);
                                     setEditingTarget({ kind: "draft-value", groupId: createdGroupId });
@@ -1001,7 +695,6 @@ export function AttributesTable({
                     </TableCell>
                     <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]" />
                     <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]" />
-                    <TableCell className="h-14 px-4 py-0 align-middle w-[260px] min-w-[260px] max-w-[260px]" />
                     <TableCell className="h-14 px-4 py-0 align-middle w-[240px] min-w-[240px] max-w-[240px]" />
                   </TableRow>
                 );
@@ -1098,20 +791,14 @@ export function AttributesTable({
                               }}
                               keepEditingOnError
                               onCommit={async (nextName, meta) => {
-                                const draftTaxonomyValueId =
-                                  draftValue && draftValue.groupId === group.id
-                                    ? draftValue.taxonomyValueId
-                                    : null;
                                 await onCreateValueInline(group, {
                                   name: nextName,
-                                  taxonomyValueId: draftTaxonomyValueId ?? null,
                                 });
                                 requestAnimationFrame(() => {
                                   if (meta.trigger === "enter") {
                                     const nextDraft = {
                                       groupId: group.id,
                                       nonce: Date.now(),
-                                      taxonomyValueId: null,
                                     };
                                     setDraftValue(nextDraft);
                                     setEditingTarget({ kind: "draft-value", groupId: group.id });
@@ -1141,37 +828,6 @@ export function AttributesTable({
                     </TableCell>
                     <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]" />
                     <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]" />
-                    <TableCell className="h-14 px-4 py-0 align-middle w-[260px] min-w-[260px] max-w-[260px]">
-                      <div className="flex h-full items-center">
-                        <InlineLinkPicker
-                          value={
-                            draftValue && draftValue.groupId === group.id
-                              ? draftValue.taxonomyValueId
-                              : null
-                          }
-                          placeholder="Add link"
-                          disabled={!group.taxonomyAttributeId}
-                          disabledLabel="Add link"
-                          disabledReason="Link parent attribute first"
-                          options={(group.taxonomyAttributeId
-                            ? (taxonomyValuesByAttribute.get(group.taxonomyAttributeId) ?? []).map((option) => ({
-                                id: option.id,
-                                label: option.name,
-                                hex: extractHex(option.metadata),
-                              }))
-                            : [])}
-                          onChange={async (nextId) => {
-                            setDraftValue((prev) => {
-                              if (!prev || prev.groupId !== group.id) return prev;
-                              return {
-                                ...prev,
-                                taxonomyValueId: nextId,
-                              };
-                            });
-                          }}
-                        />
-                      </div>
-                    </TableCell>
                     <TableCell className="h-14 px-4 py-0 align-middle w-[240px] min-w-[240px] max-w-[240px]" />
                   </TableRow>
                 );
@@ -1305,19 +961,6 @@ export function AttributesTable({
                     <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]">
                       <span className="whitespace-nowrap type-p text-primary">{group.variants_count ?? 0}</span>
                     </TableCell>
-                    <TableCell className="h-14 px-4 py-0 align-middle w-[260px] min-w-[260px] max-w-[260px]">
-                      <div className="flex h-full items-center">
-                        <InlineLinkPicker
-                          value={group.taxonomyAttributeId ?? null}
-                          placeholder="Add link"
-                          options={taxonomyAttributes.map((attribute) => ({
-                            id: attribute.id,
-                            label: attribute.name,
-                          }))}
-                          onChange={(nextId) => onUpdateGroupTaxonomyLink(group, nextId)}
-                        />
-                      </div>
-                    </TableCell>
                     <TableCell className="h-14 px-4 py-0 align-middle w-[240px] min-w-[240px] max-w-[240px]">
                       <div className="flex items-center justify-between gap-2 min-w-0">
                         <span className="whitespace-nowrap type-p text-primary">{formatDate(group.createdAt)}</span>
@@ -1350,7 +993,7 @@ export function AttributesTable({
                   onSelect: () => onDeleteValue(group, value),
                 },
               ];
-              const swatch = extractHex(value.taxonomyValue?.metadata);
+              const swatch = extractHex(value.metadata);
               const isFirstValue = row.indexInGroup === 0;
               const isLastValue = row.indexInGroup === row.visibleGroupValueCount - 1;
               const isLastFlatRow = flatRowIndex === flatRows.length - 1;
@@ -1461,25 +1104,6 @@ export function AttributesTable({
                   <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]" />
                   <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]">
                     <span className="whitespace-nowrap type-p text-primary">{value.variants_count ?? 0}</span>
-                  </TableCell>
-                  <TableCell className="h-14 px-4 py-0 align-middle w-[260px] min-w-[260px] max-w-[260px]">
-                    <div className="flex h-full items-center">
-                      <InlineLinkPicker
-                        value={value.taxonomyValueId ?? null}
-                        placeholder="Add link"
-                        disabled={!group.taxonomyAttributeId}
-                        disabledLabel="Add link"
-                        disabledReason="Link parent attribute first"
-                        options={(group.taxonomyAttributeId
-                          ? (taxonomyValuesByAttribute.get(group.taxonomyAttributeId) ?? []).map((option) => ({
-                              id: option.id,
-                              label: option.name,
-                              hex: extractHex(option.metadata),
-                            }))
-                          : [])}
-                        onChange={(nextId) => onUpdateValueTaxonomyLink(group, value, nextId)}
-                      />
-                    </div>
                   </TableCell>
                   <TableCell className="h-14 px-4 py-0 align-middle w-[240px] min-w-[240px] max-w-[240px]">
                     <div className="flex items-center justify-between gap-2 min-w-0">

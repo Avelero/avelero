@@ -5,13 +5,12 @@
  * Values belong to a brand attribute and can optionally link to taxonomy values.
  */
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
   brandAttributeValues,
   brandAttributes,
   productVariantAttributes,
-  taxonomyValues,
 } from "../../schema";
 
 // =============================================================================
@@ -24,29 +23,23 @@ export interface BrandAttributeValueData {
   attributeId: string;
   taxonomyValueId: string | null;
   name: string;
+  metadata: unknown;
+  sortOrder: number | null;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface BrandAttributeValueWithTaxonomy
-  extends BrandAttributeValueData {
-  taxonomyValue: {
-    id: string;
-    friendlyId: string;
-    name: string;
-    metadata: unknown;
-  } | null;
 }
 
 export interface CreateBrandAttributeValueInput {
   attributeId: string;
   name: string;
   taxonomyValueId?: string | null;
+  metadata?: unknown;
 }
 
 export interface UpdateBrandAttributeValueInput {
   name?: string;
   taxonomyValueId?: string | null;
+  metadata?: unknown;
 }
 
 // =============================================================================
@@ -67,6 +60,8 @@ export async function getBrandAttributeValue(
       attributeId: brandAttributeValues.attributeId,
       taxonomyValueId: brandAttributeValues.taxonomyValueId,
       name: brandAttributeValues.name,
+      metadata: brandAttributeValues.metadata,
+      sortOrder: brandAttributeValues.sortOrder,
       createdAt: brandAttributeValues.createdAt,
       updatedAt: brandAttributeValues.updatedAt,
     })
@@ -91,6 +86,8 @@ export async function listBrandAttributeValues(
       attributeId: brandAttributeValues.attributeId,
       taxonomyValueId: brandAttributeValues.taxonomyValueId,
       name: brandAttributeValues.name,
+      metadata: brandAttributeValues.metadata,
+      sortOrder: brandAttributeValues.sortOrder,
       createdAt: brandAttributeValues.createdAt,
       updatedAt: brandAttributeValues.updatedAt,
     })
@@ -101,7 +98,10 @@ export async function listBrandAttributeValues(
         eq(brandAttributeValues.attributeId, attributeId),
       ),
     )
-    .orderBy(brandAttributeValues.name);
+    .orderBy(
+      sql`${brandAttributeValues.sortOrder} nulls last`,
+      asc(brandAttributeValues.name),
+    );
 }
 
 /**
@@ -118,66 +118,18 @@ export async function listAllBrandAttributeValues(
       attributeId: brandAttributeValues.attributeId,
       taxonomyValueId: brandAttributeValues.taxonomyValueId,
       name: brandAttributeValues.name,
+      metadata: brandAttributeValues.metadata,
+      sortOrder: brandAttributeValues.sortOrder,
       createdAt: brandAttributeValues.createdAt,
       updatedAt: brandAttributeValues.updatedAt,
     })
     .from(brandAttributeValues)
     .where(eq(brandAttributeValues.brandId, brandId))
-    .orderBy(brandAttributeValues.attributeId, brandAttributeValues.name);
-}
-
-/**
- * List values for a brand attribute with taxonomy details.
- */
-export async function listBrandAttributeValuesWithTaxonomy(
-  db: Database,
-  brandId: string,
-  attributeId: string,
-): Promise<BrandAttributeValueWithTaxonomy[]> {
-  const rows = await db
-    .select({
-      id: brandAttributeValues.id,
-      brandId: brandAttributeValues.brandId,
-      attributeId: brandAttributeValues.attributeId,
-      taxonomyValueId: brandAttributeValues.taxonomyValueId,
-      name: brandAttributeValues.name,
-      createdAt: brandAttributeValues.createdAt,
-      updatedAt: brandAttributeValues.updatedAt,
-      taxonomyId: taxonomyValues.id,
-      taxonomyFriendlyId: taxonomyValues.friendlyId,
-      taxonomyName: taxonomyValues.name,
-      taxonomyMetadata: taxonomyValues.metadata,
-    })
-    .from(brandAttributeValues)
-    .leftJoin(
-      taxonomyValues,
-      eq(brandAttributeValues.taxonomyValueId, taxonomyValues.id),
-    )
-    .where(
-      and(
-        eq(brandAttributeValues.brandId, brandId),
-        eq(brandAttributeValues.attributeId, attributeId),
-      ),
-    )
-    .orderBy(brandAttributeValues.name);
-
-  return rows.map((row) => ({
-    id: row.id,
-    brandId: row.brandId,
-    attributeId: row.attributeId,
-    taxonomyValueId: row.taxonomyValueId,
-    name: row.name,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    taxonomyValue: row.taxonomyId
-      ? {
-          id: row.taxonomyId,
-          friendlyId: row.taxonomyFriendlyId!,
-          name: row.taxonomyName!,
-          metadata: row.taxonomyMetadata,
-        }
-      : null,
-  }));
+    .orderBy(
+      asc(brandAttributeValues.attributeId),
+      sql`${brandAttributeValues.sortOrder} nulls last`,
+      asc(brandAttributeValues.name),
+    );
 }
 
 /**
@@ -195,6 +147,7 @@ export async function createBrandAttributeValue(
       attributeId: input.attributeId,
       name: input.name.trim(),
       taxonomyValueId: input.taxonomyValueId ?? null,
+      metadata: input.metadata ?? {},
     })
     .returning({ id: brandAttributeValues.id });
   return row ?? null;
@@ -217,6 +170,9 @@ export async function updateBrandAttributeValue(
   }
   if (input.taxonomyValueId !== undefined) {
     updateData.taxonomyValueId = input.taxonomyValueId;
+  }
+  if (input.metadata !== undefined) {
+    updateData.metadata = input.metadata;
   }
 
   const [row] = await db
@@ -300,6 +256,8 @@ export async function findBrandAttributeValueByName(
       attributeId: brandAttributeValues.attributeId,
       taxonomyValueId: brandAttributeValues.taxonomyValueId,
       name: brandAttributeValues.name,
+      metadata: brandAttributeValues.metadata,
+      sortOrder: brandAttributeValues.sortOrder,
       createdAt: brandAttributeValues.createdAt,
       updatedAt: brandAttributeValues.updatedAt,
     })
@@ -364,54 +322,13 @@ export async function getBrandAttributeValuesByIds(
       attributeId: brandAttributeValues.attributeId,
       taxonomyValueId: brandAttributeValues.taxonomyValueId,
       name: brandAttributeValues.name,
+      metadata: brandAttributeValues.metadata,
+      sortOrder: brandAttributeValues.sortOrder,
       createdAt: brandAttributeValues.createdAt,
       updatedAt: brandAttributeValues.updatedAt,
     })
     .from(brandAttributeValues)
     .where(inArray(brandAttributeValues.id, valueIds));
-}
-
-/**
- * Ensure a brand attribute value exists for the given taxonomy value.
- * Creates the value if it doesn't exist.
- * Returns the brand attribute value ID.
- */
-export async function ensureBrandAttributeValueForTaxonomy(
-  db: Database,
-  brandId: string,
-  attributeId: string,
-  taxonomyValueId: string,
-  taxonomyValueName: string,
-): Promise<string> {
-  // Check if brand already has a value linked to this taxonomy value
-  const [existing] = await db
-    .select({ id: brandAttributeValues.id })
-    .from(brandAttributeValues)
-    .where(
-      and(
-        eq(brandAttributeValues.brandId, brandId),
-        eq(brandAttributeValues.attributeId, attributeId),
-        eq(brandAttributeValues.taxonomyValueId, taxonomyValueId),
-      ),
-    )
-    .limit(1);
-
-  if (existing) {
-    return existing.id;
-  }
-
-  // Create new brand attribute value linked to taxonomy
-  const [created] = await db
-    .insert(brandAttributeValues)
-    .values({
-      brandId,
-      attributeId,
-      taxonomyValueId,
-      name: taxonomyValueName,
-    })
-    .returning({ id: brandAttributeValues.id });
-
-  return created!.id;
 }
 
 /**
@@ -480,8 +397,7 @@ export async function loadAllBrandAttributeValuesMap(
 
 /**
  * Batch create multiple brand attribute values in a single query.
- * Uses ON CONFLICT DO UPDATE to handle existing values - fills `taxonomyValueId`
- * if it was previously null and updates `updatedAt`.
+ * Uses ON CONFLICT DO UPDATE to refresh `updatedAt` for existing values.
  *
  * @param db - Database connection
  * @param brandId - Brand ID
@@ -520,7 +436,7 @@ export async function batchCreateBrandAttributeValues(
 
   if (uniqueValues.length === 0) return new Map();
 
-  // Insert with ON CONFLICT DO UPDATE (only fills taxonomy_value_id if missing)
+  // Insert with ON CONFLICT DO UPDATE to keep inserts idempotent.
   await db
     .insert(brandAttributeValues)
     .values(
@@ -538,7 +454,6 @@ export async function batchCreateBrandAttributeValues(
         brandAttributeValues.name,
       ],
       set: {
-        taxonomyValueId: sql`COALESCE(${brandAttributeValues.taxonomyValueId}, EXCLUDED.taxonomy_value_id)`,
         updatedAt: new Date().toISOString(),
       },
     });

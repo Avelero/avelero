@@ -1,9 +1,7 @@
 "use client";
 
 import type { VariantDimension } from "@/components/forms/passport/blocks/variant-block";
-import { CreateValueModal } from "@/components/modals/create-value-modal";
 import { useAttributes } from "@/hooks/use-attributes";
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { useTRPC } from "@/trpc/client";
 import {
   DndContext,
@@ -20,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { allColors } from "@v1/selections";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -32,7 +31,6 @@ import {
 } from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { SelectAction, SelectFooter } from "@v1/ui/select";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
@@ -527,21 +525,23 @@ export function AttributeSelect({
     options: availableOptions,
     getValueName,
     getValueHex: getHex,
-    hasTaxonomy,
     brandValues,
   } = useAttributes({
     brandAttributeId: dimension.attributeId,
-    taxonomyAttributeId: dimension.taxonomyAttributeId,
   });
 
   const [valuesOpen, setValuesOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
-  const [createValueModalOpen, setCreateValueModalOpen] = React.useState(false);
-  const [createValueInitialName, setCreateValueInitialName] =
-    React.useState("");
-  const [createValueInitialTaxonomyId, setCreateValueInitialTaxonomyId] =
-    React.useState<string | null>(null);
+  const [valuesView, setValuesView] = React.useState<"main" | "color-picker">(
+    "main",
+  );
+  const [pendingColorValueName, setPendingColorValueName] = React.useState("");
   const [isCreatingValue, setIsCreatingValue] = React.useState(false);
+  const latestDimensionRef = React.useRef(dimension);
+
+  React.useEffect(() => {
+    latestDimensionRef.current = dimension;
+  }, [dimension]);
 
   // Mutation for creating attribute values without modal (custom attributes)
   const createValueMutation = useMutation(
@@ -565,20 +565,33 @@ export function AttributeSelect({
     });
   };
 
-  // Handle selecting an option (brand value or taxonomy value)
+  // Handle selecting an existing brand value
   const handleSelectOption = (option: { id: string }) => {
-    // Both brand values and uncovered taxonomy values (with tax: prefix) can be toggled directly
-    // For uncovered taxonomy values, the brand value will be created at save time
     toggleValue(option.id);
   };
 
-  // Create a custom value directly (no modal needed when no taxonomy)
-  const createValueDirectly = async (valueName: string) => {
+  const isColorAttribute = React.useMemo(() => {
+    const normalized = dimension.attributeName.trim().toLowerCase();
+    return (
+      normalized === "color" ||
+      normalized === "colors" ||
+      normalized === "colour" ||
+      normalized === "colours"
+    );
+  }, [dimension.attributeName]);
+
+  const createValueDirectly = async (
+    valueName: string,
+    opts?: { metadata?: Record<string, unknown> },
+  ) => {
     if (!dimension.attributeId || isCreatingValue) return;
+
+    const trimmedName = valueName.trim();
+    if (!trimmedName) return;
 
     // Check for duplicates
     const isDuplicate = brandValues.some(
-      (v) => v.name.toLowerCase() === valueName.toLowerCase(),
+      (v) => v.name.toLowerCase() === trimmedName.toLowerCase(),
     );
     if (isDuplicate) {
       toast.error("A value with this name already exists");
@@ -586,11 +599,45 @@ export function AttributeSelect({
     }
 
     setIsCreatingValue(true);
+    const tempId = `temp-attr-value-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    const optimisticMetadata = opts?.metadata ?? {};
+
+    // Optimistically add to catalog cache so the chip label/swatch resolve immediately.
+    queryClient.setQueryData(trpc.composite.catalogContent.queryKey(), (old: any) => {
+      if (!old?.brandCatalog) return old;
+      return {
+        ...old,
+        brandCatalog: {
+          ...old.brandCatalog,
+          attributeValues: [
+            ...old.brandCatalog.attributeValues,
+            {
+              id: tempId,
+              attributeId: dimension.attributeId,
+              name: trimmedName,
+              taxonomyValueId: null,
+              metadata: optimisticMetadata,
+              sortOrder: null,
+            },
+          ],
+        },
+      };
+    });
+
+    // Optimistically select it so it appears instantly in the chip row and variant table.
+    onChange({
+      ...dimension,
+      values: [...dimension.values, tempId],
+    });
+
     try {
       const result = await createValueMutation.mutateAsync({
         attribute_id: dimension.attributeId,
-        name: valueName,
+        name: trimmedName,
         taxonomy_value_id: null,
+        metadata: opts?.metadata,
       });
 
       const createdValue = result?.data;
@@ -598,46 +645,81 @@ export function AttributeSelect({
         throw new Error("No valid response returned from API");
       }
 
-      // Optimistically update the cache
+      // Replace optimistic temp row with the persisted row id.
       queryClient.setQueryData(
         trpc.composite.catalogContent.queryKey(),
         (old: any) => {
-          if (!old) return old;
+          if (!old?.brandCatalog) return old;
           return {
             ...old,
             brandCatalog: {
               ...old.brandCatalog,
-              attributeValues: [
-                ...old.brandCatalog.attributeValues,
-                {
-                  id: createdValue.id,
-                  attributeId: dimension.attributeId,
-                  name: valueName,
-                  taxonomyValueId: null,
-                },
-              ],
+              attributeValues: (old.brandCatalog.attributeValues ?? []).map(
+                (value: any) =>
+                  value.id === tempId
+                    ? {
+                        ...value,
+                        id: createdValue.id,
+                        name: trimmedName,
+                        metadata: optimisticMetadata,
+                        taxonomyValueId: null,
+                        sortOrder: null,
+                      }
+                    : value,
+              ),
             },
           };
         },
       );
 
+      // Replace temp selection id with the persisted id.
+      const latest = latestDimensionRef.current;
+      if (latest?.id === dimension.id) {
+        onChange({
+          ...latest,
+          values: (latest.values ?? []).map((id) =>
+            id === tempId ? createdValue.id : id,
+          ),
+        });
+      }
+
       // Invalidate to trigger background refetch
       queryClient.invalidateQueries({
         queryKey: trpc.composite.catalogContent.queryKey(),
       });
-
-      // Add to selected values
-      onChange({
-        ...dimension,
-        values: [...dimension.values, createdValue.id],
-      });
-      toast.success(`Created "${valueName}"`);
     } catch (error) {
+      // Roll back optimistic cache + selection on failure.
+      queryClient.setQueryData(
+        trpc.composite.catalogContent.queryKey(),
+        (old: any) => {
+          if (!old?.brandCatalog) return old;
+          return {
+            ...old,
+            brandCatalog: {
+              ...old.brandCatalog,
+              attributeValues: (old.brandCatalog.attributeValues ?? []).filter(
+                (value: any) => value.id !== tempId,
+              ),
+            },
+          };
+        },
+      );
+
+      const latest = latestDimensionRef.current;
+      if (latest?.id === dimension.id) {
+        onChange({
+          ...latest,
+          values: (latest.values ?? []).filter((id) => id !== tempId),
+        });
+      }
+
       console.error("Failed to create value:", error);
       toast.error("Failed to create value");
     } finally {
       setIsCreatingValue(false);
       setSearch("");
+      setValuesView("main");
+      setPendingColorValueName("");
     }
   };
 
@@ -655,29 +737,44 @@ export function AttributeSelect({
       return;
     }
 
-    // If attribute has no taxonomy, create the value directly (no modal needed)
-    if (!hasTaxonomy) {
-      setValuesOpen(false);
-      createValueDirectly(t);
+    if (isColorAttribute) {
+      setPendingColorValueName(t);
+      setValuesView("color-picker");
+      setSearch("");
       return;
     }
 
-    // Otherwise, open modal so user can link to a standard taxonomy value
-    setCreateValueInitialName(t);
-    setCreateValueInitialTaxonomyId(null);
-    setCreateValueModalOpen(true);
     setValuesOpen(false);
-    setSearch("");
+    void createValueDirectly(t);
   };
 
-  const handleValueCreated = (created: {
-    id: string;
-    name: string;
-    taxonomyValueId: string | null;
-  }) => {
-    // Add the newly created value to the selected values
-    onChange({ ...dimension, values: [...dimension.values, created.id] });
+  const handleColorPickForNewValue = (hex: string) => {
+    const valueName = pendingColorValueName.trim();
+    if (!valueName) return;
+
+    setValuesOpen(false);
+    void createValueDirectly(valueName, {
+      metadata: { hex: hex.toUpperCase() },
+    });
   };
+
+  React.useEffect(() => {
+    if (!valuesOpen) {
+      setValuesView("main");
+      setPendingColorValueName("");
+      setSearch("");
+    }
+  }, [valuesOpen]);
+
+  const filteredColors = React.useMemo(() => {
+    const term = search.trimEnd().toLowerCase();
+    if (!term) return allColors;
+    return allColors.filter(
+      (color) =>
+        color.name.toLowerCase().includes(term) ||
+        color.hex.toLowerCase().includes(term.replace("#", "")),
+    );
+  }, [search]);
 
   // Collapsed
   if (!isExpanded) {
@@ -728,15 +825,17 @@ export function AttributeSelect({
   }
 
   // Filter options by search
+  const normalizedSearch = search.trim();
+  const filterQuery = search.trimEnd().toLowerCase();
   const filteredOptions = availableOptions.filter(
-    (v) => !search || v.name.toLowerCase().includes(search.toLowerCase()),
+    (v) => !filterQuery || v.name.toLowerCase().includes(filterQuery),
   );
 
   // Show create option if search doesn't match any existing option
   const showCreateOption =
-    search.trim() &&
+    normalizedSearch &&
     !availableOptions.some(
-      (v) => v.name.toLowerCase() === search.trim().toLowerCase(),
+      (v) => v.name.toLowerCase() === normalizedSearch.toLowerCase(),
     );
 
   // Expanded - Standard attribute
@@ -773,52 +872,88 @@ export function AttributeSelect({
               className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0"
               align="start"
             >
-              <Command shouldFilter={false}>
-                <CommandInput
-                  placeholder="Search..."
-                  value={search}
-                  onValueChange={setSearch}
-                />
-                <CommandList className="max-h-48">
-                  <CommandGroup>
-                    {/* Show existing options */}
-                    {filteredOptions.map((v) => (
-                      <CommandItem
-                        key={v.id}
-                        onSelect={() => handleSelectOption(v)}
-                        className="justify-between"
-                      >
-                        <div className="flex items-center gap-2">
-                          {v.hex && (
+              {valuesView === "main" ? (
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Search..."
+                    value={search}
+                    onValueChange={setSearch}
+                  />
+                  <CommandList className="max-h-48">
+                    <CommandGroup>
+                      {/* Show existing options */}
+                      {filteredOptions.map((v) => (
+                        <CommandItem
+                          key={v.id}
+                          onSelect={() => handleSelectOption(v)}
+                          className="justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            {v.hex && (
+                              <div
+                                className="h-3.5 w-3.5 rounded-full border border-border"
+                                style={{ backgroundColor: v.hex }}
+                              />
+                            )}
+                            <span className="type-p">{v.name}</span>
+                          </div>
+                          {dimension.values.includes(v.id) && (
+                            <Icons.Check className="h-4 w-4" />
+                          )}
+                        </CommandItem>
+                      ))}
+                      {filteredOptions.length === 0 && showCreateOption && (
+                        <CommandItem
+                          value={normalizedSearch}
+                          onSelect={handleCreateValue}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icons.Plus className="h-3.5 w-3.5" />
+                            <span>Create &quot;{normalizedSearch}&quot;</span>
+                          </div>
+                        </CommandItem>
+                      )}
+                      {filteredOptions.length === 0 && !showCreateOption && (
+                        <CommandEmpty>No values found</CommandEmpty>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              ) : (
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder={`Pick a color for "${pendingColorValueName}"`}
+                    value={search}
+                    onValueChange={setSearch}
+                  />
+                    <CommandList className="max-h-48">
+                      <CommandGroup>
+                      {filteredColors.map((color) => (
+                        <CommandItem
+                          key={`${color.name}-${color.hex}`}
+                          value={`${color.name}-${color.hex}`}
+                          onSelect={() => handleColorPickForNewValue(color.hex)}
+                          disabled={isCreatingValue}
+                        >
+                          <div className="flex items-center gap-2">
                             <div
                               className="h-3.5 w-3.5 rounded-full border border-border"
-                              style={{ backgroundColor: v.hex }}
+                              style={{ backgroundColor: `#${color.hex}` }}
                             />
-                          )}
-                          <span className="type-p">{v.name}</span>
-                        </div>
-                        {dimension.values.includes(v.id) && (
-                          <Icons.Check className="h-4 w-4" />
-                        )}
-                      </CommandItem>
-                    ))}
-                    {filteredOptions.length === 0 && !showCreateOption && (
-                      <CommandEmpty>No values found</CommandEmpty>
-                    )}
-                  </CommandGroup>
-                </CommandList>
-                {/* Footer with Create option */}
-                {showCreateOption && (
-                  <SelectFooter>
-                    <SelectAction onSelect={handleCreateValue}>
-                      <div className="flex items-center gap-2">
-                        <Icons.Plus className="h-3.5 w-3.5" />
-                        <span>Create &quot;{search.trim()}&quot;</span>
-                      </div>
-                    </SelectAction>
-                  </SelectFooter>
-                )}
-              </Command>
+                            <span className="type-p">{color.name}</span>
+                            <span className="type-small text-tertiary uppercase">
+                              #{color.hex}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                      {filteredColors.length === 0 && (
+                        <CommandEmpty>No colors found</CommandEmpty>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              )}
             </PopoverContent>
           </Popover>
           <div className="flex justify-between">
@@ -849,20 +984,6 @@ export function AttributeSelect({
           </div>
         </div>
       </div>
-
-      {/* Create value modal */}
-      {dimension.attributeId && (
-        <CreateValueModal
-          open={createValueModalOpen}
-          onOpenChange={setCreateValueModalOpen}
-          attributeId={dimension.attributeId}
-          attributeName={dimension.attributeName}
-          taxonomyAttributeId={dimension.taxonomyAttributeId}
-          initialName={createValueInitialName}
-          initialTaxonomyValueId={createValueInitialTaxonomyId}
-          onCreated={handleValueCreated}
-        />
-      )}
     </div>
   );
 }

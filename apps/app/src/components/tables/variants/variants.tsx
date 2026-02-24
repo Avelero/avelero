@@ -6,6 +6,7 @@ import type {
   VariantMetadata,
 } from "@/components/forms/passport/blocks/variant-block";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { extractHex } from "@/utils/extract-hex";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { MultiAttributeTable } from "./multi-attribute";
@@ -66,16 +67,6 @@ export function VariantTable({
 }: VariantTableProps) {
   const router = useRouter();
   const { brandAttributeValuesByAttribute } = useBrandCatalog();
-
-  const extractHex = React.useCallback((metadata: unknown): string | null => {
-    if (!metadata || typeof metadata !== "object") return null;
-    const meta = metadata as Record<string, unknown>;
-    if (typeof meta.swatch === "string") return meta.swatch;
-    if (typeof meta.hex === "string") {
-      return meta.hex.startsWith("#") ? meta.hex : `#${meta.hex}`;
-    }
-    return null;
-  }, []);
 
   // Navigate to variant edit page (only in edit mode)
   const navigateToVariant = React.useCallback(

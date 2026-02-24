@@ -1,4 +1,5 @@
 import { useTRPC } from "@/trpc/client";
+import { extractHex } from "@/utils/extract-hex";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import * as React from "react";
 
@@ -33,16 +34,6 @@ export interface BrandAttributeValue {
   taxonomyValueId: string | null;
   metadata: unknown;
   sortOrder: number | null;
-}
-
-function extractHex(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== "object") return null;
-  const m = metadata as Record<string, unknown>;
-  if (typeof m.swatch === "string") return m.swatch;
-  if (typeof m.hex === "string") {
-    return m.hex.startsWith("#") ? m.hex : `#${m.hex}`;
-  }
-  return null;
 }
 
 /**

@@ -1,6 +1,7 @@
 "use client";
 
 import { useTableScroll } from "@/hooks/use-table-scroll";
+import { extractHex } from "@/utils/extract-hex";
 import {
   RowActionsMenu,
   RowSelectionCheckbox,
@@ -34,16 +35,6 @@ function formatDate(value?: string | Date | null) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return format(date, "d MMM yyyy");
-}
-
-function extractHex(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== "object") return null;
-  const m = metadata as Record<string, unknown>;
-  if (typeof m.swatch === "string") return m.swatch;
-  if (typeof m.hex === "string") {
-    return m.hex.startsWith("#") ? m.hex : `#${m.hex}`;
-  }
-  return null;
 }
 
 // Opaque equivalent for our soft border tone. Using a fixed opaque color here

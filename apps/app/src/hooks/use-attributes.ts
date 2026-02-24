@@ -1,4 +1,5 @@
 import * as React from "react";
+import { extractHex } from "@/utils/extract-hex";
 import { useBrandCatalog } from "./use-brand-catalog";
 
 export interface AttributeValueOption {
@@ -7,16 +8,6 @@ export interface AttributeValueOption {
   hex: string | null;
   taxonomyValueId: string | null;
   sortOrder: number;
-}
-
-function extractHex(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== "object") return null;
-  const m = metadata as Record<string, unknown>;
-  if (typeof m.swatch === "string") return m.swatch;
-  if (typeof m.hex === "string") {
-    return m.hex.startsWith("#") ? m.hex : `#${m.hex}`;
-  }
-  return null;
 }
 
 export interface UseAttributesParams {

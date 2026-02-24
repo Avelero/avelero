@@ -5,9 +5,14 @@
  * Attributes can optionally link to taxonomy attributes for semantic meaning.
  */
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../../client";
-import { brandAttributes, taxonomyAttributes } from "../../schema";
+import {
+  brandAttributes,
+  brandAttributeValues,
+  productVariantAttributes,
+  taxonomyAttributes,
+} from "../../schema";
 
 // =============================================================================
 // TYPES
@@ -194,6 +199,41 @@ export async function deleteBrandAttribute(
     )
     .returning({ id: brandAttributes.id });
   return row ?? null;
+}
+
+/**
+ * Count distinct variant references for a brand attribute across all of its values.
+ */
+export async function countBrandAttributeVariantReferences(
+  db: Database,
+  brandId: string,
+  attributeId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({
+      count:
+        sql<number>`count(distinct ${productVariantAttributes.variantId})::int`,
+    })
+    .from(brandAttributes)
+    .leftJoin(
+      brandAttributeValues,
+      and(
+        eq(brandAttributeValues.attributeId, brandAttributes.id),
+        eq(brandAttributeValues.brandId, brandId),
+      ),
+    )
+    .leftJoin(
+      productVariantAttributes,
+      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id),
+    )
+    .where(
+      and(
+        eq(brandAttributes.id, attributeId),
+        eq(brandAttributes.brandId, brandId),
+      ),
+    );
+
+  return row?.count ?? 0;
 }
 
 // =============================================================================

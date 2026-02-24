@@ -17,6 +17,8 @@ import type { Database } from "@v1/db/client";
  */
 import {
   batchCreateBrandAttributeValues,
+  countBrandAttributeValueVariantReferences,
+  countBrandAttributeVariantReferences,
   createBrandAttribute,
   createBrandAttributeValue,
   createBrandManufacturer,
@@ -34,13 +36,14 @@ import {
   deleteOperator,
   deleteSeason,
   listBrandAttributeValues,
-  listBrandAttributes,
-  listBrandManufacturers,
-  listBrandTags,
-  listCertifications,
-  listMaterials,
-  listOperators,
-  listSeasonsForBrand,
+  listBrandAttributesWithMetrics,
+  listBrandManufacturersWithMetrics,
+  listBrandTagsWithMetrics,
+  listCertificationsWithMetrics,
+  listMaterialsWithMetrics,
+  listOperatorsWithMetrics,
+  listSeasonsForBrandWithMetrics,
+  listAttributesGroupedWithMetrics,
   updateBrandAttribute,
   updateBrandAttributeValue,
   updateBrandManufacturer,
@@ -70,6 +73,7 @@ import {
   deleteSeasonSchema,
   listBrandAttributeValuesSchema,
   listBrandAttributesSchema,
+  listGroupedBrandAttributesSchema,
   listBrandTagsSchema,
   listCertificationsSchema,
   listManufacturersSchema,
@@ -94,7 +98,11 @@ import {
   transformOperatorInput,
   transformSeasonInput,
 } from "../../../utils/catalog-transform.js";
-import { notFound, wrapError } from "../../../utils/errors.js";
+import {
+  businessRuleViolation,
+  notFound,
+  wrapError,
+} from "../../../utils/errors.js";
 import {
   createEntityResponse,
   createListResponse,
@@ -127,7 +135,8 @@ function createListProcedure<TInput>(
   return brandRequiredProcedure.input(schema).query(async ({ ctx, input }) => {
     const brandCtx = ctx as BrandContext;
     try {
-      const transformedInput = transformInput ? transformInput(input) : input;
+      const transformedInput =
+        transformInput && input != null ? transformInput(input) : input;
       const results = await queryFn(
         brandCtx.db,
         brandCtx.brandId,
@@ -367,22 +376,60 @@ export const catalogRouter = createTRPCRouter({
    * Variant dimensions (e.g., Color, Size, Material) that can optionally
    * link to taxonomy attributes for semantic meaning.
    */
-  attributes: createCatalogResourceRouter(
-    "attribute",
-    {
-      list: listBrandAttributesSchema,
-      create: createBrandAttributeSchema,
-      update: updateBrandAttributeSchema,
-      delete: deleteBrandAttributeSchema,
-    },
-    {
-      list: listBrandAttributes,
-      create: createBrandAttribute,
-      update: updateBrandAttribute,
-      delete: deleteBrandAttribute,
-    },
-    transformBrandAttributeInput,
-  ),
+  attributes: createTRPCRouter({
+    list: createListProcedure(
+      listBrandAttributesSchema,
+      listBrandAttributesWithMetrics,
+      "attribute",
+    ),
+    listGrouped: createListProcedure(
+      listGroupedBrandAttributesSchema,
+      listAttributesGroupedWithMetrics,
+      "attribute groups",
+    ),
+    create: createCreateProcedure(
+      createBrandAttributeSchema,
+      createBrandAttribute,
+      "attribute",
+      transformBrandAttributeInput,
+    ),
+    update: createUpdateProcedure(
+      updateBrandAttributeSchema,
+      updateBrandAttribute,
+      "attribute",
+      transformBrandAttributeInput,
+    ),
+    delete: brandRequiredProcedure
+      .input(deleteBrandAttributeSchema)
+      .mutation(async ({ ctx, input }) => {
+        const brandCtx = ctx as BrandContext;
+        try {
+          const variantReferenceCount = await countBrandAttributeVariantReferences(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.id,
+          );
+          if (variantReferenceCount > 0) {
+            throw businessRuleViolation(
+              "This attribute can't be deleted because it is referenced on your variants",
+            );
+          }
+
+          const result = await deleteBrandAttribute(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.id,
+          );
+          if (!result) {
+            throw notFound("attribute", input.id);
+          }
+
+          return createEntityResponse(result);
+        } catch (error) {
+          throw wrapError(error, "Failed to delete attribute");
+        }
+      }),
+  }),
 
   /**
    * Brand attribute values catalog endpoints.
@@ -420,11 +467,37 @@ export const catalogRouter = createTRPCRouter({
       "attribute value",
       transformBrandAttributeValueInput,
     ),
-    delete: createDeleteProcedure(
-      deleteBrandAttributeValueSchema,
-      deleteBrandAttributeValue,
-      "attribute value",
-    ),
+    delete: brandRequiredProcedure
+      .input(deleteBrandAttributeValueSchema)
+      .mutation(async ({ ctx, input }) => {
+        const brandCtx = ctx as BrandContext;
+        try {
+          const variantReferenceCount =
+            await countBrandAttributeValueVariantReferences(
+              brandCtx.db,
+              brandCtx.brandId,
+              input.id,
+            );
+          if (variantReferenceCount > 0) {
+            throw businessRuleViolation(
+              "This attribute value can't be deleted because it is referenced on your variants",
+            );
+          }
+
+          const result = await deleteBrandAttributeValue(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.id,
+          );
+          if (!result) {
+            throw notFound("attribute value", input.id);
+          }
+
+          return createEntityResponse(result);
+        } catch (error) {
+          throw wrapError(error, "Failed to delete attribute value");
+        }
+      }),
     batchCreate: brandRequiredProcedure
       .input(batchCreateBrandAttributeValuesSchema)
       .mutation(async ({ ctx, input }) => {
@@ -469,7 +542,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteBrandTagSchema,
     },
     {
-      list: listBrandTags,
+      list: listBrandTagsWithMetrics,
       create: createBrandTag,
       update: updateBrandTag,
       delete: deleteBrandTag,
@@ -490,7 +563,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteMaterialSchema,
     },
     {
-      list: listMaterials,
+      list: listMaterialsWithMetrics,
       create: createMaterial,
       update: updateMaterial,
       delete: deleteMaterial,
@@ -512,7 +585,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteSeasonSchema,
     },
     {
-      list: listSeasonsForBrand,
+      list: listSeasonsForBrandWithMetrics,
       create: createSeason,
       update: updateSeason,
       delete: deleteSeason,
@@ -534,7 +607,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteOperatorSchema,
     },
     {
-      list: listOperators,
+      list: listOperatorsWithMetrics,
       create: createOperator,
       update: updateOperator,
       delete: deleteOperator,
@@ -557,7 +630,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteManufacturerSchema,
     },
     {
-      list: listBrandManufacturers,
+      list: listBrandManufacturersWithMetrics,
       create: createBrandManufacturer,
       update: updateBrandManufacturer,
       delete: deleteBrandManufacturer,
@@ -579,7 +652,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteCertificationSchema,
     },
     {
-      list: listCertifications,
+      list: listCertificationsWithMetrics,
       create: createCertification,
       update: updateCertification,
       delete: deleteCertification,

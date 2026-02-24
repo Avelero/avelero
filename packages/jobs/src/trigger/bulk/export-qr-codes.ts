@@ -75,6 +75,7 @@ const QR_CACHE_NAMESPACE = "00000000-0000-0000-0000-000000000000";
 const QR_VARIANT_WORKER_CONCURRENCY = 20;
 const PROGRESS_DB_UPDATE_BATCH_SIZE = 100;
 const PROGRESS_UPDATE_INTERVAL_MS = 1000;
+const MAX_CONSECUTIVE_PROGRESS_FLUSH_FAILURES = 3;
 const QR_GENERATION_MAX_THREADS = 6;
 const DOWNLOAD_EXPIRY_DAYS = 7;
 const EMAIL_FROM = "Avelero <noreply@welcome.avelero.com>";
@@ -107,15 +108,6 @@ function getQrCachePath(
 ): string {
   const filename = buildQrPngCacheFilename(domain, barcode, options);
   return `${brandId}/${QR_CACHE_NAMESPACE}/${filename}`;
-}
-
-function isAlreadyExistsStorageError(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("already exists") ||
-    normalized.includes("duplicate key") ||
-    normalized.includes("resource already exists")
-  );
 }
 
 async function listExistingQrCachePaths(
@@ -318,6 +310,8 @@ export const exportQrCodes = task({
       let persistedProcessed = 0;
       let lastProgressUpdateAt = Date.now();
       let progressFlushInFlight: Promise<void> | null = null;
+      let consecutiveProgressFlushFailures = 0;
+      let progressFlushFailure: Error | null = null;
 
       const flushProgress = async (force: boolean): Promise<void> => {
         const now = Date.now();
@@ -348,6 +342,10 @@ export const exportQrCodes = task({
       };
 
       const maybeFlushProgress = async (force = false): Promise<void> => {
+        if (progressFlushFailure) {
+          throw progressFlushFailure;
+        }
+
         if (progressFlushInFlight) {
           if (!force) {
             return;
@@ -358,7 +356,26 @@ export const exportQrCodes = task({
         progressFlushInFlight = flushProgress(force).finally(() => {
           progressFlushInFlight = null;
         });
-        await progressFlushInFlight;
+        try {
+          await progressFlushInFlight;
+          consecutiveProgressFlushFailures = 0;
+        } catch (error) {
+          const flushError =
+            error instanceof Error ? error : new Error(String(error));
+          consecutiveProgressFlushFailures += 1;
+
+          if (
+            consecutiveProgressFlushFailures >=
+            MAX_CONSECUTIVE_PROGRESS_FLUSH_FAILURES
+          ) {
+            progressFlushFailure = new Error(
+              `Failed to flush QR export progress ${consecutiveProgressFlushFailures} times consecutively: ${flushError.message}`,
+            );
+            throw progressFlushFailure;
+          }
+
+          throw flushError;
+        }
       };
 
       const ensureCachedQrPng = async (
@@ -385,15 +402,11 @@ export const exportQrCodes = task({
             .from(QR_IMAGES_BUCKET)
             .upload(qrPngPath, qrPngBuffer, {
               contentType: "image/png",
-              upsert: false,
+              upsert: true,
             });
 
           if (uploadPngError) {
-            if (!isAlreadyExistsStorageError(uploadPngError.message)) {
-              throw new Error(uploadPngError.message);
-            }
-            existingQrPaths.add(qrPngPath);
-            return "cached";
+            throw new Error(uploadPngError.message);
           }
 
           existingQrPaths.add(qrPngPath);
@@ -418,6 +431,10 @@ export const exportQrCodes = task({
         let nextIndex = 0;
         const workers = Array.from({ length: workerCount }, async () => {
           while (true) {
+            if (progressFlushFailure) {
+              throw progressFlushFailure;
+            }
+
             const index = nextIndex;
             if (index >= eligibleVariantCount) {
               return;
@@ -469,6 +486,7 @@ export const exportQrCodes = task({
               void maybeFlushProgress(false).catch((flushError) => {
                 logger.warn("Failed to flush QR export progress", {
                   jobId,
+                  consecutiveFailures: consecutiveProgressFlushFailures,
                   error:
                     flushError instanceof Error
                       ? flushError.message

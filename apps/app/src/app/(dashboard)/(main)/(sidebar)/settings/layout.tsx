@@ -1,9 +1,4 @@
-import {
-  ControlBar,
-  ControlBarLeft,
-  ControlBarNavButton,
-  ControlBarRight,
-} from "@/components/control-bar";
+import { SettingsSecondarySidebar } from "@/components/settings/settings-secondary-sidebar";
 import { Skeleton } from "@v1/ui/skeleton";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -34,23 +29,12 @@ export default function AccountLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col h-full">
-      <ControlBar>
-        <ControlBarLeft>
-          <ControlBarNavButton href="/settings" exact>
-            General
-          </ControlBarNavButton>
-          <ControlBarNavButton href="/settings/members">
-            Members
-          </ControlBarNavButton>
-          <ControlBarNavButton href="/settings/integrations">
-            Integrations
-          </ControlBarNavButton>
-        </ControlBarLeft>
-        <ControlBarRight />
-      </ControlBar>
-      <div className="flex w-full h-full justify-center items-start p-8 overflow-y-auto scrollbar-hide">
-        <Suspense fallback={<SettingsPageSkeleton />}>{children}</Suspense>
+    <div className="flex h-full min-h-0">
+      <SettingsSecondarySidebar />
+      <div className="flex min-h-0 min-w-0 flex-1">
+        <div className="flex h-full min-h-0 w-full items-stretch justify-center overflow-y-auto p-8 scrollbar-hide">
+          <Suspense fallback={<SettingsPageSkeleton />}>{children}</Suspense>
+        </div>
       </div>
     </div>
   );

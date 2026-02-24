@@ -14,6 +14,11 @@ import { shortStringSchema, uuidSchema } from "../_shared/primitives.js";
 export const listBrandAttributesSchema = voidSchema;
 
 /**
+ * Empty payload for grouped attribute + values listing.
+ */
+export const listGroupedBrandAttributesSchema = voidSchema;
+
+/**
  * Payload for creating a brand attribute.
  */
 export const createBrandAttributeSchema = z.object({

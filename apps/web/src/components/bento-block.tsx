@@ -37,6 +37,7 @@ export function BentoBlock() {
                 alt="Document upload illustration"
                 className="absolute top-6 left-[clamp(24px,calc(50%-46px),calc(100%-228px))] object-contain z-10"
                 loading="lazy"
+                sizes="204px"
                 quality={90}
                 width={204}
                 height={134}
@@ -48,6 +49,7 @@ export function BentoBlock() {
                 alt="File overview illustration"
                 className="absolute bottom-6 left-[clamp(24px,calc(50%-158px),calc(100%-228px))] object-contain z-9"
                 loading="lazy"
+                sizes="204px"
                 quality={90}
                 width={204}
                 height={134}
@@ -69,6 +71,7 @@ export function BentoBlock() {
                 alt="API integration diagram showing Avelero connecting with PIM and e-commerce systems"
                 className="object-contain"
                 loading="lazy"
+                sizes="341px"
                 quality={85}
                 width={341}
                 height={152}
@@ -92,6 +95,7 @@ export function BentoBlock() {
               alt="AI-powered data enrichment table showing automatic completion of missing product information"
               className="ml-auto lg:ml-0 lg:absolute lg:bottom-0 lg:left-6 lg:top-6 w-auto max-w-none max-h-[180px] sm:max-h-[200px] lg:max-h-none object-cover object-left-bottom"
               loading="lazy"
+              sizes="(max-width: 639px) 360px, (max-width: 1023px) 400px, 553px"
               quality={85}
               width={553}
               height={277}

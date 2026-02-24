@@ -18,4 +18,5 @@ export * from "./operators";
 export * from "./manufacturers";
 export * from "./certifications";
 export * from "./seasons";
+export * from "./settings-lists";
 export * from "./validation";

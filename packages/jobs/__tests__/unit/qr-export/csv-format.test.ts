@@ -51,6 +51,19 @@ describe("QR export CSV helpers", () => {
     expect(first).not.toBe(different);
   });
 
+  it("treats surrounding barcode whitespace as distinct cache keys", () => {
+    const base = buildQrPngCacheFilename("passport.example.com", "12345", {
+      width: 1024,
+    });
+    const withTrailingSpace = buildQrPngCacheFilename(
+      "passport.example.com",
+      "12345 ",
+      { width: 1024 },
+    );
+
+    expect(base).not.toBe(withTrailingSpace);
+  });
+
   it("writes empty variant_upid when variant UPID is missing", () => {
     const csv = generateQrExportCsv([
       {

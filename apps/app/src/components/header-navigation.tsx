@@ -1,5 +1,6 @@
 "use client";
 
+import { getSettingsHeaderBreadcrumbs } from "@/lib/settings-navigation";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 import { type BreadcrumbItem, NavigationLabel } from "./navigation-label";
@@ -18,29 +19,9 @@ function getHeaderBreadcrumbs(pathname: string): BreadcrumbItem[] {
   }
 
   // Settings routes
-  if (segments[0] === "settings") {
-    if (segments.length === 1) {
-      return [{ label: "Settings" }];
-    }
-    if (segments[1] === "members") {
-      return [{ label: "Members" }];
-    }
-    if (segments[1] === "integrations") {
-      if (segments.length === 2) {
-        return [{ label: "Integrations" }];
-      }
-      // /settings/integrations/[integration]
-      const integrationName = segments[2];
-      if (integrationName) {
-        const displayName =
-          integrationName.charAt(0).toUpperCase() + integrationName.slice(1);
-        return [
-          { label: "Integrations", href: "/settings/integrations" },
-          { label: displayName },
-        ];
-      }
-    }
-    return [{ label: "Settings" }];
+  const settingsBreadcrumbs = getSettingsHeaderBreadcrumbs(normalized);
+  if (settingsBreadcrumbs) {
+    return settingsBreadcrumbs;
   }
 
   // Account routes

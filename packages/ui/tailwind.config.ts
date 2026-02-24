@@ -21,6 +21,9 @@ export default {
         mono: "var(--font-geist-mono)",
         serif: "var(--font-serif)",
       },
+      fontWeight: {
+        semimedium: "450",
+      },
       // DPP spacing tokens - shared for DPP components
       spacing: {
         micro: "var(--spacing-micro)",

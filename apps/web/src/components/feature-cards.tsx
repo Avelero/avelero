@@ -25,7 +25,7 @@ export function FeatureCard({
           alt="Blue canvas background image"
           fill
           loading="lazy"
-          sizes="(max-width: 1024px) 70vw,(max-width: 1280px) 30vw, 370px"
+          sizes="(max-width: 1023px) 283px, (max-width: 1279px) calc((100vw - 8rem - 3rem) / 3), 368px"
           className="object-cover"
           quality={85}
         />

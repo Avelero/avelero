@@ -10,7 +10,7 @@ export function CTABlock() {
           alt="Digital product passport background image"
           fill
           loading="lazy"
-          sizes="(max-width: 1280px) 90vw, 1135px"
+          sizes="(max-width: 639px) calc(100vw - 3rem), (max-width: 1279px) calc(100vw - 8rem), 1152px"
           className="object-cover -z-10"
           quality={85}
         />

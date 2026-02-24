@@ -10,6 +10,7 @@ import type { Database } from "../../client";
 import {
   brandAttributeValues,
   brandAttributes,
+  productVariantAttributes,
   taxonomyValues,
 } from "../../schema";
 
@@ -249,6 +250,34 @@ export async function deleteBrandAttributeValue(
     )
     .returning({ id: brandAttributeValues.id });
   return row ?? null;
+}
+
+/**
+ * Count distinct variant references for a single brand attribute value.
+ */
+export async function countBrandAttributeValueVariantReferences(
+  db: Database,
+  brandId: string,
+  valueId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({
+      count:
+        sql<number>`count(distinct ${productVariantAttributes.variantId})::int`,
+    })
+    .from(brandAttributeValues)
+    .leftJoin(
+      productVariantAttributes,
+      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id),
+    )
+    .where(
+      and(
+        eq(brandAttributeValues.id, valueId),
+        eq(brandAttributeValues.brandId, brandId),
+      ),
+    );
+
+  return row?.count ?? 0;
 }
 
 // =============================================================================

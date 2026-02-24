@@ -6,6 +6,7 @@ interface UpdateCardProps {
   title: string;
   description: string;
   image: string;
+  priority?: boolean;
 }
 
 export function UpdateCard({
@@ -13,6 +14,7 @@ export function UpdateCard({
   title,
   description,
   image,
+  priority = false,
 }: UpdateCardProps) {
   return (
     <Link href={`/updates/${slug}/`} className="flex flex-col group">
@@ -22,8 +24,9 @@ export function UpdateCard({
           src={image}
           alt={title}
           fill
-          loading="lazy"
-          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          priority={priority}
+          loading={priority ? undefined : "lazy"}
+          sizes="(max-width: 767px) calc(100vw - 3rem), (max-width: 1023px) calc((100vw - 8rem - 1.5rem) / 2), (max-width: 1279px) calc((100vw - 8rem - 3rem) / 3), 368px"
           className="object-cover transition-transform duration-300 group-hover:scale-105"
           quality={85}
         />

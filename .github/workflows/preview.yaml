@@ -1013,6 +1013,11 @@ jobs:
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
+      - name: 🗑️ Close Fly.io Review App
+        uses: superfly/fly-pr-review-apps@1.3.0
+        with:
+          name: pr-${{ github.event.number }}-avelero-api
+          config: apps/api/fly-preview.yml
       - uses: oven-sh/setup-bun@v1
         with:
           bun-version: "1.2.21"

@@ -5,6 +5,8 @@ import { format } from "date-fns";
 import * as React from "react";
 import { isDraftTagListItem, type TagsTableRow } from "./types";
 
+type CommitTrigger = "enter" | "blur";
+
 function formatDate(value?: string | Date | null) {
   if (!value) return "";
   const date = value instanceof Date ? value : new Date(value);
@@ -20,6 +22,8 @@ function TagNameCell({
   onEditingTagIdChange,
   onCommitTagName,
   onUpdateTagColor,
+  onDraftCreateCommittedByEnter,
+  onDraftEmptyEnter,
 }: {
   row: TagsTableRow;
   isEditing: boolean;
@@ -28,12 +32,16 @@ function TagNameCell({
   onEditingTagIdChange: (id: string | null) => void;
   onCommitTagName: (row: TagsTableRow, nextName: string) => Promise<void>;
   onUpdateTagColor: (row: TagsTableRow, nextHex: string) => Promise<void>;
+  onDraftCreateCommittedByEnter?: () => void;
+  onDraftEmptyEnter?: () => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const isCommittingRef = React.useRef(false);
+  const submitTriggerRef = React.useRef<CommitTrigger | null>(null);
   const [draftName, setDraftName] = React.useState(row.name);
   const [isColorOpen, setIsColorOpen] = React.useState(false);
   const [isNameHovered, setIsNameHovered] = React.useState(false);
+  const [suppressNameHoverUntilPointerMove, setSuppressNameHoverUntilPointerMove] = React.useState(false);
   const showInputField = isEditing || isDraftTagListItem(row);
   const showInputShell = showInputField || isNameHovered;
 
@@ -55,15 +63,29 @@ function TagNameCell({
     });
   }, [focusRequest, onFocusRequestConsumed, row.id]);
 
+  const hideNameHoverShellUntilPointerMoves = React.useCallback(() => {
+    setIsNameHovered(false);
+    setSuppressNameHoverUntilPointerMove(true);
+  }, []);
+
   const commitName = React.useCallback(async () => {
     if (isCommittingRef.current) return;
     let failed = false;
+    const trigger = submitTriggerRef.current ?? "blur";
+    submitTriggerRef.current = null;
 
     const trimmed = draftName.trim();
     const current = row.name.trim();
 
     if (!trimmed) {
       if (isDraftTagListItem(row)) {
+        if (trigger === "enter") {
+          onDraftEmptyEnter?.();
+          requestAnimationFrame(() => {
+            inputRef.current?.focus();
+          });
+          return;
+        }
         try {
           await onCommitTagName(row, "");
         } catch {
@@ -73,19 +95,35 @@ function TagNameCell({
       }
 
       setDraftName(row.name);
+      if (trigger === "enter") {
+        hideNameHoverShellUntilPointerMoves();
+      }
       onEditingTagIdChange(null);
       return;
     }
 
     if (trimmed === current) {
       setDraftName(row.name);
+      if (trigger === "enter") {
+        hideNameHoverShellUntilPointerMoves();
+      }
       onEditingTagIdChange(null);
       return;
     }
 
     isCommittingRef.current = true;
+    const closeImmediatelyOnEnter = trigger === "enter";
+    if (closeImmediatelyOnEnter) {
+      hideNameHoverShellUntilPointerMoves();
+      onEditingTagIdChange(null);
+    }
     try {
       await onCommitTagName(row, trimmed);
+      if (isDraftTagListItem(row) && trigger === "enter") {
+        requestAnimationFrame(() => {
+          onDraftCreateCommittedByEnter?.();
+        });
+      }
       setDraftName(trimmed);
     } catch {
       failed = true;
@@ -95,10 +133,23 @@ function TagNameCell({
     } finally {
       isCommittingRef.current = false;
       if (!(failed && isDraftTagListItem(row))) {
-        onEditingTagIdChange(null);
+        if (trigger === "enter" && !closeImmediatelyOnEnter) {
+          hideNameHoverShellUntilPointerMoves();
+        }
+        if (!closeImmediatelyOnEnter) {
+          onEditingTagIdChange(null);
+        }
       }
     }
-  }, [draftName, onCommitTagName, onEditingTagIdChange, row]);
+  }, [
+    draftName,
+    hideNameHoverShellUntilPointerMoves,
+    onCommitTagName,
+    onDraftCreateCommittedByEnter,
+    onDraftEmptyEnter,
+    onEditingTagIdChange,
+    row,
+  ]);
 
   const handleColorChange = React.useCallback(
     async (nextHex: string) => {
@@ -142,8 +193,19 @@ function TagNameCell({
 
       <div
         className="relative inline-grid min-w-[200px] w-fit max-w-full"
-        onMouseEnter={() => setIsNameHovered(true)}
-        onMouseLeave={() => setIsNameHovered(false)}
+        onMouseEnter={() => {
+          setSuppressNameHoverUntilPointerMove(false);
+          setIsNameHovered(true);
+        }}
+        onMouseMove={() => {
+          if (!suppressNameHoverUntilPointerMove) return;
+          setSuppressNameHoverUntilPointerMove(false);
+          setIsNameHovered(true);
+        }}
+        onMouseLeave={() => {
+          setSuppressNameHoverUntilPointerMove(false);
+          setIsNameHovered(false);
+        }}
       >
         <span
           aria-hidden
@@ -165,6 +227,7 @@ function TagNameCell({
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
+              submitTriggerRef.current = "enter";
               event.currentTarget.blur();
             }
             if (event.key === "Escape") {
@@ -196,6 +259,8 @@ export function getTagColumns({
   onEditingTagIdChange,
   onCommitTagName,
   onUpdateTagColor,
+  onDraftCreateCommittedByEnter,
+  onDraftEmptyEnter,
 }: {
   editingTagId: string | null;
   focusRequest: { tagId: string; nonce: number } | null;
@@ -203,6 +268,8 @@ export function getTagColumns({
   onEditingTagIdChange: (id: string | null) => void;
   onCommitTagName: (row: TagsTableRow, nextName: string) => Promise<void>;
   onUpdateTagColor: (row: TagsTableRow, nextHex: string) => Promise<void>;
+  onDraftCreateCommittedByEnter?: () => void;
+  onDraftEmptyEnter?: () => void;
 }): Array<FlatTableColumn<TagsTableRow>> {
   return [
     {
@@ -219,6 +286,8 @@ export function getTagColumns({
           onEditingTagIdChange={onEditingTagIdChange}
           onCommitTagName={onCommitTagName}
           onUpdateTagColor={onUpdateTagColor}
+          onDraftCreateCommittedByEnter={onDraftCreateCommittedByEnter}
+          onDraftEmptyEnter={onDraftEmptyEnter}
         />
       ),
     },

@@ -40,13 +40,13 @@ export function TagsSection() {
   const allRows = React.useMemo(
     () =>
       [...(tagsQuery.data?.data ?? [])].sort((a, b) => {
-        const updatedDiff = toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt);
-        if (updatedDiff !== 0) return updatedDiff;
-
         const createdDiff = toTimestamp(b.createdAt) - toTimestamp(a.createdAt);
         if (createdDiff !== 0) return createdDiff;
 
-        return a.name.localeCompare(b.name);
+        const nameDiff = a.name.localeCompare(b.name);
+        if (nameDiff !== 0) return nameDiff;
+
+        return a.id.localeCompare(b.id);
       }),
     [tagsQuery.data],
   );
@@ -199,16 +199,67 @@ export function TagsSection() {
       }
 
       const currentHex = (tag.hex ?? "000000").replace("#", "").toUpperCase();
+      const listQueryKey = trpc.catalog.tags.list.queryKey(undefined);
+      const compositeQueryKey = trpc.composite.catalogContent.queryKey();
+      const previousList = queryClient.getQueryData(listQueryKey);
+      const previousComposite = queryClient.getQueryData(compositeQueryKey);
 
-      await updateTagMutation.mutateAsync({
-        id: tag.id,
-        name: trimmedName,
-        hex: currentHex,
+      queryClient.setQueryData(listQueryKey, (old: any) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((row: any) =>
+            row.id === tag.id
+              ? {
+                  ...row,
+                  name: trimmedName,
+                  updatedAt: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                }
+              : row,
+          ),
+        };
       });
 
-      await invalidateLists();
+      queryClient.setQueryData(compositeQueryKey, (old: any) => {
+        if (!old?.brandCatalog?.tags) return old;
+        return {
+          ...old,
+          brandCatalog: {
+            ...old.brandCatalog,
+            tags: old.brandCatalog.tags.map((row: any) =>
+              row.id === tag.id
+                ? {
+                    ...row,
+                    name: trimmedName,
+                    updated_at: new Date().toISOString(),
+                  }
+                : row,
+            ),
+          },
+        };
+      });
+
+      try {
+        await updateTagMutation.mutateAsync({
+          id: tag.id,
+          name: trimmedName,
+          hex: currentHex,
+        });
+      } catch (error) {
+        queryClient.setQueryData(listQueryKey, previousList);
+        queryClient.setQueryData(compositeQueryKey, previousComposite);
+        const message = error instanceof Error ? error.message : "Failed to update tag";
+        toast.error(message);
+        throw error;
+      }
+      try {
+        await invalidateLists();
+      } catch {
+        // Keep optimistic state if server mutation succeeded but refetch failed.
+      }
     },
-    [allRows, invalidateLists, updateTagMutation],
+    [allRows, invalidateLists, queryClient, trpc, updateTagMutation],
   );
 
   const handleUpdateTagColor = React.useCallback(
@@ -264,8 +315,6 @@ export function TagsSection() {
           name: tag.name,
           hex: normalizedHex,
         });
-
-        await invalidateLists();
       } catch (error) {
         queryClient.setQueryData(listQueryKey, previousList);
         queryClient.setQueryData(compositeQueryKey, previousComposite);
@@ -274,6 +323,11 @@ export function TagsSection() {
           error instanceof Error ? error.message : "Failed to update tag color";
         toast.error(message);
         throw error;
+      }
+      try {
+        await invalidateLists();
+      } catch {
+        // Keep optimistic state if server mutation succeeded but refetch failed.
       }
     },
     [invalidateLists, queryClient, trpc, updateTagMutation],

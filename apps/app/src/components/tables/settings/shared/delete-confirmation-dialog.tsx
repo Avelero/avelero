@@ -16,6 +16,8 @@ export function DeleteConfirmationDialog({
   title,
   description,
   confirmLabel = "Delete",
+  cancelLabel = "Cancel",
+  hideConfirm = false,
   onConfirm,
   isPending = false,
 }: {
@@ -24,6 +26,8 @@ export function DeleteConfirmationDialog({
   title: string;
   description: string;
   confirmLabel?: string;
+  cancelLabel?: string;
+  hideConfirm?: boolean;
   onConfirm: () => void | Promise<void>;
   isPending?: boolean;
 }) {
@@ -47,19 +51,20 @@ export function DeleteConfirmationDialog({
             onClick={() => onOpenChange(false)}
             disabled={isPending}
           >
-            Cancel
+            {cancelLabel}
           </Button>
-          <Button
-            variant="destructive"
-            type="button"
-            onClick={() => void onConfirm()}
-            disabled={isPending}
-          >
-            {isPending ? "Deleting..." : confirmLabel}
-          </Button>
+          {!hideConfirm ? (
+            <Button
+              variant="destructive"
+              type="button"
+              onClick={() => void onConfirm()}
+              disabled={isPending}
+            >
+              {isPending ? "Deleting..." : confirmLabel}
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-

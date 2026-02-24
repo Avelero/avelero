@@ -6,44 +6,18 @@ import {
   EntityTableShell,
   EntityToolbar,
 } from "@/components/tables/settings/shared";
-import { useBrandCatalog, type TaxonomyAttribute, type TaxonomyValue } from "@/hooks/use-brand-catalog";
+import {
+  useBrandCatalog,
+  type TaxonomyAttribute,
+  type TaxonomyValue,
+} from "@/hooks/use-brand-catalog";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
-import { cn } from "@v1/ui/cn";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@v1/ui/dialog";
 import { Icons } from "@v1/ui/icons";
-import { Input } from "@v1/ui/input";
-import { Label } from "@v1/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectEmpty,
-  SelectGroup,
-  SelectItem,
-  SelectList,
-  SelectSearch,
-  SelectTrigger,
-} from "@v1/ui/select";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
-
-type GroupDialogState =
-  | { mode: "create" }
-  | { mode: "edit"; group: AttributeGroupListItem }
-  | null;
-
-type ValueDialogState =
-  | { mode: "create"; groupId?: string }
-  | { mode: "edit"; groupId: string; value: AttributeValueListItem }
-  | null;
 
 type DeleteDialogState =
   | { mode: "single-group"; group: AttributeGroupListItem }
@@ -58,378 +32,9 @@ function toTimestamp(value?: string | Date | null) {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
-function extractHex(metadata: unknown): string | null {
-  if (!metadata || typeof metadata !== "object") return null;
-  const m = metadata as Record<string, unknown>;
-  if (typeof m.swatch === "string") return m.swatch;
-  if (typeof m.hex === "string") {
-    return m.hex.startsWith("#") ? m.hex : `#${m.hex}`;
-  }
-  return null;
-}
-
 function matchesTerm(value: unknown, term: string) {
   if (value == null) return false;
   return String(value).toLowerCase().includes(term);
-}
-
-interface SelectOption {
-  value: string;
-  label: string;
-  hex?: string | null;
-}
-
-function CommandSelectField({
-  id,
-  label,
-  placeholder,
-  value,
-  onValueChange,
-  options,
-  required = false,
-  allowClear = false,
-  emptyLabel = "No items found.",
-}: {
-  id: string;
-  label: React.ReactNode;
-  placeholder: string;
-  value: string | null;
-  onValueChange: (value: string | null) => void;
-  options: SelectOption[];
-  required?: boolean;
-  allowClear?: boolean;
-  emptyLabel?: string;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const [searchTerm, setSearchTerm] = React.useState("");
-
-  const filteredOptions = React.useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return options;
-    return options.filter((option) => option.label.toLowerCase().includes(term));
-  }, [options, searchTerm]);
-
-  const selected = options.find((option) => option.value === value);
-
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>
-        {label}
-        {required ? <span className="text-destructive"> *</span> : null}
-      </Label>
-      <Select open={open} onOpenChange={setOpen}>
-        <SelectTrigger asChild>
-          <Button id={id} variant="outline" size="default" className="w-full justify-between data-[state=open]:bg-accent">
-            <span className={cn("truncate px-1", !selected && "text-tertiary")}>
-              {selected?.label ?? placeholder}
-            </span>
-            <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
-          </Button>
-        </SelectTrigger>
-        <SelectContent shouldFilter={false} inline defaultValue={value ?? undefined}>
-          <SelectSearch placeholder="Search..." value={searchTerm} onValueChange={setSearchTerm} />
-          <SelectList>
-            <SelectGroup>
-              {allowClear ? (
-                <SelectItem
-                  value="__none__"
-                  onSelect={() => {
-                    onValueChange(null);
-                    setOpen(false);
-                    setSearchTerm("");
-                  }}
-                >
-                  <span className="type-p text-tertiary">No link</span>
-                  {!value ? <Icons.Check className="h-4 w-4" /> : null}
-                </SelectItem>
-              ) : null}
-              {filteredOptions.map((option, index) => (
-                <SelectItem
-                  key={`${option.value}:${index}`}
-                  value={option.value}
-                  onSelect={() => {
-                    onValueChange(option.value);
-                    setOpen(false);
-                    setSearchTerm("");
-                  }}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    {option.hex ? (
-                      <div
-                        className="h-3.5 w-3.5 shrink-0 rounded-full border border-border"
-                        style={{ backgroundColor: option.hex }}
-                      />
-                    ) : null}
-                    <span className="truncate type-p">{option.label}</span>
-                  </div>
-                  {value === option.value ? <Icons.Check className="h-4 w-4" /> : null}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-            {filteredOptions.length === 0 ? <SelectEmpty>{emptyLabel}</SelectEmpty> : null}
-          </SelectList>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-function AttributeGroupDialog({
-  open,
-  onOpenChange,
-  mode,
-  initialGroup,
-  taxonomyAttributes,
-  existingGroups,
-  onSubmit,
-  isSaving,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  mode: "create" | "edit";
-  initialGroup?: AttributeGroupListItem | null;
-  taxonomyAttributes: TaxonomyAttribute[];
-  existingGroups: AttributeGroupListItem[];
-  onSubmit: (input: { name: string; taxonomyAttributeId: string | null }) => Promise<void>;
-  isSaving?: boolean;
-}) {
-  const [name, setName] = React.useState("");
-  const [taxonomyAttributeId, setTaxonomyAttributeId] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!open) return;
-    setName(initialGroup?.name ?? "");
-    setTaxonomyAttributeId(initialGroup?.taxonomyAttributeId ?? null);
-  }, [open, initialGroup]);
-
-  const taxonomyOptions = React.useMemo<SelectOption[]>(
-    () =>
-      taxonomyAttributes.map((attribute) => ({
-        value: attribute.id,
-        label: attribute.name,
-      })),
-    [taxonomyAttributes],
-  );
-
-  const nameError = React.useMemo(() => {
-    const trimmed = name.trim();
-    if (!trimmed) return "Name is required";
-    const currentId = initialGroup?.id;
-    const duplicate = existingGroups.some(
-      (group) => group.id !== currentId && group.name.toLowerCase() === trimmed.toLowerCase(),
-    );
-    if (duplicate) return "An attribute with this name already exists";
-    return "";
-  }, [existingGroups, initialGroup?.id, name]);
-
-  const handleSave = async () => {
-    if (nameError) return;
-    await onSubmit({ name: name.trim(), taxonomyAttributeId });
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>{mode === "edit" ? "Edit group" : "New group"}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3 py-1">
-          <div className="space-y-1.5">
-            <Label htmlFor="attribute-group-name">
-              Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="attribute-group-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Color"
-              className="h-9"
-              autoFocus
-            />
-            {nameError ? <p className="type-small text-destructive">{nameError}</p> : null}
-          </div>
-
-          <CommandSelectField
-            id="attribute-group-taxonomy"
-            label="Link to standard attribute"
-            placeholder="No link"
-            value={taxonomyAttributeId}
-            onValueChange={setTaxonomyAttributeId}
-            options={taxonomyOptions}
-            allowClear
-          />
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Cancel</Button>
-          <Button variant="brand" onClick={() => void handleSave()} disabled={!!nameError || isSaving}>
-            {mode === "edit" ? "Save" : "Create"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function AttributeValueDialog({
-  open,
-  onOpenChange,
-  mode,
-  groups,
-  taxonomyValuesByAttribute,
-  initialGroupId,
-  initialValue,
-  onSubmit,
-  isSaving,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  mode: "create" | "edit";
-  groups: AttributeGroupListItem[];
-  taxonomyValuesByAttribute: Map<string, TaxonomyValue[]>;
-  initialGroupId?: string;
-  initialValue?: AttributeValueListItem | null;
-  onSubmit: (input: {
-    attributeId: string;
-    name: string;
-    taxonomyValueId: string | null;
-  }) => Promise<void>;
-  isSaving?: boolean;
-}) {
-  const [attributeId, setAttributeId] = React.useState("");
-  const [name, setName] = React.useState("");
-  const [taxonomyValueId, setTaxonomyValueId] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!open) return;
-    setAttributeId(initialGroupId ?? "");
-    setName(initialValue?.name ?? "");
-    setTaxonomyValueId(initialValue?.taxonomyValueId ?? null);
-  }, [open, initialGroupId, initialValue]);
-
-  const selectedGroup = React.useMemo(
-    () => groups.find((group) => group.id === attributeId) ?? null,
-    [attributeId, groups],
-  );
-  const taxonomyAttributeId = selectedGroup?.taxonomyAttributeId ?? null;
-
-  const attributeOptions = React.useMemo<SelectOption[]>(
-    () => groups.map((group) => ({ value: group.id, label: group.name })),
-    [groups],
-  );
-
-  const taxonomyValueOptions = React.useMemo<SelectOption[]>(() => {
-    if (!taxonomyAttributeId) return [];
-    const values = taxonomyValuesByAttribute.get(taxonomyAttributeId) ?? [];
-    return values.map((value) => ({
-      value: value.id,
-      label: value.name,
-      hex: extractHex(value.metadata),
-    }));
-  }, [taxonomyAttributeId, taxonomyValuesByAttribute]);
-
-  React.useEffect(() => {
-    if (!taxonomyAttributeId) {
-      setTaxonomyValueId(null);
-      return;
-    }
-    if (!taxonomyValueId) return;
-    const exists = taxonomyValueOptions.some((option) => option.value === taxonomyValueId);
-    if (!exists) setTaxonomyValueId(null);
-  }, [taxonomyAttributeId, taxonomyValueId, taxonomyValueOptions]);
-
-  const handleTaxonomyValueChange = (nextId: string | null) => {
-    setTaxonomyValueId(nextId);
-    if (!nextId) return;
-    if (!name.trim()) {
-      const match = taxonomyValueOptions.find((option) => option.value === nextId);
-      if (match) setName(match.label);
-    }
-  };
-
-  const nameError = React.useMemo(() => {
-    if (!attributeId) return "Attribute group is required";
-    const trimmed = name.trim();
-    if (!trimmed) return "Value name is required";
-    if (taxonomyAttributeId && !taxonomyValueId) return "Standard value is required";
-    const group = groups.find((item) => item.id === attributeId);
-    if (!group) return "Attribute group is required";
-    const currentId = initialValue?.id;
-    const duplicate = group.values.some(
-      (value: AttributeValueListItem) =>
-        value.id !== currentId && value.name.toLowerCase() === trimmed.toLowerCase(),
-    );
-    if (duplicate) return "A value with this name already exists in this group";
-    return "";
-  }, [attributeId, groups, initialValue?.id, name, taxonomyAttributeId, taxonomyValueId]);
-
-  const handleSave = async () => {
-    if (nameError) return;
-    await onSubmit({
-      attributeId,
-      name: name.trim(),
-      taxonomyValueId,
-    });
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>{mode === "edit" ? "Edit value" : "New value"}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3 py-1">
-          <CommandSelectField
-            id="attribute-value-group"
-            label={<>Attribute group <span className="text-destructive">*</span></>}
-            placeholder="Select group"
-            value={attributeId || null}
-            onValueChange={(next) => setAttributeId(next ?? "")}
-            options={attributeOptions}
-            required={false}
-          />
-
-          <div className="space-y-1.5">
-            <Label htmlFor="attribute-value-name">
-              Name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="attribute-value-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={selectedGroup ? `Add ${selectedGroup.name.toLowerCase()} value` : "Value name"}
-              className="h-9"
-              autoFocus={mode === "create"}
-            />
-          </div>
-
-          {taxonomyAttributeId ? (
-            <CommandSelectField
-              id="attribute-value-taxonomy"
-              label="Link to standard value"
-              placeholder="Select standard value"
-              value={taxonomyValueId}
-              onValueChange={handleTaxonomyValueChange}
-              options={taxonomyValueOptions}
-              required
-              emptyLabel="No values found"
-            />
-          ) : null}
-
-          {nameError ? <p className="type-small text-destructive">{nameError}</p> : null}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Cancel</Button>
-          <Button variant="brand" onClick={() => void handleSave()} disabled={!!nameError || isSaving}>
-            {mode === "edit" ? "Save" : "Create"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 export function AttributesSection() {
@@ -440,10 +45,11 @@ export function AttributesSection() {
   const [searchValue, setSearchValue] = React.useState("");
   const [selectedGroupIds, setSelectedGroupIds] = React.useState<string[]>([]);
   const [selectedValueIds, setSelectedValueIds] = React.useState<string[]>([]);
+  const [createGroupDraftRequestNonce, setCreateGroupDraftRequestNonce] = React.useState<number | null>(null);
   const [collapsedGroupIds, setCollapsedGroupIds] = React.useState<Set<string>>(new Set());
   const hasInitializedCollapsedGroups = React.useRef(false);
-  const [groupDialog, setGroupDialog] = React.useState<GroupDialogState>(null);
-  const [valueDialog, setValueDialog] = React.useState<ValueDialogState>(null);
+  const seenGroupIds = React.useRef<Set<string>>(new Set());
+  const lastDeleteDialogRef = React.useRef<DeleteDialogState>(null);
   const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
 
   const attributesQuery = useSuspenseQuery(trpc.catalog.attributes.listGrouped.queryOptions(undefined));
@@ -458,14 +64,40 @@ export function AttributesSection() {
 
   const allGroups = React.useMemo(() => {
     const groups = attributesQuery.data?.data ?? [];
-    return [...groups].sort((a, b) => {
-      const updatedDiff = toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt);
-      if (updatedDiff !== 0) return updatedDiff;
-      const createdDiff = toTimestamp(b.createdAt) - toTimestamp(a.createdAt);
-      if (createdDiff !== 0) return createdDiff;
-      return a.name.localeCompare(b.name);
-    });
+    return [...groups]
+      .map((group) => ({
+        ...group,
+        values: [...group.values].sort((a, b) => {
+          const createdDiff = toTimestamp(b.createdAt) - toTimestamp(a.createdAt);
+          if (createdDiff !== 0) return createdDiff;
+          const nameDiff = a.name.localeCompare(b.name);
+          if (nameDiff !== 0) return nameDiff;
+          return a.id.localeCompare(b.id);
+        }),
+      }))
+      .sort((a, b) => {
+        const createdDiff = toTimestamp(b.createdAt) - toTimestamp(a.createdAt);
+        if (createdDiff !== 0) return createdDiff;
+        const nameDiff = a.name.localeCompare(b.name);
+        if (nameDiff !== 0) return nameDiff;
+        return a.id.localeCompare(b.id);
+      });
   }, [attributesQuery.data]);
+
+  const groupById = React.useMemo(
+    () => new Map<string, AttributeGroupListItem>(allGroups.map((group) => [group.id, group])),
+    [allGroups],
+  );
+
+  const valueById = React.useMemo(
+    () =>
+      new Map<string, AttributeValueListItem>(
+        allGroups.flatMap((group) =>
+          group.values.map((value: AttributeValueListItem) => [value.id, value] as const),
+        ),
+      ),
+    [allGroups],
+  );
 
   const filteredGroups = React.useMemo(() => {
     const term = searchValue.trim().toLowerCase();
@@ -513,6 +145,12 @@ export function AttributesSection() {
   }, [allGroups]);
 
   React.useEffect(() => {
+    if (deleteDialog) {
+      lastDeleteDialogRef.current = deleteDialog;
+    }
+  }, [deleteDialog]);
+
+  React.useEffect(() => {
     const allowed = new Set(
       allGroups.flatMap((group) =>
         group.values.map((value: AttributeValueListItem) => value.id),
@@ -532,11 +170,13 @@ export function AttributesSection() {
 
     setCollapsedGroupIds((prev) => {
       if (allowed.size === 0) {
+        seenGroupIds.current = new Set();
         return prev.size === 0 ? prev : new Set<string>();
       }
 
       if (!hasInitializedCollapsedGroups.current) {
         hasInitializedCollapsedGroups.current = true;
+        seenGroupIds.current = new Set(allowed);
         return new Set(allowed);
       }
 
@@ -548,14 +188,16 @@ export function AttributesSection() {
         else changed = true;
       }
 
-      // Collapse newly created/loaded groups by default as well.
+      // Only collapse truly new groups. Expanded groups are intentionally absent
+      // from `prev`, so we must track previously seen IDs separately.
       for (const id of allowed) {
-        if (!prev.has(id)) {
+        if (!seenGroupIds.current.has(id)) {
           next.add(id);
           changed = true;
         }
       }
 
+      seenGroupIds.current = new Set(allowed);
       return changed ? next : prev;
     });
   }, [allGroups]);
@@ -571,6 +213,28 @@ export function AttributesSection() {
     });
   }, [queryClient, trpc]);
 
+  const patchAttributesGroupedCache = React.useCallback(
+    (
+      updater: (
+        groups: AttributeGroupListItem[],
+      ) => AttributeGroupListItem[],
+    ) => {
+      const queryKey = trpc.catalog.attributes.listGrouped.queryKey(undefined);
+      const previous = queryClient.getQueryData(queryKey);
+
+      queryClient.setQueryData(queryKey, (old: any) => {
+        if (!old?.data || !Array.isArray(old.data)) return old;
+        return {
+          ...old,
+          data: updater(old.data as AttributeGroupListItem[]),
+        };
+      });
+
+      return { queryKey, previous };
+    },
+    [queryClient, trpc],
+  );
+
   const toggleGroup = React.useCallback((groupId: string) => {
     setCollapsedGroupIds((prev) => {
       const next = new Set(prev);
@@ -585,9 +249,8 @@ export function AttributesSection() {
       try {
         await deleteAttributeMutation.mutateAsync({ id: group.id });
         await invalidateLists();
-        toast.success("Group deleted");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to delete group");
+        toast.error(error instanceof Error ? error.message : "Failed to delete attribute");
       }
     },
     [deleteAttributeMutation, invalidateLists],
@@ -599,7 +262,6 @@ export function AttributesSection() {
         await deleteValueMutation.mutateAsync({ id: value.id });
         setSelectedValueIds((prev) => prev.filter((id) => id !== value.id));
         await invalidateLists();
-        toast.success("Value deleted");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to delete value");
       }
@@ -638,7 +300,6 @@ export function AttributesSection() {
     if (totalFailures === 0) {
       setSelectedValueIds([]);
       setSelectedGroupIds([]);
-      toast.success(`${totalSuccesses} item${totalSuccesses === 1 ? "" : "s"} deleted`);
       return;
     }
 
@@ -685,6 +346,34 @@ export function AttributesSection() {
 
     const currentDialog = deleteDialog;
 
+    if (currentDialog.mode === "single-group" && (currentDialog.group.variants_count ?? 0) > 0) {
+      setDeleteDialog(null);
+      return;
+    }
+
+    if (
+      currentDialog.mode === "single-value" &&
+      (currentDialog.value.variants_count ?? 0) > 0
+    ) {
+      setDeleteDialog(null);
+      return;
+    }
+
+    if (currentDialog.mode === "bulk") {
+      const hasBlockedGroups = currentDialog.groupIds.some((id) => {
+        const group = groupById.get(id);
+        return (group?.variants_count ?? 0) > 0;
+      });
+      const hasBlockedValues = currentDialog.valueIds.some((id) => {
+        const value = valueById.get(id);
+        return (value?.variants_count ?? 0) > 0;
+      });
+      if (hasBlockedGroups || hasBlockedValues) {
+        setDeleteDialog(null);
+        return;
+      }
+    }
+
     if (currentDialog.mode === "single-group") {
       await deleteGroupNow(currentDialog.group);
     } else if (currentDialog.mode === "single-value") {
@@ -694,142 +383,389 @@ export function AttributesSection() {
     }
 
     setDeleteDialog(null);
-  }, [deleteDialog, deleteGroupNow, deleteSelectedNow, deleteValueNow]);
+  }, [deleteDialog, deleteGroupNow, deleteSelectedNow, deleteValueNow, groupById, valueById]);
 
   const selectedItemCount = selectedGroupIds.length + selectedValueIds.length;
   const isDeletePending = deleteValueMutation.isPending || deleteAttributeMutation.isPending;
 
-  const selectedGroupForToolbarValue = React.useMemo(() => {
-    if (allGroups.length === 1) return allGroups[0]?.id;
-    return undefined;
-  }, [allGroups]);
+  const handleCreateGroupInline = React.useCallback(
+    async (input: { name: string; taxonomyAttributeId?: string | null }) => {
+      const trimmedName = input.name.trim();
+      if (!trimmedName) {
+        toast.error("Attribute name is required");
+        throw new Error("Attribute name is required");
+      }
 
-  const handleSubmitGroup = React.useCallback(
-    async (input: { name: string; taxonomyAttributeId: string | null }) => {
+      const duplicate = allGroups.some(
+        (group) => group.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+      );
+      if (duplicate) {
+        toast.error("An attribute with this name already exists");
+        throw new Error("An attribute with this name already exists");
+      }
+
       try {
-        if (groupDialog?.mode === "edit") {
-          await updateAttributeMutation.mutateAsync({
-            id: groupDialog.group.id,
-            name: input.name,
-            taxonomy_attribute_id: input.taxonomyAttributeId,
-          });
-          toast.success("Group saved");
-        } else {
-          await createAttributeMutation.mutateAsync({
-            name: input.name,
-            taxonomy_attribute_id: input.taxonomyAttributeId,
-          });
-          toast.success("Group created");
-        }
+        const result = await createAttributeMutation.mutateAsync({
+          name: trimmedName,
+          taxonomy_attribute_id: input.taxonomyAttributeId ?? null,
+        });
         await invalidateLists();
-        setGroupDialog(null);
+        return result.data?.id ?? null;
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to save group");
+        const message = error instanceof Error ? error.message : "Failed to create attribute";
+        toast.error(message);
+        throw error;
       }
     },
-    [createAttributeMutation, groupDialog, invalidateLists, updateAttributeMutation],
+    [allGroups, createAttributeMutation, invalidateLists],
   );
 
-  const handleSubmitValue = React.useCallback(
-    async (input: { attributeId: string; name: string; taxonomyValueId: string | null }) => {
+  const handleCreateValueInline = React.useCallback(
+    async (
+      group: AttributeGroupListItem,
+      input: { name: string; taxonomyValueId?: string | null },
+    ) => {
+      const trimmedName = input.name.trim();
+      if (!trimmedName) {
+        toast.error("Attribute value name is required");
+        throw new Error("Attribute value name is required");
+      }
+
+      const duplicate = group.values.some(
+        (value: AttributeValueListItem) =>
+          value.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+      );
+      if (duplicate) {
+        toast.error("A value with this name already exists in this attribute");
+        throw new Error("A value with this name already exists in this attribute");
+      }
+
       try {
-        if (valueDialog?.mode === "edit") {
-          await updateValueMutation.mutateAsync({
-            id: valueDialog.value.id,
-            name: input.name,
-            taxonomy_value_id: input.taxonomyValueId,
-          });
-          toast.success("Value saved");
-        } else {
-          await createValueMutation.mutateAsync({
-            attribute_id: input.attributeId,
-            name: input.name,
-            taxonomy_value_id: input.taxonomyValueId,
-          });
-          toast.success("Value created");
-        }
+        const result = await createValueMutation.mutateAsync({
+          attribute_id: group.id,
+          name: trimmedName,
+          taxonomy_value_id: input.taxonomyValueId ?? null,
+        });
         await invalidateLists();
-        setValueDialog(null);
+        return result.data?.id ?? null;
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to save value");
+        const message = error instanceof Error ? error.message : "Failed to create value";
+        toast.error(message);
+        throw error;
       }
     },
-    [createValueMutation, invalidateLists, updateValueMutation, valueDialog],
+    [createValueMutation, invalidateLists],
   );
-
-  const groupDialogInitial = groupDialog?.mode === "edit" ? groupDialog.group : null;
-  const valueDialogInitialValue = valueDialog?.mode === "edit" ? valueDialog.value : null;
-  const valueDialogInitialGroupId = valueDialog?.groupId;
 
   const handleRenameGroup = React.useCallback(
     async (group: AttributeGroupListItem, nextName: string) => {
+      const optimistic = patchAttributesGroupedCache((groups) =>
+        groups.map((item) =>
+          item.id === group.id
+            ? {
+                ...item,
+                name: nextName,
+              }
+            : item,
+        ),
+      );
       try {
         await updateAttributeMutation.mutateAsync({
           id: group.id,
           name: nextName,
         });
-        await invalidateLists();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to rename group");
+        queryClient.setQueryData(optimistic.queryKey, optimistic.previous);
+        toast.error(error instanceof Error ? error.message : "Failed to rename attribute");
         throw error;
       }
+      try {
+        await invalidateLists();
+      } catch {
+        // Keep optimistic state if server mutation succeeded but refetch failed.
+      }
     },
-    [invalidateLists, updateAttributeMutation],
+    [invalidateLists, patchAttributesGroupedCache, queryClient, updateAttributeMutation],
   );
 
   const handleRenameValue = React.useCallback(
     async (_group: AttributeGroupListItem, value: AttributeValueListItem, nextName: string) => {
+      const optimistic = patchAttributesGroupedCache((groups) =>
+        groups.map((item) => ({
+          ...item,
+          values: item.values.map((entry: AttributeValueListItem) =>
+            entry.id === value.id
+              ? {
+                  ...entry,
+                  name: nextName,
+                }
+              : entry,
+          ),
+        })),
+      );
       try {
         await updateValueMutation.mutateAsync({
           id: value.id,
           name: nextName,
         });
-        await invalidateLists();
       } catch (error) {
+        queryClient.setQueryData(optimistic.queryKey, optimistic.previous);
         toast.error(error instanceof Error ? error.message : "Failed to rename value");
         throw error;
       }
+      try {
+        await invalidateLists();
+      } catch {
+        // Keep optimistic state if server mutation succeeded but refetch failed.
+      }
     },
-    [invalidateLists, updateValueMutation],
+    [invalidateLists, patchAttributesGroupedCache, queryClient, updateValueMutation],
   );
 
+  const handleUpdateGroupTaxonomyLink = React.useCallback(
+    async (group: AttributeGroupListItem, taxonomyAttributeId: string | null) => {
+      const selectedTaxonomyAttribute = taxonomyAttributes.find(
+        (attribute) => attribute.id === taxonomyAttributeId,
+      );
+      const optimistic = patchAttributesGroupedCache((groups) =>
+        groups.map((item) =>
+          item.id === group.id
+            ? {
+                ...item,
+                taxonomyAttributeId,
+                taxonomyAttribute: taxonomyAttributeId
+                  ? {
+                      id: selectedTaxonomyAttribute?.id ?? taxonomyAttributeId,
+                      name: selectedTaxonomyAttribute?.name ?? item.taxonomyAttribute?.name ?? "",
+                      friendlyId:
+                        selectedTaxonomyAttribute?.friendlyId ??
+                        item.taxonomyAttribute?.friendlyId ??
+                        "",
+                    }
+                  : null,
+              }
+            : item,
+        ),
+      );
+      try {
+        await updateAttributeMutation.mutateAsync({
+          id: group.id,
+          taxonomy_attribute_id: taxonomyAttributeId,
+        });
+      } catch (error) {
+        queryClient.setQueryData(optimistic.queryKey, optimistic.previous);
+        toast.error(error instanceof Error ? error.message : "Failed to update standard link");
+        throw error;
+      }
+      try {
+        await invalidateLists();
+      } catch {
+        // Keep optimistic state if server mutation succeeded but refetch failed.
+      }
+    },
+    [
+      invalidateLists,
+      patchAttributesGroupedCache,
+      queryClient,
+      taxonomyAttributes,
+      updateAttributeMutation,
+    ],
+  );
+
+  const handleUpdateValueTaxonomyLink = React.useCallback(
+    async (
+      group: AttributeGroupListItem,
+      value: AttributeValueListItem,
+      taxonomyValueId: string | null,
+    ) => {
+      const selectedTaxonomyValue = group.taxonomyAttributeId
+        ? (taxonomyValuesByAttribute.get(group.taxonomyAttributeId) ?? []).find(
+            (entry: TaxonomyValue) => entry.id === taxonomyValueId,
+          )
+        : null;
+      const optimistic = patchAttributesGroupedCache((groups) =>
+        groups.map((item) => ({
+          ...item,
+          values: item.values.map((entry: AttributeValueListItem) =>
+            entry.id === value.id
+              ? {
+                  ...entry,
+                  taxonomyValueId,
+                  taxonomyValue: taxonomyValueId
+                    ? {
+                        id: selectedTaxonomyValue?.id ?? taxonomyValueId,
+                        name: selectedTaxonomyValue?.name ?? entry.taxonomyValue?.name ?? "",
+                        friendlyId:
+                          selectedTaxonomyValue?.friendlyId ??
+                          entry.taxonomyValue?.friendlyId ??
+                          "",
+                        metadata:
+                          selectedTaxonomyValue?.metadata ??
+                          entry.taxonomyValue?.metadata ??
+                          null,
+                      }
+                    : null,
+                }
+              : entry,
+          ),
+        })),
+      );
+      try {
+        await updateValueMutation.mutateAsync({
+          id: value.id,
+          taxonomy_value_id: taxonomyValueId,
+        });
+      } catch (error) {
+        queryClient.setQueryData(optimistic.queryKey, optimistic.previous);
+        toast.error(error instanceof Error ? error.message : "Failed to update standard link");
+        throw error;
+      }
+      try {
+        await invalidateLists();
+      } catch {
+        // Keep optimistic state if server mutation succeeded but refetch failed.
+      }
+    },
+    [
+      invalidateLists,
+      patchAttributesGroupedCache,
+      queryClient,
+      taxonomyValuesByAttribute,
+      updateValueMutation,
+    ],
+  );
+
+  const displayDeleteDialog = deleteDialog ?? lastDeleteDialogRef.current;
+
+  const deleteDialogBlockState = React.useMemo(() => {
+    if (!displayDeleteDialog) {
+      return {
+        blocked: false,
+        blockedGroupCount: 0,
+        blockedValueCount: 0,
+      };
+    }
+
+    if (displayDeleteDialog.mode === "single-group") {
+      return {
+        blocked: (displayDeleteDialog.group.variants_count ?? 0) > 0,
+        blockedGroupCount: (displayDeleteDialog.group.variants_count ?? 0) > 0 ? 1 : 0,
+        blockedValueCount: 0,
+      };
+    }
+
+    if (displayDeleteDialog.mode === "single-value") {
+      return {
+        blocked: (displayDeleteDialog.value.variants_count ?? 0) > 0,
+        blockedGroupCount: 0,
+        blockedValueCount: (displayDeleteDialog.value.variants_count ?? 0) > 0 ? 1 : 0,
+      };
+    }
+
+    let blockedGroupCount = 0;
+    let blockedValueCount = 0;
+    for (const groupId of displayDeleteDialog.groupIds) {
+      const group = groupById.get(groupId);
+      if ((group?.variants_count ?? 0) > 0) blockedGroupCount += 1;
+    }
+    for (const valueId of displayDeleteDialog.valueIds) {
+      const value = valueById.get(valueId);
+      if ((value?.variants_count ?? 0) > 0) blockedValueCount += 1;
+    }
+    return {
+      blocked: blockedGroupCount + blockedValueCount > 0,
+      blockedGroupCount,
+      blockedValueCount,
+    };
+  }, [displayDeleteDialog, groupById, valueById]);
+
   const deleteDialogCopy = React.useMemo(() => {
-    if (!deleteDialog) {
+    if (!displayDeleteDialog) {
       return {
         title: "Delete item?",
         description:
           "You are about to permanently delete this item. This action cannot be undone.",
         confirmLabel: "Delete",
+        cancelLabel: "Cancel",
+        hideConfirm: false,
       };
     }
 
-    if (deleteDialog.mode === "single-group") {
+    if (displayDeleteDialog.mode === "single-group") {
+      if (deleteDialogBlockState.blocked) {
+        return {
+          title: "Attribute can't be deleted",
+          description:
+            "This attribute can't be deleted because it is referenced on your variants.",
+          confirmLabel: "Delete attribute",
+          cancelLabel: "Close",
+          hideConfirm: true,
+        };
+      }
       return {
-        title: "Delete group?",
+        title: "Delete attribute?",
         description:
-          "You are about to permanently delete this group. This action cannot be undone.",
-        confirmLabel: "Delete group",
+          "You are about to permanently delete this attribute. This action cannot be undone.",
+        confirmLabel: "Delete attribute",
+        cancelLabel: "Cancel",
+        hideConfirm: false,
       };
     }
 
-    if (deleteDialog.mode === "single-value") {
+    if (displayDeleteDialog.mode === "single-value") {
+      if (deleteDialogBlockState.blocked) {
+        return {
+          title: "Attribute value can't be deleted",
+          description:
+            "This attribute value can't be deleted because it is referenced on your variants.",
+          confirmLabel: "Delete value",
+          cancelLabel: "Close",
+          hideConfirm: true,
+        };
+      }
       return {
         title: "Delete value?",
         description:
           "You are about to permanently delete this value. This action cannot be undone.",
         confirmLabel: "Delete value",
+        cancelLabel: "Cancel",
+        hideConfirm: false,
       };
     }
 
-    const groupCount = deleteDialog.groupIds.length;
-    const valueCount = deleteDialog.valueIds.length;
+    const groupCount = displayDeleteDialog.groupIds.length;
+    const valueCount = displayDeleteDialog.valueIds.length;
     const totalCount = groupCount + valueCount;
+
+    if (deleteDialogBlockState.blocked) {
+      const parts: string[] = [];
+      if (deleteDialogBlockState.blockedGroupCount > 0) {
+        parts.push(
+          `${deleteDialogBlockState.blockedGroupCount} attribute${deleteDialogBlockState.blockedGroupCount === 1 ? "" : "s"}`,
+        );
+      }
+      if (deleteDialogBlockState.blockedValueCount > 0) {
+        parts.push(
+          `${deleteDialogBlockState.blockedValueCount} value${deleteDialogBlockState.blockedValueCount === 1 ? "" : "s"}`,
+        );
+      }
+      const totalBlocked =
+        deleteDialogBlockState.blockedGroupCount +
+        deleteDialogBlockState.blockedValueCount;
+      return {
+        title: "Selected items can't be deleted",
+        description: `${parts.join(" and ")} ${totalBlocked === 1 ? "is" : "are"} referenced on your variants and can't be deleted.`,
+        confirmLabel: `Delete ${totalCount} item${totalCount === 1 ? "" : "s"}`,
+        cancelLabel: "Close",
+        hideConfirm: true,
+      };
+    }
 
     let breakdown = "";
     if (groupCount > 0 && valueCount > 0) {
-      breakdown = ` (${groupCount} group${groupCount === 1 ? "" : "s"} and ${valueCount} value${valueCount === 1 ? "" : "s"})`;
+      breakdown = ` (${groupCount} attribute${groupCount === 1 ? "" : "s"} and ${valueCount} value${valueCount === 1 ? "" : "s"})`;
     } else if (groupCount > 0) {
-      breakdown = ` (${groupCount} group${groupCount === 1 ? "" : "s"})`;
+      breakdown = ` (${groupCount} attribute${groupCount === 1 ? "" : "s"})`;
     } else if (valueCount > 0) {
       breakdown = ` (${valueCount} value${valueCount === 1 ? "" : "s"})`;
     }
@@ -838,8 +774,10 @@ export function AttributesSection() {
       title: `Delete ${totalCount} item${totalCount === 1 ? "" : "s"}?`,
       description: `You are about to permanently delete ${totalCount} selected item${totalCount === 1 ? "" : "s"}${breakdown}. This action cannot be undone.`,
       confirmLabel: `Delete ${totalCount} item${totalCount === 1 ? "" : "s"}`,
+      cancelLabel: "Cancel",
+      hideConfirm: false,
     };
-  }, [deleteDialog]);
+  }, [displayDeleteDialog, deleteDialogBlockState]);
 
   return (
     <div className="h-full min-h-0 w-full max-w-[1200px]">
@@ -855,22 +793,10 @@ export function AttributesSection() {
                   type="button"
                   variant="outline"
                   size="default"
-                  onClick={() => setGroupDialog({ mode: "create" })}
+                  onClick={() => setCreateGroupDraftRequestNonce(Date.now())}
                 >
                   <Icons.Plus className="h-[14px] w-[14px]" />
-                  <span className="px-1">New group</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="default"
-                  onClick={() =>
-                    setValueDialog({ mode: "create", groupId: selectedGroupForToolbarValue })
-                  }
-                  disabled={allGroups.length === 0}
-                >
-                  <Icons.Plus className="h-[14px] w-[14px]" />
-                  <span className="px-1">New value</span>
+                  <span className="px-1">New attribute</span>
                 </Button>
               </div>
             }
@@ -888,51 +814,21 @@ export function AttributesSection() {
           selectedValueIds={selectedValueIds}
           onSelectedGroupIdsChange={setSelectedGroupIds}
           onSelectedValueIdsChange={setSelectedValueIds}
-          onCreateGroup={() => setGroupDialog({ mode: "create" })}
+          onCreateGroup={() => setCreateGroupDraftRequestNonce(Date.now())}
+          createGroupDraftRequestNonce={createGroupDraftRequestNonce}
+          onCreateGroupInline={handleCreateGroupInline}
+          taxonomyAttributes={taxonomyAttributes as TaxonomyAttribute[]}
+          taxonomyValuesByAttribute={taxonomyValuesByAttribute}
+          onCreateValueInline={handleCreateValueInline}
           onDeleteGroup={handleDeleteGroup}
-          onAddValue={(group) => {
-            if (searchValue.trim()) {
-              setCollapsedGroupIds((prev) => {
-                const next = new Set(prev);
-                next.delete(group.id);
-                return next;
-              });
-            }
-            setValueDialog({ mode: "create", groupId: group.id });
-          }}
           onDeleteValue={handleDeleteValue}
           onRenameGroup={handleRenameGroup}
           onRenameValue={handleRenameValue}
+          onUpdateGroupTaxonomyLink={handleUpdateGroupTaxonomyLink}
+          onUpdateValueTaxonomyLink={handleUpdateValueTaxonomyLink}
           hasSearch={searchValue.trim().length > 0}
         />
       </EntityTableShell>
-
-      <AttributeGroupDialog
-        open={groupDialog !== null}
-        onOpenChange={(open) => {
-          if (!open) setGroupDialog(null);
-        }}
-        mode={groupDialog?.mode ?? "create"}
-        initialGroup={groupDialogInitial}
-        taxonomyAttributes={taxonomyAttributes}
-        existingGroups={allGroups}
-        onSubmit={handleSubmitGroup}
-        isSaving={createAttributeMutation.isPending || updateAttributeMutation.isPending}
-      />
-
-      <AttributeValueDialog
-        open={valueDialog !== null}
-        onOpenChange={(open) => {
-          if (!open) setValueDialog(null);
-        }}
-        mode={valueDialog?.mode ?? "create"}
-        groups={allGroups}
-        taxonomyValuesByAttribute={taxonomyValuesByAttribute}
-        initialGroupId={valueDialogInitialGroupId}
-        initialValue={valueDialogInitialValue}
-        onSubmit={handleSubmitValue}
-        isSaving={createValueMutation.isPending || updateValueMutation.isPending}
-      />
 
       <DeleteConfirmationDialog
         open={deleteDialog !== null}
@@ -942,6 +838,8 @@ export function AttributesSection() {
         title={deleteDialogCopy.title}
         description={deleteDialogCopy.description}
         confirmLabel={deleteDialogCopy.confirmLabel}
+        cancelLabel={deleteDialogCopy.cancelLabel}
+        hideConfirm={deleteDialogCopy.hideConfirm}
         onConfirm={handleConfirmDelete}
         isPending={isDeletePending}
       />

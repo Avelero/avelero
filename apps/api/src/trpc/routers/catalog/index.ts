@@ -17,6 +17,8 @@ import type { Database } from "@v1/db/client";
  */
 import {
   batchCreateBrandAttributeValues,
+  countBrandAttributeValueVariantReferences,
+  countBrandAttributeVariantReferences,
   createBrandAttribute,
   createBrandAttributeValue,
   createBrandManufacturer,
@@ -96,7 +98,11 @@ import {
   transformOperatorInput,
   transformSeasonInput,
 } from "../../../utils/catalog-transform.js";
-import { notFound, wrapError } from "../../../utils/errors.js";
+import {
+  businessRuleViolation,
+  notFound,
+  wrapError,
+} from "../../../utils/errors.js";
 import {
   createEntityResponse,
   createListResponse,
@@ -393,11 +399,36 @@ export const catalogRouter = createTRPCRouter({
       "attribute",
       transformBrandAttributeInput,
     ),
-    delete: createDeleteProcedure(
-      deleteBrandAttributeSchema,
-      deleteBrandAttribute,
-      "attribute",
-    ),
+    delete: brandRequiredProcedure
+      .input(deleteBrandAttributeSchema)
+      .mutation(async ({ ctx, input }) => {
+        const brandCtx = ctx as BrandContext;
+        try {
+          const variantReferenceCount = await countBrandAttributeVariantReferences(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.id,
+          );
+          if (variantReferenceCount > 0) {
+            throw businessRuleViolation(
+              "This attribute can't be deleted because it is referenced on your variants",
+            );
+          }
+
+          const result = await deleteBrandAttribute(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.id,
+          );
+          if (!result) {
+            throw notFound("attribute", input.id);
+          }
+
+          return createEntityResponse(result);
+        } catch (error) {
+          throw wrapError(error, "Failed to delete attribute");
+        }
+      }),
   }),
 
   /**
@@ -436,11 +467,37 @@ export const catalogRouter = createTRPCRouter({
       "attribute value",
       transformBrandAttributeValueInput,
     ),
-    delete: createDeleteProcedure(
-      deleteBrandAttributeValueSchema,
-      deleteBrandAttributeValue,
-      "attribute value",
-    ),
+    delete: brandRequiredProcedure
+      .input(deleteBrandAttributeValueSchema)
+      .mutation(async ({ ctx, input }) => {
+        const brandCtx = ctx as BrandContext;
+        try {
+          const variantReferenceCount =
+            await countBrandAttributeValueVariantReferences(
+              brandCtx.db,
+              brandCtx.brandId,
+              input.id,
+            );
+          if (variantReferenceCount > 0) {
+            throw businessRuleViolation(
+              "This attribute value can't be deleted because it is referenced on your variants",
+            );
+          }
+
+          const result = await deleteBrandAttributeValue(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.id,
+          );
+          if (!result) {
+            throw notFound("attribute value", input.id);
+          }
+
+          return createEntityResponse(result);
+        } catch (error) {
+          throw wrapError(error, "Failed to delete attribute value");
+        }
+      }),
     batchCreate: brandRequiredProcedure
       .input(batchCreateBrandAttributeValuesSchema)
       .mutation(async ({ ctx, input }) => {

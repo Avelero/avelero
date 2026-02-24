@@ -5,6 +5,7 @@ import {
   SettingsTableEmptyState,
 } from "@/components/tables/settings/shared";
 import { Icons } from "@v1/ui/icons";
+import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { getTagColumns } from "./columns";
 import {
@@ -46,6 +47,21 @@ export function TagsTable({
   } | null>(null);
   const [draftRow, setDraftRow] = React.useState<DraftTagListItem | null>(null);
 
+  const spawnDraftRow = React.useCallback((focusNonce?: number) => {
+    const nonce = focusNonce ?? Date.now();
+    setDraftRow({
+      id: DRAFT_TAG_ROW_ID,
+      __draft: true,
+      name: "",
+      hex: "000000",
+      createdAt: null,
+      updatedAt: null,
+      products_count: 0,
+    });
+    setEditingTagId(DRAFT_TAG_ROW_ID);
+    setFocusRequest({ tagId: DRAFT_TAG_ROW_ID, nonce });
+  }, []);
+
   React.useEffect(() => {
     if (!editingTagId) return;
     const exists =
@@ -57,10 +73,8 @@ export function TagsTable({
 
   React.useEffect(() => {
     if (!createDraftRequestNonce) return;
-
-    setDraftRow((prev) => {
-      if (prev) return prev;
-      return {
+    setDraftRow((prev) =>
+      prev ?? {
         id: DRAFT_TAG_ROW_ID,
         __draft: true,
         name: "",
@@ -68,9 +82,8 @@ export function TagsTable({
         createdAt: null,
         updatedAt: null,
         products_count: 0,
-      };
-    });
-
+      },
+    );
     setEditingTagId(DRAFT_TAG_ROW_ID);
     setFocusRequest({ tagId: DRAFT_TAG_ROW_ID, nonce: createDraftRequestNonce });
   }, [createDraftRequestNonce]);
@@ -145,8 +158,14 @@ export function TagsTable({
           }
         },
         onUpdateTagColor: handleChangeTagColor,
+        onDraftCreateCommittedByEnter: () => {
+          spawnDraftRow();
+        },
+        onDraftEmptyEnter: () => {
+          toast.error("Tag name is required");
+        },
       }),
-    [editingTagId, focusRequest, handleChangeTagColor, handleCommitTagName],
+    [editingTagId, focusRequest, handleChangeTagColor, handleCommitTagName, spawnDraftRow],
   );
 
   return (

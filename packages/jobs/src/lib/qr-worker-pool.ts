@@ -1,49 +1,83 @@
 import { availableParallelism, cpus } from "node:os";
-import { Worker } from "node:worker_threads";
+import {
+  Worker,
+  isMainThread,
+  parentPort,
+  workerData,
+} from "node:worker_threads";
 import type { GenerateQrPngOptions } from "./qr-export";
 import { generateQrPng } from "./qr-export";
 
 const DEFAULT_MAX_WORKERS = 6;
+const QR_WORKER_KIND = "qr-png-generator";
+const QR_WORKER_PROBE_DATA = "https://example.com/01/00000000000000";
 
-// SECURITY: Keep this worker source static and hardcoded. Never interpolate
-// runtime/user input because it is executed with `eval: true`.
-const WORKER_SOURCE = `
-  const { parentPort } = require("node:worker_threads");
-  const QRCode = require("qrcode");
+interface WorkerGenerateRequest {
+  id: number;
+  data: string;
+  options?: GenerateQrPngOptions;
+}
 
-  if (!parentPort) {
-    throw new Error("Worker parent port is unavailable");
-  }
+interface QrWorkerBootstrapData {
+  kind: typeof QR_WORKER_KIND;
+}
 
-  parentPort.on("message", async (message) => {
-    const { id, data, options } = message;
-    try {
-      const buffer = await QRCode.toBuffer(data, {
-        type: "png",
-        width: options?.width,
-        margin: options?.margin,
-        errorCorrectionLevel: options?.errorCorrectionLevel,
-      });
-
-      const bytes = new Uint8Array(buffer);
-      parentPort.postMessage({ id, success: true, bytes }, [bytes.buffer]);
-    } catch (error) {
-      parentPort.postMessage({
-        id,
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  });
-`;
-
-function createWorkerThread(): Worker {
-  return new Worker(WORKER_SOURCE, { eval: true });
+function isQrWorkerBootstrapData(
+  value: unknown,
+): value is QrWorkerBootstrapData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "kind" in value &&
+    (value as { kind?: unknown }).kind === QR_WORKER_KIND
+  );
 }
 
 type WorkerResponse =
   | { id: number; success: true; bytes: Uint8Array }
   | { id: number; success: false; error: string };
+
+async function handleWorkerRequest(
+  message: WorkerGenerateRequest,
+): Promise<void> {
+  if (!parentPort) {
+    throw new Error("Worker parent port is unavailable");
+  }
+
+  const { id, data, options } = message;
+
+  try {
+    const buffer = await generateQrPng(data, options);
+    const bytes = new Uint8Array(buffer);
+    parentPort.postMessage({ id, success: true, bytes }, [bytes.buffer]);
+  } catch (error) {
+    parentPort.postMessage({
+      id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+function initializeQrWorkerRuntime(): void {
+  if (!parentPort) {
+    throw new Error("Worker parent port is unavailable");
+  }
+
+  parentPort.on("message", (message: WorkerGenerateRequest) => {
+    void handleWorkerRequest(message);
+  });
+}
+
+if (!isMainThread && isQrWorkerBootstrapData(workerData)) {
+  initializeQrWorkerRuntime();
+}
+
+function createWorkerThread(): Worker {
+  return new Worker(new URL(import.meta.url), {
+    workerData: { kind: QR_WORKER_KIND } satisfies QrWorkerBootstrapData,
+  });
+}
 
 interface QueueTask {
   id: number;
@@ -114,6 +148,14 @@ class WorkerThreadQrPngGenerator implements QrPngGenerator {
       };
       this.queue.push(task);
       this.dispatch();
+    });
+  }
+
+  async probe(): Promise<void> {
+    await this.generate(QR_WORKER_PROBE_DATA, {
+      width: 64,
+      margin: 1,
+      errorCorrectionLevel: "L",
     });
   }
 
@@ -309,14 +351,23 @@ function normalizeWorkerCount(maxWorkers?: number): number {
   return Math.max(1, Math.min(maxWorkers, cpuCount));
 }
 
-export function createQrPngGenerator(maxWorkers?: number): QrPngGenerator {
+export async function createQrPngGenerator(
+  maxWorkers?: number,
+): Promise<QrPngGenerator> {
   const workerCount = normalizeWorkerCount(maxWorkers);
   if (workerCount <= 1) {
     return new MainThreadQrPngGenerator();
   }
 
   try {
-    return new WorkerThreadQrPngGenerator(workerCount);
+    const generator = new WorkerThreadQrPngGenerator(workerCount);
+    try {
+      await generator.probe();
+      return generator;
+    } catch {
+      await generator.dispose();
+      throw new Error("QR worker pool probe failed");
+    }
   } catch {
     return new MainThreadQrPngGenerator();
   }

@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBrandBySlug, getBrandTheme } from "@v1/db/queries";
 import { getPublicDppByUpid } from "@v1/db/queries/dpp";
 import {
@@ -20,67 +19,7 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
  * - Input validation on all parameters
  */
 import { z } from "zod";
-
-// ============================================================================
-// Helper: Resolve themeConfig image paths to full URLs
-// ============================================================================
-
-/**
- * Resolve image paths in themeConfig to full public URLs.
- *
- * ThemeConfig stores storage PATHS (not full URLs) for images.
- * This function converts those paths to full URLs using the current
- * environment's Supabase URL.
- */
-function resolveThemeConfigImageUrls<T extends Record<string, unknown> | null>(
-  supabase: SupabaseClient,
-  themeConfig: T,
-): T {
-  if (!themeConfig) return themeConfig;
-
-  // Deep clone to avoid mutating the original
-  const resolved = JSON.parse(JSON.stringify(themeConfig)) as Record<
-    string,
-    unknown
-  >;
-
-  // Resolve branding.headerLogoUrl
-  if (
-    resolved.branding &&
-    typeof resolved.branding === "object" &&
-    resolved.branding !== null
-  ) {
-    const branding = resolved.branding as Record<string, unknown>;
-    if (typeof branding.headerLogoUrl === "string" && branding.headerLogoUrl) {
-      branding.headerLogoUrl = getPublicUrl(
-        supabase,
-        "dpp-assets",
-        branding.headerLogoUrl,
-      );
-    }
-  }
-
-  // Resolve cta.bannerBackgroundImage
-  if (
-    resolved.cta &&
-    typeof resolved.cta === "object" &&
-    resolved.cta !== null
-  ) {
-    const cta = resolved.cta as Record<string, unknown>;
-    if (
-      typeof cta.bannerBackgroundImage === "string" &&
-      cta.bannerBackgroundImage
-    ) {
-      cta.bannerBackgroundImage = getPublicUrl(
-        supabase,
-        "dpp-assets",
-        cta.bannerBackgroundImage,
-      );
-    }
-  }
-
-  return resolved as T;
-}
+import { resolveThemeConfigImageUrls } from "../../../utils/theme-config-images.js";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
 import { createTRPCRouter, publicProcedure } from "../../init.js";
 

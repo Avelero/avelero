@@ -60,7 +60,7 @@ export interface PublicDppResult {
   /** The passport data */
   passport: {
     id: string;
-    brandId: string;
+    brandId: string | null;
     workingVariantId: string | null;
     firstPublishedAt: string;
   } | null;
@@ -223,10 +223,20 @@ export async function getPublicDppByUpid(
  * Uses a single JOIN query for optimal performance.
  *
  * @param db - Database instance
- * @param brandId - The brand ID
+ * @param brandId - The brand ID (nullable for deleted brands)
  * @returns Theme configuration and styles
  */
-async function fetchBrandTheme(db: Database, brandId: string) {
+async function fetchBrandTheme(db: Database, brandId: string | null) {
+  if (!brandId) {
+    return {
+      brandSlug: null,
+      config: null,
+      styles: null,
+      stylesheetPath: null,
+      googleFontsUrl: null,
+    };
+  }
+
   const [result] = await db
     .select({
       slug: brands.slug,

@@ -18,7 +18,7 @@ import { productVariants } from "./product-variants";
  * publishing layer that ensures QR codes remain resolvable indefinitely.
  *
  * Key design decisions:
- * - brand_id does NOT have cascade delete - passports persist even if brand is deleted
+ * - brand_id uses ON DELETE SET NULL - passports persist even if brand is deleted
  * - working_variant_id uses ON DELETE SET NULL - link severed when variant deleted
  * - current_version_id will be set after first publish (references dpp_versions)
  * - status tracks whether passport is 'active' (linked to variant) or 'orphaned' (variant deleted)
@@ -36,14 +36,13 @@ export const productPassports = pgTable(
     upid: text("upid").notNull().unique(),
     /**
      * Reference to the brand that owns this passport.
-     * CRITICAL: No cascade delete - passports must persist even if brand is deleted.
+     * Nullable after brand deletion to preserve passports and their QR URLs.
      */
     brandId: uuid("brand_id")
       .references(() => brands.id, {
-        onDelete: "no action",
+        onDelete: "set null",
         onUpdate: "cascade",
-      })
-      .notNull(),
+      }),
     /**
      * Reference to the working variant in the editable layer.
      * Becomes NULL if the variant is deleted (ON DELETE SET NULL).

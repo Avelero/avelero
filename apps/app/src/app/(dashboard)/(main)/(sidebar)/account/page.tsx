@@ -8,7 +8,7 @@ import { connection } from "next/server";
 export default async function AccountPage() {
   await connection();
 
-  batchPrefetch([
+  await batchPrefetch([
     trpc.user.brands.list.queryOptions(),
     trpc.user.invites.list.queryOptions(),
   ]);

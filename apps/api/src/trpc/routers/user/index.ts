@@ -47,7 +47,11 @@ import {
   wrapError,
 } from "../../../utils/errors.js";
 import { createSuccessResponse } from "../../../utils/response.js";
-import { createTRPCRouter, protectedProcedure } from "../../init.js";
+import {
+  createTRPCRouter,
+  platformAdminProcedure,
+  protectedProcedure,
+} from "../../init.js";
 
 interface MinimalUserRecord {
   id: string;
@@ -497,9 +501,9 @@ export const userRouter = createTRPCRouter({
 
     /**
      * Creates a new brand with the current user as owner.
-     * Moved from workflow.create.
+     * Reserved for platform admins while customer self-serve is disabled.
      */
-    create: protectedProcedure
+    create: platformAdminProcedure
       .input(brandCreateSchema)
       .mutation(async ({ ctx, input }) => {
         const { db, user } = ctx;

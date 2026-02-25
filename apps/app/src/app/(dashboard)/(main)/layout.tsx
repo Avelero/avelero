@@ -1,3 +1,4 @@
+import { BrandAccessGate } from "@/components/access/brand-access-gate";
 import { getQueryClient, trpc } from "@/trpc/server";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -29,7 +30,6 @@ export default async function MainLayout({
 
   const user = initDashboard.user;
   const brands = initDashboard.brands;
-  const invites = initDashboard.myInvites;
 
   // Redirect logic for incomplete users
   // These destinations are OUTSIDE (main), so no infinite loops
@@ -37,13 +37,13 @@ export default async function MainLayout({
     redirect("/setup");
   }
 
-  if (brands.length === 0 && invites.length === 0) {
-    redirect("/create-brand");
+  if (brands.length === 0) {
+    redirect("/pending-access");
   }
 
-  if (brands.length === 0 && invites.length > 0) {
-    redirect("/invites");
-  }
-
-  return children;
+  return (
+    <BrandAccessGate brandAccess={initDashboard.brandAccess}>
+      {children}
+    </BrandAccessGate>
+  );
 }

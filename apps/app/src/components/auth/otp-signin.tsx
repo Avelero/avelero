@@ -1,5 +1,6 @@
 "use client";
 
+import { checkOtpAuthEligibilityAction } from "@/actions/auth/check-otp-auth-eligibility-action";
 import { verifyOtpAction } from "@/actions/auth/verify-otp-action";
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
@@ -44,6 +45,7 @@ function sanitizeErrorMessage(message: string | undefined): string {
 }
 
 export function OTPSignIn({ className }: Props) {
+  const checkOtpAuthEligibility = useAction(checkOtpAuthEligibilityAction);
   const verifyOtp = useAction(verifyOtpAction);
   const [isLoading, setLoading] = useState(false);
   const [isSent, setSent] = useState(false);
@@ -67,6 +69,7 @@ export function OTPSignIn({ className }: Props) {
     setEmail(undefined);
     setSendError(null);
     setLoading(false);
+    checkOtpAuthEligibility.reset();
     verifyOtp.reset();
   }, [pathname]);
 
@@ -93,14 +96,52 @@ export function OTPSignIn({ className }: Props) {
     setLoading(true);
     setEmail(emailValue);
 
+    const eligibilityResult = await checkOtpAuthEligibility.executeAsync({
+      email: emailValue,
+    });
+
+    if (eligibilityResult?.serverError) {
+      setSendError(sanitizeErrorMessage(eligibilityResult.serverError));
+      setLoading(false);
+      return;
+    }
+
+    const eligibility = eligibilityResult?.data?.status;
+    const shouldCreateUser = eligibility === "pending_invite";
+
+    if (eligibility === "not_found") {
+      setSendError("This account doesn't exist. Ask brand owner for an invite.");
+      setLoading(false);
+      return;
+    }
+
+    if (!eligibility) {
+      setSendError("Something went wrong. Please try again.");
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
       email: emailValue,
       options: {
-        shouldCreateUser: true,
+        shouldCreateUser,
       },
     });
 
     if (error) {
+      const loweredMessage = (error.message ?? "").toLowerCase();
+      if (
+        loweredMessage.includes("account_not_found") ||
+        loweredMessage.includes("invite_required") ||
+        loweredMessage.includes("user not found") ||
+        loweredMessage.includes("signups not allowed") ||
+        loweredMessage.includes("signup is disabled")
+      ) {
+        setSendError("This account doesn't exist. Ask brand owner for an invite.");
+        setLoading(false);
+        return;
+      }
+
       setSendError(sanitizeErrorMessage(error.message));
       setLoading(false);
       return;
@@ -138,6 +179,7 @@ export function OTPSignIn({ className }: Props) {
     setSent(false);
     setOtpValue("");
     setSendError(null);
+    checkOtpAuthEligibility.reset();
     verifyOtp.reset();
   };
 

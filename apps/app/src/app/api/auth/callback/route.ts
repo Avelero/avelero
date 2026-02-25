@@ -1,7 +1,24 @@
+import {
+  getInviteErrorRedirectPath,
+  redeemInviteTokenHash,
+} from "@/lib/auth/invite-redemption";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
 import { createClient } from "@v1/supabase/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+
+function mapAuthCodeErrorToPath(message: string | undefined): string {
+  const normalizedMessage = (message ?? "").toLowerCase();
+  const isAccountNotFound =
+    normalizedMessage.includes("account_not_found") ||
+    normalizedMessage.includes("invite_required") ||
+    normalizedMessage.includes("user not found") ||
+    normalizedMessage.includes("signups not allowed") ||
+    normalizedMessage.includes("signup is disabled");
+
+  const code = isAccountNotFound ? "account_not_found" : "auth-code-error";
+  return `/login?error=${encodeURIComponent(code)}`;
+}
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -15,26 +32,26 @@ export async function GET(request: Request) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
-      return NextResponse.redirect(`${origin}/login?error=auth-code-error`);
+      return NextResponse.redirect(
+        `${origin}${mapAuthCodeErrorToPath(error.message)}`,
+      );
     }
   }
 
-  // Post-auth invite redemption via cookie (best effort)
+  // Post-auth invite redemption via cookie.
   const { data: userRes } = await supabase.auth.getUser();
   const user = userRes?.user ?? null;
   const cookieStore = await cookies();
   const cookieHash = cookieStore.get("brand_invite_token_hash")?.value ?? null;
   let acceptedBrand = false;
+  let inviteErrorPath: string | null = null;
+
   if (user && cookieHash) {
-    try {
-      // Use SECURITY DEFINER RPC to accept invite atomically
-      const { error: rpcError } = await supabase.rpc(
-        "accept_invite_from_cookie",
-        { p_token: cookieHash },
-      );
-      if (!rpcError) acceptedBrand = true;
-    } catch {
-      // ignore failures
+    const redemption = await redeemInviteTokenHash(supabase, cookieHash);
+    if (redemption.ok) {
+      acceptedBrand = true;
+    } else {
+      inviteErrorPath = getInviteErrorRedirectPath(redemption.errorCode);
     }
   }
 
@@ -51,14 +68,16 @@ export async function GET(request: Request) {
     baseUrl = origin;
   }
 
-  const redirectPath = acceptedBrand
-    ? "/"
-    : await resolveAuthRedirectPath({
-        next,
-        returnTo,
-        client: supabase,
-        user,
-      });
+  const redirectPath =
+    inviteErrorPath ??
+    (acceptedBrand
+      ? "/"
+      : await resolveAuthRedirectPath({
+          next,
+          returnTo,
+          client: supabase,
+          user,
+        }));
 
   // Build response and clear the invite cookie if present
   const response = NextResponse.redirect(`${baseUrl}${redirectPath}`, 303);

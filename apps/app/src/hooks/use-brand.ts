@@ -236,9 +236,9 @@ export function useLeaveBrandMutation() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  // Prefetch create-brand route for post-leave navigation
+  // Prefetch pending-access route for post-leave navigation
   useEffect(() => {
-    router.prefetch("/create-brand");
+    router.prefetch("/pending-access");
   }, [router]);
 
   return useMutation(
@@ -261,8 +261,8 @@ export function useLeaveBrandMutation() {
         const nextBrandId =
           (res as { nextBrandId?: string | null } | undefined)?.nextBrandId ??
           null;
-        // Redirect to brand creation when user has no brands left
-        if (!nextBrandId) router.push("/create-brand");
+        // Redirect to pending-access when user has no brands left
+        if (!nextBrandId) router.push("/pending-access");
         router.refresh();
       },
     }),

@@ -2,7 +2,6 @@
 
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import Link from "next/link";
 
 interface Props {
   activeTab: "brands" | "invites";
@@ -11,7 +10,7 @@ interface Props {
 
 export function BrandsHeader({ activeTab, onTabChange }: Props) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center">
       <div className="flex items-center gap-2">
         <Button
           variant={activeTab === "brands" ? "outline" : "ghost"}
@@ -36,12 +35,6 @@ export function BrandsHeader({ activeTab, onTabChange }: Props) {
           Invites
         </Button>
       </div>
-
-      <Button asChild>
-        <Link href="/create-brand" prefetch>
-          Create brand
-        </Link>
-      </Button>
     </div>
   );
 }

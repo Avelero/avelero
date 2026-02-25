@@ -53,8 +53,7 @@ export function SetupForm() {
   // Prefetch possible navigation routes
   useEffect(() => {
     router.prefetch("/");
-    router.prefetch("/create-brand");
-    router.prefetch("/invites");
+    router.prefetch("/pending-access");
   }, [router]);
 
   const updateUserMutation = useMutation(
@@ -70,19 +69,15 @@ export function SetupForm() {
         await queryClient.invalidateQueries({
           queryKey: trpc.composite.initDashboard.queryKey(),
         });
-        const [brands, invites] = await Promise.all([
-          queryClient.fetchQuery(trpc.user.brands.list.queryOptions()),
-          queryClient.fetchQuery(trpc.user.invites.list.queryOptions()),
-        ]);
+        const brands = await queryClient.fetchQuery(
+          trpc.user.brands.list.queryOptions(),
+        );
         const hasBrands = Array.isArray(brands) && brands.length > 0;
-        const hasInvites = Array.isArray(invites) && invites.length > 0;
 
         if (hasBrands) {
           router.push("/");
-        } else if (hasInvites) {
-          router.push("/invites");
         } else {
-          router.push("/create-brand");
+          router.push("/pending-access");
         }
       },
       onError: (err) => {

@@ -5,6 +5,7 @@ import {
   DEFAULT_THEME_STYLES,
 } from "../../defaults/theme-defaults";
 import { seedBrandCatalogDefaults } from "../catalog/seeding";
+import { createDefaultBrandControl } from "./control";
 import { brandMembers, brandTheme, brands, users } from "../../schema";
 
 // Type for database operations that works with both regular db and transactions
@@ -255,6 +256,8 @@ export async function createBrand(
       })
       .returning({ id: brands.id, slug: brands.slug });
     if (!brand) throw new Error("Failed to create brand");
+
+    await createDefaultBrandControl(tx, brand.id);
 
     // Seed default theme configuration for the new brand
     await tx.insert(brandTheme).values({

@@ -11,7 +11,7 @@ import { connection } from "next/server";
 export default async function SettingsPage() {
   await connection();
 
-  batchPrefetch([
+  await batchPrefetch([
     trpc.user.brands.list.queryOptions(),
     trpc.composite.membersWithInvites.queryOptions({}),
     trpc.brand.customDomains.get.queryOptions(),

@@ -1,6 +1,10 @@
 "use server";
 
 import { actionClient } from "@/actions/safe-action";
+import {
+  getInviteErrorRedirectPath,
+  redeemInviteTokenHash,
+} from "@/lib/auth/invite-redemption";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
 import { createClient } from "@v1/supabase/server";
 import { cookies } from "next/headers";
@@ -70,19 +74,23 @@ export const verifyOtpAction = actionClient
     const cookieHash =
       cookieStore.get("brand_invite_token_hash")?.value ?? null;
     let acceptedBrand = false;
+    let inviteErrorPath: string | null = null;
 
     if (user && cookieHash) {
-      try {
-        const { error: rpcError } = await supabase.rpc(
-          "accept_invite_from_cookie",
-          { p_token: cookieHash },
-        );
-        if (!rpcError) acceptedBrand = true;
-      } finally {
-        // clear cookie regardless
-        const cs = await cookies();
-        cs.set("brand_invite_token_hash", "", { maxAge: 0, path: "/" });
+      const redemption = await redeemInviteTokenHash(supabase, cookieHash);
+      if (redemption.ok) {
+        acceptedBrand = true;
+      } else {
+        inviteErrorPath = getInviteErrorRedirectPath(redemption.errorCode);
       }
+    }
+
+    if (cookieHash) {
+      cookieStore.set("brand_invite_token_hash", "", { maxAge: 0, path: "/" });
+    }
+
+    if (inviteErrorPath) {
+      redirect(inviteErrorPath);
     }
 
     const destination = acceptedBrand

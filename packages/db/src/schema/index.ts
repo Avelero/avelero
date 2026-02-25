@@ -1,11 +1,13 @@
 // Core schemas
 export * from "./core/users";
 export * from "./core/brands";
+export * from "./core/platform-admin-audit-logs";
 
 // Brand schemas
 export * from "./brands/brand-collections";
 export * from "./brands/brand-members";
 export * from "./brands/brand-invites";
+export * from "./brands/brand-control";
 export * from "./brands/brand-tags";
 export * from "./brands/brand-theme";
 export * from "./brands/brand-custom-domains";

@@ -11,6 +11,7 @@
  * - @v1/db/queries/dpp
  * - @v1/db/queries/user
  * - @v1/db/queries/taxonomy
+ * - @v1/db/queries/admin
  */
 
 // =============================================================================
@@ -25,6 +26,7 @@ export * from "./dpp/index";
 export * from "./integrations/index";
 export * from "./bulk/index";
 export * from "./notifications/index";
+export * from "./admin/index";
 
 // =============================================================================
 // Drizzle-ORM utilities

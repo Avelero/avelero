@@ -1,4 +1,9 @@
-import crypto from "node:crypto";
+import {
+  getInviteErrorRedirectPath,
+  redeemInviteTokenHash,
+  resolveInviteTokenHash,
+} from "@/lib/auth/invite-redemption";
+import { createClient } from "@v1/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -8,25 +13,34 @@ export async function GET(request: Request) {
 
   const loginUrl = new URL("/login", url.origin);
 
-  if (!tokenHashParam && !rawToken) {
-    loginUrl.searchParams.set("invite", "invalid");
-    return NextResponse.redirect(loginUrl);
+  const tokenHash = resolveInviteTokenHash(tokenHashParam, rawToken);
+  if (!tokenHash) {
+    const errorPath = getInviteErrorRedirectPath("invalid_token");
+    return NextResponse.redirect(new URL(errorPath, url.origin));
   }
 
-  const tokenHash = tokenHashParam
-    ? tokenHashParam
-    : crypto
-        .createHash("sha256")
-        .update(rawToken as string)
-        .digest("hex");
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const res = NextResponse.redirect(loginUrl);
-  res.cookies.set("brand_invite_token_hash", tokenHash, {
+  if (user) {
+    const redemption = await redeemInviteTokenHash(supabase, tokenHash);
+    if (redemption.ok) {
+      return NextResponse.redirect(new URL("/", url.origin));
+    }
+
+    const errorPath = getInviteErrorRedirectPath(redemption.errorCode);
+    return NextResponse.redirect(new URL(errorPath, url.origin));
+  }
+
+  const response = NextResponse.redirect(loginUrl);
+  response.cookies.set("brand_invite_token_hash", tokenHash, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV !== "development",
     maxAge: 30 * 60,
     path: "/",
   });
-  return res;
+  return response;
 }

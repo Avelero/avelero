@@ -220,15 +220,6 @@ export async function createBrandInvites(
 
   const inserted = await Promise.all(
     valid.map(async (i) => {
-      const emailLower = i.email.toLowerCase();
-
-      const existingUser = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(sql`LOWER("users"."email") = ${emailLower}`)
-        .limit(1);
-      const isExistingUser = existingUser.length > 0;
-
       const rawToken = randomBytes(32).toString("hex");
       const tokenHash = createHash("sha256").update(rawToken).digest("hex");
       const expiresAt = new Date(
@@ -264,7 +255,6 @@ export async function createBrandInvites(
         role: row.role,
         brand: brand[0] ?? null,
         tokenHash: row.tokenHash ?? null,
-        isExistingUser,
       } as const;
     }),
   );

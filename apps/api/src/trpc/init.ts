@@ -16,6 +16,7 @@ import type { DataLoaders } from "../utils/dataloader.js";
 import { createDataLoaders } from "../utils/dataloader.js";
 import { noBrandSelected, unauthorized } from "../utils/errors.js";
 import { ensureBrandContext } from "./middleware/auth/brand.js";
+import { assertPlatformAdmin } from "./middleware/auth/platform-admin.js";
 
 /**
  * Stores lightweight geographic hints sourced from request headers.
@@ -246,6 +247,11 @@ const requireBrand = t.middleware(({ ctx, next }) => {
   });
 });
 
+const requirePlatformAdmin = t.middleware(({ ctx, next }) => {
+  assertPlatformAdmin(ctx);
+  return next();
+});
+
 /**
  * Base procedure for public endpoints that still require database access.
  */
@@ -283,6 +289,15 @@ export const protectedProcedure = t.procedure
  * @returns Context with non-null brandId guaranteed.
  */
 export const brandRequiredProcedure = protectedProcedure.use(requireBrand);
+
+/**
+ * Procedure variant for platform-level administrative operations.
+ *
+ * Requires authentication and an explicit platform admin allowlist match.
+ */
+export const platformAdminProcedure = protectedProcedure.use(
+  requirePlatformAdmin,
+);
 
 /**
  * Creates type-safe server callers for SSR and worker contexts.

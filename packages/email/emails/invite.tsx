@@ -19,7 +19,6 @@ interface InviteEmailProps {
   acceptUrl: string;
   expiresAt?: string; // ISO string for display
   appName?: string;
-  ctaMode?: "accept" | "view";
 }
 
 export default function InviteEmail({
@@ -29,14 +28,11 @@ export default function InviteEmail({
   acceptUrl,
   expiresAt,
   appName = "Avelero",
-  ctaMode = "accept",
 }: InviteEmailProps) {
   const expiryText = expiresAt
     ? new Date(expiresAt).toLocaleString()
     : undefined;
-  const mode =
-    ctaMode ?? (acceptUrl.includes("/account/brands") ? "view" : "accept");
-  const ctaLabel = mode === "view" ? "View invitation" : "Accept invitation";
+  const ctaLabel = "Accept invitation";
 
   return (
     <Html>
@@ -96,7 +92,8 @@ export const previewProps: InviteEmailProps = {
   recipientEmail: "john@example.com",
   brandName: "Acme Corp",
   role: "Editor",
-  acceptUrl: "https://app.avelero.com/accept?token=abc123",
+  acceptUrl:
+    "https://app.avelero.com/api/auth/accept?token_hash=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
   appName: "Avelero",
 };

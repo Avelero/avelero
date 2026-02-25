@@ -23,6 +23,7 @@ import { productsRouter } from "./products/index.js";
 import { summaryRouter } from "./summary/index.js";
 import { taxonomyRouter } from "./taxonomy/index.js";
 import { userRouter } from "./user/index.js";
+import { adminRouter } from "./admin/index.js";
 
 /**
  * Main tRPC router containing every API module exposed to clients.
@@ -38,11 +39,13 @@ import { userRouter } from "./user/index.js";
  * - summary: Aggregated stats endpoints
  * - integrations: Integration management (connect, sync, mappings)
  * - notifications: User-specific in-app notifications
+ * - admin: Platform-admin operational control plane
  * - internal: Internal server-to-server endpoints (protected by API key)
  * - dppPublic: Public DPP (Digital Product Passport) endpoints (no auth required)
  */
 export const appRouter = createTRPCRouter({
   user: userRouter,
+  admin: adminRouter,
   brand: brandRouter,
   catalog: catalogRouter,
   taxonomy: taxonomyRouter,

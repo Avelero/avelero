@@ -1,9 +1,11 @@
 import type { Database } from "@v1/db/client";
 import { and, asc, desc, eq, inArray } from "@v1/db/queries";
 import {
+  DEFAULT_BRAND_CONTROL_VALUES,
   type BrandMembershipListItem,
   type UserInviteSummaryRow,
   getBrandsByUserId,
+  getBrandControlByBrandId,
   getOwnerCountsByBrandIds,
   listPendingInvitesForEmail,
 } from "@v1/db/queries/brand";
@@ -50,6 +52,7 @@ import {
   createTRPCRouter,
   protectedProcedure,
 } from "../../init.js";
+import { resolveBrandAccessDecision } from "../../../lib/access/brand-access.js";
 
 /** User's role within a brand */
 type BrandRole = "owner" | "member";
@@ -300,6 +303,76 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
 
 type WorkflowInviteList = Awaited<ReturnType<typeof fetchWorkflowInvites>>;
 
+type BrandAccessControlSnapshot = {
+  planType: (typeof DEFAULT_BRAND_CONTROL_VALUES)["planType"];
+  planCurrency: string;
+  customMonthlyPriceCents: number | null;
+  billingStatus: (typeof DEFAULT_BRAND_CONTROL_VALUES)["billingStatus"];
+  billingMode: (typeof DEFAULT_BRAND_CONTROL_VALUES)["billingMode"];
+  qualificationStatus: (typeof DEFAULT_BRAND_CONTROL_VALUES)["qualificationStatus"];
+  operationalStatus: (typeof DEFAULT_BRAND_CONTROL_VALUES)["operationalStatus"];
+  billingAccessOverride: (typeof DEFAULT_BRAND_CONTROL_VALUES)["billingAccessOverride"];
+};
+
+async function buildBrandAccess(
+  db: Database,
+  memberships: BrandMembershipListItem[],
+  selectedBrandId: string | null,
+) {
+  const activeMembership = selectedBrandId
+    ? memberships.find((membership) => membership.id === selectedBrandId) ?? null
+    : null;
+  const activeBrandId = activeMembership?.id ?? null;
+
+  let controlSnapshot: BrandAccessControlSnapshot | null = null;
+
+  if (activeBrandId) {
+    const controlRow = await getBrandControlByBrandId(db, activeBrandId);
+
+    controlSnapshot = {
+      planType:
+        (controlRow?.planType as BrandAccessControlSnapshot["planType"]) ??
+        DEFAULT_BRAND_CONTROL_VALUES.planType,
+      planCurrency:
+        controlRow?.planCurrency ?? DEFAULT_BRAND_CONTROL_VALUES.planCurrency,
+      customMonthlyPriceCents:
+        controlRow?.customMonthlyPriceCents ??
+        DEFAULT_BRAND_CONTROL_VALUES.customMonthlyPriceCents,
+      billingStatus:
+        (controlRow?.billingStatus as BrandAccessControlSnapshot["billingStatus"]) ??
+        DEFAULT_BRAND_CONTROL_VALUES.billingStatus,
+      billingMode:
+        (controlRow?.billingMode as BrandAccessControlSnapshot["billingMode"]) ??
+        DEFAULT_BRAND_CONTROL_VALUES.billingMode,
+      qualificationStatus:
+        (controlRow?.qualificationStatus as BrandAccessControlSnapshot["qualificationStatus"]) ??
+        DEFAULT_BRAND_CONTROL_VALUES.qualificationStatus,
+      operationalStatus:
+        (controlRow?.operationalStatus as BrandAccessControlSnapshot["operationalStatus"]) ??
+        DEFAULT_BRAND_CONTROL_VALUES.operationalStatus,
+      billingAccessOverride:
+        (controlRow?.billingAccessOverride as BrandAccessControlSnapshot["billingAccessOverride"]) ??
+        DEFAULT_BRAND_CONTROL_VALUES.billingAccessOverride,
+    };
+  }
+
+  const decision = resolveBrandAccessDecision({
+    hasMembership: memberships.length > 0,
+    hasActiveBrand: !!activeBrandId,
+    brandId: activeBrandId,
+    planType: controlSnapshot?.planType ?? null,
+    qualificationStatus: controlSnapshot?.qualificationStatus ?? null,
+    operationalStatus: controlSnapshot?.operationalStatus ?? null,
+    billingStatus: controlSnapshot?.billingStatus ?? null,
+    billingAccessOverride: controlSnapshot?.billingAccessOverride ?? null,
+  });
+
+  return {
+    decision,
+    controlSnapshot,
+  };
+}
+
 /**
  * Router containing composite endpoints that stitch multiple domain reads
  * together for optimized dashboard and form initialization.
@@ -322,9 +395,13 @@ export const compositeRouter = createTRPCRouter({
       getBrandsByUserId(db, user.id),
     ]);
 
-    const activeBrandId = profileRecord?.brandId ?? null;
+    const selectedBrandId = profileRecord?.brandId ?? null;
+    const activeMembership = selectedBrandId
+      ? memberships.find((membership) => membership.id === selectedBrandId) ?? null
+      : null;
+    const activeBrandId = activeMembership?.id ?? null;
 
-    const [brands, invites, verifiedDomain] = await Promise.all([
+    const [brands, invites, verifiedDomain, brandAccess] = await Promise.all([
       mapWorkflowBrands(db, memberships),
       (async () => {
         if (!email) {
@@ -347,12 +424,14 @@ export const compositeRouter = createTRPCRouter({
           .limit(1);
         return domain ?? null;
       })(),
+      buildBrandAccess(db, memberships, selectedBrandId),
     ]);
 
     return {
       user: mapUserProfile(profileRecord, email),
       brands,
       myInvites: invites,
+      brandAccess,
       activeBrand: activeBrandId
         ? {
             id: activeBrandId,

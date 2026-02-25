@@ -292,7 +292,7 @@ export const exportQrCodes = task({
         process.env.QR_EXPORT_MAX_THREADS ?? "",
         10,
       );
-      const qrPngGenerator = createQrPngGenerator(
+      const qrPngGenerator = await createQrPngGenerator(
         Number.isFinite(configuredWorkerThreads)
           ? configuredWorkerThreads
           : QR_GENERATION_MAX_THREADS,

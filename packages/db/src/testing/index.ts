@@ -22,6 +22,7 @@ export { cleanupTables, protectedTables } from "./cleanup";
 // Brand and integration helpers
 export {
   createTestBrand,
+  createSeededTestBrand,
   createTestBrandIntegration,
   createDefaultFieldConfigs,
 } from "./brand";

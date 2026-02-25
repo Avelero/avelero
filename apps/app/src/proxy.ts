@@ -32,6 +32,18 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Temporary: root app route maps to Passports while Dashboard is unused.
+  if (user && pathname === "/") {
+    const url = new URL("/passports", request.url);
+    url.search = nextUrl.search;
+
+    const redirectResponse = NextResponse.redirect(url);
+    for (const cookie of updatedResponse.cookies.getAll()) {
+      redirectResponse.cookies.set(cookie);
+    }
+    return redirectResponse;
+  }
+
   // If all checks pass, return the response
   return updatedResponse;
 }

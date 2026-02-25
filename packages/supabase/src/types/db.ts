@@ -15,7 +15,9 @@ export type Database = {
           brand_id: string;
           created_at: string;
           id: string;
+          metadata: Json;
           name: string;
+          sort_order: number | null;
           taxonomy_value_id: string | null;
           updated_at: string;
         };
@@ -24,7 +26,9 @@ export type Database = {
           brand_id: string;
           created_at?: string;
           id?: string;
+          metadata?: Json;
           name: string;
+          sort_order?: number | null;
           taxonomy_value_id?: string | null;
           updated_at?: string;
         };
@@ -33,7 +37,9 @@ export type Database = {
           brand_id?: string;
           created_at?: string;
           id?: string;
+          metadata?: Json;
           name?: string;
+          sort_order?: number | null;
           taxonomy_value_id?: string | null;
           updated_at?: string;
         };

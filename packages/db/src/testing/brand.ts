@@ -8,6 +8,7 @@
  */
 
 import { sql } from "drizzle-orm";
+import { seedBrandCatalogDefaults } from "../queries/catalog/seeding";
 import * as schema from "../schema/index";
 import { testDb } from "./connection";
 
@@ -34,6 +35,18 @@ export async function createTestBrand(name = "Test Brand"): Promise<string> {
   }
 
   return brand.id;
+}
+
+/**
+ * Create a test brand and seed default brand-owned catalog attributes/values
+ * from the taxonomy template.
+ */
+export async function createSeededTestBrand(
+  name = "Seeded Test Brand",
+): Promise<string> {
+  const brandId = await createTestBrand(name);
+  await seedBrandCatalogDefaults(testDb, brandId);
+  return brandId;
 }
 
 /**

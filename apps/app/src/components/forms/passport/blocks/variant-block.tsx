@@ -50,9 +50,8 @@ export interface VariantDimension {
   // For existing catalog attributes:
   attributeId: string | null; // null if selecting attribute for first time or custom inline
   attributeName: string;
-  taxonomyAttributeId: string | null;
   /**
-   * Array of brand attribute value IDs (for both taxonomy-linked and custom attributes).
+   * Array of brand attribute value IDs for catalog-backed attributes.
    * The UI uses these IDs to look up display names and hex colors.
    */
   values: string[];
@@ -352,7 +351,7 @@ export function VariantSection({
   expandedVariantMappings: externalExpandedMappings,
   setExpandedVariantMappings: setExternalExpandedMappings,
 }: VariantSectionProps) {
-  const { taxonomyAttributes, brandAttributes } = useBrandCatalog();
+  const { brandAttributes } = useBrandCatalog();
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
   const [addPopoverOpen, setAddPopoverOpen] = React.useState(false);
@@ -418,112 +417,41 @@ export function VariantSection({
 
   // Build attribute lookup map for resolving selections
   const attributeLookup = React.useMemo(() => {
-    const map = new Map<
-      string,
-      { id: string; name: string; taxonomyId: string | null }
-    >();
-
-    // Custom brand attributes (no taxonomy link)
+    const map = new Map<string, { id: string; name: string }>();
     for (const attr of brandAttributes) {
-      if (!attr.taxonomyAttributeId) {
-        map.set(attr.id, { id: attr.id, name: attr.name, taxonomyId: null });
-      }
-    }
-
-    // Taxonomy attributes
-    for (const attr of taxonomyAttributes) {
-      const brandAttr = brandAttributes.find(
-        (a) => a.taxonomyAttributeId === attr.id,
-      );
-      const attrId = brandAttr?.id ?? `tax:${attr.id}`;
-      map.set(attrId, { id: attrId, name: attr.name, taxonomyId: attr.id });
+      map.set(attr.id, {
+        id: attr.id,
+        name: attr.name,
+      });
     }
 
     return map;
-  }, [taxonomyAttributes, brandAttributes]);
+  }, [brandAttributes]);
 
   // Build select groups for empty state Select
   const selectGroups = React.useMemo((): {
     label: string;
     options: { value: string; label: string }[];
   }[] => {
-    const groups: {
-      label: string;
-      options: { value: string; label: string }[];
-    }[] = [];
+    const options = brandAttributes
+      .filter((attr) => !existingAttributeIds.includes(attr.id))
+      .map((attr) => ({ value: attr.id, label: attr.name }))
+      .sort((a, b) => a.label.localeCompare(b.label));
 
-    // Custom attributes first
-    const customOptions = brandAttributes
-      .filter(
-        (attr) =>
-          !attr.taxonomyAttributeId && !existingAttributeIds.includes(attr.id),
-      )
-      .map((attr) => ({ value: attr.id, label: attr.name }));
-
-    if (customOptions.length > 0) {
-      groups.push({ label: "Custom", options: customOptions });
-    }
-
-    // Standard taxonomy attributes
-    const standardOptions = taxonomyAttributes
-      .filter((attr) => {
-        const brandAttr = brandAttributes.find(
-          (a) => a.taxonomyAttributeId === attr.id,
-        );
-        const attrId = brandAttr?.id ?? `tax:${attr.id}`;
-        return !existingAttributeIds.includes(attrId);
-      })
-      .map((attr) => {
-        const brandAttr = brandAttributes.find(
-          (a) => a.taxonomyAttributeId === attr.id,
-        );
-        return { value: brandAttr?.id ?? `tax:${attr.id}`, label: attr.name };
-      });
-
-    if (standardOptions.length > 0) {
-      groups.push({
-        label: customOptions.length > 0 ? "Standard" : "",
-        options: standardOptions,
-      });
-    }
-
-    return groups;
-  }, [taxonomyAttributes, brandAttributes, existingAttributeIds]);
+    return options.length > 0 ? [{ label: "", options }] : [];
+  }, [brandAttributes, existingAttributeIds]);
 
   // Filter for add popover
-  const filteredCustomAttrs = React.useMemo(() => {
+  const filteredBrandAttrs = React.useMemo(() => {
     return brandAttributes
+      .filter((attr) => !existingAttributeIds.includes(attr.id))
       .filter(
         (attr) =>
-          !attr.taxonomyAttributeId && !existingAttributeIds.includes(attr.id),
+          !addSearchTerm ||
+          attr.name.toLowerCase().includes(addSearchTerm.toLowerCase()),
       )
-      .filter(
-        (attr) =>
-          !addSearchTerm ||
-          attr.name.toLowerCase().includes(addSearchTerm.toLowerCase()),
-      );
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [brandAttributes, existingAttributeIds, addSearchTerm]);
-
-  const filteredTaxonomyAttrs = React.useMemo(() => {
-    return taxonomyAttributes
-      .filter((attr) => {
-        const brandAttr = brandAttributes.find(
-          (a) => a.taxonomyAttributeId === attr.id,
-        );
-        const attrId = brandAttr?.id ?? `tax:${attr.id}`;
-        return !existingAttributeIds.includes(attrId);
-      })
-      .filter(
-        (attr) =>
-          !addSearchTerm ||
-          attr.name.toLowerCase().includes(addSearchTerm.toLowerCase()),
-      );
-  }, [
-    taxonomyAttributes,
-    brandAttributes,
-    existingAttributeIds,
-    addSearchTerm,
-  ]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -629,7 +557,6 @@ export function VariantSection({
       id: `dim-${Date.now()}`,
       attributeId: attrData.id,
       attributeName: attrData.name,
-      taxonomyAttributeId: attrData.taxonomyId,
       values: [],
     };
 
@@ -648,7 +575,6 @@ export function VariantSection({
       id: `dim-${Date.now()}`,
       attributeId: null,
       attributeName: "",
-      taxonomyAttributeId: null,
       values: [],
       isCustomInline: true,
       customAttributeName: "",
@@ -1495,10 +1421,9 @@ export function VariantSection({
                     onValueChange={setAddSearchTerm}
                   />
                   <SelectList>
-                    {/* Custom attributes first */}
-                    {filteredCustomAttrs.length > 0 && (
-                      <SelectGroup heading="Custom">
-                        {filteredCustomAttrs.map((attr) => (
+                    {filteredBrandAttrs.length > 0 && (
+                      <SelectGroup>
+                        {filteredBrandAttrs.map((attr) => (
                           <SelectItem
                             key={attr.id}
                             value={attr.id}
@@ -1511,41 +1436,9 @@ export function VariantSection({
                       </SelectGroup>
                     )}
 
-                    {/* Standard taxonomy attributes */}
-                    {filteredTaxonomyAttrs.length > 0 && (
-                      <SelectGroup
-                        heading={
-                          filteredCustomAttrs.length > 0
-                            ? "Standard"
-                            : undefined
-                        }
-                      >
-                        {filteredTaxonomyAttrs.map((attr) => {
-                          const brandAttr = brandAttributes.find(
-                            (a) => a.taxonomyAttributeId === attr.id,
-                          );
-                          return (
-                            <SelectItem
-                              key={attr.id}
-                              value={brandAttr?.id ?? `tax:${attr.id}`}
-                              onMouseDown={(e) => e.preventDefault()}
-                              onSelect={() =>
-                                handleSelectAttribute(
-                                  brandAttr?.id ?? `tax:${attr.id}`,
-                                )
-                              }
-                            >
-                              {attr.name}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectGroup>
+                    {filteredBrandAttrs.length === 0 && (
+                      <SelectEmpty>No attributes found</SelectEmpty>
                     )}
-
-                    {filteredTaxonomyAttrs.length === 0 &&
-                      filteredCustomAttrs.length === 0 && (
-                        <SelectEmpty>No attributes found</SelectEmpty>
-                      )}
                   </SelectList>
 
                   {/* Add custom button - always visible at bottom */}

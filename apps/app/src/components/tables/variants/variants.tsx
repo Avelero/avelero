@@ -6,6 +6,7 @@ import type {
   VariantMetadata,
 } from "@/components/forms/passport/blocks/variant-block";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { extractHex } from "@/utils/extract-hex";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { MultiAttributeTable } from "./multi-attribute";
@@ -65,8 +66,7 @@ export function VariantTable({
   onNavigateToVariant,
 }: VariantTableProps) {
   const router = useRouter();
-  const { taxonomyValuesByAttribute, brandAttributeValuesByAttribute } =
-    useBrandCatalog();
+  const { brandAttributeValuesByAttribute } = useBrandCatalog();
 
   // Navigate to variant edit page (only in edit mode)
   const navigateToVariant = React.useCallback(
@@ -97,42 +97,6 @@ export function VariantTable({
     return dim.values ?? [];
   };
 
-  // Get hex color for a taxonomy value (check both "swatch" and "hex" keys)
-  const getTaxonomyValueHex = (
-    dim: VariantDimension,
-    valueId: string,
-  ): string | null => {
-    if (dim.isCustomInline || !dim.taxonomyAttributeId) return null;
-
-    const taxValues =
-      taxonomyValuesByAttribute.get(dim.taxonomyAttributeId) ?? [];
-    const taxVal = taxValues.find((v) => v.id === valueId);
-
-    if (taxVal?.metadata && typeof taxVal.metadata === "object") {
-      const meta = taxVal.metadata as Record<string, unknown>;
-      if (typeof meta.swatch === "string") return meta.swatch;
-      if (typeof meta.hex === "string")
-        return meta.hex.startsWith("#") ? meta.hex : `#${meta.hex}`;
-    }
-    return null;
-  };
-
-  // Get hex color from a taxonomy value ID
-  const getHexFromTaxonomyValueId = (
-    taxonomyAttributeId: string,
-    taxonomyValueId: string,
-  ): string | null => {
-    const taxValues = taxonomyValuesByAttribute.get(taxonomyAttributeId) ?? [];
-    const taxVal = taxValues.find((v) => v.id === taxonomyValueId);
-    if (taxVal?.metadata && typeof taxVal.metadata === "object") {
-      const meta = taxVal.metadata as Record<string, unknown>;
-      if (typeof meta.swatch === "string") return meta.swatch;
-      if (typeof meta.hex === "string")
-        return meta.hex.startsWith("#") ? meta.hex : `#${meta.hex}`;
-    }
-    return null;
-  };
-
   // Get effective values for each dimension
   const effectiveDimensions = dimensions.map((dim) => ({
     ...dim,
@@ -152,51 +116,14 @@ export function VariantTable({
       return { name: value, hex: null };
     }
 
-    // Handle tax:-prefixed values (pending taxonomy values not yet created as brand values)
-    if (value.startsWith("tax:") && dim.taxonomyAttributeId) {
-      const taxId = value.slice(4);
-      const taxValues =
-        taxonomyValuesByAttribute.get(dim.taxonomyAttributeId) ?? [];
-      const taxVal = taxValues.find((v) => v.id === taxId);
-      if (taxVal) {
-        let hex: string | null = null;
-        if (taxVal.metadata && typeof taxVal.metadata === "object") {
-          const meta = taxVal.metadata as Record<string, unknown>;
-          if (typeof meta.swatch === "string") hex = meta.swatch;
-          else if (typeof meta.hex === "string")
-            hex = meta.hex.startsWith("#") ? meta.hex : `#${meta.hex}`;
-        }
-        return { name: taxVal.name, hex };
-      }
-      // Fallback if taxonomy value not found
-      return { name: value, hex: null };
-    }
-
     // Always check brand values first - dimension.values contains brand value IDs
     if (dim.attributeId) {
       const brandValues =
         brandAttributeValuesByAttribute.get(dim.attributeId) ?? [];
       const brandVal = brandValues.find((v) => v.id === value);
       if (brandVal) {
-        // Get hex from linked taxonomy value if available
-        const hex =
-          brandVal.taxonomyValueId && dim.taxonomyAttributeId
-            ? getHexFromTaxonomyValueId(
-                dim.taxonomyAttributeId,
-                brandVal.taxonomyValueId,
-              )
-            : null;
+        const hex = extractHex(brandVal.metadata);
         return { name: brandVal.name, hex };
-      }
-    }
-
-    // Fallback to direct taxonomy value lookup (legacy compatibility)
-    if (dim.taxonomyAttributeId) {
-      const taxValues =
-        taxonomyValuesByAttribute.get(dim.taxonomyAttributeId) ?? [];
-      const taxVal = taxValues.find((v) => v.id === value);
-      if (taxVal) {
-        return { name: taxVal.name, hex: getTaxonomyValueHex(dim, value) };
       }
     }
 

@@ -1,7 +1,5 @@
 "use client";
 
-import dashboardAnimation from "@/animations/avelero-icon-animation.json";
-import analyticsAnimation from "@/animations/system-regular-10-analytics-hover-analytics.json";
 import passportsAnimation from "@/animations/system-regular-40-add-card-hover-add-card.json";
 import settingsAnimation from "@/animations/system-regular-63-settings-cog-hover-cog-1.json";
 import designAnimation from "@/animations/system-regular-727-spinner-dashes-hover-rotation.json";
@@ -10,14 +8,12 @@ import { useEffect, useState } from "react";
 import { SidebarButton } from "./sidebar-button";
 
 const animations = {
-  "/": dashboardAnimation,
   "/passports": passportsAnimation,
   "/theme": designAnimation,
   "/settings": settingsAnimation,
 } as const;
 
 const items = [
-  { path: "/", name: "Dashboard" },
   { path: "/passports", name: "Passports" },
   { path: "/theme", name: "Theme" },
   { path: "/settings", name: "Settings" },
@@ -40,10 +36,9 @@ export function MainMenu({ onSelectAction, isExpanded = false }: Props) {
     <nav>
       <div className="flex flex-col gap-2">
         {items.map((item) => {
-          // Special handling for root path to avoid matching all paths
           const isActive =
-            item.path === "/"
-              ? pathname === "/"
+            item.path === "/passports"
+              ? pathname === "/" || (pathname?.startsWith(item.path) ?? false)
               : pathname?.startsWith(item.path) ?? false;
           const animationData =
             animations[item.path as keyof typeof animations];

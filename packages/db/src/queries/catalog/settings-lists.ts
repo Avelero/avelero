@@ -9,11 +9,10 @@ import {
   productVariantAttributes,
   productVariants,
   products,
-  taxonomyValues,
   variantJourneySteps,
   variantMaterials,
 } from "../../schema";
-import { listBrandAttributesWithTaxonomy } from "./attributes";
+import { listBrandAttributes } from "./attributes";
 import { listCertifications } from "./certifications";
 import { listBrandManufacturers } from "./manufacturers";
 import { listMaterials } from "./materials";
@@ -205,14 +204,10 @@ type AttributeValueGroupedRow = {
   attributeId: string;
   taxonomyValueId: string | null;
   name: string;
+  metadata: unknown;
+  sortOrder: number | null;
   createdAt: string;
   updatedAt: string;
-  taxonomyValue: {
-    id: string;
-    friendlyId: string;
-    name: string;
-    metadata: unknown;
-  } | null;
   variants_count: number;
 };
 
@@ -221,8 +216,8 @@ export async function listAttributesGroupedWithMetrics(
   brandId: string,
 ) {
   const [attributes, values, valueVariantCounts, attributeVariantCounts] =
-    await Promise.all([
-      listBrandAttributesWithTaxonomy(db, brandId),
+      await Promise.all([
+      listBrandAttributes(db, brandId),
       db
         .select({
           id: brandAttributeValues.id,
@@ -230,21 +225,16 @@ export async function listAttributesGroupedWithMetrics(
           attributeId: brandAttributeValues.attributeId,
           taxonomyValueId: brandAttributeValues.taxonomyValueId,
           name: brandAttributeValues.name,
+          metadata: brandAttributeValues.metadata,
+          sortOrder: brandAttributeValues.sortOrder,
           createdAt: brandAttributeValues.createdAt,
           updatedAt: brandAttributeValues.updatedAt,
-          taxonomyId: taxonomyValues.id,
-          taxonomyFriendlyId: taxonomyValues.friendlyId,
-          taxonomyName: taxonomyValues.name,
-          taxonomyMetadata: taxonomyValues.metadata,
         })
         .from(brandAttributeValues)
-        .leftJoin(
-          taxonomyValues,
-          eq(brandAttributeValues.taxonomyValueId, taxonomyValues.id),
-        )
         .where(eq(brandAttributeValues.brandId, brandId))
         .orderBy(
           asc(brandAttributeValues.attributeId),
+          sql`${brandAttributeValues.sortOrder} nulls last`,
           asc(brandAttributeValues.name),
         ),
       db
@@ -290,20 +280,14 @@ export async function listAttributesGroupedWithMetrics(
       id: row.id,
       brandId: row.brandId,
       attributeId: row.attributeId,
-      taxonomyValueId: row.taxonomyValueId,
-      name: row.name,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      taxonomyValue: row.taxonomyId
-        ? {
-            id: row.taxonomyId,
-            friendlyId: row.taxonomyFriendlyId!,
-            name: row.taxonomyName!,
-            metadata: row.taxonomyMetadata,
-          }
-        : null,
-      variants_count: valueCountMap.get(row.id) ?? 0,
-    });
+          taxonomyValueId: row.taxonomyValueId,
+          name: row.name,
+          metadata: row.metadata,
+          sortOrder: row.sortOrder,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+          variants_count: valueCountMap.get(row.id) ?? 0,
+        });
     valuesByAttribute.set(row.attributeId, list);
   }
 

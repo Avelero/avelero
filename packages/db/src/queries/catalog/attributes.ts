@@ -11,7 +11,6 @@ import {
   brandAttributes,
   brandAttributeValues,
   productVariantAttributes,
-  taxonomyAttributes,
 } from "../../schema";
 
 // =============================================================================
@@ -25,14 +24,6 @@ export interface BrandAttributeData {
   name: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface BrandAttributeWithTaxonomy extends BrandAttributeData {
-  taxonomyAttribute: {
-    id: string;
-    friendlyId: string;
-    name: string;
-  } | null;
 }
 
 export interface CreateBrandAttributeInput {
@@ -90,50 +81,6 @@ export async function listBrandAttributes(
     .from(brandAttributes)
     .where(eq(brandAttributes.brandId, brandId))
     .orderBy(brandAttributes.name);
-}
-
-/**
- * List all attributes for a brand with taxonomy details.
- */
-export async function listBrandAttributesWithTaxonomy(
-  db: Database,
-  brandId: string,
-): Promise<BrandAttributeWithTaxonomy[]> {
-  const rows = await db
-    .select({
-      id: brandAttributes.id,
-      brandId: brandAttributes.brandId,
-      taxonomyAttributeId: brandAttributes.taxonomyAttributeId,
-      name: brandAttributes.name,
-      createdAt: brandAttributes.createdAt,
-      updatedAt: brandAttributes.updatedAt,
-      taxonomyId: taxonomyAttributes.id,
-      taxonomyFriendlyId: taxonomyAttributes.friendlyId,
-      taxonomyName: taxonomyAttributes.name,
-    })
-    .from(brandAttributes)
-    .leftJoin(
-      taxonomyAttributes,
-      eq(brandAttributes.taxonomyAttributeId, taxonomyAttributes.id),
-    )
-    .where(eq(brandAttributes.brandId, brandId))
-    .orderBy(brandAttributes.name);
-
-  return rows.map((row) => ({
-    id: row.id,
-    brandId: row.brandId,
-    taxonomyAttributeId: row.taxonomyAttributeId,
-    name: row.name,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    taxonomyAttribute: row.taxonomyId
-      ? {
-          id: row.taxonomyId,
-          friendlyId: row.taxonomyFriendlyId!,
-          name: row.taxonomyName!,
-        }
-      : null,
-  }));
 }
 
 /**
@@ -353,48 +300,4 @@ export async function batchCreateBrandAttributes(
     }
     return result;
   });
-}
-
-/**
- * Ensure a brand attribute exists for the given taxonomy attribute.
- * Creates the brand attribute if it doesn't exist using an atomic upsert.
- * Returns the brand attribute ID.
- */
-export async function ensureBrandAttributeForTaxonomy(
-  db: Database,
-  brandId: string,
-  taxonomyAttributeId: string,
-  taxonomyAttributeName: string,
-): Promise<string> {
-  // Use atomic upsert to handle concurrent inserts safely
-  // ON CONFLICT DO NOTHING prevents race conditions
-  await db
-    .insert(brandAttributes)
-    .values({
-      brandId,
-      taxonomyAttributeId,
-      name: taxonomyAttributeName,
-    })
-    .onConflictDoNothing();
-
-  // Fetch the existing (or just-inserted) attribute by name
-  // Note: Query by name to match the unique constraint (brandId, name) used in ON CONFLICT
-  const [result] = await db
-    .select({ id: brandAttributes.id })
-    .from(brandAttributes)
-    .where(
-      and(
-        eq(brandAttributes.brandId, brandId),
-        eq(brandAttributes.name, taxonomyAttributeName),
-      ),
-    )
-    .limit(1);
-
-  if (!result) {
-    throw new Error(
-      `Failed to find or create brand attribute for taxonomy "${taxonomyAttributeName}"`,
-    );
-  }
-
-  return result.id;
 }

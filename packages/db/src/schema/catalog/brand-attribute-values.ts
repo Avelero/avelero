@@ -1,5 +1,13 @@
 import { sql } from "drizzle-orm";
-import { pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  integer,
+  jsonb,
+  pgPolicy,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
 import { taxonomyValues } from "../taxonomy/taxonomy-values";
@@ -23,6 +31,8 @@ export const brandAttributeValues = pgTable(
       { onDelete: "cascade", onUpdate: "cascade" },
     ),
     name: text("name").notNull(),
+    metadata: jsonb("metadata").notNull().default({}),
+    sortOrder: integer("sort_order"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

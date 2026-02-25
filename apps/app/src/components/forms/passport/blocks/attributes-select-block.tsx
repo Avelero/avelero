@@ -7,7 +7,6 @@
  * per attribute dimension. Used only in create mode.
  */
 
-import { CreateValueModal } from "@/components/modals/create-value-modal";
 import { useAttributes } from "@/hooks/use-attributes";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,7 +30,6 @@ import * as React from "react";
 interface AttributeDimension {
   attributeId: string;
   attributeName: string;
-  taxonomyAttributeId: string | null;
 }
 
 interface AttributesSelectBlockProps {
@@ -62,21 +60,14 @@ function DimensionSelect({
   // Use the shared hook for deduplicated attribute value options
   const {
     options: availableOptions,
-    hasTaxonomy,
     brandValues,
   } = useAttributes({
     brandAttributeId: dimension.attributeId,
-    taxonomyAttributeId: dimension.taxonomyAttributeId,
   });
 
-  const [createValueModalOpen, setCreateValueModalOpen] = React.useState(false);
-  const [createValueInitialName, setCreateValueInitialName] =
-    React.useState("");
-  const [createValueInitialTaxonomyId, setCreateValueInitialTaxonomyId] =
-    React.useState<string | null>(null);
   const [isCreatingValue, setIsCreatingValue] = React.useState(false);
 
-  // Mutation for creating attribute values without modal (custom attributes)
+  // Mutation for creating brand attribute values directly
   const createValueMutation = useMutation(
     trpc.catalog.attributeValues.create.mutationOptions(),
   );
@@ -90,7 +81,7 @@ function DimensionSelect({
     }));
   }, [availableOptions]);
 
-  // Create a custom value directly (no modal needed when no taxonomy)
+  // Create a custom value directly
   const createValueDirectly = async (valueName: string) => {
     if (!dimension.attributeId || isCreatingValue) return;
 
@@ -132,6 +123,8 @@ function DimensionSelect({
                   attributeId: dimension.attributeId,
                   name: valueName,
                   taxonomyValueId: null,
+                  metadata: {},
+                  sortOrder: null,
                 },
               ],
             },
@@ -156,25 +149,7 @@ function DimensionSelect({
   };
 
   const handleCreateNew = (searchTerm: string) => {
-    // If attribute has no taxonomy, create the value directly (no modal needed)
-    if (!hasTaxonomy) {
-      createValueDirectly(searchTerm);
-      return;
-    }
-
-    // Otherwise, open modal so user can link to a standard taxonomy value
-    setCreateValueInitialName(searchTerm);
-    setCreateValueInitialTaxonomyId(null);
-    setCreateValueModalOpen(true);
-  };
-
-  const handleValueCreated = (created: {
-    id: string;
-    name: string;
-    taxonomyValueId: string | null;
-  }) => {
-    // Select the newly created value
-    onValueChange(created.id);
+    void createValueDirectly(searchTerm);
   };
 
   const [open, setOpen] = React.useState(false);
@@ -281,20 +256,6 @@ function DimensionSelect({
           </SelectList>
         </SelectContent>
       </Select>
-
-      {/* Create value modal (only for taxonomy-linked attributes) */}
-      {dimension.attributeId && hasTaxonomy && (
-        <CreateValueModal
-          open={createValueModalOpen}
-          onOpenChange={setCreateValueModalOpen}
-          attributeId={dimension.attributeId}
-          attributeName={dimension.attributeName}
-          taxonomyAttributeId={dimension.taxonomyAttributeId}
-          initialName={createValueInitialName}
-          initialTaxonomyValueId={createValueInitialTaxonomyId}
-          onCreated={handleValueCreated}
-        />
-      )}
     </div>
   );
 }
@@ -373,7 +334,6 @@ export function extractDimensionsFromVariants(
     attributes: Array<{
       attribute_id: string;
       attribute_name: string;
-      taxonomy_attribute_id: string | null;
     }>;
   }>,
 ): AttributeDimension[] {
@@ -384,10 +344,7 @@ export function extractDimensionsFromVariants(
   // Group by attribute_id - we just need the dimension info, not the values
   const dimensionMap = new Map<
     string,
-    {
-      attributeName: string;
-      taxonomyAttributeId: string | null;
-    }
+    { attributeName: string }
   >();
 
   // Use a consistent order based on the first variant's attribute order
@@ -398,7 +355,6 @@ export function extractDimensionsFromVariants(
       if (!dimensionMap.has(attr.attribute_id)) {
         dimensionMap.set(attr.attribute_id, {
           attributeName: attr.attribute_name,
-          taxonomyAttributeId: attr.taxonomy_attribute_id,
         });
         orderedAttributeIds.push(attr.attribute_id);
       }
@@ -413,7 +369,6 @@ export function extractDimensionsFromVariants(
       return {
         attributeId: attrId,
         attributeName: data.attributeName,
-        taxonomyAttributeId: data.taxonomyAttributeId,
       };
     })
     .filter((d): d is AttributeDimension => d !== null);

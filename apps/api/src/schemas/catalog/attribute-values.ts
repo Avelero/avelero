@@ -9,6 +9,17 @@ import { z } from "zod";
 import { byIdSchema, byParentId, updateFrom } from "../_shared/patterns.js";
 import { shortStringSchema, uuidSchema } from "../_shared/primitives.js";
 
+const jsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValueSchema),
+    z.record(z.string(), jsonValueSchema),
+  ]),
+);
+
 /**
  * Payload for listing brand attribute values.
  * Requires the parent attribute_id.
@@ -22,6 +33,7 @@ export const createBrandAttributeValueSchema = z.object({
   attribute_id: uuidSchema,
   name: shortStringSchema,
   taxonomy_value_id: uuidSchema.optional().nullable(),
+  metadata: z.record(z.string(), jsonValueSchema).optional(),
 });
 
 /**

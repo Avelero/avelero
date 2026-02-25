@@ -15,7 +15,7 @@ function getHeaderBreadcrumbs(pathname: string): BreadcrumbItem[] {
 
   // Root
   if (normalized === "/") {
-    return [{ label: "Dashboard" }];
+    return [{ label: "Passports" }];
   }
 
   // Settings routes

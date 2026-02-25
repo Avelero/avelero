@@ -167,88 +167,6 @@ function VariantFormInner({
     trpc.products.publish.variant.mutationOptions(),
   );
 
-  // Create attribute value mutation (for resolving pending taxonomy values)
-  const createAttributeValueMutation = useMutation(
-    trpc.catalog.attributeValues.create.mutationOptions(),
-  );
-
-  /**
-   * Resolves pending taxonomy values (tax:-prefixed IDs) to real brand attribute value IDs.
-   * For each dimension, if the selected value is a pending taxonomy value, creates the
-   * brand attribute value first and returns the real ID.
-   */
-  const resolvePendingAttributeValues = React.useCallback(
-    async (selections: Record<string, string>): Promise<string[]> => {
-      // Get existing brand values from cache for quick lookup
-      const brandCatalogQuery = queryClient.getQueryData(
-        trpc.composite.catalogContent.queryKey(),
-      ) as any;
-      const existingBrandValues: any[] = [
-        ...(brandCatalogQuery?.brandCatalog?.attributeValues ?? []),
-      ];
-      const taxValues = brandCatalogQuery?.taxonomy?.values ?? [];
-
-      const resolvedIds: string[] = [];
-
-      for (const [attributeId, valueId] of Object.entries(selections)) {
-        // Check if this is a pending taxonomy value (tax:-prefixed)
-        if (valueId.startsWith("tax:")) {
-          const taxonomyValueId = valueId.slice(4);
-
-          // Check if a brand value already exists for this taxonomy value
-          const existingByTaxonomy = existingBrandValues.find(
-            (v: any) =>
-              v.attributeId === attributeId &&
-              v.taxonomyValueId === taxonomyValueId,
-          );
-
-          if (existingByTaxonomy) {
-            resolvedIds.push(existingByTaxonomy.id);
-          } else {
-            // Find the taxonomy value to get its name
-            const taxValue = taxValues.find(
-              (v: any) => v.id === taxonomyValueId,
-            );
-            const name = taxValue?.name ?? taxonomyValueId;
-
-            // Create the brand attribute value
-            const result = await createAttributeValueMutation.mutateAsync({
-              attribute_id: attributeId,
-              name,
-              taxonomy_value_id: taxonomyValueId,
-            });
-
-            if (!result?.data?.id) {
-              throw new Error("Failed to create attribute value");
-            }
-
-            resolvedIds.push(result.data.id);
-            // Add to existing list for subsequent lookups in this batch
-            existingBrandValues.push(result.data);
-          }
-        } else {
-          // Already a real brand value ID
-          resolvedIds.push(valueId);
-        }
-      }
-
-      // Invalidate catalog cache if we created any new values
-      if (
-        resolvedIds.some((id, idx) => {
-          const originalId = Object.values(selections)[idx];
-          return originalId?.startsWith("tax:");
-        })
-      ) {
-        queryClient.invalidateQueries({
-          queryKey: trpc.composite.catalogContent.queryKey(),
-        });
-      }
-
-      return resolvedIds;
-    },
-    [queryClient, trpc, createAttributeValueMutation],
-  );
-
   // Build variants list for sidebar with prefetch capability
   const variants = React.useMemo(() => {
     if (!productData?.variants) return [];
@@ -387,9 +305,9 @@ function VariantFormInner({
       setIsCreatingVariant(true);
 
       try {
-        // Resolve any pending taxonomy values (tax:-prefixed) to real brand value IDs
-        const resolvedAttributeValueIds =
-          await resolvePendingAttributeValues(selectedAttributes);
+        const resolvedAttributeValueIds = dimensions
+          .map((dim) => selectedAttributes[dim.attributeId])
+          .filter((id): id is string => Boolean(id));
 
         const result = await createVariantMutation.mutateAsync({
           productHandle,

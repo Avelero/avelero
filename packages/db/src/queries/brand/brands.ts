@@ -4,6 +4,7 @@ import {
   DEFAULT_THEME_CONFIG,
   DEFAULT_THEME_STYLES,
 } from "../../defaults/theme-defaults";
+import { seedBrandCatalogDefaults } from "../catalog/seeding";
 import { brandMembers, brandTheme, brands, users } from "../../schema";
 
 // Type for database operations that works with both regular db and transactions
@@ -242,32 +243,37 @@ export async function createBrand(
     slug = await generateUniqueSlug(db, input.name);
   }
 
-  const [brand] = await db
-    .insert(brands)
-    .values({
-      name: input.name,
-      slug,
-      email: input.email ?? null,
-      countryCode: input.country_code ?? null,
-      logoPath: input.logo_path ?? null,
-    })
-    .returning({ id: brands.id, slug: brands.slug });
-  if (!brand) throw new Error("Failed to create brand");
+  return db.transaction(async (tx) => {
+    const [brand] = await tx
+      .insert(brands)
+      .values({
+        name: input.name,
+        slug,
+        email: input.email ?? null,
+        countryCode: input.country_code ?? null,
+        logoPath: input.logo_path ?? null,
+      })
+      .returning({ id: brands.id, slug: brands.slug });
+    if (!brand) throw new Error("Failed to create brand");
 
-  // Seed default theme configuration for the new brand
-  await db.insert(brandTheme).values({
-    brandId: brand.id,
-    themeStyles: DEFAULT_THEME_STYLES,
-    themeConfig: DEFAULT_THEME_CONFIG,
+    // Seed default theme configuration for the new brand
+    await tx.insert(brandTheme).values({
+      brandId: brand.id,
+      themeStyles: DEFAULT_THEME_STYLES,
+      themeConfig: DEFAULT_THEME_CONFIG,
+    });
+
+    // Seed default brand-owned attributes/values from the taxonomy template.
+    await seedBrandCatalogDefaults(tx, brand.id);
+
+    await tx
+      .insert(brandMembers)
+      .values({ userId, brandId: brand.id, role: "owner" });
+
+    await tx.update(users).set({ brandId: brand.id }).where(eq(users.id, userId));
+
+    return { id: brand.id, slug: brand.slug } as const;
   });
-
-  await db
-    .insert(brandMembers)
-    .values({ userId, brandId: brand.id, role: "owner" });
-
-  await db.update(users).set({ brandId: brand.id }).where(eq(users.id, userId));
-
-  return { id: brand.id, slug: brand.slug } as const;
 }
 
 export async function updateBrand(

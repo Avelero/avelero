@@ -1,11 +1,10 @@
+import { AnimatedAveleroIcon } from "@/components/animated-avelero-icon";
 import { HeaderNavigation } from "@/components/header-navigation";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 import { DataControl } from "@/components/theme-editor/data-control";
 import { UserMenu } from "@/components/user-menu";
 import { Icons } from "@v1/ui/icons";
-import Image from "next/image";
 import Link from "next/link";
-import LogoIcon from "public/LogoIcon256.svg";
 
 interface HeaderProps {
   hideUserMenu?: boolean;
@@ -42,28 +41,19 @@ export function Header({
             href="/"
             className="flex shrink-0 items-center border-r focus-visible:outline-none"
             style={{ width: "56px", height: "56px" }}
+            aria-label="Home"
             prefetch
           >
-            <Image
-              src={LogoIcon}
-              alt="logo"
-              width={24}
-              height={24}
-              className="h-6 w-6 object-contain mx-auto"
-            />
+            <AnimatedAveleroIcon size={28} className="mx-auto h-14 w-14" />
           </Link>
         ) : (
           <div
             className="flex shrink-0 items-center border-r select-none"
             style={{ width: "56px", height: "56px" }}
+            role="img"
+            aria-label="Avelero"
           >
-            <Image
-              src={LogoIcon}
-              alt="logo"
-              width={24}
-              height={24}
-              className="h-6 w-6 object-contain mx-auto"
-            />
+            <AnimatedAveleroIcon size={28} className="mx-auto h-14 w-14" />
           </div>
         )}
 

@@ -2,7 +2,7 @@
 
 import { ImageUploader } from "@/components/image-upload";
 import { BUCKETS, UPLOAD_CONFIGS } from "@/utils/storage-config";
-import { buildPublicUrl } from "@/utils/storage-urls";
+import { buildPublicUrl, isFullUrl } from "@/utils/storage-urls";
 import { createClient } from "@v1/supabase/client";
 import { useCallback, useRef } from "react";
 import type { ContentField } from "../../registry/types";
@@ -58,6 +58,7 @@ export function ImageInput({
   // Convert stored path to display URL for the uploader preview
   const getDisplayUrl = (path: string | undefined): string | undefined => {
     if (!path) return undefined;
+    if (isFullUrl(path)) return path;
     return buildPublicUrl(BUCKETS.DPP_ASSETS, path) ?? undefined;
   };
 

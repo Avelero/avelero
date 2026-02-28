@@ -294,4 +294,37 @@ describe("Brand subscription foundations", () => {
     expect(membership?.id).toBeDefined();
     expect(user?.brandId).toBe(brandId);
   });
+
+  it("supports creating a brand with creator role avelero", async () => {
+    const userId = await createTestUser("avelero-creator-role@example.com");
+    const created = await createBrand(
+      testDb,
+      userId,
+      {
+        name: "Avelero Creator Role Brand",
+      },
+      {
+        creatorRole: "avelero",
+      },
+    );
+
+    const brandId = created.id;
+
+    const [membership] = await testDb
+      .select({
+        id: schema.brandMembers.id,
+        role: schema.brandMembers.role,
+      })
+      .from(schema.brandMembers)
+      .where(
+        and(
+          eq(schema.brandMembers.brandId, brandId),
+          eq(schema.brandMembers.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    expect(membership?.id).toBeDefined();
+    expect(membership?.role).toBe("avelero");
+  });
 });

@@ -242,7 +242,12 @@ export async function createBrand(
     country_code?: string | null;
     logo_path?: string | null;
   },
+  options?: {
+    creatorRole?: "owner" | "avelero";
+  },
 ) {
+  const creatorRole = options?.creatorRole ?? "owner";
+
   let slug: string;
   if (input.slug) {
     const taken = await isSlugTaken(db, input.slug);
@@ -313,7 +318,7 @@ export async function createBrand(
 
     await tx
       .insert(brandMembers)
-      .values({ userId, brandId: brand.id, role: "owner" });
+      .values({ userId, brandId: brand.id, role: creatorRole });
 
     await tx.update(users).set({ brandId: brand.id }).where(eq(users.id, userId));
 

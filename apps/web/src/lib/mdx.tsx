@@ -1,4 +1,5 @@
 import { DPPDemoCallout } from "@/components/updates/dpp-demo-callout";
+import { GS1DigitalLinkBreakdown } from "@/components/updates/gs1-digital-link-breakdown";
 import { InteractiveTimeline } from "@/components/updates/interactive-timeline";
 import { cn } from "@/lib/utils";
 import type { MDXComponents } from "mdx/types";
@@ -102,6 +103,7 @@ function getHeadingId(children: ReactNode, id?: string): string | undefined {
 export const mdxComponents: MDXComponents = {
   InteractiveTimeline,
   DPPDemoCallout,
+  GS1DigitalLinkBreakdown,
   Image: MdxImage,
 
   // Headings

@@ -13,6 +13,7 @@ import { getBrandAccessSnapshot } from "@v1/db/queries/brand";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
 import { type Role, isRole } from "../config/roles";
+import { isPlatformAdminEmail } from "../lib/platform-admin/allowlist.js";
 import { resolveBrandAccessDecision } from "../lib/access-policy/resolve-brand-access-decision.js";
 import { resolveSkuAccessDecision } from "../lib/access-policy/resolve-sku-access-decision.js";
 import type {
@@ -437,13 +438,6 @@ export const protectedProcedure = t.procedure
     return opts.next({ ctx: authedCtx });
   });
 
-const platformAdminEmailAllowlist = new Set(
-  (process.env.PLATFORM_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean),
-);
-
 /**
  * Procedure variant that enforces founder-only platform admin allowlist access.
  */
@@ -454,7 +448,7 @@ export const platformAdminProcedure = protectedProcedure.use(
       throw unauthorized();
     }
     const email = user.email?.trim().toLowerCase() ?? "";
-    if (!email || !platformAdminEmailAllowlist.has(email)) {
+    if (!isPlatformAdminEmail(email)) {
       throw forbidden("Platform admin access required");
     }
     return next();

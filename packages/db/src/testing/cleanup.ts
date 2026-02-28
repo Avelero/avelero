@@ -26,6 +26,26 @@ export const protectedTables = new Set([
   "integrations",
 ]);
 
+const CLEANUP_MAX_ATTEMPTS = 5;
+const CLEANUP_RETRY_DELAY_MS = 25;
+const RETRYABLE_CLEANUP_ERROR_CODES = new Set(["40P01", "40001", "55P03"]);
+
+function getErrorCode(error: unknown): string | null {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof (error as { code?: unknown }).code === "string"
+  ) {
+    return (error as { code: string }).code;
+  }
+  return null;
+}
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Clean all user tables between tests.
  * Dynamically queries the database for all tables and truncates them,
@@ -63,5 +83,22 @@ export async function cleanupTables(): Promise<void> {
   // Build a single TRUNCATE statement for all tables
   // This is faster than truncating one by one and handles FK dependencies with CASCADE
   const tableList = tablesToClean.map((t) => `"${t}"`).join(", ");
-  await testDb.execute(sql.raw(`TRUNCATE TABLE ${tableList} CASCADE`));
+  const truncateSql = sql.raw(`TRUNCATE TABLE ${tableList} CASCADE`);
+
+  for (let attempt = 1; attempt <= CLEANUP_MAX_ATTEMPTS; attempt++) {
+    try {
+      await testDb.execute(truncateSql);
+      return;
+    } catch (error) {
+      const code = getErrorCode(error);
+      const isRetryable = code && RETRYABLE_CLEANUP_ERROR_CODES.has(code);
+      const canRetry = isRetryable && attempt < CLEANUP_MAX_ATTEMPTS;
+
+      if (!canRetry) {
+        throw error;
+      }
+
+      await delay(attempt * CLEANUP_RETRY_DELAY_MS);
+    }
+  }
 }

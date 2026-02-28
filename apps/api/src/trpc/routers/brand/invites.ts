@@ -28,7 +28,11 @@ import {
   inviteSendSchema,
 } from "../../../schemas/brand.js";
 import { badRequest, forbidden, wrapError } from "../../../utils/errors.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
 type InviteEmailPayload = {
@@ -57,7 +61,7 @@ export const brandInvitesRouter = createTRPCRouter({
    * Lists pending invites for the brand with inviter metadata.
    * Only accessible by brand owners.
    */
-  list: brandRequiredProcedure
+  list: brandReadProcedure
     .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(brandIdOptionalSchema)
     .query(async ({ ctx, input }) => {
@@ -103,7 +107,7 @@ export const brandInvitesRouter = createTRPCRouter({
    * notification when a record is created.
    * Only accessible by brand owners.
    */
-  send: brandRequiredProcedure
+  send: brandWriteProcedure
     .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(inviteSendSchema)
     .mutation(async ({ ctx, input }) => {
@@ -163,7 +167,7 @@ export const brandInvitesRouter = createTRPCRouter({
    * Revokes a pending invite.
    * Only accessible by brand owners.
    */
-  revoke: brandRequiredProcedure
+  revoke: brandWriteProcedure
     .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(inviteRevokeSchema)
     .mutation(async ({ ctx, input }) => {

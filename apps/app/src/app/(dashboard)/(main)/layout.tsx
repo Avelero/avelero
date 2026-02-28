@@ -1,3 +1,6 @@
+import { BlockedAccessScreen } from "@/components/access/blocked-access-screen";
+import { PastDueBanner } from "@/components/access/past-due-banner";
+import { PaymentRequiredOverlay } from "@/components/access/payment-required-overlay";
 import { getQueryClient, trpc } from "@/trpc/server";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -30,6 +33,7 @@ export default async function MainLayout({
   const user = initDashboard.user;
   const brands = initDashboard.brands;
   const invites = initDashboard.myInvites;
+  const access = initDashboard.access;
 
   // Redirect logic for incomplete users
   // These destinations are OUTSIDE (main), so no infinite loops
@@ -45,5 +49,17 @@ export default async function MainLayout({
     redirect("/invites");
   }
 
-  return children;
+  if (access.overlay === "suspended" || access.overlay === "cancelled") {
+    return <BlockedAccessScreen reason={access.overlay} />;
+  }
+
+  return (
+    <div className="relative h-full min-h-0">
+      {access.banner === "past_due" ? <PastDueBanner /> : null}
+      <div className="relative h-full min-h-0">
+        {children}
+        {access.overlay === "payment_required" ? <PaymentRequiredOverlay /> : null}
+      </div>
+    </div>
+  );
 }

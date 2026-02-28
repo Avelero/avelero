@@ -1063,3 +1063,142 @@ They never affect the public visibility of existing passports.
 1. Build Undertaking 4 admin UI on top of `platformAdmin.*` endpoints.
 2. Complete end-to-end manual QA once admin UI exists (especially invite issue/acceptance from UI).
 3. Keep validating Supabase hook behavior across local + deployed environments (config and callback behavior can differ per environment).
+
+---
+
+## Undertaking 3 Progress Update (2026-02-28)
+
+### Overall Status
+
+- **Implementation status:** Undertaking 3 is implemented across API policy resolution, tRPC enforcement, dashboard bootstrap contract, and dashboard access UI.
+- **Current confidence:** Access behavior for `payment_required`, `past_due`, `suspended`, `cancelled`, and `avelero` bypass is covered by new unit + integration tests and passed local validation.
+- **Scope boundary honored:** Undertaking 3 includes direct SKU-write enforcement + async “remaining > 0” guard hooks; full async all-or-nothing preflight remains Undertaking 7 scope.
+
+### What Was Implemented
+
+1. **Sub-plan artifacts completed**
+- `docs/subscription/undertaking-3/research.md`
+- `docs/subscription/undertaking-3/plan.md`
+- `docs/subscription/undertaking-3/test.md`
+
+2. **Access policy domain layer (API)**
+- Added:
+  - `apps/api/src/lib/access-policy/types.ts`
+  - `apps/api/src/lib/access-policy/resolve-brand-access-decision.ts`
+  - `apps/api/src/lib/access-policy/resolve-sku-access-decision.ts`
+- Implemented precedence:
+  - `avelero` role => always full access.
+  - Active billing override `temporary_block` => suspended.
+  - Active billing override `temporary_allow` => full access.
+  - Phase mapping for `demo | trial | expired | active | past_due | suspended | cancelled`.
+- Implemented capability mapping:
+  - `full_access | trial_active` => read/write allowed.
+  - `payment_required | past_due` => read only.
+  - `suspended | cancelled` => read/write blocked.
+
+3. **Brand access snapshot query (DB)**
+- Added `packages/db/src/queries/brand/access.ts` with one-call snapshot fetch for lifecycle + billing + plan.
+- Exported via `packages/db/src/queries/brand/index.ts`.
+
+4. **Request-scoped access cache + tRPC procedure variants**
+- Extended access context resolution in:
+  - `apps/api/src/trpc/middleware/auth/brand.ts`
+  - `apps/api/src/trpc/init.ts`
+- Added/implemented:
+  - `brandReadProcedure`
+  - `brandWriteProcedure`
+  - `brandSkuWriteProcedure`
+  - `assertBrandWriteAccess(...)` for non-brand-scoped procedures.
+- Added centralized SKU intended-count check helper:
+  - `resolveSkuDecisionWithIntendedCount(...)`
+
+5. **Router migration to new enforcement model**
+- Migrated brand-scoped queries to `brandReadProcedure` and mutations to `brandWriteProcedure` across summary, notifications, composite, brand, catalog, products, integrations, and bulk routers.
+- SKU-creating direct mutations use `brandSkuWriteProcedure`:
+  - `products.variants.create`
+  - `products.variants.batchCreate`
+  - `products.variants.sync`
+- `brand.delete` kept on `protectedProcedure` but now explicitly enforces write access via `assertBrandWriteAccess(...)`.
+
+6. **SKU policy behavior for Undertaking 3**
+- Implemented warning threshold `80%` and trial universal cap `50,000`.
+- Direct create intended-count logic:
+  - `create` => 1
+  - `batchCreate` => `variants.length`
+  - `sync` => count of variants to be newly created (no known UPID mapping)
+- Async creation hooks (`bulk.import.start`, `integrations.sync.trigger`) enforce `remaining > 0` guard.
+
+7. **Dashboard bootstrap contract enrichment**
+- `apps/api/src/trpc/routers/composite/index.ts` `initDashboard` now includes:
+  - `access.decision`
+  - `access.capabilities`
+  - `access.overlay`
+  - `access.banner`
+  - `access.phase`
+  - `access.trialEndsAt`
+  - `sku.status`
+  - `sku.annual`
+  - `sku.onboarding`
+  - `sku.warningThreshold`
+  - `sku.trialUniversalCap`
+- Existing bootstrap keys preserved: `user`, `brands`, `myInvites`, `activeBrand`.
+
+8. **Frontend access gating (layout-level)**
+- Added:
+  - `apps/app/src/components/access/payment-required-overlay.tsx`
+  - `apps/app/src/components/access/past-due-banner.tsx`
+  - `apps/app/src/components/access/blocked-access-screen.tsx`
+- Updated `apps/app/src/app/(dashboard)/(main)/layout.tsx`:
+  - Existing setup/invite/pending-access redirects retained.
+  - `suspended`/`cancelled` => full blocked screen.
+  - `payment_required` => non-dismissible overlay (content visible underneath).
+  - `past_due` => non-dismissible top banner.
+
+9. **Billing CTA route placeholder**
+- Added placeholder billing page:
+  - `apps/app/src/app/(dashboard)/(main)/(sidebar)/settings/billing/page.tsx`
+- Added settings nav exposure:
+  - `apps/app/src/lib/settings-navigation.ts`
+  - `apps/app/src/components/settings/settings-secondary-sidebar.tsx`
+
+10. **Stable access error helpers**
+- Extended `apps/api/src/utils/errors.ts` with stable tokens:
+  - `ACCESS_PAYMENT_REQUIRED`
+  - `ACCESS_PAST_DUE_READ_ONLY`
+  - `ACCESS_SUSPENDED`
+  - `ACCESS_CANCELLED`
+  - `ACCESS_SKU_LIMIT_REACHED`
+
+11. **Tests added + validation hardening**
+- Added policy unit tests:
+  - `apps/api/__tests__/unit/access-policy/resolve-brand-access-decision.test.ts`
+  - `apps/api/__tests__/unit/access-policy/resolve-sku-access-decision.test.ts`
+- Added TRPC integration tests:
+  - `apps/api/__tests__/integration/trpc/access-policy.test.ts`
+- Stabilized test behavior found during run:
+  - Moved passport creation for `products.variants.sync` into the same DB transaction to avoid FK timing issues.
+  - Added retry logic in test table cleanup for transient deadlock/lock errors.
+  - Widened `batchCreatePassportsForVariants` signature to accept `DatabaseOrTransaction`.
+
+### Migration Notes (Current State)
+
+- Undertaking 3 required **no new DB migrations**.
+- Changes are application-layer policy, middleware, router, contract, and UI work on top of Undertaking 1 schema.
+
+### Validation Snapshot
+
+- `bun run test` (repo root): **pass**
+- `bun typecheck` (repo root): **pass**
+- `bun lint` (repo root): **pass**
+- Specific access-policy integration coverage passes for:
+  - `payment_required` (reads allowed, writes blocked)
+  - `past_due` (reads allowed, writes blocked)
+  - `suspended/cancelled` (reads+writes blocked)
+  - `avelero` bypass
+  - SKU blocked token behavior
+
+### Remaining Follow-Ups / Next Agent Focus
+
+1. Undertaking 6: replace billing placeholder with full billing UX and connect CTA flows.
+2. Undertaking 7: complete async/bulk/integration SKU preflight behavior (full all-or-nothing where required).
+3. Add/expand frontend route-level visual checks for overlays/banners/blocked screens across all `(main)` route variants.

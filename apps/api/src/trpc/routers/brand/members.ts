@@ -30,7 +30,11 @@ import {
   soleOwnerError,
   wrapError,
 } from "../../../utils/errors.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
 function computeMemberCanLeave(role: "owner" | "member", ownerCount: number) {
@@ -54,7 +58,7 @@ export const brandMembersRouter = createTRPCRouter({
    * Lists members for the brand, including computed `canLeave`
    * metadata derived from owner counts.
    */
-  list: brandRequiredProcedure
+  list: brandReadProcedure
     .input(brandIdOptionalSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
@@ -98,7 +102,7 @@ export const brandMembersRouter = createTRPCRouter({
    * Updates a member's role.
    * Only brand owners can change roles.
    */
-  update: brandRequiredProcedure
+  update: brandWriteProcedure
     .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(memberUpdateSchema)
     .mutation(async ({ ctx, input }) => {
@@ -119,7 +123,7 @@ export const brandMembersRouter = createTRPCRouter({
    * Removes a member from the brand.
    * Only brand owners can remove members.
    */
-  remove: brandRequiredProcedure
+  remove: brandWriteProcedure
     .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(memberRemoveSchema)
     .mutation(async ({ ctx, input }) => {

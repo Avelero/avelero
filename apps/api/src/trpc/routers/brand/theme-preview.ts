@@ -28,7 +28,7 @@ import { type CountryCode, countries } from "@v1/selections";
 import { getPublicUrl } from "@v1/supabase/storage";
 import { z } from "zod";
 import { wrapError } from "../../../utils/errors.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import { brandReadProcedure, createTRPCRouter } from "../../init.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Input Schemas
@@ -334,7 +334,7 @@ export const themePreviewRouter = createTRPCRouter({
    * Get DppData for a specific product (for theme editor preview).
    * Does NOT require the product to be published.
    */
-  getProduct: brandRequiredProcedure
+  getProduct: brandReadProcedure
     .input(getProductSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId, supabase } = ctx;
@@ -402,7 +402,7 @@ export const themePreviewRouter = createTRPCRouter({
    * List products sorted by updatedAt for navigation.
    * Returns minimal data needed for navigation (id + cursor info).
    */
-  list: brandRequiredProcedure
+  list: brandReadProcedure
     .input(listProductsSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx;

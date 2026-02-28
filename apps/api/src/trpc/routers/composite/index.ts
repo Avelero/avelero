@@ -3,6 +3,7 @@ import { and, asc, desc, eq, sql } from "@v1/db/queries";
 import {
   type BrandMembershipListItem,
   type UserInviteSummaryRow,
+  getBrandAccessSnapshot,
   getBrandsByUserId,
   getOwnerCountsByBrandIds,
   listPendingInvitesForEmail,
@@ -41,12 +42,17 @@ import { getAppUrl } from "@v1/utils/envs";
  * - composite.catalogContent (renamed from brandCatalogContent in Phase 6)
  */
 import { isOwnerEquivalentRole } from "../../../config/roles.js";
+import { resolveBrandAccessDecision } from "../../../lib/access-policy/resolve-brand-access-decision.js";
+import {
+  SKU_WARNING_THRESHOLD,
+  TRIAL_UNIVERSAL_CAP,
+  resolveSkuAccessDecision,
+} from "../../../lib/access-policy/resolve-sku-access-decision.js";
 import { brandIdOptionalSchema } from "../../../schemas/brand.js";
 import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
-import { createEntityResponse } from "../../../utils/response.js";
 import {
   type AuthenticatedTRPCContext,
-  brandRequiredProcedure,
+  brandReadProcedure,
   createTRPCRouter,
   protectedProcedure,
 } from "../../init.js";
@@ -309,6 +315,40 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
 
 type WorkflowInviteList = Awaited<ReturnType<typeof fetchWorkflowInvites>>;
 
+const DEFAULT_ACCESS = {
+  decision: "full_access" as const,
+  capabilities: {
+    canReadBrandData: true,
+    canWriteBrandData: true,
+    canCreateSkus: true,
+  },
+  overlay: "none" as const,
+  banner: "none" as const,
+  phase: "demo" as const,
+  trialEndsAt: null as string | null,
+};
+
+const DEFAULT_SKU = {
+  status: "allowed" as const,
+  annual: {
+    limit: null as number | null,
+    used: 0,
+    remaining: null as number | null,
+    utilization: null as number | null,
+  },
+  onboarding: {
+    limit: null as number | null,
+    used: 0,
+    remaining: null as number | null,
+    utilization: null as number | null,
+  },
+  warningThreshold: SKU_WARNING_THRESHOLD,
+  trialUniversalCap: TRIAL_UNIVERSAL_CAP,
+  remainingCreateBudget: null as number | null,
+  intendedCreateCount: 0,
+  wouldExceedIntendedCreateCount: false,
+};
+
 /**
  * Router containing composite endpoints that stitch multiple domain reads
  * together for optimized dashboard and form initialization.
@@ -332,8 +372,12 @@ export const compositeRouter = createTRPCRouter({
     ]);
 
     const activeBrandId = profileRecord?.brandId ?? null;
+    const activeMembership = memberships.find(
+      (membership) => membership.id === activeBrandId,
+    );
+    const activeBrandRole = activeMembership?.role ?? null;
 
-    const [brands, invites, verifiedDomain] = await Promise.all([
+    const [brands, invites, verifiedDomain, accessSnapshot] = await Promise.all([
       mapWorkflowBrands(db, memberships),
       (async () => {
         if (!email) {
@@ -356,7 +400,30 @@ export const compositeRouter = createTRPCRouter({
           .limit(1);
         return domain ?? null;
       })(),
+      activeBrandId ? getBrandAccessSnapshot(db, activeBrandId) : null,
     ]);
+
+    const resolvedAccess = accessSnapshot
+      ? resolveBrandAccessDecision({
+          role: activeBrandRole,
+          snapshot: accessSnapshot,
+        })
+      : DEFAULT_ACCESS;
+
+    const resolvedSku = accessSnapshot
+      ? resolveSkuAccessDecision({
+          brandAccess: resolvedAccess,
+          snapshot: accessSnapshot,
+          intendedCreateCount: 0,
+        })
+      : DEFAULT_SKU;
+
+    const accessCapabilities = {
+      ...resolvedAccess.capabilities,
+      canCreateSkus:
+        resolvedAccess.capabilities.canWriteBrandData &&
+        resolvedSku.status !== "blocked",
+    };
 
     return {
       user: mapUserProfile(profileRecord, email),
@@ -368,13 +435,28 @@ export const compositeRouter = createTRPCRouter({
             hasVerifiedCustomDomain: !!verifiedDomain,
           }
         : null,
+      access: {
+        decision: resolvedAccess.decision,
+        capabilities: accessCapabilities,
+        overlay: resolvedAccess.overlay,
+        banner: resolvedAccess.banner,
+        phase: resolvedAccess.phase,
+        trialEndsAt: resolvedAccess.trialEndsAt,
+      },
+      sku: {
+        status: resolvedSku.status,
+        annual: resolvedSku.annual,
+        onboarding: resolvedSku.onboarding,
+        warningThreshold: resolvedSku.warningThreshold,
+        trialUniversalCap: resolvedSku.trialUniversalCap,
+      },
     };
   }),
 
   /**
    * Combines workflow members and pending invites for the selected brand.
    */
-  membersWithInvites: brandRequiredProcedure
+  membersWithInvites: brandReadProcedure
     .input(brandIdOptionalSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId, role } = ctx;
@@ -403,7 +485,7 @@ export const compositeRouter = createTRPCRouter({
    *
    * Renamed from `brandCatalogContent` in Phase 6.
    */
-  catalogContent: brandRequiredProcedure.query(async ({ ctx }) => {
+  catalogContent: brandReadProcedure.query(async ({ ctx }) => {
     const brandCtx = ctx as BrandContext;
     const brandId = brandCtx.brandId;
 

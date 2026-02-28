@@ -21,12 +21,16 @@ import {
   normalizeThemeConfigImagePathsForStorage,
   resolveThemeConfigImageUrls,
 } from "../../../utils/theme-config-images.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 /**
  * Get theme data (styles and config) for the active brand.
  */
-const getThemeProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
+const getThemeProcedure = brandReadProcedure.query(async ({ ctx }) => {
   const { db, brandId, supabase } = ctx;
   try {
     const theme = await getBrandTheme(db, brandId);
@@ -60,7 +64,7 @@ const getThemeProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
  * Update theme config (content) for the active brand.
  * This updates menus, banner, social links, section visibility, carousel config, etc.
  */
-const updateConfigProcedure = brandRequiredProcedure
+const updateConfigProcedure = brandWriteProcedure
   .input(
     z.object({
       // ThemeConfig is validated on the client side

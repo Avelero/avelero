@@ -28,7 +28,11 @@ import {
   createListResponse,
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 /** tRPC context with guaranteed brand ID from middleware */
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
@@ -49,7 +53,7 @@ export const mappingsRouter = createTRPCRouter({
    * Returns the current ownership and source settings for each field.
    * Fields not in the response use default settings from the connector schema.
    */
-  list: brandRequiredProcedure
+  list: brandReadProcedure
     .input(listFieldMappingsSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -105,7 +109,7 @@ export const mappingsRouter = createTRPCRouter({
    * - Enable/disable field ownership
    * - Select a source option when multiple are available
    */
-  update: brandRequiredProcedure
+  update: brandWriteProcedure
     .input(updateFieldMappingSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -155,7 +159,7 @@ export const mappingsRouter = createTRPCRouter({
    *
    * Useful for bulk configuration changes from the UI.
    */
-  updateBatch: brandRequiredProcedure
+  updateBatch: brandWriteProcedure
     .input(updateFieldMappingsBatchSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -205,7 +209,7 @@ export const mappingsRouter = createTRPCRouter({
    * If the same field is owned by multiple integrations, only the first
    * one to sync will write the value (conflict detection should be shown in UI).
    */
-  listAllOwnerships: brandRequiredProcedure
+  listAllOwnerships: brandReadProcedure
     .input(listAllOwnershipsSchema)
     .query(async ({ ctx }) => {
       const brandCtx = ctx as BrandContext;

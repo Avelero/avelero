@@ -24,7 +24,11 @@ import {
   addDomainToVercel,
   removeDomainFromVercel,
 } from "../../../utils/vercel-domains.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
 // ============================================================================
@@ -37,7 +41,7 @@ import { hasRole } from "../../middleware/auth/roles.js";
  * Returns null if no domain is configured.
  * All brand members can read the domain configuration.
  */
-const getProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
+const getProcedure = brandReadProcedure.query(async ({ ctx }) => {
   const { db, brandId } = ctx;
 
   try {
@@ -75,7 +79,7 @@ const getProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
  *
  * Only brand owners can add domains.
  */
-const addProcedure = brandRequiredProcedure
+const addProcedure = brandWriteProcedure
   .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .input(customDomainAddSchema)
   .mutation(async ({ ctx, input }) => {
@@ -148,7 +152,7 @@ const addProcedure = brandRequiredProcedure
  *
  * Only brand owners can verify domains.
  */
-const verifyProcedure = brandRequiredProcedure
+const verifyProcedure = brandWriteProcedure
   .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .mutation(async ({ ctx }) => {
     const { db, brandId } = ctx;
@@ -234,7 +238,7 @@ const verifyProcedure = brandRequiredProcedure
  *
  * Only brand owners can remove domains.
  */
-const removeProcedure = brandRequiredProcedure
+const removeProcedure = brandWriteProcedure
   .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .mutation(async ({ ctx }) => {
     const { db, brandId } = ctx;

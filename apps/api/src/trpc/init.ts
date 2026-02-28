@@ -6,16 +6,37 @@
  */
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
-import { TRPCError, initTRPC } from "@trpc/server";
+import { initTRPC } from "@trpc/server";
 import { db as drizzleDb } from "@v1/db/client";
 import type { Database as DrizzleDatabase } from "@v1/db/client";
+import { getBrandAccessSnapshot } from "@v1/db/queries/brand";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
-import type { Role } from "../config/roles";
+import { type Role, isRole } from "../config/roles";
+import { resolveBrandAccessDecision } from "../lib/access-policy/resolve-brand-access-decision.js";
+import { resolveSkuAccessDecision } from "../lib/access-policy/resolve-sku-access-decision.js";
+import type {
+  BrandAccessDecision,
+  BrandAccessSnapshot,
+  ResolvedBrandAccessDecision,
+  ResolvedSkuAccessDecision,
+} from "../lib/access-policy/types.js";
 import type { DataLoaders } from "../utils/dataloader.js";
 import { createDataLoaders } from "../utils/dataloader.js";
-import { forbidden, noBrandSelected, unauthorized } from "../utils/errors.js";
-import { ensureBrandContext } from "./middleware/auth/brand.js";
+import {
+  accessCancelled,
+  accessPastDueReadOnly,
+  accessPaymentRequired,
+  accessSkuLimitReached,
+  accessSuspended,
+  forbidden,
+  noBrandSelected,
+  unauthorized,
+} from "../utils/errors.js";
+import {
+  ensureBrandAccessContext,
+  ensureBrandContext,
+} from "./middleware/auth/brand.js";
 
 /**
  * Stores lightweight geographic hints sourced from request headers.
@@ -47,6 +68,12 @@ export interface TRPCContext {
   brandId?: string | null;
   /** Brand-specific role resolved via membership lookup. */
   role?: Role | null;
+  /** Resolved access policy decision for the active brand, when requested. */
+  brandAccess?: ResolvedBrandAccessDecision | null;
+  /** Resolved SKU policy decision for the active brand, when requested. */
+  skuAccess?: ResolvedSkuAccessDecision | null;
+  /** Raw lifecycle/billing/plan snapshot used to compute access decisions. */
+  brandAccessSnapshot?: BrandAccessSnapshot | null;
   /** Shared Drizzle database connection used for transactional work. */
   db: DrizzleDatabase;
   /** Request-scoped dataloaders for efficient batch loading and caching. */
@@ -57,6 +84,16 @@ export type AuthenticatedTRPCContext = TRPCContext & {
   user: User;
   brandId: string | null;
   role: Role | null;
+};
+
+export type BrandScopedTRPCContext = AuthenticatedTRPCContext & {
+  brandId: string;
+};
+
+export type BrandAccessTRPCContext = BrandScopedTRPCContext & {
+  brandAccess: ResolvedBrandAccessDecision;
+  skuAccess: ResolvedSkuAccessDecision;
+  brandAccessSnapshot: BrandAccessSnapshot;
 };
 
 /**
@@ -246,6 +283,132 @@ const requireBrand = t.middleware(({ ctx, next }) => {
   });
 });
 
+const withResolvedBrandAccess = t.middleware(async ({ ctx, next }) => {
+  const brandCtx = ctx as BrandScopedTRPCContext;
+
+  if (!brandCtx.role) {
+    throw forbidden("Brand membership role is required");
+  }
+
+  const accessContext = await ensureBrandAccessContext({
+    ...brandCtx,
+    brandId: brandCtx.brandId,
+    role: brandCtx.role,
+  });
+
+  return next({
+    ctx: {
+      ...brandCtx,
+      brandAccess: accessContext.brandAccess,
+      skuAccess: accessContext.skuAccess,
+      brandAccessSnapshot: accessContext.snapshot,
+    },
+  });
+});
+
+function throwReadAccessError(decision: BrandAccessDecision): never {
+  if (decision === "suspended") {
+    throw accessSuspended();
+  }
+  if (decision === "cancelled") {
+    throw accessCancelled();
+  }
+  throw forbidden("Read access to this brand is currently restricted");
+}
+
+function throwWriteAccessError(decision: BrandAccessDecision): never {
+  if (decision === "payment_required") {
+    throw accessPaymentRequired();
+  }
+  if (decision === "past_due") {
+    throw accessPastDueReadOnly();
+  }
+  if (decision === "suspended") {
+    throw accessSuspended();
+  }
+  if (decision === "cancelled") {
+    throw accessCancelled();
+  }
+  throw forbidden("Write access to this brand is currently restricted");
+}
+
+export function assertResolvedBrandWriteAccess(
+  brandAccess: ResolvedBrandAccessDecision,
+): void {
+  if (!brandAccess.capabilities.canWriteBrandData) {
+    throwWriteAccessError(brandAccess.decision);
+  }
+}
+
+export function assertResolvedBrandReadAccess(
+  brandAccess: ResolvedBrandAccessDecision,
+): void {
+  if (!brandAccess.capabilities.canReadBrandData) {
+    throwReadAccessError(brandAccess.decision);
+  }
+}
+
+export function resolveSkuDecisionWithIntendedCount(params: {
+  brandAccess: ResolvedBrandAccessDecision;
+  snapshot: BrandAccessSnapshot;
+  intendedCreateCount: number;
+}): ResolvedSkuAccessDecision {
+  const decision = resolveSkuAccessDecision({
+    brandAccess: params.brandAccess,
+    snapshot: params.snapshot,
+    intendedCreateCount: params.intendedCreateCount,
+  });
+
+  if (decision.status === "blocked") {
+    throw accessSkuLimitReached();
+  }
+
+  return decision;
+}
+
+async function resolveRoleForBrand(
+  ctx: AuthenticatedTRPCContext,
+  brandId: string,
+): Promise<Role | null> {
+  if (ctx.brandId === brandId && ctx.role) {
+    return ctx.role;
+  }
+
+  const membership = await ctx.db.query.brandMembers.findFirst({
+    columns: { role: true },
+    where: (brandMembers, { and, eq }) =>
+      and(eq(brandMembers.brandId, brandId), eq(brandMembers.userId, ctx.user.id)),
+  });
+
+  if (!membership || !isRole(membership.role)) {
+    return null;
+  }
+
+  return membership.role;
+}
+
+/**
+ * Explicit write-access assertion for procedures that don't use brand-scoped middleware.
+ */
+export async function assertBrandWriteAccess(
+  ctx: AuthenticatedTRPCContext,
+  brandId: string,
+): Promise<ResolvedBrandAccessDecision> {
+  const role = await resolveRoleForBrand(ctx, brandId);
+  if (!role) {
+    throw forbidden("Brand membership required");
+  }
+
+  const snapshot = await getBrandAccessSnapshot(ctx.db, brandId);
+  const brandAccess = resolveBrandAccessDecision({
+    role,
+    snapshot,
+  });
+
+  assertResolvedBrandWriteAccess(brandAccess);
+  return brandAccess;
+}
+
 /**
  * Base procedure for public endpoints that still require database access.
  */
@@ -295,6 +458,60 @@ export const platformAdminProcedure = protectedProcedure.use(
       throw forbidden("Platform admin access required");
     }
     return next();
+  }),
+);
+
+/**
+ * Procedure variant that permits only brand-scoped read access.
+ */
+export const brandReadProcedure = protectedProcedure
+  .use(requireBrand)
+  .use(withResolvedBrandAccess)
+  .use(
+    t.middleware(({ ctx, next }) => {
+      const brandCtx = ctx as BrandAccessTRPCContext;
+      assertResolvedBrandReadAccess(brandCtx.brandAccess);
+      return next({
+        ctx: brandCtx,
+      });
+    }),
+  );
+
+/**
+ * Procedure variant that permits only brand-scoped write access.
+ */
+export const brandWriteProcedure = protectedProcedure
+  .use(requireBrand)
+  .use(withResolvedBrandAccess)
+  .use(
+    t.middleware(({ ctx, next }) => {
+      const brandCtx = ctx as BrandAccessTRPCContext;
+      assertResolvedBrandWriteAccess(brandCtx.brandAccess);
+      return next({
+        ctx: brandCtx,
+      });
+    }),
+  );
+
+/**
+ * Procedure variant for SKU-creating writes.
+ *
+ * This enforces general write access and blocks when no SKU creation budget remains.
+ */
+export const brandSkuWriteProcedure = brandWriteProcedure.use(
+  t.middleware(({ ctx, next }) => {
+    const brandCtx = ctx as BrandAccessTRPCContext;
+
+    if (
+      brandCtx.brandAccess.capabilities.canWriteBrandData &&
+      brandCtx.skuAccess.status === "blocked"
+    ) {
+      throw accessSkuLimitReached();
+    }
+
+    return next({
+      ctx: brandCtx,
+    });
   }),
 );
 

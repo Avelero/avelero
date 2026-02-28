@@ -91,7 +91,12 @@ export async function deleteUser(db: Database, id: string) {
         count: sql<number>`COUNT(*)::int`,
       })
       .from(brandMembers)
-      .where(inArray(brandMembers.brandId, brandIds))
+      .where(
+        and(
+          inArray(brandMembers.brandId, brandIds),
+          inArray(brandMembers.role, ["owner", "member"]),
+        ),
+      )
       .groupBy(brandMembers.brandId);
 
     // Identify orphan brands (only 1 member)

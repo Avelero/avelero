@@ -31,7 +31,7 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
   // Prefetch possible navigation routes for post-deletion
   useEffect(() => {
     router.prefetch("/");
-    router.prefetch("/create-brand");
+    router.prefetch("/pending-access");
   }, [router]);
 
   async function onConfirm() {
@@ -47,7 +47,7 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
 
       // Smart redirection based on remaining brands
       const payload = result as { nextBrandId?: string | null };
-      const destination = payload.nextBrandId ? "/" : "/create-brand";
+      const destination = payload.nextBrandId ? "/" : "/pending-access";
 
       // Force fresh server data after brand deletion
       router.refresh();

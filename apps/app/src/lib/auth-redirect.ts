@@ -76,10 +76,25 @@ export async function resolveAuthRedirectPath({
 
   const target = returnTo || next || "/";
 
-  // No brand memberships and not an invite link -> create brand
+  // Invite-only routing for users without any memberships.
   const membershipCount = typeof count === "number" ? count : 0;
-  if (membershipCount === 0 && !returnTo?.startsWith("brands/invite/")) {
-    return "/create-brand";
+  if (membershipCount === 0) {
+    const normalizedEmail = currentUser.email?.trim().toLowerCase();
+    if (!normalizedEmail) {
+      return "/pending-access";
+    }
+
+    const nowIso = new Date().toISOString();
+    const { count: inviteCount } = await supabase
+      .from("brand_invites")
+      .select("*", { count: "exact", head: true })
+      .ilike("email", normalizedEmail)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
+
+    if ((inviteCount ?? 0) > 0) {
+      return "/invites";
+    }
+    return "/pending-access";
   }
 
   // If user has memberships but no active brand selected, pick the most recent membership

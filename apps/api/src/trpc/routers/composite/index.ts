@@ -1,5 +1,5 @@
 import type { Database } from "@v1/db/client";
-import { and, asc, desc, eq, inArray } from "@v1/db/queries";
+import { and, asc, desc, eq, sql } from "@v1/db/queries";
 import {
   type BrandMembershipListItem,
   type UserInviteSummaryRow,
@@ -40,7 +40,7 @@ import { getAppUrl } from "@v1/utils/envs";
  * - composite.membersWithInvites
  * - composite.catalogContent (renamed from brandCatalogContent in Phase 6)
  */
-import { ROLES } from "../../../config/roles.js";
+import { isOwnerEquivalentRole } from "../../../config/roles.js";
 import { brandIdOptionalSchema } from "../../../schemas/brand.js";
 import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
 import { createEntityResponse } from "../../../utils/response.js";
@@ -191,7 +191,7 @@ async function mapWorkflowBrands(
 
   // Extract brands where user is owner (need owner counts for these)
   const ownerBrandIds = memberships
-    .filter((brand) => brand.role === "owner")
+    .filter((brand) => brand.role === "owner" || brand.role === "avelero")
     .map((brand) => brand.id);
 
   // Batch fetch owner counts for all relevant brands using standardized query
@@ -200,7 +200,7 @@ async function mapWorkflowBrands(
   return memberships.map((membership) => {
     const ownerCount = ownerCounts.get(membership.id) ?? 1;
     const role =
-      membership.role === "owner" ? ("owner" as const) : ("member" as const);
+      membership.role === "member" ? ("member" as const) : ("owner" as const);
     return {
       id: membership.id,
       name: membership.name,
@@ -239,13 +239,16 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
     .where(eq(brandMembers.brandId, brandId))
     .orderBy(asc(brandMembers.createdAt));
 
+  // Hide internal-only avelero members from customer-facing UI.
+  const visibleRows = rows.filter((member) => member.role !== "avelero");
+
   // Calculate total owner count to determine leave permissions
-  const ownerCount = rows.reduce(
+  const ownerCount = visibleRows.reduce(
     (count, member) => (member.role === "owner" ? count + 1 : count),
     0,
   );
 
-  return rows.map((member) => {
+  return visibleRows.map((member) => {
     const role =
       member.role === "owner" ? ("owner" as const) : ("member" as const);
     return {
@@ -271,6 +274,7 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
  * @returns Array of pending invites with email, role, inviter, and expiration
  */
 async function fetchWorkflowInvites(db: Database, brandId: string) {
+  const nowIso = new Date().toISOString();
   const rows = await db
     .select({
       id: brandInvites.id,
@@ -284,7 +288,12 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
     })
     .from(brandInvites)
     .leftJoin(users, eq(users.id, brandInvites.createdBy))
-    .where(eq(brandInvites.brandId, brandId))
+    .where(
+      and(
+        eq(brandInvites.brandId, brandId),
+        sql`("brand_invites"."expires_at" IS NULL OR "brand_invites"."expires_at" > ${nowIso})`,
+      ),
+    )
     .orderBy(desc(brandInvites.createdAt));
 
   return rows.map((invite) => ({
@@ -374,7 +383,7 @@ export const compositeRouter = createTRPCRouter({
       }
 
       const invitesPromise: Promise<WorkflowInviteList> =
-        role === ROLES.OWNER
+        isOwnerEquivalentRole(role)
           ? fetchWorkflowInvites(db, brandId)
           : Promise.resolve<WorkflowInviteList>([]);
 
@@ -383,7 +392,7 @@ export const compositeRouter = createTRPCRouter({
         invitesPromise,
       ]);
 
-      return { members, invites };
+      return { members, invites, viewerRole: role ?? null };
     }),
 
   /**

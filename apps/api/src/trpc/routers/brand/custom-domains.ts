@@ -12,7 +12,7 @@
  */
 import { eq } from "@v1/db/queries";
 import { brandCustomDomains } from "@v1/db/schema";
-import { ROLES } from "../../../config/roles.js";
+import { OWNER_EQUIVALENT_ROLES } from "../../../config/roles.js";
 import { customDomainAddSchema } from "../../../schemas/custom-domains.js";
 import {
   buildDnsInstructions,
@@ -76,7 +76,7 @@ const getProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
  * Only brand owners can add domains.
  */
 const addProcedure = brandRequiredProcedure
-  .use(hasRole([ROLES.OWNER]))
+  .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .input(customDomainAddSchema)
   .mutation(async ({ ctx, input }) => {
     const { db, brandId } = ctx;
@@ -149,7 +149,7 @@ const addProcedure = brandRequiredProcedure
  * Only brand owners can verify domains.
  */
 const verifyProcedure = brandRequiredProcedure
-  .use(hasRole([ROLES.OWNER]))
+  .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .mutation(async ({ ctx }) => {
     const { db, brandId } = ctx;
 
@@ -235,7 +235,7 @@ const verifyProcedure = brandRequiredProcedure
  * Only brand owners can remove domains.
  */
 const removeProcedure = brandRequiredProcedure
-  .use(hasRole([ROLES.OWNER]))
+  .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .mutation(async ({ ctx }) => {
     const { db, brandId } = ctx;
 

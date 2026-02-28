@@ -18,9 +18,6 @@ type RouterOutputs = inferRouterOutputs<AppRouter>;
 /** Brand membership data returned from user.brands queries */
 type BrandMembership = RouterOutputs["user"]["brands"]["list"][number];
 
-/** User profile data shape */
-type UserProfile = RouterOutputs["user"]["get"];
-
 /** Result from leaving a brand, includes next brand ID if available */
 type LeaveBrandResult = RouterOutputs["user"]["brands"]["leave"];
 
@@ -115,48 +112,6 @@ export function useSetActiveBrandMutation() {
 }
 
 /**
- * Creates a new brand and assigns the current user as owner.
- *
- * On success, invalidates all brand-related queries to reflect the new brand
- * in the UI. The newly created brand becomes the user's active brand automatically.
- *
- * @returns Mutation hook for brand creation
- *
- * @example
- * ```tsx
- * const createBrand = useCreateBrandMutation();
- *
- * const handleCreateBrand = async () => {
- *   await createBrand.mutateAsync({
- *     name: "Acme Corp",
- *     email: "contact@acme.com"
- *   });
- * };
- * ```
- */
-function useCreateBrandMutation() {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-
-  return useMutation(
-    trpc.user.brands.create.mutationOptions({
-      onSuccess: async () => {
-        // Invalidate brands list and user data to show new brand
-        await queryClient.invalidateQueries({
-          queryKey: trpc.user.brands.list.queryKey(),
-        });
-        await queryClient.invalidateQueries({
-          queryKey: trpc.user.get.queryKey(),
-        });
-        await queryClient.invalidateQueries({
-          queryKey: trpc.composite.initDashboard.queryKey(),
-        });
-      },
-    }),
-  );
-}
-
-/**
  * Updates brand profile information (name, logo, email, country).
  *
  * Implements lightweight optimistic updates by canceling in-flight queries
@@ -236,9 +191,9 @@ export function useLeaveBrandMutation() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  // Prefetch create-brand route for post-leave navigation
+  // Prefetch pending-access route for users with no remaining memberships
   useEffect(() => {
-    router.prefetch("/create-brand");
+    router.prefetch("/pending-access");
   }, [router]);
 
   return useMutation(
@@ -261,8 +216,8 @@ export function useLeaveBrandMutation() {
         const nextBrandId =
           (res as { nextBrandId?: string | null } | undefined)?.nextBrandId ??
           null;
-        // Redirect to brand creation when user has no brands left
-        if (!nextBrandId) router.push("/create-brand");
+        // Redirect to pending-access when user has no brands left
+        if (!nextBrandId) router.push("/pending-access");
         router.refresh();
       },
     }),

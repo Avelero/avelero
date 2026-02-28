@@ -20,8 +20,8 @@ import { z } from "zod";
  * - brand.members.update (role changes only)
  * - brand.members.remove
  */
-import { ROLES } from "../../../config/roles.js";
-import { roleSchema } from "../../../schemas/_shared/domain.js";
+import { OWNER_EQUIVALENT_ROLES } from "../../../config/roles.js";
+import { assignableRoleSchema } from "../../../schemas/_shared/domain.js";
 import { uuidSchema } from "../../../schemas/_shared/primitives.js";
 import { brandIdOptionalSchema } from "../../../schemas/brand.js";
 import {
@@ -41,7 +41,7 @@ function computeMemberCanLeave(role: "owner" | "member", ownerCount: number) {
 // Schema for updating member role
 const memberUpdateSchema = z.object({
   user_id: uuidSchema,
-  role: roleSchema,
+  role: assignableRoleSchema,
 });
 
 // Schema for removing a member
@@ -74,12 +74,15 @@ export const brandMembersRouter = createTRPCRouter({
         .where(eq(brandMembers.brandId, brandId))
         .orderBy(asc(brandMembers.createdAt));
 
-      const ownerCount = rows.reduce(
+      // Hide internal-only avelero memberships from customer-facing members UI.
+      const visibleRows = rows.filter((member) => member.role !== "avelero");
+
+      const ownerCount = visibleRows.reduce(
         (count, member) => (member.role === "owner" ? count + 1 : count),
         0,
       );
 
-      return rows.map((member) => {
+      return visibleRows.map((member) => {
         const role = member.role === "owner" ? "owner" : ("member" as const);
         return {
           user_id: member.userId,
@@ -96,7 +99,7 @@ export const brandMembersRouter = createTRPCRouter({
    * Only brand owners can change roles.
    */
   update: brandRequiredProcedure
-    .use(hasRole([ROLES.OWNER]))
+    .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(memberUpdateSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, brandId, user } = ctx;
@@ -117,7 +120,7 @@ export const brandMembersRouter = createTRPCRouter({
    * Only brand owners can remove members.
    */
   remove: brandRequiredProcedure
-    .use(hasRole([ROLES.OWNER]))
+    .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(memberRemoveSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, brandId, user } = ctx;

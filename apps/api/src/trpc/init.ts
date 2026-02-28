@@ -14,7 +14,7 @@ import superjson from "superjson";
 import type { Role } from "../config/roles";
 import type { DataLoaders } from "../utils/dataloader.js";
 import { createDataLoaders } from "../utils/dataloader.js";
-import { noBrandSelected, unauthorized } from "../utils/errors.js";
+import { forbidden, noBrandSelected, unauthorized } from "../utils/errors.js";
 import { ensureBrandContext } from "./middleware/auth/brand.js";
 
 /**
@@ -273,6 +273,30 @@ export const protectedProcedure = t.procedure
 
     return opts.next({ ctx: authedCtx });
   });
+
+const platformAdminEmailAllowlist = new Set(
+  (process.env.PLATFORM_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+/**
+ * Procedure variant that enforces founder-only platform admin allowlist access.
+ */
+export const platformAdminProcedure = protectedProcedure.use(
+  t.middleware(({ ctx, next }) => {
+    const user = ctx.user;
+    if (!user) {
+      throw unauthorized();
+    }
+    const email = user.email?.trim().toLowerCase() ?? "";
+    if (!email || !platformAdminEmailAllowlist.has(email)) {
+      throw forbidden("Platform admin access required");
+    }
+    return next();
+  }),
+);
 
 /**
  * Procedure that requires an active brand context for mutations.

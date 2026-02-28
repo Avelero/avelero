@@ -15,7 +15,18 @@ export async function GET(request: Request) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
-      return NextResponse.redirect(`${origin}/login?error=auth-code-error`);
+      const rawMessage = error.message ?? "";
+      const normalized = rawMessage.toLowerCase();
+      const isInviteRequired =
+        normalized.includes("invite_required") ||
+        normalized.includes("invite required") ||
+        normalized.includes("account_not_found") ||
+        normalized.includes("user not found") ||
+        normalized.includes("signups not allowed") ||
+        normalized.includes("signup is disabled");
+      const mappedError =
+        isInviteRequired ? "invite-required" : "auth-code-error";
+      return NextResponse.redirect(`${origin}/login?error=${mappedError}`);
     }
   }
 

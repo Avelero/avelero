@@ -1,6 +1,8 @@
 "use client";
 
 import { verifyOtpAction } from "@/actions/auth/verify-otp-action";
+import { useTRPC } from "@/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -45,6 +47,8 @@ function sanitizeErrorMessage(message: string | undefined): string {
 
 export function OTPSignIn({ className }: Props) {
   const verifyOtp = useAction(verifyOtpAction);
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [isLoading, setLoading] = useState(false);
   const [isSent, setSent] = useState(false);
   const [emailInput, setEmailInput] = useState("");
@@ -92,6 +96,19 @@ export function OTPSignIn({ className }: Props) {
 
     setLoading(true);
     setEmail(emailValue);
+
+    const preflight = await queryClient.fetchQuery(
+      trpc.auth.otpPreflight.queryOptions({
+        email: emailValue.toLowerCase(),
+      }),
+    );
+    if (!preflight.allowed) {
+      setSendError(
+        "This email needs an invitation before account creation is allowed.",
+      );
+      setLoading(false);
+      return;
+    }
 
     const { error } = await supabase.auth.signInWithOtp({
       email: emailValue,

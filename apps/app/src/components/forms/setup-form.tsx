@@ -53,7 +53,7 @@ export function SetupForm() {
   // Prefetch possible navigation routes
   useEffect(() => {
     router.prefetch("/");
-    router.prefetch("/create-brand");
+    router.prefetch("/pending-access");
     router.prefetch("/invites");
   }, [router]);
 
@@ -82,7 +82,7 @@ export function SetupForm() {
         } else if (hasInvites) {
           router.push("/invites");
         } else {
-          router.push("/create-brand");
+          router.push("/pending-access");
         }
       },
       onError: (err) => {

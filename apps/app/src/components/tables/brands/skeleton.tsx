@@ -1,6 +1,5 @@
 import { Button } from "@v1/ui/button";
 import { Skeleton } from "@v1/ui/skeleton";
-import Link from "next/link";
 
 export function BrandsSkeleton() {
   return (
@@ -20,11 +19,6 @@ export function BrandsSkeleton() {
             Invites
           </Button>
         </div>
-        <Button asChild>
-          <Link href="/create-brand" prefetch>
-            Create brand
-          </Link>
-        </Button>
       </div>
       <div className="w-full h-[261px] p-4 space-y-3 border">
         <Skeleton className="h-4 w-full" />

@@ -16,9 +16,11 @@ import { bulkRouter } from "./bulk/index.js";
 import { catalogRouter } from "./catalog/index.js";
 import { compositeRouter } from "./composite/index.js";
 import { dppPublicRouter } from "./dpp-public/index.js";
+import { authRouter } from "./auth/index.js";
 import { integrationsRouter } from "./integrations/index.js";
 import { internalRouter } from "./internal/index.js";
 import { notificationsRouter } from "./notifications/index.js";
+import { platformAdminRouter } from "./platform-admin/index.js";
 import { productsRouter } from "./products/index.js";
 import { summaryRouter } from "./summary/index.js";
 import { taxonomyRouter } from "./taxonomy/index.js";
@@ -40,8 +42,11 @@ import { userRouter } from "./user/index.js";
  * - notifications: User-specific in-app notifications
  * - internal: Internal server-to-server endpoints (protected by API key)
  * - dppPublic: Public DPP (Digital Product Passport) endpoints (no auth required)
+ * - auth: Public auth support endpoints (OTP preflight gating)
+ * - platformAdmin: Founder-only platform admin endpoints
  */
 export const appRouter = createTRPCRouter({
+  auth: authRouter,
   user: userRouter,
   brand: brandRouter,
   catalog: catalogRouter,
@@ -54,6 +59,7 @@ export const appRouter = createTRPCRouter({
   notifications: notificationsRouter,
   internal: internalRouter,
   dppPublic: dppPublicRouter,
+  platformAdmin: platformAdminRouter,
 });
 
 /** Convenience alias for the root router's runtime shape. */

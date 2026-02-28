@@ -2,7 +2,6 @@
 
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import Link from "next/link";
 
 interface Props {
   activeTab: "brands" | "invites";
@@ -37,11 +36,6 @@ export function BrandsHeader({ activeTab, onTabChange }: Props) {
         </Button>
       </div>
 
-      <Button asChild>
-        <Link href="/create-brand" prefetch>
-          Create brand
-        </Link>
-      </Button>
     </div>
   );
 }

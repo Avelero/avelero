@@ -3020,6 +3020,7 @@ export type Database = {
         Args: { p_products: Json; p_status_updates: Json; p_variants: Json };
         Returns: Json;
       };
+      "before-user-created-hook": { Args: { event: Json }; Returns: Json };
       claim_invites_for_user: {
         Args: { p_user_id: string };
         Returns: undefined;

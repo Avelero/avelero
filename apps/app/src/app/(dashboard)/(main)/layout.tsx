@@ -38,7 +38,7 @@ export default async function MainLayout({
   }
 
   if (brands.length === 0 && invites.length === 0) {
-    redirect("/create-brand");
+    redirect("/pending-access");
   }
 
   if (brands.length === 0 && invites.length > 0) {

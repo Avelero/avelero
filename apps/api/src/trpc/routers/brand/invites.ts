@@ -12,7 +12,7 @@
  * - brand.invites.revoke
  */
 import { tasks } from "@trigger.dev/sdk/v3";
-import { desc, eq } from "@v1/db/queries";
+import { and, desc, eq, sql } from "@v1/db/queries";
 import {
   createBrandInvites,
   revokeBrandInviteByOwner,
@@ -21,7 +21,7 @@ import { brandInvites, users } from "@v1/db/schema";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
-import { ROLES } from "../../../config/roles.js";
+import { OWNER_EQUIVALENT_ROLES, type ROLES } from "../../../config/roles.js";
 import { uuidSchema } from "../../../schemas/_shared/primitives.js";
 import {
   brandIdOptionalSchema,
@@ -58,7 +58,7 @@ export const brandInvitesRouter = createTRPCRouter({
    * Only accessible by brand owners.
    */
   list: brandRequiredProcedure
-    .use(hasRole([ROLES.OWNER]))
+    .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(brandIdOptionalSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
@@ -67,6 +67,7 @@ export const brandInvitesRouter = createTRPCRouter({
       }
 
       const rows = await db
+        // Pending invites only (non-expired, or no expiry)
         .select({
           id: brandInvites.id,
           email: brandInvites.email,
@@ -78,7 +79,12 @@ export const brandInvitesRouter = createTRPCRouter({
         })
         .from(brandInvites)
         .leftJoin(users, eq(users.id, brandInvites.createdBy))
-        .where(eq(brandInvites.brandId, brandId))
+        .where(
+          and(
+            eq(brandInvites.brandId, brandId),
+            sql`("brand_invites"."expires_at" IS NULL OR "brand_invites"."expires_at" > ${new Date().toISOString()})`,
+          ),
+        )
         .orderBy(desc(brandInvites.createdAt));
 
       return rows.map((invite) => ({
@@ -98,7 +104,7 @@ export const brandInvitesRouter = createTRPCRouter({
    * Only accessible by brand owners.
    */
   send: brandRequiredProcedure
-    .use(hasRole([ROLES.OWNER]))
+    .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(inviteSendSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user, brandId } = ctx;
@@ -158,7 +164,7 @@ export const brandInvitesRouter = createTRPCRouter({
    * Only accessible by brand owners.
    */
   revoke: brandRequiredProcedure
-    .use(hasRole([ROLES.OWNER]))
+    .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(inviteRevokeSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user } = ctx;

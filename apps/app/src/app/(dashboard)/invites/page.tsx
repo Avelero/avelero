@@ -19,7 +19,7 @@ export default async function Page() {
             <div className="text-center space-y-2">
               <h6 className="text-foreground">Join your brand</h6>
               <p className="text-secondary">
-                Accept the invitation or create a new brand.
+                Accept an invitation to access your workspace.
               </p>
             </div>
             <Suspense fallback={<BrandsSkeleton />}>

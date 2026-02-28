@@ -19,7 +19,7 @@ import { getAppUrl } from "@v1/utils/envs";
  * - brand.update
  * - brand.delete
  */
-import { ROLES } from "../../../config/roles.js";
+import { OWNER_EQUIVALENT_ROLES } from "../../../config/roles.js";
 import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
 import { brandIdSchema, brandUpdateSchema } from "../../../schemas/brand.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
@@ -49,7 +49,7 @@ function extractStoragePath(url: string | null | undefined): string | null {
  * Only accessible by brand owners.
  */
 export const brandUpdateProcedure = brandRequiredProcedure
-  .use(hasRole([ROLES.OWNER]))
+  .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .input(brandUpdateSchema)
   .mutation(async ({ ctx, input }) => {
     const { db, user, brandId } = ctx;
@@ -117,7 +117,7 @@ export const brandUpdateProcedure = brandRequiredProcedure
  * Triggers background job for cleanup.
  */
 export const brandDeleteProcedure = protectedProcedure
-  .use(hasRole([ROLES.OWNER]))
+  .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .input(brandIdSchema)
   .mutation(async ({ ctx, input }) => {
     const { db, user } = ctx;

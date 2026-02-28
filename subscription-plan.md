@@ -957,3 +957,109 @@ They never affect the public visibility of existing passports.
 | 6 | Billing UX | Customer-facing plan selection, paywall, billing settings | Trial banner, paywall, plan selector, `/settings/billing` |
 | 7 | SKU Limit Enforcement | Creation-time limit checks, counters, UI feedback | Server-side enforcement, warning/blocked UI states |
 | 8 | Cleanup & Hardening | Legacy removal, backfill, monitoring, runbook | Production-ready system |
+
+---
+
+## Undertaking 2 Progress Update (2026-02-28)
+
+### Overall Status
+
+- **Implementation status:** Undertaking 2 backend + customer-flow scope is implemented on `feature/provisioning`.
+- **Current confidence:** Core invite-only auth gating is working in local manual checks (OTP and Google OAuth paths for existing vs non-existing accounts).
+- **Known scope boundary:** Platform-admin UI is intentionally not included in U2 (TRPC primitives are in place for Undertaking 4 UI work).
+
+### What Was Implemented
+
+1. **Sub-plan artifacts completed**
+- `docs/subscription/undertaking-2/research.md`
+- `docs/subscription/undertaking-2/plan.md`
+- `docs/subscription/undertaking-2/test.md`
+
+2. **Database + auth hook foundation**
+- `brand_members.role` supports `owner | member | avelero` in `packages/db/src/schema/brands/brand-members.ts`.
+- Invite roles remain constrained to `owner | member` in `packages/db/src/schema/brands/brand-invites.ts`.
+- Hook/functions migration implemented in:
+  - `apps/api/supabase/migrations/20260228170130_invite_only_auth_and_lifecycle_hooks.sql`
+- `is_brand_owner(uuid)` now treats `owner` and `avelero` as owner-equivalent.
+- `accept_invite_from_cookie(text)` validates token/email and applies Demo -> Trial transition.
+- `before_user_created_invite_gate(jsonb)` returns stable `INVITE_REQUIRED` rejection for non-invited new users.
+- Supabase hook config points to PG function in `apps/api/supabase/config.toml`:
+  - `[auth.hook.before_user_created]`
+  - `uri = "pg-functions://postgres/public/before_user_created_invite_gate"`
+
+3. **Invite flow hardening + lifecycle transition logic**
+- Invite emails are normalized to lowercase on creation.
+- Duplicate checks treat only non-expired invites as pending.
+- Seat gate checks `max_seats`; `null` remains unlimited; owner counts exclude `avelero`.
+- Invite acceptance is transactional and enforces:
+  - invite exists
+  - invite not expired
+  - invite email matches accepting user email
+- On `demo` brands, accepting `owner/member` invite transitions lifecycle to trial with 14-day window.
+- Customer/admin invite list reads only pending non-expired invites.
+
+4. **Role model changes (`avelero`)**
+- API role constants include `AVELERO` in `apps/api/src/config/roles.ts`.
+- Owner-equivalent helper introduced and used for owner-guarded procedures.
+- Assignment schemas for customer/member invite flows remain `owner | member` only.
+- Sole-owner and owner-count checks stay based on true `owner` (exclude `avelero`).
+- Customer-facing member lists hide `avelero` rows.
+- `composite.membersWithInvites` now includes `viewerRole` so UI can treat `avelero` viewer as owner-equivalent without exposing hidden rows.
+
+5. **Platform-admin TRPC primitives (backend)**
+- `platformAdminProcedure` added in `apps/api/src/trpc/init.ts` using `PLATFORM_ADMIN_EMAILS` allowlist (lowercased, comma-separated).
+- `platformAdmin` router added in `apps/api/src/trpc/routers/_app.ts` with:
+  - `platformAdmin.brands.create`
+  - `platformAdmin.invites.send`
+  - `platformAdmin.members.addSelf`
+  - `platformAdmin.members.removeSelf`
+- Audit rows are written to `platform_admin_audit_logs` for platform-admin actions.
+- `PLATFORM_ADMIN_EMAILS` documented in `apps/api/.env.example`.
+
+6. **OTP preflight + login UX + OAuth handling**
+- Public endpoint `auth.otpPreflight` added in `apps/api/src/trpc/routers/auth/index.ts`.
+- OTP login component now preflights before sending OTP (`apps/app/src/components/auth/otp-signin.tsx`).
+- Login page copy/error presentation updated for invite-only flow:
+  - `apps/app/src/app/(public)/login/page.tsx`
+  - `apps/app/src/components/auth/login-feedback.tsx`
+- OAuth callback error mapping updated in:
+  - `apps/app/src/app/api/auth/callback/route.ts`
+
+7. **Google OAuth implementation adjustment (current working approach)**
+- Google auth moved to Google Identity Services ID-token popup flow in:
+  - `apps/app/src/components/auth/google-signin.tsx`
+- Flow now performs invite preflight before `supabase.auth.signInWithIdToken`.
+- Single sign-in path is enforced (no second/duplicate Google sign-in prompt).
+- Google button hover parity was restored on the custom button wrapper.
+
+8. **Self-serve brand creation removed from customer paths**
+- `user.brands.create` removed from customer API router.
+- `/create-brand` now redirects to `/pending-access`.
+- Redirect logic updated so no-membership users route to:
+  - pending invites -> `/invites`
+  - no invites -> `/pending-access`
+- New `/pending-access` page added under dashboard routes.
+- Customer CTAs/prefetches targeting self-serve brand creation were removed/updated.
+
+### Migration Notes (Current State)
+
+- Active hook/function migration file:
+  - `apps/api/supabase/migrations/20260228170130_invite_only_auth_and_lifecycle_hooks.sql`
+- Extra experimental migration created during OAuth debugging was removed:
+  - `20260228194500_google_oauth_invite_gate_hardening.sql` (deleted)
+
+### Manual Validation Snapshot
+
+- Non-invited signup is blocked.
+- Existing accounts can still sign in.
+- Google sign-in currently lands correctly in app flow (no duplicate second Google prompt), and no-access users route to `/pending-access` as expected.
+- OTP preflight returns:
+  - `allowed=false, reason=invite_required` for non-invited/non-existing email
+  - `allowed=true, reason=pending_invite` for invited email
+  - `allowed=true, reason=existing_account` for existing users
+
+### Remaining Follow-Ups / Next Agent Focus
+
+1. Build Undertaking 4 admin UI on top of `platformAdmin.*` endpoints.
+2. Complete end-to-end manual QA once admin UI exists (especially invite issue/acceptance from UI).
+3. Keep validating Supabase hook behavior across local + deployed environments (config and callback behavior can differ per environment).

@@ -8,7 +8,7 @@ import { Suspense } from "react";
  *
  * This layout handles authentication and cache seeding for ALL dashboard pages.
  * It does NOT include redirect logic - that's handled by (main)/layout.tsx
- * to avoid infinite redirect loops (since /setup, /create-brand, /invites
+ * to avoid infinite redirect loops (since /setup, /pending-access, /invites
  * are also under this layout).
  */
 export default function DashboardLayout({

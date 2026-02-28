@@ -25,7 +25,7 @@ export type BrandMembershipListItem = {
   email: string | null;
   logo_path: string | null;
   country_code: string | null;
-  role: "owner" | "member";
+  role: "owner" | "member" | "avelero";
 };
 
 // =============================================================================
@@ -224,7 +224,10 @@ export async function getBrandsByUserId(
         email: row.email,
         logo_path: row.logo_path,
         country_code: row.country_code,
-        role: row.role === "owner" ? "owner" : "member",
+        role:
+          row.role === "owner" || row.role === "member" || row.role === "avelero"
+            ? row.role
+            : "member",
       }) satisfies BrandMembershipListItem,
   );
 }

@@ -1,6 +1,7 @@
 // Core schemas
 export * from "./core/users";
 export * from "./core/brands";
+export * from "./core/platform-admin-audit-logs";
 
 // Brand schemas
 export * from "./brands/brand-collections";
@@ -9,6 +10,10 @@ export * from "./brands/brand-invites";
 export * from "./brands/brand-tags";
 export * from "./brands/brand-theme";
 export * from "./brands/brand-custom-domains";
+export * from "./brands/brand-lifecycle";
+export * from "./brands/brand-plan";
+export * from "./brands/brand-billing";
+export * from "./brands/brand-billing-events";
 
 // Catalog schemas
 export * from "./catalog/brand-attributes";
@@ -63,6 +68,7 @@ export * from "./integrations/promotion-operations";
 export * from "./integrations/links/entity-links";
 export * from "./integrations/links/product-links";
 export * from "./integrations/links/variant-links";
+export * from "./integrations/stripe-webhook-events";
 
 // Taxonomy schemas
 export * from "./taxonomy/taxonomy-categories";

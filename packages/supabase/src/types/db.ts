@@ -109,6 +109,91 @@ export type Database = {
           },
         ];
       };
+      brand_billing: {
+        Row: {
+          billing_access_override: string;
+          billing_mode: string | null;
+          billing_override_expires_at: string | null;
+          brand_id: string;
+          created_at: string;
+          custom_monthly_price_cents: number | null;
+          id: string;
+          plan_currency: string;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          billing_access_override?: string;
+          billing_mode?: string | null;
+          billing_override_expires_at?: string | null;
+          brand_id: string;
+          created_at?: string;
+          custom_monthly_price_cents?: number | null;
+          id?: string;
+          plan_currency?: string;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          billing_access_override?: string;
+          billing_mode?: string | null;
+          billing_override_expires_at?: string | null;
+          brand_id?: string;
+          created_at?: string;
+          custom_monthly_price_cents?: number | null;
+          id?: string;
+          plan_currency?: string;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_billing_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      brand_billing_events: {
+        Row: {
+          brand_id: string;
+          created_at: string;
+          event_type: string;
+          id: string;
+          payload: Json;
+          stripe_event_id: string | null;
+        };
+        Insert: {
+          brand_id: string;
+          created_at?: string;
+          event_type: string;
+          id?: string;
+          payload?: Json;
+          stripe_event_id?: string | null;
+        };
+        Update: {
+          brand_id?: string;
+          created_at?: string;
+          event_type?: string;
+          id?: string;
+          payload?: Json;
+          stripe_event_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_billing_events_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       brand_certifications: {
         Row: {
           brand_id: string;
@@ -375,6 +460,53 @@ export type Database = {
           },
         ];
       };
+      brand_lifecycle: {
+        Row: {
+          brand_id: string;
+          cancelled_at: string | null;
+          created_at: string;
+          hard_delete_after: string | null;
+          id: string;
+          phase: string;
+          phase_changed_at: string;
+          trial_ends_at: string | null;
+          trial_started_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          brand_id: string;
+          cancelled_at?: string | null;
+          created_at?: string;
+          hard_delete_after?: string | null;
+          id?: string;
+          phase?: string;
+          phase_changed_at?: string;
+          trial_ends_at?: string | null;
+          trial_started_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          brand_id?: string;
+          cancelled_at?: string | null;
+          created_at?: string;
+          hard_delete_after?: string | null;
+          id?: string;
+          phase?: string;
+          phase_changed_at?: string;
+          trial_ends_at?: string | null;
+          trial_started_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_lifecycle_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       brand_manufacturers: {
         Row: {
           address_line_1: string | null;
@@ -582,6 +714,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "brand_operators_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      brand_plan: {
+        Row: {
+          brand_id: string;
+          created_at: string;
+          id: string;
+          max_seats: number | null;
+          plan_selected_at: string | null;
+          plan_type: string | null;
+          sku_annual_limit: number | null;
+          sku_limit_override: number | null;
+          sku_onboarding_limit: number | null;
+          sku_year_start: string | null;
+          skus_created_onboarding: number;
+          skus_created_this_year: number;
+          updated_at: string;
+        };
+        Insert: {
+          brand_id: string;
+          created_at?: string;
+          id?: string;
+          max_seats?: number | null;
+          plan_selected_at?: string | null;
+          plan_type?: string | null;
+          sku_annual_limit?: number | null;
+          sku_limit_override?: number | null;
+          sku_onboarding_limit?: number | null;
+          sku_year_start?: string | null;
+          skus_created_onboarding?: number;
+          skus_created_this_year?: number;
+          updated_at?: string;
+        };
+        Update: {
+          brand_id?: string;
+          created_at?: string;
+          id?: string;
+          max_seats?: number | null;
+          plan_selected_at?: string | null;
+          plan_type?: string | null;
+          sku_annual_limit?: number | null;
+          sku_limit_override?: number | null;
+          sku_onboarding_limit?: number | null;
+          sku_year_start?: string | null;
+          skus_created_onboarding?: number;
+          skus_created_this_year?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_plan_brand_id_brands_id_fk";
             columns: ["brand_id"];
             isOneToOne: false;
             referencedRelation: "brands";
@@ -1579,6 +1767,44 @@ export type Database = {
         };
         Relationships: [];
       };
+      platform_admin_audit_logs: {
+        Row: {
+          action: string;
+          actor_user_id: string | null;
+          created_at: string;
+          id: string;
+          payload: Json;
+          resource_id: string;
+          resource_type: string;
+        };
+        Insert: {
+          action: string;
+          actor_user_id?: string | null;
+          created_at?: string;
+          id?: string;
+          payload?: Json;
+          resource_id?: string;
+          resource_type?: string;
+        };
+        Update: {
+          action?: string;
+          actor_user_id?: string | null;
+          created_at?: string;
+          id?: string;
+          payload?: Json;
+          resource_id?: string;
+          resource_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "platform_admin_audit_logs_actor_user_id_users_id_fk";
+            columns: ["actor_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_commercial: {
         Row: {
           created_at: string;
@@ -1780,7 +2006,7 @@ export type Database = {
       product_passports: {
         Row: {
           barcode: string | null;
-          brand_id: string;
+          brand_id: string | null;
           created_at: string;
           current_version_id: string | null;
           first_published_at: string;
@@ -1794,7 +2020,7 @@ export type Database = {
         };
         Insert: {
           barcode?: string | null;
-          brand_id: string;
+          brand_id?: string | null;
           created_at?: string;
           current_version_id?: string | null;
           first_published_at: string;
@@ -1808,7 +2034,7 @@ export type Database = {
         };
         Update: {
           barcode?: string | null;
-          brand_id?: string;
+          brand_id?: string | null;
           created_at?: string;
           current_version_id?: string | null;
           first_published_at?: string;
@@ -2261,6 +2487,30 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      stripe_webhook_events: {
+        Row: {
+          created_at: string;
+          event_type: string;
+          id: string;
+          processed_at: string | null;
+          stripe_event_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          event_type: string;
+          id?: string;
+          processed_at?: string | null;
+          stripe_event_id: string;
+        };
+        Update: {
+          created_at?: string;
+          event_type?: string;
+          id?: string;
+          processed_at?: string | null;
+          stripe_event_id?: string;
+        };
+        Relationships: [];
       };
       taxonomy_attributes: {
         Row: {

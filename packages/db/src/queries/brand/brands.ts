@@ -5,7 +5,15 @@ import {
   DEFAULT_THEME_STYLES,
 } from "../../defaults/theme-defaults";
 import { seedBrandCatalogDefaults } from "../catalog/seeding";
-import { brandMembers, brandTheme, brands, users } from "../../schema";
+import {
+  brandBilling,
+  brandLifecycle,
+  brandMembers,
+  brandPlan,
+  brandTheme,
+  brands,
+  users,
+} from "../../schema";
 
 // Type for database operations that works with both regular db and transactions
 type DatabaseLike = Pick<Database, "select">;
@@ -255,6 +263,40 @@ export async function createBrand(
       })
       .returning({ id: brands.id, slug: brands.slug });
     if (!brand) throw new Error("Failed to create brand");
+
+    // Seed lifecycle, plan, and billing foundations for the new brand.
+    await tx.insert(brandLifecycle).values({
+      brandId: brand.id,
+      phase: "demo",
+      trialStartedAt: null,
+      trialEndsAt: null,
+      cancelledAt: null,
+      hardDeleteAfter: null,
+    });
+
+    await tx.insert(brandPlan).values({
+      brandId: brand.id,
+      planType: null,
+      planSelectedAt: null,
+      skuAnnualLimit: null,
+      skuOnboardingLimit: null,
+      skuLimitOverride: null,
+      skuYearStart: null,
+      skusCreatedThisYear: 0,
+      skusCreatedOnboarding: 0,
+      maxSeats: null,
+    });
+
+    await tx.insert(brandBilling).values({
+      brandId: brand.id,
+      billingMode: null,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      planCurrency: "EUR",
+      customMonthlyPriceCents: null,
+      billingAccessOverride: "none",
+      billingOverrideExpiresAt: null,
+    });
 
     // Seed default theme configuration for the new brand
     await tx.insert(brandTheme).values({

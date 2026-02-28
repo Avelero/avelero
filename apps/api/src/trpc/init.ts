@@ -9,11 +9,12 @@ import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
 import { initTRPC } from "@trpc/server";
 import { db as drizzleDb } from "@v1/db/client";
 import type { Database as DrizzleDatabase } from "@v1/db/client";
+import { sql } from "@v1/db/queries";
 import { getBrandAccessSnapshot } from "@v1/db/queries/brand";
+import { platformAdminAllowlist } from "@v1/db/schema";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
 import { type Role, isRole } from "../config/roles";
-import { isPlatformAdminEmail } from "../lib/platform-admin/allowlist.js";
 import { resolveBrandAccessDecision } from "../lib/access-policy/resolve-brand-access-decision.js";
 import { resolveSkuAccessDecision } from "../lib/access-policy/resolve-sku-access-decision.js";
 import type {
@@ -442,15 +443,34 @@ export const protectedProcedure = t.procedure
  * Procedure variant that enforces founder-only platform admin allowlist access.
  */
 export const platformAdminProcedure = protectedProcedure.use(
-  t.middleware(({ ctx, next }) => {
+  t.middleware(async ({ ctx, next }) => {
     const user = ctx.user;
     if (!user) {
       throw unauthorized();
     }
+
     const email = user.email?.trim().toLowerCase() ?? "";
-    if (!isPlatformAdminEmail(email)) {
+    if (!email) {
       throw forbidden("Platform admin access required");
     }
+
+    const [allowlistRecord] = await ctx.db
+      .select({
+        email: platformAdminAllowlist.email,
+        userId: platformAdminAllowlist.userId,
+      })
+      .from(platformAdminAllowlist)
+      .where(sql`LOWER(TRIM(BOTH FROM ${platformAdminAllowlist.email})) = ${email}`)
+      .limit(1);
+
+    if (!allowlistRecord) {
+      throw forbidden("Platform admin access required");
+    }
+
+    if (allowlistRecord.userId && allowlistRecord.userId !== user.id) {
+      throw forbidden("Platform admin access required");
+    }
+
     return next();
   }),
 );

@@ -2,6 +2,7 @@
 export * from "./core/users";
 export * from "./core/brands";
 export * from "./core/platform-admin-audit-logs";
+export * from "./core/platform-admin-allowlist";
 
 // Brand schemas
 export * from "./brands/brand-collections";

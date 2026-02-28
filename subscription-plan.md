@@ -393,7 +393,7 @@ The invite system works but is currently a secondary path. The primary path is s
   - Members with the `avelero` role are hidden from the customer-facing members list and all other customer-visible UI that shows brand members
   - Members with the `avelero` role are excluded from member counts (both in the customer app and in the admin panel's brand list table)
   - Members with the `avelero` role are only visible in the admin panel's member management section for that brand
-- This is distinct from normal brand creation: when a founder creates a brand via the admin panel's "Create Brand" flow, they are added as a normal `owner`, not `avelero`. The `avelero` role is exclusively for the "Add Self to Brand" admin action.
+- Founder-created brands from the admin panel use `avelero` membership by default (not `owner`) so founder access remains internal-only while preserving owner-equivalent permissions for admin/support actions.
 - The `brand_members` table's `role` column must be updated to support three values: `owner`, `member`, `avelero`
 
 **Post-signup routing:**
@@ -488,15 +488,15 @@ This undertaking builds the founder-facing admin panel as a **separate Next.js a
 - Clean separation between customer-facing app and internal tooling
 - Independent deployment (admin changes don't risk breaking the customer app)
 - Simpler auth model (just whitelist founder emails, no complex role system)
-- Can have its own UI patterns, design system, and development velocity
+- UI should stay visually aligned with the main app (`apps/app`) by reusing shared `@v1/ui` components and matching app styling conventions
 
 ### Tech Stack
 
 - Next.js (same version as the main app for consistency)
 - Connected to the same Supabase instance (same database, same auth)
-- TRPC or direct Supabase queries (TBD during sub-plan, but likely direct queries for simplicity since this is an internal tool)
+- tRPC via `platformAdmin.*` endpoints for admin data/actions (no direct client-side SQL access)
 - Deployed on Vercel under a separate domain (e.g., `admin.avelero.com`)
-- Auth: Supabase Auth (same Google OAuth), with server-side check that the authenticated email is in the admin allowlist
+- Auth: Supabase Auth (Google OAuth + OTP) with hard server-side allowlist enforcement at callback, middleware/proxy, and API procedure layers
 
 ### Pages
 
@@ -1060,8 +1060,8 @@ They never affect the public visibility of existing passports.
 
 ### Remaining Follow-Ups / Next Agent Focus
 
-1. Build Undertaking 4 admin UI on top of `platformAdmin.*` endpoints.
-2. Complete end-to-end manual QA once admin UI exists (especially invite issue/acceptance from UI).
+1. Undertaking 4 admin UI and hard-block auth model: **completed**.
+2. Continue end-to-end manual QA across invite issue/acceptance in both customer and admin UIs.
 3. Keep validating Supabase hook behavior across local + deployed environments (config and callback behavior can differ per environment).
 
 ---
@@ -1202,3 +1202,78 @@ They never affect the public visibility of existing passports.
 1. Undertaking 6: replace billing placeholder with full billing UX and connect CTA flows.
 2. Undertaking 7: complete async/bulk/integration SKU preflight behavior (full all-or-nothing where required).
 3. Add/expand frontend route-level visual checks for overlays/banners/blocked screens across all `(main)` route variants.
+
+---
+
+## Undertaking 4 Progress Update (2026-02-28)
+
+### Overall Status
+
+- **Implementation status:** Undertaking 4 core scope is implemented, including standalone admin app, admin auth hard-blocking, admin brand management flows, and deployment/env documentation.
+- **Current confidence:** Core admin workflows are running in local UI validation; billing checkout/invoice actions intentionally remain `U5_PENDING` stubs until Undertaking 5.
+- **Scope boundary honored:** Undertaking 4 focuses on admin app/auth/management UX and admin API surface, not Stripe payment execution logic.
+
+### What Was Implemented
+
+1. **Sub-plan artifacts completed**
+- `docs/subscription/undertaking-4/research.md`
+- `docs/subscription/undertaking-4/plan.md`
+- `docs/subscription/undertaking-4/test.md`
+- `docs/subscription/undertaking-4/deploy.md`
+
+2. **Standalone admin application**
+- New independent Next.js 16 app at `apps/admin` with dedicated app router, tRPC client/server wiring, and Vercel project config.
+- Admin app is intentionally separate from `apps/app`, while sharing the same Supabase and API backends.
+
+3. **Auth hard-block model implemented**
+- Public admin route is `/login`; dashboard routes require authenticated allowlisted admin.
+- Callback hard gate (`/api/auth/callback`) rejects non-admin users, signs out, and redirects back to `/login` with generic auth-denied messaging.
+- Middleware/proxy gate (`apps/admin/src/proxy.ts`) enforces allowlist membership on every protected request and force-signs out mismatches.
+- No `/unauthorized` route path is used in admin auth flow.
+
+4. **Server-side admin authorization**
+- `platformAdminProcedure` in API enforces allowlist access for all `platformAdmin.*` endpoints.
+- Allowlist is backed by `platform_admin_allowlist` + DB helper functions (`is_platform_admin_actor`, `has_platform_admin_email`) and connected into auth gating.
+
+5. **Admin dashboard UI + style alignment**
+- Admin uses the same core visual language as the main app via shared `@v1/ui` components and app-consistent patterns.
+- Implemented pages/flows:
+  - Brand list with search/filter/sort + pagination behavior
+  - Create Brand form (aligned UX with app form patterns)
+  - Brand detail sections (overview, lifecycle, plan/limits, billing, members, invites, audit)
+
+6. **Admin invite/member flows**
+- Admin can send/revoke invites from brand detail.
+- Admin can add/remove self from brand context.
+- Members and invite lists surfaced in admin with audit logging for admin actions.
+
+7. **Founder role + orphaning behavior updates**
+- Admin brand creation now seeds founder membership as `avelero` (not `owner`) while preserving owner-equivalent admin capabilities.
+- Platform-admin member removal/self-removal supports intentional temporary orphaning in admin workflows.
+- Customer-facing sole-owner protections remain intact in customer endpoints (users cannot self-orphan via normal app leave/remove flows).
+
+8. **Environment + deployment docs**
+- Added admin env templates:
+  - `apps/admin/.env.example`
+  - `apps/admin/complete.env.example`
+- Added Vercel/Fly/Supabase integration guide:
+  - `docs/subscription/undertaking-4/deploy.md`
+
+### Migration Notes (Current State)
+
+- Added allowlist/auth-gate migrations for admin hard-blocking:
+  - `apps/api/supabase/migrations/20260228221145_marvelous_energizer.sql`
+  - `apps/api/supabase/migrations/20260228221410_platform_admin_allowlist_auth_gate_hardening.sql`
+- No additional schema changes required for the admin UI itself beyond the existing Undertaking 1/2 foundations and allowlist gate hardening.
+
+### Validation Snapshot
+
+- `bun typecheck` (repo root): **pass**
+- `bun lint` (repo root): **pass**
+- Manual local validation completed for admin login hard-block paths and admin brand/invite/member core UI flows.
+
+### Remaining Follow-Ups / Next Agent Focus
+
+1. Undertaking 5: implement real Stripe checkout/invoice actions behind current admin billing stubs.
+2. Expand automated integration coverage for platform-admin flows (invite/member/orphan transitions) in isolated DB test runs.
+3. Continue end-to-end QA across admin + customer invite/auth transitions after deploy.

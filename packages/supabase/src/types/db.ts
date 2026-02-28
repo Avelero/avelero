@@ -1767,6 +1767,35 @@ export type Database = {
         };
         Relationships: [];
       };
+      platform_admin_allowlist: {
+        Row: {
+          created_at: string;
+          email: string;
+          updated_at: string;
+          user_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          email: string;
+          updated_at?: string;
+          user_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          email?: string;
+          updated_at?: string;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "platform_admin_allowlist_user_id_users_id_fk";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       platform_admin_audit_logs: {
         Row: {
           action: string;
@@ -3020,6 +3049,7 @@ export type Database = {
         Args: { p_products: Json; p_status_updates: Json; p_variants: Json };
         Returns: Json;
       };
+      before_user_created_invite_gate: { Args: { event: Json }; Returns: Json };
       "before-user-created-hook": { Args: { event: Json }; Returns: Json };
       claim_invites_for_user: {
         Args: { p_user_id: string };
@@ -3035,8 +3065,12 @@ export type Database = {
         Args: { product_id_param: string };
         Returns: string;
       };
+      has_auth_user_email: { Args: { p_email: string }; Returns: boolean };
+      has_pending_invite_email: { Args: { p_email: string }; Returns: boolean };
+      has_platform_admin_email: { Args: { p_email: string }; Returns: boolean };
       is_brand_member: { Args: { b_id: string }; Returns: boolean };
       is_brand_owner: { Args: { b_id: string }; Returns: boolean };
+      is_platform_admin_actor: { Args: never; Returns: boolean };
       shares_brand_with: { Args: { p_user_id: string }; Returns: boolean };
     };
     Enums: {

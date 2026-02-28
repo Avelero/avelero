@@ -1,8 +1,6 @@
 "use client";
 
 import { verifyOtpAction } from "@/actions/auth/verify-otp-action";
-import { useTRPC } from "@/trpc/client";
-import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -20,8 +18,6 @@ type Props = {
 
 export function OTPSignIn({ className }: Props) {
   const verifyOtp = useAction(verifyOtpAction);
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
   const supabase = createClient();
   const pathname = usePathname();
 
@@ -65,15 +61,6 @@ export function OTPSignIn({ className }: Props) {
     setEmail(normalized);
 
     try {
-      const preflight = await queryClient.fetchQuery(
-        trpc.platformAdmin.auth.preflight.queryOptions({ email: normalized }),
-      );
-
-      if (!preflight.allowed) {
-        setSendError(GENERIC_ERROR);
-        return;
-      }
-
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: normalized,
         options: {

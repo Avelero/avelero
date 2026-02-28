@@ -1,7 +1,6 @@
 "use server";
 
 import { actionClient } from "@/actions/safe-action";
-import { isAdminEmailAllowed } from "@/lib/admin-allowlist";
 import { createClient } from "@v1/supabase/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -34,12 +33,11 @@ export const verifyOtpAction = actionClient
       throw new Error(GENERIC_AUTH_ERROR);
     }
 
-    const authenticatedEmail =
-      data.user?.email?.toLowerCase() ??
-      data.session?.user?.email?.toLowerCase() ??
-      email.toLowerCase();
+    const { data: isPlatformAdmin, error: adminCheckError } = await supabase.rpc(
+      "is_platform_admin_actor",
+    );
 
-    if (!isAdminEmailAllowed(authenticatedEmail)) {
+    if (adminCheckError || !isPlatformAdmin) {
       await supabase.auth.signOut({ scope: "global" });
       throw new Error(GENERIC_AUTH_ERROR);
     }

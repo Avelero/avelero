@@ -1,7 +1,5 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -45,8 +43,6 @@ declare global {
 const GOOGLE_SCRIPT_ID = "google-identity-services-script";
 const GOOGLE_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
 
-const INVITE_REQUIRED_MESSAGE =
-  "This email needs an invitation before account creation is allowed.";
 const GENERIC_GOOGLE_ERROR =
   "Google sign-in could not be completed. Please try again or use email verification.";
 
@@ -70,19 +66,6 @@ function GoogleLogo() {
         d="M24 47.5c5.7 0 10.5-1.9 14-5.1l-7.4-5.7c-2 1.4-4.6 2.3-7.6 2.3-6.6 0-12.2-3.9-14.2-9.7l-7.3 5.6c4 7.9 12.1 12.6 22.5 12.6z"
       />
     </svg>
-  );
-}
-
-function isInviteRequiredError(message: string | undefined): boolean {
-  const normalized = (message ?? "").toLowerCase();
-
-  return (
-    normalized.includes("invite_required") ||
-    normalized.includes("invite required") ||
-    normalized.includes("account_not_found") ||
-    normalized.includes("user not found") ||
-    normalized.includes("signups not allowed") ||
-    normalized.includes("signup is disabled")
   );
 }
 
@@ -139,8 +122,6 @@ async function loadGoogleScript(): Promise<void> {
 }
 
 export function GoogleSignin() {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
 
@@ -173,29 +154,13 @@ export function GoogleSignin() {
       }
 
       try {
-        const preflight = await queryClient.fetchQuery(
-          trpc.auth.otpPreflight.queryOptions({
-            email: tokenEmail.toLowerCase(),
-          }),
-        );
-
-        if (!preflight.allowed) {
-          setErrorMessage(INVITE_REQUIRED_MESSAGE);
-          setIsSubmitting(false);
-          return;
-        }
-
         const { error } = await supabase.auth.signInWithIdToken({
           provider: "google",
           token,
         });
 
         if (error) {
-          setErrorMessage(
-            isInviteRequiredError(error.message)
-              ? INVITE_REQUIRED_MESSAGE
-              : GENERIC_GOOGLE_ERROR,
-          );
+          setErrorMessage(GENERIC_GOOGLE_ERROR);
           setIsSubmitting(false);
           return;
         }
@@ -213,7 +178,7 @@ export function GoogleSignin() {
         setIsSubmitting(false);
       }
     },
-    [queryClient, returnTo, supabase, trpc.auth.otpPreflight],
+    [returnTo, supabase],
   );
 
   useEffect(() => {

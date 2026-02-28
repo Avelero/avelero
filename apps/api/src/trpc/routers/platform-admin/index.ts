@@ -29,7 +29,6 @@ import {
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
-import { isPlatformAdminEmail } from "../../../lib/platform-admin/allowlist.js";
 import { brandCreateSchema } from "../../../schemas/brand.js";
 import { assignableRoleSchema } from "../../../schemas/_shared/domain.js";
 import {
@@ -40,7 +39,6 @@ import {
 import {
   createTRPCRouter,
   platformAdminProcedure,
-  publicProcedure,
   type AuthenticatedTRPCContext,
 } from "../../init.js";
 
@@ -71,10 +69,6 @@ const platformMemberSelfSchema = z.object({
 
 const platformBrandIdSchema = z.object({
   brand_id: z.string().uuid(),
-});
-
-const platformViewerPreflightSchema = z.object({
-  email: z.string().trim().email(),
 });
 
 const platformBrandsListSchema = z.object({
@@ -254,14 +248,6 @@ async function triggerInviteEmails(invites: InviteResultRow[]) {
 }
 
 export const platformAdminRouter = createTRPCRouter({
-  auth: createTRPCRouter({
-    preflight: publicProcedure
-      .input(platformViewerPreflightSchema)
-      .query(({ input }) => ({
-        allowed: isPlatformAdminEmail(input.email),
-      })),
-  }),
-
   viewer: createTRPCRouter({
     get: platformAdminProcedure.query(async ({ ctx }) => {
       const [profile] = await ctx.db

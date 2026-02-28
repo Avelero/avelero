@@ -1,4 +1,4 @@
-import { isAdminEmailAllowed } from "@/lib/admin-allowlist";
+import { ADMIN_LOGIN_ERROR_COOKIE } from "@/lib/login-error";
 import { updateSession } from "@v1/supabase/proxy";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -21,6 +21,14 @@ export async function proxy(request: NextRequest) {
 
   const { response: updatedResponse, supabase } = await updateSession(request);
 
+  if (isLoginRoute && request.cookies.has(ADMIN_LOGIN_ERROR_COOKIE)) {
+    updatedResponse.cookies.set(ADMIN_LOGIN_ERROR_COOKIE, "", {
+      maxAge: 0,
+      path: "/login",
+      sameSite: "lax",
+    });
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -30,25 +38,35 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && !isAdminEmailAllowed(user.email)) {
+  if (user) {
+    const { data: isPlatformAdmin, error } = await supabase.rpc(
+      "is_platform_admin_actor",
+    );
+
+    if (!error && isPlatformAdmin) {
+      if (isLoginRoute) {
+        const url = new URL("/", request.url);
+        const redirectResponse = NextResponse.redirect(url);
+
+        for (const cookie of updatedResponse.cookies.getAll()) {
+          redirectResponse.cookies.set(cookie);
+        }
+
+        return redirectResponse;
+      }
+
+      return updatedResponse;
+    }
+
     await supabase.auth.signOut({ scope: "global" });
 
-    const url = new URL("/login", request.url);
-    url.searchParams.set("error", "auth-denied");
-
-    const redirectResponse = NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(new URL("/login", request.url));
+    redirectResponse.cookies.set(ADMIN_LOGIN_ERROR_COOKIE, "auth-denied", {
+      maxAge: 60,
+      path: "/login",
+      sameSite: "lax",
+    });
     clearSupabaseCookies(request, redirectResponse);
-
-    return redirectResponse;
-  }
-
-  if (user && isLoginRoute) {
-    const url = new URL("/", request.url);
-    const redirectResponse = NextResponse.redirect(url);
-
-    for (const cookie of updatedResponse.cookies.getAll()) {
-      redirectResponse.cookies.set(cookie);
-    }
 
     return redirectResponse;
   }

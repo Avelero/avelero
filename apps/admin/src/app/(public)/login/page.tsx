@@ -1,14 +1,22 @@
 import { GoogleSignin } from "@/components/auth/google-signin";
-import { LoginFeedback } from "@/components/auth/login-feedback";
 import { OTPSignIn } from "@/components/auth/otp-signin";
+import {
+  ADMIN_LOGIN_ERROR_COOKIE,
+  getLoginErrorMessage,
+} from "@/lib/login-error";
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import { cookies } from "next/headers";
 
 export const metadata: Metadata = {
   title: "Login | Avelero Admin",
 };
 
-export default function Page() {
+export default async function Page() {
+  const cookieStore = await cookies();
+  const loginErrorMessage = getLoginErrorMessage(
+    cookieStore.get(ADMIN_LOGIN_ERROR_COOKIE)?.value,
+  );
+
   return (
     <div className="h-screen w-screen flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6 border p-6 bg-background">
@@ -19,12 +27,8 @@ export default function Page() {
           </p>
         </div>
 
-        <Suspense fallback={null}>
-          <LoginFeedback />
-        </Suspense>
-
         <div className="space-y-4">
-          <GoogleSignin />
+          <GoogleSignin initialErrorMessage={loginErrorMessage} />
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

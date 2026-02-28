@@ -1,7 +1,5 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -45,6 +43,10 @@ const GOOGLE_SCRIPT_ID = "google-identity-services-script";
 const GOOGLE_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
 const GENERIC_ERROR = "Unable to sign in. Please contact your administrator.";
 
+type Props = {
+  initialErrorMessage?: string | null;
+};
+
 function GoogleLogo() {
   return (
     <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true">
@@ -66,25 +68,6 @@ function GoogleLogo() {
       />
     </svg>
   );
-}
-
-function extractEmailFromIdToken(token: string): string | null {
-  const parts = token.split(".");
-  if (parts.length < 2 || !parts[1]) return null;
-
-  try {
-    const payload = parts[1];
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-    const binary = atob(padded);
-    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    const json = new TextDecoder().decode(bytes);
-    const parsed = JSON.parse(json) as Record<string, unknown>;
-    const email = parsed.email;
-    return typeof email === "string" && email.length > 0 ? email : null;
-  } catch {
-    return null;
-  }
 }
 
 async function loadGoogleScript(): Promise<void> {
@@ -120,14 +103,14 @@ async function loadGoogleScript(): Promise<void> {
   });
 }
 
-export function GoogleSignin() {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
+export function GoogleSignin({ initialErrorMessage = null }: Props) {
   const supabase = useMemo(() => createClient(), []);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(
+    initialErrorMessage,
+  );
 
   const hiddenGoogleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -144,26 +127,7 @@ export function GoogleSignin() {
       setIsSubmitting(true);
       setErrorMessage(null);
 
-      const tokenEmail = extractEmailFromIdToken(token)?.toLowerCase();
-      if (!tokenEmail) {
-        setErrorMessage(GENERIC_ERROR);
-        setIsSubmitting(false);
-        return;
-      }
-
       try {
-        const preflight = await queryClient.fetchQuery(
-          trpc.platformAdmin.auth.preflight.queryOptions({
-            email: tokenEmail,
-          }),
-        );
-
-        if (!preflight.allowed) {
-          setErrorMessage(GENERIC_ERROR);
-          setIsSubmitting(false);
-          return;
-        }
-
         const { error } = await supabase.auth.signInWithIdToken({
           provider: "google",
           token,
@@ -182,7 +146,7 @@ export function GoogleSignin() {
         setIsSubmitting(false);
       }
     },
-    [queryClient, supabase, trpc.platformAdmin.auth.preflight],
+    [supabase],
   );
 
   useEffect(() => {

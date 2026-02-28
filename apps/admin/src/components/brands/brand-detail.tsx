@@ -17,7 +17,6 @@ import {
   SelectTrigger,
 } from "@v1/ui/select";
 import { Icons } from "@v1/ui/icons";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@v1/ui/table";
 import { Textarea } from "@v1/ui/textarea";
 import { toast } from "@v1/ui/sonner";
 import { cn } from "@v1/ui/cn";
@@ -74,15 +73,17 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border bg-background">
-      <div className="flex items-start justify-between gap-4 px-6 py-4 border-b">
-        <div>
-          <h5 className="text-primary">{title}</h5>
-          {subtitle ? <p className="type-small text-secondary mt-0.5">{subtitle}</p> : null}
+    <section className="border border-border bg-background">
+      <div className="p-4 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="type-p !font-medium text-primary">{title}</p>
+            {subtitle ? <p className="type-small text-secondary mt-0.5">{subtitle}</p> : null}
+          </div>
+          {headerRight ? <div className="flex items-center gap-2 flex-shrink-0">{headerRight}</div> : null}
         </div>
-        {headerRight ? <div className="flex items-center gap-2 flex-shrink-0">{headerRight}</div> : null}
+        {children}
       </div>
-      <div className="px-6 py-5 space-y-4">{children}</div>
     </section>
   );
 }
@@ -704,235 +705,207 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
       </Section>
 
       {/* ── Billing ───────────────────────────────────────────────── */}
-      <Section title="Billing">
-        <div className="space-y-1">
-          <p className="type-small text-secondary">
-            <span className="text-primary font-medium">Stripe customer:</span>{" "}
-            {brandData.billing.stripe_customer_id ?? "Not linked"}
-          </p>
-          <p className="type-small text-secondary">
-            <span className="text-primary font-medium">Stripe subscription:</span>{" "}
-            {brandData.billing.stripe_subscription_id ?? "Not linked"}
-          </p>
+      <section className="border border-border bg-background">
+        <div className="p-4 flex flex-col gap-3">
+          <p className="type-p !font-medium text-primary">Billing</p>
+          <div className="space-y-1">
+            <p className="type-small text-secondary">
+              <span className="text-primary font-medium">Stripe customer:</span>{" "}
+              {brandData.billing.stripe_customer_id ?? "Not linked"}
+            </p>
+            <p className="type-small text-secondary">
+              <span className="text-primary font-medium">Stripe subscription:</span>{" "}
+              {brandData.billing.stripe_subscription_id ?? "Not linked"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => checkoutStubMutation.mutate({ brand_id: brandId })}
+              disabled={checkoutStubMutation.isPending}
+            >
+              Create Checkout Session
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => invoiceStubMutation.mutate({ brand_id: brandId })}
+              disabled={invoiceStubMutation.isPending}
+            >
+              Create Invoice
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 pt-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => checkoutStubMutation.mutate({ brand_id: brandId })}
-            disabled={checkoutStubMutation.isPending}
-          >
-            Create Checkout Session
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => invoiceStubMutation.mutate({ brand_id: brandId })}
-            disabled={invoiceStubMutation.isPending}
-          >
-            Create Invoice
-          </Button>
+        <div className="grid grid-cols-[1fr_1fr_160px]">
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Event</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Stripe Event</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">Created</div>
         </div>
-
-        <div className="border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Event</TableHead>
-                <TableHead>Stripe Event</TableHead>
-                <TableHead>Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {brandData.billing.events.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-secondary type-small py-6">
-                    No billing events.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                brandData.billing.events.map((event) => (
-                  <TableRow key={event.id}>
-                    <TableCell>{event.event_type}</TableCell>
-                    <TableCell>{event.stripe_event_id ?? "-"}</TableCell>
-                    <TableCell>{formatDate(event.created_at)}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Section>
+        {brandData.billing.events.length === 0 ? (
+          <div className="flex items-center justify-center h-[120px]">
+            <p className="type-p text-tertiary">No billing events</p>
+          </div>
+        ) : (
+          brandData.billing.events.map((event, i, arr) => {
+            const isLast = i === arr.length - 1;
+            return (
+              <div key={event.id} className="grid grid-cols-[1fr_1fr_160px]">
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{event.event_type}</div>
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{event.stripe_event_id ?? "-"}</div>
+                <div className={cn("border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{formatDate(event.created_at)}</div>
+              </div>
+            );
+          })
+        )}
+      </section>
 
       {/* ── Members ───────────────────────────────────────────────── */}
-      <Section title="Members">
-        <div className="border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Joined</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {members.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-secondary type-small py-6">
-                    No members.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                members.map((member) => (
-                  <TableRow key={member.user_id}>
-                    <TableCell>{member.email ?? "-"}</TableCell>
-                    <TableCell>{member.full_name ?? "-"}</TableCell>
-                    <TableCell>
-                      <span className="inline-flex border px-2 py-1 type-small bg-accent-light text-primary">
-                        {member.role}
-                      </span>
-                    </TableCell>
-                    <TableCell>{formatDate(member.joined_at)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          removeMemberMutation.mutate({
-                            brand_id: brandId,
-                            user_id: member.user_id,
-                          })
-                        }
-                        disabled={removeMemberMutation.isPending}
-                      >
-                        Remove
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+      <section className="border border-border bg-background">
+        <div className="p-4">
+          <p className="type-p !font-medium text-primary">Members</p>
         </div>
-      </Section>
+        <div className="grid grid-cols-[1fr_1fr_100px_160px_100px]">
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Email</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Name</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Role</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Joined</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">Actions</div>
+        </div>
+        {members.length === 0 ? (
+          <div className="flex items-center justify-center h-[120px]">
+            <p className="type-p text-tertiary">No members</p>
+          </div>
+        ) : (
+          members.map((member, i, arr) => {
+            const isLast = i === arr.length - 1;
+            return (
+              <div key={member.user_id} className="grid grid-cols-[1fr_1fr_100px_160px_100px]">
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary truncate", !isLast && "border-b")}>{member.email ?? "-"}</div>
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{member.full_name ?? "-"}</div>
+                <div className={cn("border-r border-border px-4 py-2.5", !isLast && "border-b")}>
+                  <span className="inline-flex border px-2 py-0.5 type-small bg-accent-light text-primary">{member.role}</span>
+                </div>
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{formatDate(member.joined_at)}</div>
+                <div className={cn("border-border px-3 py-2 flex items-center", !isLast && "border-b")}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeMemberMutation.mutate({ brand_id: brandId, user_id: member.user_id })}
+                    disabled={removeMemberMutation.isPending}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </section>
 
       {/* ── Invites ───────────────────────────────────────────────── */}
-      <Section title="Invites">
-        <FieldRow label="Email">
-          <Input
-            placeholder="colleague@example.com"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
+      <section className="border border-border bg-background">
+        <div className="p-4 flex flex-col gap-3">
+          <p className="type-p !font-medium text-primary">Invites</p>
+          <FieldRow label="Email">
+            <Input
+              placeholder="colleague@example.com"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+            />
+          </FieldRow>
+          <SimpleSelect
+            label="Role"
+            value={inviteRole}
+            onChange={setInviteRole}
+            options={INVITE_ROLE_OPTIONS}
           />
-        </FieldRow>
-        <SimpleSelect
-          label="Role"
-          value={inviteRole}
-          onChange={setInviteRole}
-          options={INVITE_ROLE_OPTIONS}
-        />
-        <div className="pt-1">
-          <Button
-            onClick={() =>
-              sendInviteMutation.mutate({
-                brand_id: brandId,
-                email: inviteEmail.trim().toLowerCase(),
-                role: inviteRole,
-              })
-            }
-            disabled={sendInviteMutation.isPending || !inviteEmail.trim()}
-          >
-            {sendInviteMutation.isPending ? "Sending…" : "Send Invite"}
-          </Button>
+          <div>
+            <Button
+              onClick={() =>
+                sendInviteMutation.mutate({
+                  brand_id: brandId,
+                  email: inviteEmail.trim().toLowerCase(),
+                  role: inviteRole,
+                })
+              }
+              disabled={sendInviteMutation.isPending || !inviteEmail.trim()}
+            >
+              {sendInviteMutation.isPending ? "Sending…" : "Send Invite"}
+            </Button>
+          </div>
         </div>
-
-        <div className="border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Sent</TableHead>
-                <TableHead>Expires</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invites.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-secondary type-small py-6">
-                    No pending invites.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                invites.map((invite) => (
-                  <TableRow key={invite.id}>
-                    <TableCell>{invite.email}</TableCell>
-                    <TableCell>{invite.role}</TableCell>
-                    <TableCell>{formatDate(invite.created_at)}</TableCell>
-                    <TableCell>{formatDate(invite.expires_at)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => revokeInviteMutation.mutate({ invite_id: invite.id })}
-                        disabled={revokeInviteMutation.isPending}
-                      >
-                        Revoke
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <div className="grid grid-cols-[1fr_100px_160px_160px_100px]">
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Email</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Role</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Sent</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Expires</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">Actions</div>
         </div>
-      </Section>
+        {invites.length === 0 ? (
+          <div className="flex items-center justify-center h-[120px]">
+            <p className="type-p text-tertiary">No pending invites</p>
+          </div>
+        ) : (
+          invites.map((invite, i, arr) => {
+            const isLast = i === arr.length - 1;
+            return (
+              <div key={invite.id} className="grid grid-cols-[1fr_100px_160px_160px_100px]">
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary truncate", !isLast && "border-b")}>{invite.email}</div>
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{invite.role}</div>
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{formatDate(invite.created_at)}</div>
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{formatDate(invite.expires_at)}</div>
+                <div className={cn("border-border px-3 py-2 flex items-center", !isLast && "border-b")}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => revokeInviteMutation.mutate({ invite_id: invite.id })}
+                    disabled={revokeInviteMutation.isPending}
+                  >
+                    Revoke
+                  </Button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </section>
 
       {/* ── Audit Log ─────────────────────────────────────────────── */}
-      <Section title="Audit Log">
-        <FieldRow label="Internal notes">
-          <Textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Local only, not persisted"
-            className="min-h-[96px]"
-          />
-        </FieldRow>
-
-        <div className="border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Action</TableHead>
-                <TableHead>Actor</TableHead>
-                <TableHead>Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {audits.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-secondary type-small py-6">
-                    No audit log entries.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                audits.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>{entry.action}</TableCell>
-                    <TableCell>
-                      {entry.actor_full_name ?? entry.actor_email ?? "Unknown"}
-                    </TableCell>
-                    <TableCell>{formatDate(entry.created_at)}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+      <section className="border border-border bg-background">
+        <div className="p-4 flex flex-col gap-3">
+          <p className="type-p !font-medium text-primary">Audit Log</p>
+          <FieldRow label="Internal notes">
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Local only, not persisted"
+              className="min-h-[96px]"
+            />
+          </FieldRow>
         </div>
-      </Section>
+        <div className="grid grid-cols-[1fr_1fr_160px]">
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Action</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Actor</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">Created</div>
+        </div>
+        {audits.length === 0 ? (
+          <div className="flex items-center justify-center h-[120px]">
+            <p className="type-p text-tertiary">No audit log entries</p>
+          </div>
+        ) : (
+          audits.map((entry, i, arr) => {
+            const isLast = i === arr.length - 1;
+            return (
+              <div key={entry.id} className="grid grid-cols-[1fr_1fr_160px]">
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{entry.action}</div>
+                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{entry.actor_full_name ?? entry.actor_email ?? "Unknown"}</div>
+                <div className={cn("border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{formatDate(entry.created_at)}</div>
+              </div>
+            );
+          })
+        )}
+      </section>
     </div>
   );
 }

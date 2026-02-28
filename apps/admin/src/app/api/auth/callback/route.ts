@@ -1,9 +1,15 @@
-import { isAdminEmailAllowed } from "@/lib/admin-allowlist";
 import { createClient } from "@v1/supabase/server";
+import { ADMIN_LOGIN_ERROR_COOKIE } from "@/lib/login-error";
 import { NextResponse } from "next/server";
 
 function toLoginRedirect(origin: string, code: string) {
-  return NextResponse.redirect(`${origin}/login?error=${code}`);
+  const response = NextResponse.redirect(`${origin}/login`);
+  response.cookies.set(ADMIN_LOGIN_ERROR_COOKIE, code, {
+    maxAge: 60,
+    path: "/login",
+    sameSite: "lax",
+  });
+  return response;
 }
 
 export async function GET(request: Request) {
@@ -28,7 +34,11 @@ export async function GET(request: Request) {
     return toLoginRedirect(origin, "auth-failed");
   }
 
-  if (!isAdminEmailAllowed(user.email)) {
+  const { data: isPlatformAdmin, error: adminCheckError } = await supabase.rpc(
+    "is_platform_admin_actor",
+  );
+
+  if (adminCheckError || !isPlatformAdmin) {
     await supabase.auth.signOut({ scope: "global" });
     return toLoginRedirect(origin, "auth-denied");
   }

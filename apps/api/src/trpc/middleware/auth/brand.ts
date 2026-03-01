@@ -1,16 +1,32 @@
 import { type Role, isRole } from "@api/config/roles.js";
+import { resolveBrandAccessDecision } from "@api/lib/access-policy/resolve-brand-access-decision.js";
+import { resolveSkuAccessDecision } from "@api/lib/access-policy/resolve-sku-access-decision.js";
+import type {
+  BrandAccessSnapshot,
+  ResolvedBrandAccessDecision,
+  ResolvedSkuAccessDecision,
+} from "@api/lib/access-policy/types.js";
 import type { TRPCContext } from "@api/trpc/init.ts";
+import { getBrandAccessSnapshot } from "@v1/db/queries/brand";
 import { logger } from "@v1/logger";
 
 const BRAND_CONTEXT_CACHE = Symbol("brandContextCache");
+const BRAND_ACCESS_CONTEXT_CACHE = Symbol("brandAccessContextCache");
 
 type BrandContextCache = {
   brandId: string | null;
   role: Role | null;
 };
 
+export type BrandAccessContextCache = {
+  snapshot: BrandAccessSnapshot;
+  brandAccess: ResolvedBrandAccessDecision;
+  skuAccess: ResolvedSkuAccessDecision;
+};
+
 type ContextWithBrandCache = TRPCContext & {
   [BRAND_CONTEXT_CACHE]?: BrandContextCache;
+  [BRAND_ACCESS_CONTEXT_CACHE]?: BrandAccessContextCache;
 };
 
 /**
@@ -95,4 +111,52 @@ export async function ensureBrandContext(
     contextWithCache[BRAND_CONTEXT_CACHE] = result;
     return result;
   }
+}
+
+/**
+ * Resolves and caches access policy state for the active brand on this request.
+ *
+ * @param ctx - Request-scoped tRPC context with resolved brand role.
+ * @returns Snapshot + computed brand and SKU access decisions.
+ */
+export async function ensureBrandAccessContext(
+  ctx: TRPCContext & { brandId: string; role?: Role | null },
+): Promise<BrandAccessContextCache> {
+  const contextWithCache = ctx as ContextWithBrandCache;
+  if (contextWithCache[BRAND_ACCESS_CONTEXT_CACHE]) {
+    return contextWithCache[BRAND_ACCESS_CONTEXT_CACHE]!;
+  }
+
+  if (!ctx.brandId) {
+    throw new Error("Active brand context required to resolve access policy");
+  }
+
+  const snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
+  const resolvedBrandAccess = resolveBrandAccessDecision({
+    role: ctx.role ?? null,
+    snapshot,
+  });
+  const skuAccess = resolveSkuAccessDecision({
+    brandAccess: resolvedBrandAccess,
+    snapshot,
+    intendedCreateCount: 0,
+  });
+  const brandAccess: ResolvedBrandAccessDecision = {
+    ...resolvedBrandAccess,
+    capabilities: {
+      ...resolvedBrandAccess.capabilities,
+      canCreateSkus:
+        resolvedBrandAccess.capabilities.canWriteBrandData &&
+        skuAccess.status !== "blocked",
+    },
+  };
+
+  const result: BrandAccessContextCache = {
+    snapshot,
+    brandAccess,
+    skuAccess,
+  };
+
+  contextWithCache[BRAND_ACCESS_CONTEXT_CACHE] = result;
+  return result;
 }

@@ -22,13 +22,17 @@ import {
   collectionUpdateSchema,
 } from "../../../schemas/brand-collections.js";
 import { notFound, wrapError } from "../../../utils/errors.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 export const brandCollectionsRouter = createTRPCRouter({
   /**
    * Lists all collections for the active brand.
    */
-  list: brandRequiredProcedure.query(async ({ ctx }) => {
+  list: brandReadProcedure.query(async ({ ctx }) => {
     const { db, brandId } = ctx;
     try {
       const collections = await listCollections(db, brandId);
@@ -41,7 +45,7 @@ export const brandCollectionsRouter = createTRPCRouter({
   /**
    * Creates a new collection for the active brand.
    */
-  create: brandRequiredProcedure
+  create: brandWriteProcedure
     .input(collectionCreateSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
@@ -56,7 +60,7 @@ export const brandCollectionsRouter = createTRPCRouter({
   /**
    * Updates an existing collection.
    */
-  update: brandRequiredProcedure
+  update: brandWriteProcedure
     .input(collectionUpdateSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
@@ -75,7 +79,7 @@ export const brandCollectionsRouter = createTRPCRouter({
   /**
    * Deletes a collection.
    */
-  delete: brandRequiredProcedure
+  delete: brandWriteProcedure
     .input(collectionDeleteSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx;

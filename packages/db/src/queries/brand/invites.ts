@@ -1,7 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Database } from "../../client";
-import { brandInvites, brandMembers, brands, users } from "../../schema";
+import {
+  brandInvites,
+  brandLifecycle,
+  brandMembers,
+  brandPlan,
+  brands,
+  users,
+} from "../../schema";
 
 export type BrandInviteRole = "owner" | "member";
 
@@ -33,7 +40,7 @@ export async function listBrandInvites(
       and(
         eq(brandMembers.brandId, brandId),
         eq(brandMembers.userId, userId),
-        eq(brandMembers.role, "owner"),
+        inArray(brandMembers.role, ["owner", "avelero"]),
       ),
     )
     .limit(1);
@@ -81,6 +88,7 @@ export async function listPendingInvitesForEmail(
   db: Database,
   email: string,
 ): Promise<UserInviteSummaryRow[]> {
+  const normalizedEmail = email.trim().toLowerCase();
   const nowIso = new Date().toISOString();
   const rows = await db
     .select({
@@ -102,7 +110,7 @@ export async function listPendingInvitesForEmail(
     .leftJoin(users, eq(brandInvites.createdBy, users.id))
     .where(
       and(
-        eq(brandInvites.email, email),
+        sql`LOWER(TRIM(BOTH FROM "brand_invites"."email")) = ${normalizedEmail}`,
         or(isNull(brandInvites.expiresAt), gt(brandInvites.expiresAt, nowIso)),
       ),
     )
@@ -143,7 +151,7 @@ export async function revokeBrandInviteByOwner(
       and(
         eq(brandMembers.userId, userId),
         eq(brandMembers.brandId, row.brandId),
-        eq(brandMembers.role, "owner"),
+        inArray(brandMembers.role, ["owner", "avelero"]),
       ),
     )
     .limit(1);
@@ -162,6 +170,7 @@ export async function createBrandInvites(
   db: Database,
   params: CreateInvitesParams,
 ) {
+  const nowIso = new Date().toISOString();
   const emails = params.invites.map((i) => i.email.toLowerCase());
 
   // existing members
@@ -186,6 +195,7 @@ export async function createBrandInvites(
     .where(
       and(
         eq(brandInvites.brandId, params.brandId),
+        or(isNull(brandInvites.expiresAt), gt(brandInvites.expiresAt, nowIso)),
         or(...emails.map((e) => sql`LOWER("brand_invites"."email") = ${e}`)),
       ),
     );
@@ -206,20 +216,69 @@ export async function createBrandInvites(
       !memberEmails.has(i.email.toLowerCase()) &&
       !pendingEmails.has(i.email.toLowerCase()),
   );
-  const skipped = uniqueInvites
+  const skipped: Array<{
+    email: string;
+    reason: "already_member" | "already_invited" | "seat_limit_reached";
+  }> = uniqueInvites
     .filter((i) => !valid.includes(i))
     .map((i) => ({
-      email: i.email,
+      email: i.email.toLowerCase(),
       reason: memberEmails.has(i.email.toLowerCase())
         ? "already_member"
         : ("already_invited" as const),
     }));
 
+  // Seat check (null maxSeats = unlimited). Exclude hidden avelero members.
+  let insertsAllowed = valid.length;
+  const [plan] = await db
+    .select({ maxSeats: brandPlan.maxSeats })
+    .from(brandPlan)
+    .where(eq(brandPlan.brandId, params.brandId))
+    .limit(1);
+
+  if (typeof plan?.maxSeats === "number") {
+    const [memberCountRow] = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(brandMembers)
+      .where(
+        and(
+          eq(brandMembers.brandId, params.brandId),
+          inArray(brandMembers.role, ["owner", "member"]),
+        ),
+      );
+
+    const [pendingCountRow] = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(brandInvites)
+      .where(
+        and(
+          eq(brandInvites.brandId, params.brandId),
+          or(isNull(brandInvites.expiresAt), gt(brandInvites.expiresAt, nowIso)),
+        ),
+      );
+
+    const currentSeats = (memberCountRow?.count ?? 0) + (pendingCountRow?.count ?? 0);
+    const availableSeats = Math.max(0, plan.maxSeats - currentSeats);
+    insertsAllowed = Math.min(valid.length, availableSeats);
+  }
+
   if (valid.length === 0)
     return { results: [], skippedInvites: skipped } as const;
 
+  const creatable = valid.slice(0, insertsAllowed);
+  const overflow = valid.slice(insertsAllowed);
+  for (const invite of overflow) {
+    skipped.push({
+      email: invite.email.toLowerCase(),
+      reason: "seat_limit_reached",
+    });
+  }
+
+  if (creatable.length === 0)
+    return { results: [], skippedInvites: skipped } as const;
+
   const inserted = await Promise.all(
-    valid.map(async (i) => {
+    creatable.map(async (i) => {
       const emailLower = i.email.toLowerCase();
 
       const existingUser = await db
@@ -239,7 +298,7 @@ export async function createBrandInvites(
         .insert(brandInvites)
         .values({
           brandId: params.brandId,
-          email: i.email,
+          email: emailLower,
           role: i.role,
           createdBy: i.createdBy,
           tokenHash,
@@ -279,23 +338,77 @@ export async function acceptBrandInvite(
   db: Database,
   params: { id: string; userId: string },
 ) {
-  const invite = await db
-    .select({
-      id: brandInvites.id,
-      role: brandInvites.role,
-      brandId: brandInvites.brandId,
-    })
-    .from(brandInvites)
-    .where(eq(brandInvites.id, params.id))
-    .limit(1);
-  const row = invite[0];
-  if (!row) throw new Error("Invite not found");
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const trialEndsAtIso = new Date(
+      now.getTime() + 14 * 24 * 60 * 60 * 1000,
+    ).toISOString();
 
-  await db
-    .insert(brandMembers)
-    .values({ userId: params.userId, brandId: row.brandId, role: row.role });
-  await db.delete(brandInvites).where(eq(brandInvites.id, params.id));
-  return { brandId: row.brandId } as const;
+    const invite = await tx
+      .select({
+        id: brandInvites.id,
+        email: brandInvites.email,
+        role: brandInvites.role,
+        brandId: brandInvites.brandId,
+        expiresAt: brandInvites.expiresAt,
+      })
+      .from(brandInvites)
+      .where(eq(brandInvites.id, params.id))
+      .limit(1);
+    const row = invite[0];
+    if (!row) throw new Error("Invite not found");
+    if (row.expiresAt && row.expiresAt <= nowIso) {
+      throw new Error("Invite not found or expired");
+    }
+
+    const [userRow] = await tx
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, params.userId))
+      .limit(1);
+    const userEmail = userRow?.email?.trim().toLowerCase();
+    if (!userEmail) {
+      throw new Error("Authenticated user email is missing");
+    }
+    if (row.email.trim().toLowerCase() !== userEmail) {
+      throw new Error("Invite does not belong to the current user");
+    }
+
+    await tx
+      .insert(brandMembers)
+      .values({ userId: params.userId, brandId: row.brandId, role: row.role })
+      .onConflictDoUpdate({
+        target: [brandMembers.userId, brandMembers.brandId],
+        set: { role: row.role },
+      });
+
+    // First non-admin invite acceptance on demo transitions to trial.
+    if (row.role === "owner" || row.role === "member") {
+      await tx
+        .update(brandLifecycle)
+        .set({
+          phase: "trial",
+          phaseChangedAt: nowIso,
+          trialStartedAt: nowIso,
+          trialEndsAt: trialEndsAtIso,
+        })
+        .where(
+          and(
+            eq(brandLifecycle.brandId, row.brandId),
+            eq(brandLifecycle.phase, "demo"),
+          ),
+        );
+    }
+
+    await tx
+      .update(users)
+      .set({ brandId: row.brandId })
+      .where(eq(users.id, params.userId));
+
+    await tx.delete(brandInvites).where(eq(brandInvites.id, params.id));
+    return { brandId: row.brandId } as const;
+  });
 }
 
 export async function declineBrandInvite(
@@ -303,8 +416,14 @@ export async function declineBrandInvite(
   params: { id: string; email: string },
 ) {
   const { id, email } = params;
+  const normalizedEmail = email.trim().toLowerCase();
   await db
     .delete(brandInvites)
-    .where(and(eq(brandInvites.id, id), eq(brandInvites.email, email)));
+    .where(
+      and(
+        eq(brandInvites.id, id),
+        sql`LOWER(TRIM(BOTH FROM "brand_invites"."email")) = ${normalizedEmail}`,
+      ),
+    );
   return { success: true as const };
 }

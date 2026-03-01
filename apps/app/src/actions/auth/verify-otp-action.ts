@@ -1,7 +1,12 @@
 "use server";
 
 import { actionClient } from "@/actions/safe-action";
+import { getForceSignOutPath, isInviteRequiredPath } from "@/lib/auth-access";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
+import {
+  INVITE_COOKIE_NAME,
+  redeemInviteFromCookie,
+} from "@/lib/invite-redemption";
 import { createClient } from "@v1/supabase/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -67,31 +72,27 @@ export const verifyOtpAction = actionClient
     // Successful verification: redeem invite cookie if present, then compute final destination
     const user = data.user ?? data.session.user ?? null;
     const cookieStore = await cookies();
-    const cookieHash =
-      cookieStore.get("brand_invite_token_hash")?.value ?? null;
-    let acceptedBrand = false;
+    const cookieHash = cookieStore.get(INVITE_COOKIE_NAME)?.value ?? null;
 
-    if (user && cookieHash) {
-      try {
-        const { error: rpcError } = await supabase.rpc(
-          "accept_invite_from_cookie",
-          { p_token: cookieHash },
-        );
-        if (!rpcError) acceptedBrand = true;
-      } finally {
-        // clear cookie regardless
-        const cs = await cookies();
-        cs.set("brand_invite_token_hash", "", { maxAge: 0, path: "/" });
-      }
+    const inviteRedemption = await redeemInviteFromCookie({
+      cookieHash,
+      user,
+      client: supabase,
+    });
+
+    if (cookieHash && inviteRedemption.shouldClearCookie) {
+      const cs = await cookies();
+      cs.set(INVITE_COOKIE_NAME, "", { maxAge: 0, path: "/" });
     }
 
-    const destination = acceptedBrand
-      ? "/"
-      : await resolveAuthRedirectPath({
-          next: sanitizeRedirectPath(redirectTo),
-          client: supabase,
-          user,
-        });
+    const destination = await resolveAuthRedirectPath({
+      next: sanitizeRedirectPath(redirectTo),
+      client: supabase,
+      user,
+    });
+    const finalDestination = isInviteRequiredPath(destination)
+      ? getForceSignOutPath(destination)
+      : destination;
 
-    redirect(destination);
+    redirect(finalDestination);
   });

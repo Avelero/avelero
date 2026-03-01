@@ -6,7 +6,7 @@
  * `apps/api/src/trpc/routers/brand/`.
  */
 import { z } from "zod";
-import { roleSchema } from "./_shared/domain.js";
+import { assignableRoleSchema } from "./_shared/domain.js";
 import { updateWithNullable } from "./_shared/patterns.js";
 import {
   countryCodeSchema,
@@ -61,7 +61,7 @@ export const brandIdOptionalSchema = z.object({
  */
 export const memberUpdateSchema = z.object({
   user_id: uuidSchema,
-  role: roleSchema,
+  role: assignableRoleSchema,
 });
 
 /**
@@ -70,7 +70,7 @@ export const memberUpdateSchema = z.object({
 export const inviteSendSchema = z.object({
   brand_id: uuidSchema.optional(),
   email: emailSchema,
-  role: roleSchema.default("member"),
+  role: assignableRoleSchema.default("member"),
 });
 
 type MemberUpdateInput = z.infer<typeof memberUpdateSchema>;

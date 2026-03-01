@@ -11,7 +11,7 @@ import { getPromotionStatusSchema } from "../../../schemas/integrations.js";
 import { wrapError } from "../../../utils/errors.js";
 import { createEntityResponse } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import { brandReadProcedure, createTRPCRouter } from "../../init.js";
 
 /** tRPC context with guaranteed brand ID from middleware */
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
@@ -29,7 +29,7 @@ export const promotionRouter = createTRPCRouter({
    * Used by the frontend to poll for promotion progress.
    * Returns the most recent promotion operation for the integration.
    */
-  status: brandRequiredProcedure
+  status: brandReadProcedure
     .input(getPromotionStatusSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;

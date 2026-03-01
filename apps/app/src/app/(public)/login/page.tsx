@@ -1,4 +1,5 @@
 import { GoogleSignin } from "@/components/auth/google-signin";
+import { LoginFeedback } from "@/components/auth/login-feedback";
 import { OTPSignIn } from "@/components/auth/otp-signin";
 import { MainSkeleton } from "@/components/main-skeleton";
 import type { Metadata } from "next";
@@ -21,9 +22,11 @@ export default function Page() {
             <div className="text-center space-y-2">
               <h3 className="text-primary">Welcome</h3>
               <p className="text-secondary">
-                Sign in to your account or create a new one
+                Sign in with an invited email to access your workspace
               </p>
             </div>
+
+            <LoginFeedback />
 
             {/* Auth Forms */}
             <div className="space-y-4">

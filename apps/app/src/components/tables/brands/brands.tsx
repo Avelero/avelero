@@ -26,8 +26,12 @@ interface BrandWithRoleLocal {
   countryCode?: string | null;
 }
 
-export function BrandsTable() {
-  const [tab, setTab] = useState<TabKey>("brands");
+interface BrandsTableProps {
+  invitesOnly?: boolean;
+}
+
+export function BrandsTable({ invitesOnly = false }: BrandsTableProps) {
+  const [tab, setTab] = useState<TabKey>(invitesOnly ? "invites" : "brands");
 
   const { data: brandsRes } = useUserBrandsQuerySuspense();
   const { data: invitesRes } = useMyInvitesQuerySuspense();
@@ -80,18 +84,21 @@ export function BrandsTable() {
   );
 
   // Local-only tab state: no URL or router coupling
+  const activeTab: TabKey = invitesOnly ? "invites" : tab;
 
   return (
     <div className="space-y-4">
       <BrandsHeader
-        activeTab={tab}
+        activeTab={activeTab}
+        showBrandsTab={!invitesOnly}
         onTabChange={(t) => {
+          if (invitesOnly) return;
           setTab(t);
         }}
       />
 
       <div className="border">
-        {tab === "brands" ? (
+        {activeTab === "brands" ? (
           displayMemberships.length ? (
             <div className="divide-y">
               {displayMemberships.map((row) => (

@@ -11,7 +11,7 @@ type InvitePayload = {
     acceptUrl: string;
     expiresAt?: string | null;
     appName?: string;
-    ctaMode?: "accept" | "view";
+    ctaMode?: "accept";
   }>;
   from?: string;
 };
@@ -40,6 +40,7 @@ export const inviteBrandMembers = task({
             acceptUrl: invite.acceptUrl,
             expiresAt: invite.expiresAt ?? undefined,
             appName: invite.appName ?? "Avelero",
+            ctaMode: invite.ctaMode ?? "accept",
           }),
         );
 

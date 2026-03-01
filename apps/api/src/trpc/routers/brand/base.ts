@@ -7,6 +7,7 @@ import {
 } from "@v1/db/queries/brand";
 import { brands } from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
+import { z } from "zod";
 /**
  * Brand lifecycle operations implementation.
  *
@@ -19,11 +20,16 @@ import { getAppUrl } from "@v1/utils/envs";
  * - brand.update
  * - brand.delete
  */
-import { ROLES } from "../../../config/roles.js";
+import { OWNER_EQUIVALENT_ROLES } from "../../../config/roles.js";
 import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
 import { brandIdSchema, brandUpdateSchema } from "../../../schemas/brand.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
-import { brandRequiredProcedure, protectedProcedure } from "../../init.js";
+import {
+  assertBrandWriteAccess,
+  brandReadProcedure,
+  brandWriteProcedure,
+  protectedProcedure,
+} from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
 function extractStoragePath(url: string | null | undefined): string | null {
@@ -48,8 +54,8 @@ function extractStoragePath(url: string | null | undefined): string | null {
  * Updates brand details.
  * Only accessible by brand owners.
  */
-export const brandUpdateProcedure = brandRequiredProcedure
-  .use(hasRole([ROLES.OWNER]))
+export const brandUpdateProcedure = brandWriteProcedure
+  .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .input(brandUpdateSchema)
   .mutation(async ({ ctx, input }) => {
     const { db, user, brandId } = ctx;
@@ -117,7 +123,7 @@ export const brandUpdateProcedure = brandRequiredProcedure
  * Triggers background job for cleanup.
  */
 export const brandDeleteProcedure = protectedProcedure
-  .use(hasRole([ROLES.OWNER]))
+  .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .input(brandIdSchema)
   .mutation(async ({ ctx, input }) => {
     const { db, user } = ctx;
@@ -127,6 +133,8 @@ export const brandDeleteProcedure = protectedProcedure
     }
 
     try {
+      await assertBrandWriteAccess(ctx, brandId);
+
       // Soft-delete the brand (sets deleted_at, updates affected users' active brand)
       // This is fast and returns immediately
       const result = await deleteBrandRecord(db, brandId, user.id);
@@ -152,13 +160,11 @@ export const brandDeleteProcedure = protectedProcedure
     }
   });
 
-import { z } from "zod";
-
 /**
  * Checks if a slug is available for use.
  * Used for real-time validation during slug editing.
  */
-export const brandCheckSlugProcedure = brandRequiredProcedure
+export const brandCheckSlugProcedure = brandReadProcedure
   .input(z.object({ slug: z.string().min(1) }))
   .query(async ({ ctx, input }) => {
     const { db, brandId } = ctx;

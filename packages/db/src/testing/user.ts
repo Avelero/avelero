@@ -7,13 +7,12 @@
  */
 
 import { sql } from "drizzle-orm";
-import * as schema from "../schema/index";
 import { testDb } from "./connection";
 
 /**
  * Creates a test user for testing.
- * First creates in auth.users (using raw SQL since it's not in our schema),
- * then creates the corresponding public.users record.
+ * First creates in auth.users (using raw SQL since it's not in our schema).
+ * Then upserts into public.users to support both trigger and non-trigger test DBs.
  * Returns the user ID.
  *
  * Note: The email is modified to be unique for the auth.users table
@@ -37,11 +36,14 @@ export async function createTestUser(email: string): Promise<string> {
         VALUES (${userId}, '00000000-0000-0000-0000-000000000000', ${authEmail}, '', now(), now(), now(), 'authenticated', 'authenticated')
     `);
 
-  // Then insert into public.users (use original email for test assertions)
-  await testDb.insert(schema.users).values({
-    id: userId,
-    email,
-  });
+  // Ensure public.users has the expected test email.
+  // Newer DBs insert via auth trigger; older DBs may still need explicit insert.
+  await testDb.execute(sql`
+    INSERT INTO public.users (id, email)
+    VALUES (${userId}, ${email})
+    ON CONFLICT (id) DO UPDATE
+    SET email = EXCLUDED.email
+  `);
 
   return userId;
 }

@@ -25,6 +25,10 @@ enabled = true
 uri = "env(SEND_EMAIL_HOOK_URI)"
 secrets = "env(SEND_EMAIL_HOOK_SECRET)"
 
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/before_user_created_invite_gate"
+
 [functions.send-email]
 verify_jwt = false
 
@@ -50,4 +54,3 @@ enabled = true
 port = 54327
 vector_port = 54328
 backend = "postgres"
-

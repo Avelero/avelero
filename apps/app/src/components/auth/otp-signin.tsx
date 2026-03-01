@@ -19,10 +19,17 @@ type Props = {
  * Prevents showing developer-facing errors to end users.
  */
 function sanitizeErrorMessage(message: string | undefined): string {
-  if (!message) return "Something went wrong. Please try again.";
+  const genericMessage = "Unable to sign in. Please try again.";
+  if (!message) return genericMessage;
 
-  // List of patterns that indicate technical/developer errors
-  const technicalErrorPatterns = [
+  const normalized = message.toLowerCase();
+  const genericErrorPatterns = [
+    /invite_required/i,
+    /invite required/i,
+    /account_not_found/i,
+    /user not found/i,
+    /signups not allowed/i,
+    /signup is disabled/i,
     /failed to reach hook/i,
     /maximum time of \d+/i,
     /hook.*timeout/i,
@@ -32,15 +39,13 @@ function sanitizeErrorMessage(message: string | undefined): string {
     /network.*error/i,
   ];
 
-  // Check if the message matches any technical error pattern
-  for (const pattern of technicalErrorPatterns) {
-    if (pattern.test(message)) {
-      return "Something went wrong. Please try again.";
+  for (const pattern of genericErrorPatterns) {
+    if (pattern.test(normalized)) {
+      return genericMessage;
     }
   }
 
-  // Return the original message if it's user-friendly
-  return message;
+  return genericMessage;
 }
 
 export function OTPSignIn({ className }: Props) {

@@ -12,7 +12,7 @@
  * - brand.invites.revoke
  */
 import { tasks } from "@trigger.dev/sdk/v3";
-import { desc, eq } from "@v1/db/queries";
+import { and, desc, eq, sql } from "@v1/db/queries";
 import {
   createBrandInvites,
   revokeBrandInviteByOwner,
@@ -21,14 +21,18 @@ import { brandInvites, users } from "@v1/db/schema";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
-import { ROLES } from "../../../config/roles.js";
+import { OWNER_EQUIVALENT_ROLES, type ROLES } from "../../../config/roles.js";
 import { uuidSchema } from "../../../schemas/_shared/primitives.js";
 import {
   brandIdOptionalSchema,
   inviteSendSchema,
 } from "../../../schemas/brand.js";
 import { badRequest, forbidden, wrapError } from "../../../utils/errors.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
 type InviteEmailPayload = {
@@ -36,7 +40,7 @@ type InviteEmailPayload = {
   brandName: string;
   role: typeof ROLES.OWNER | typeof ROLES.MEMBER;
   acceptUrl: string;
-  ctaMode: "accept" | "view";
+  ctaMode: "accept";
 };
 
 type InviteResultRow = {
@@ -44,7 +48,6 @@ type InviteResultRow = {
   role: typeof ROLES.OWNER | typeof ROLES.MEMBER;
   brand: { id: string | null; name: string | null } | null;
   tokenHash: string | null;
-  isExistingUser: boolean;
 };
 
 // Schema for revoking an invite
@@ -57,8 +60,8 @@ export const brandInvitesRouter = createTRPCRouter({
    * Lists pending invites for the brand with inviter metadata.
    * Only accessible by brand owners.
    */
-  list: brandRequiredProcedure
-    .use(hasRole([ROLES.OWNER]))
+  list: brandReadProcedure
+    .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(brandIdOptionalSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
@@ -67,6 +70,7 @@ export const brandInvitesRouter = createTRPCRouter({
       }
 
       const rows = await db
+        // Pending invites only (non-expired, or no expiry)
         .select({
           id: brandInvites.id,
           email: brandInvites.email,
@@ -78,7 +82,12 @@ export const brandInvitesRouter = createTRPCRouter({
         })
         .from(brandInvites)
         .leftJoin(users, eq(users.id, brandInvites.createdBy))
-        .where(eq(brandInvites.brandId, brandId))
+        .where(
+          and(
+            eq(brandInvites.brandId, brandId),
+            sql`("brand_invites"."expires_at" IS NULL OR "brand_invites"."expires_at" > ${new Date().toISOString()})`,
+          ),
+        )
         .orderBy(desc(brandInvites.createdAt));
 
       return rows.map((invite) => ({
@@ -97,8 +106,8 @@ export const brandInvitesRouter = createTRPCRouter({
    * notification when a record is created.
    * Only accessible by brand owners.
    */
-  send: brandRequiredProcedure
-    .use(hasRole([ROLES.OWNER]))
+  send: brandWriteProcedure
+    .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(inviteSendSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user, brandId } = ctx;
@@ -120,33 +129,48 @@ export const brandInvitesRouter = createTRPCRouter({
       const inviteResults = (result.results as InviteResultRow[]) ?? [];
       if (inviteResults.length > 0) {
         const appUrl = getAppUrl();
-        const payload: InviteEmailPayload[] = inviteResults.map((invite) => {
-          const isExisting = invite.isExistingUser;
-          const acceptUrl = isExisting
-            ? `${appUrl}/invites`
-            : `${appUrl}/api/auth/accept?token_hash=${invite.tokenHash ?? ""}`;
-          return {
-            recipientEmail: invite.email,
-            brandName: invite.brand?.name ?? "Avelero",
-            role: invite.role,
-            acceptUrl,
-            ctaMode: isExisting ? ("view" as const) : ("accept" as const),
-          };
-        });
+        const payload = inviteResults.reduce<InviteEmailPayload[]>(
+          (acc, invite) => {
+            if (!invite.tokenHash) {
+              logger.error(
+                {
+                  inviteEmail: invite.email,
+                  brandId: invite.brand?.id,
+                },
+                "Invite email skipped because token hash is missing",
+              );
+              return acc;
+            }
 
-        try {
-          await tasks.trigger("invite-brand-members", {
-            invites: payload,
-            from: "Avelero <no-reply@welcome.avelero.com>",
-          });
-        } catch (error) {
-          logger.error(
-            {
-              err: error instanceof Error ? error : undefined,
-              invites: payload.map((invite) => invite.recipientEmail),
-            },
-            "Failed to enqueue brand invite emails",
-          );
+            const acceptUrl = `${appUrl}/api/auth/accept?token_hash=${invite.tokenHash}`;
+            acc.push({
+              recipientEmail: invite.email,
+              brandName: invite.brand?.name ?? "Avelero",
+              role: invite.role,
+              acceptUrl,
+              ctaMode: "accept" as const,
+            });
+
+            return acc;
+          },
+          [],
+        );
+
+        if (payload.length > 0) {
+          try {
+            await tasks.trigger("invite-brand-members", {
+              invites: payload,
+              from: "Avelero <no-reply@welcome.avelero.com>",
+            });
+          } catch (error) {
+            logger.error(
+              {
+                err: error instanceof Error ? error : undefined,
+                invites: payload.map((invite) => invite.recipientEmail),
+              },
+              "Failed to enqueue brand invite emails",
+            );
+          }
         }
       }
 
@@ -157,8 +181,8 @@ export const brandInvitesRouter = createTRPCRouter({
    * Revokes a pending invite.
    * Only accessible by brand owners.
    */
-  revoke: brandRequiredProcedure
-    .use(hasRole([ROLES.OWNER]))
+  revoke: brandWriteProcedure
+    .use(hasRole(OWNER_EQUIVALENT_ROLES))
     .input(inviteRevokeSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user } = ctx;

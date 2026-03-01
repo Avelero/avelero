@@ -56,8 +56,17 @@ import {
   createEntityResponse,
   createListResponse,
 } from "../../../utils/response.js";
-import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import type {
+  AuthenticatedTRPCContext,
+  BrandAccessTRPCContext,
+} from "../../init.js";
+import {
+  brandReadProcedure,
+  brandSkuWriteProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+  resolveSkuDecisionWithIntendedCount,
+} from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 type BrandDb = BrandContext["db"];
@@ -394,7 +403,7 @@ export const productVariantsRouter = createTRPCRouter({
   /**
    * List all variants for a product.
    */
-  list: brandRequiredProcedure
+  list: brandReadProcedure
     .input(
       z.object({
         productHandle: shortStringSchema,
@@ -422,7 +431,7 @@ export const productVariantsRouter = createTRPCRouter({
    * Checks if a barcode is available for use within the brand.
    * Used for real-time validation during barcode editing.
    */
-  checkBarcode: brandRequiredProcedure
+  checkBarcode: brandReadProcedure
     .input(
       z.object({
         // Use same validation as create/update (unwrap removes .optional())
@@ -448,7 +457,7 @@ export const productVariantsRouter = createTRPCRouter({
    * Get a single variant by UPID.
    * Returns passport UPID if the variant has been published.
    */
-  get: brandRequiredProcedure
+  get: brandReadProcedure
     .input(
       variantIdentifierSchema.extend({
         includeOverrides: z.boolean().optional().default(false),
@@ -507,7 +516,7 @@ export const productVariantsRouter = createTRPCRouter({
   /**
    * Get variant overrides only (for variant form).
    */
-  getOverrides: brandRequiredProcedure
+  getOverrides: brandReadProcedure
     .input(variantIdentifierSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -536,7 +545,7 @@ export const productVariantsRouter = createTRPCRouter({
   /**
    * Create a single variant.
    */
-  create: brandRequiredProcedure
+  create: brandSkuWriteProcedure
     .input(
       z.object({
         productHandle: shortStringSchema,
@@ -547,7 +556,8 @@ export const productVariantsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { db, brandId } = ctx as BrandContext;
+      const skuCtx = ctx as BrandAccessTRPCContext;
+      const { db, brandId } = skuCtx;
 
       try {
         const product = await findProductByHandle(
@@ -555,6 +565,12 @@ export const productVariantsRouter = createTRPCRouter({
           brandId,
           input.productHandle,
         );
+
+        resolveSkuDecisionWithIntendedCount({
+          brandAccess: skuCtx.brandAccess,
+          snapshot: skuCtx.brandAccessSnapshot,
+          intendedCreateCount: 1,
+        });
 
         // Normalize and validate barcode uniqueness
         const normalizedBarcode = normalizeBarcode(input.barcode);
@@ -692,7 +708,7 @@ export const productVariantsRouter = createTRPCRouter({
   /**
    * Update a single variant.
    */
-  update: brandRequiredProcedure
+  update: brandWriteProcedure
     .input(
       variantIdentifierSchema.extend({
         attributeValueIds: z.array(z.string().uuid()).optional(),
@@ -802,7 +818,7 @@ export const productVariantsRouter = createTRPCRouter({
   /**
    * Delete a single variant.
    */
-  delete: brandRequiredProcedure
+  delete: brandWriteProcedure
     .input(variantIdentifierSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -841,7 +857,7 @@ export const productVariantsRouter = createTRPCRouter({
   /**
    * Batch create variants.
    */
-  batchCreate: brandRequiredProcedure
+  batchCreate: brandSkuWriteProcedure
     .input(
       z.object({
         productHandle: shortStringSchema,
@@ -849,7 +865,8 @@ export const productVariantsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { db, brandId } = ctx as BrandContext;
+      const skuCtx = ctx as BrandAccessTRPCContext;
+      const { db, brandId } = skuCtx;
 
       try {
         const product = await findProductByHandle(
@@ -857,6 +874,12 @@ export const productVariantsRouter = createTRPCRouter({
           brandId,
           input.productHandle,
         );
+
+        resolveSkuDecisionWithIntendedCount({
+          brandAccess: skuCtx.brandAccess,
+          snapshot: skuCtx.brandAccessSnapshot,
+          intendedCreateCount: input.variants.length,
+        });
 
         // ── Barcode Validation ────────────────────────────────────────────────
         // Normalize all barcodes and check for duplicates within the batch
@@ -1002,7 +1025,7 @@ export const productVariantsRouter = createTRPCRouter({
   /**
    * Batch update variants.
    */
-  batchUpdate: brandRequiredProcedure
+  batchUpdate: brandWriteProcedure
     .input(
       z.object({
         productHandle: shortStringSchema,
@@ -1010,7 +1033,8 @@ export const productVariantsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { db, brandId } = ctx as BrandContext;
+      const skuCtx = ctx as BrandAccessTRPCContext;
+      const { db, brandId } = skuCtx;
 
       try {
         const product = await findProductByHandle(
@@ -1207,7 +1231,7 @@ export const productVariantsRouter = createTRPCRouter({
   /**
    * Batch delete variants.
    */
-  batchDelete: brandRequiredProcedure
+  batchDelete: brandWriteProcedure
     .input(
       z.object({
         productHandle: shortStringSchema,
@@ -1266,7 +1290,7 @@ export const productVariantsRouter = createTRPCRouter({
    * - Variants without UPID → create new (generates UPID)
    * - Existing variants not in input → delete
    */
-  sync: brandRequiredProcedure
+  sync: brandSkuWriteProcedure
     .input(
       z.object({
         productHandle: shortStringSchema,
@@ -1274,7 +1298,8 @@ export const productVariantsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { db, brandId } = ctx as BrandContext;
+      const skuCtx = ctx as BrandAccessTRPCContext;
+      const { db, brandId } = skuCtx;
 
       try {
         const product = await findProductByHandle(
@@ -1321,6 +1346,12 @@ export const productVariantsRouter = createTRPCRouter({
             toCreate.push({ input: variantInput, originalIndex: i });
           }
         }
+
+        resolveSkuDecisionWithIntendedCount({
+          brandAccess: skuCtx.brandAccess,
+          snapshot: skuCtx.brandAccessSnapshot,
+          intendedCreateCount: toCreate.length,
+        });
 
         // Find variants to delete (existing but not in input)
         const toDelete = existingVariants.filter(
@@ -1381,6 +1412,12 @@ export const productVariantsRouter = createTRPCRouter({
         const newUpids = await generateGloballyUniqueUpids(db, toCreate.length);
 
         const createdVariants: Array<{ id: string; upid: string }> = [];
+        const passportsToCreate: Array<{
+          variantId: string;
+          upid: string;
+          sku?: string | null;
+          barcode?: string | null;
+        }> = [];
         let updatedCount = 0;
         let deletedCount = 0;
         const passportMetadataUpdates = new Map<
@@ -1432,6 +1469,12 @@ export const productVariantsRouter = createTRPCRouter({
             if (!variant) continue;
 
             createdVariants.push({ id: variant.id, upid: variant.upid! });
+            passportsToCreate.push({
+              variantId: variant.id,
+              upid: variant.upid!,
+              sku: variantInput.sku,
+              barcode: barcodeToStore,
+            });
 
             // Create attribute assignments
             if (variantInput.attributeValueIds.length > 0) {
@@ -1494,30 +1537,17 @@ export const productVariantsRouter = createTRPCRouter({
 
             updatedCount++;
           }
+
+          // Sync passport metadata for updated variants (barcode/SKU changes)
+          if (passportMetadataUpdates.size > 0) {
+            await batchSyncPassportMetadata(tx, passportMetadataUpdates);
+          }
+
+          // Create passports for newly created variants within the same transaction.
+          if (passportsToCreate.length > 0) {
+            await batchCreatePassportsForVariants(tx, brandId, passportsToCreate);
+          }
         });
-
-        // Sync passport metadata for updated variants (barcode/SKU changes)
-        if (passportMetadataUpdates.size > 0) {
-          await batchSyncPassportMetadata(db, passportMetadataUpdates);
-        }
-
-        // Create passports for newly created variants
-        if (createdVariants.length > 0) {
-          await batchCreatePassportsForVariants(
-            db,
-            brandId,
-            createdVariants.map((v, i) => {
-              const createInfo = toCreate[i]!;
-              const barcodeInfo = barcodeMap.get(createInfo.originalIndex);
-              return {
-                variantId: v.id,
-                upid: v.upid,
-                sku: createInfo.input.sku,
-                barcode: barcodeInfo?.toStore ?? null,
-              };
-            }),
-          );
-        }
 
         // NOTE: Publishing is handled explicitly by the form after all mutations complete.
         // This keeps publish logic in ONE place and avoids complex conditional publish triggers.
@@ -1557,7 +1587,7 @@ export const productVariantsRouter = createTRPCRouter({
   /**
    * Clear all overrides for a variant.
    */
-  clearOverrides: brandRequiredProcedure
+  clearOverrides: brandWriteProcedure
     .input(variantIdentifierSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;

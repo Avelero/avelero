@@ -12,7 +12,7 @@
  */
 import { eq } from "@v1/db/queries";
 import { brandCustomDomains } from "@v1/db/schema";
-import { ROLES } from "../../../config/roles.js";
+import { OWNER_EQUIVALENT_ROLES } from "../../../config/roles.js";
 import { customDomainAddSchema } from "../../../schemas/custom-domains.js";
 import {
   buildDnsInstructions,
@@ -24,7 +24,11 @@ import {
   addDomainToVercel,
   removeDomainFromVercel,
 } from "../../../utils/vercel-domains.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
 // ============================================================================
@@ -37,7 +41,7 @@ import { hasRole } from "../../middleware/auth/roles.js";
  * Returns null if no domain is configured.
  * All brand members can read the domain configuration.
  */
-const getProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
+const getProcedure = brandReadProcedure.query(async ({ ctx }) => {
   const { db, brandId } = ctx;
 
   try {
@@ -75,8 +79,8 @@ const getProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
  *
  * Only brand owners can add domains.
  */
-const addProcedure = brandRequiredProcedure
-  .use(hasRole([ROLES.OWNER]))
+const addProcedure = brandWriteProcedure
+  .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .input(customDomainAddSchema)
   .mutation(async ({ ctx, input }) => {
     const { db, brandId } = ctx;
@@ -148,8 +152,8 @@ const addProcedure = brandRequiredProcedure
  *
  * Only brand owners can verify domains.
  */
-const verifyProcedure = brandRequiredProcedure
-  .use(hasRole([ROLES.OWNER]))
+const verifyProcedure = brandWriteProcedure
+  .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .mutation(async ({ ctx }) => {
     const { db, brandId } = ctx;
 
@@ -234,8 +238,8 @@ const verifyProcedure = brandRequiredProcedure
  *
  * Only brand owners can remove domains.
  */
-const removeProcedure = brandRequiredProcedure
-  .use(hasRole([ROLES.OWNER]))
+const removeProcedure = brandWriteProcedure
+  .use(hasRole(OWNER_EQUIVALENT_ROLES))
   .mutation(async ({ ctx }) => {
     const { db, brandId } = ctx;
 

@@ -29,7 +29,12 @@ import {
 } from "../../../schemas/bulk.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandSkuWriteProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -123,7 +128,7 @@ export const importRouter = createTRPCRouter({
    *
    * Used in the confirmation step of the import modal.
    */
-  preview: brandRequiredProcedure
+  preview: brandReadProcedure
     .input(previewImportSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -222,7 +227,7 @@ export const importRouter = createTRPCRouter({
    * 3. Trigger validate-and-stage background job
    * 4. Return job_id immediately
    */
-  start: brandRequiredProcedure
+  start: brandSkuWriteProcedure
     .input(startImportSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -290,7 +295,7 @@ export const importRouter = createTRPCRouter({
    * Query current status and progress of an import job.
    * Used for polling or to display status on import dashboard.
    */
-  status: brandRequiredProcedure
+  status: brandReadProcedure
     .input(getImportStatusSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -346,7 +351,7 @@ export const importRouter = createTRPCRouter({
    * Returns the most recent import jobs for the active brand.
    * Used to display import history in the import modal.
    */
-  getRecentImports: brandRequiredProcedure
+  getRecentImports: brandReadProcedure
     .input(getRecentImportsSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -386,7 +391,7 @@ export const importRouter = createTRPCRouter({
    * from the actionable imports list. Use this when the user
    * doesn't want to fix and re-import the failed rows.
    */
-  dismiss: brandRequiredProcedure
+  dismiss: brandWriteProcedure
     .input(dismissFailedImportSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -445,7 +450,7 @@ export const importRouter = createTRPCRouter({
    * Note: The actual Excel generation is handled by a background job.
    * This endpoint triggers the generation and returns a download URL.
    */
-  exportCorrections: brandRequiredProcedure
+  exportCorrections: brandWriteProcedure
     .input(exportCorrectionsSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;

@@ -108,7 +108,11 @@ import {
   createListResponse,
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 /** tRPC context with guaranteed brand ID from middleware */
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
@@ -132,7 +136,7 @@ function createListProcedure<TInput>(
   resourceName: string,
   transformInput?: (input: any) => any,
 ) {
-  return brandRequiredProcedure.input(schema).query(async ({ ctx, input }) => {
+  return brandReadProcedure.input(schema).query(async ({ ctx, input }) => {
     const brandCtx = ctx as BrandContext;
     try {
       const transformedInput =
@@ -168,7 +172,7 @@ function createCreateProcedure<TInput>(
   resourceName: string,
   transformInput?: (input: any) => any,
 ) {
-  return brandRequiredProcedure
+  return brandWriteProcedure
     .input(schema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -211,7 +215,7 @@ function createUpdateProcedure<TInput extends { id: string }>(
   resourceName: string,
   transformInput?: (input: any) => any,
 ) {
-  return brandRequiredProcedure
+  return brandWriteProcedure
     .input(schema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -254,7 +258,7 @@ function createDeleteProcedure<TInput extends { id: string }>(
   deleteFn: (db: Database, brandId: string, id: string) => Promise<any>,
   resourceName: string,
 ) {
-  return brandRequiredProcedure
+  return brandWriteProcedure
     .input(schema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -399,7 +403,7 @@ export const catalogRouter = createTRPCRouter({
       "attribute",
       transformBrandAttributeInput,
     ),
-    delete: brandRequiredProcedure
+    delete: brandWriteProcedure
       .input(deleteBrandAttributeSchema)
       .mutation(async ({ ctx, input }) => {
         const brandCtx = ctx as BrandContext;
@@ -440,7 +444,7 @@ export const catalogRouter = createTRPCRouter({
    * Note: list requires attribute_id, so we use a custom implementation.
    */
   attributeValues: createTRPCRouter({
-    list: brandRequiredProcedure
+    list: brandReadProcedure
       .input(listBrandAttributeValuesSchema)
       .query(async ({ ctx, input }) => {
         const brandCtx = ctx as BrandContext;
@@ -467,7 +471,7 @@ export const catalogRouter = createTRPCRouter({
       "attribute value",
       transformBrandAttributeValueInput,
     ),
-    delete: brandRequiredProcedure
+    delete: brandWriteProcedure
       .input(deleteBrandAttributeValueSchema)
       .mutation(async ({ ctx, input }) => {
         const brandCtx = ctx as BrandContext;
@@ -498,7 +502,7 @@ export const catalogRouter = createTRPCRouter({
           throw wrapError(error, "Failed to delete attribute value");
         }
       }),
-    batchCreate: brandRequiredProcedure
+    batchCreate: brandWriteProcedure
       .input(batchCreateBrandAttributeValuesSchema)
       .mutation(async ({ ctx, input }) => {
         const brandCtx = ctx as BrandContext;

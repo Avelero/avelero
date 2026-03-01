@@ -11,16 +11,13 @@ import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import {
   Select,
-  SelectAction,
   SelectContent,
-  SelectFooter,
   SelectGroup,
   SelectHeader,
   SelectItem,
   SelectList,
   SelectTrigger,
 } from "@v1/ui/select";
-import { useRouter } from "next/navigation";
 import { Suspense, useState } from "react";
 import { SignedAvatar } from "../signed-avatar";
 
@@ -43,7 +40,6 @@ function BrandSelectContent({ isExpanded, onPopupChange }: BrandSelectProps) {
   const { data: brandsData } = useUserBrandsQuerySuspense();
   const { data: user } = useUserQuerySuspense();
   const setActiveBrandMutation = useSetActiveBrandMutation();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const brands: Brand[] = (brandsData as Brand[] | undefined) ?? [];
@@ -160,17 +156,6 @@ function BrandSelectContent({ isExpanded, onPopupChange }: BrandSelectProps) {
           </SelectGroup>
         </SelectList>
 
-        <SelectFooter>
-          <SelectAction
-            disabled={isSwitching}
-            onSelect={() => router.push("/create-brand")}
-          >
-            <div className="flex items-center gap-2">
-              <Icons.Plus className="h-3.5 w-3.5" />
-              <span>Create Brand</span>
-            </div>
-          </SelectAction>
-        </SelectFooter>
       </SelectContent>
     </Select>
   );

@@ -2,6 +2,7 @@
 
 import { AvatarUpload } from "@/components/avatar-upload";
 import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
+import { getForceSignOutPath } from "@/lib/auth-access";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { SmartAvatar } from "@v1/ui/avatar";
@@ -27,6 +28,7 @@ export function SetupForm() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
+  const noAccessDestination = getForceSignOutPath();
 
   // Track if we've done the initial mount reset
   const hasMountResetRef = useRef(false);
@@ -50,40 +52,7 @@ export function SetupForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const updateUserMutation = useMutation(
-    trpc.user.update.mutationOptions({
-      onSuccess: async () => {
-        setIsSubmitting(false);
-        await queryClient.invalidateQueries({
-          queryKey: trpc.user.get.queryKey(),
-        });
-        await queryClient.invalidateQueries({
-          queryKey: trpc.user.brands.list.queryKey(),
-        });
-        await queryClient.invalidateQueries({
-          queryKey: trpc.composite.initDashboard.queryKey(),
-        });
-        const [brands, invites] = await Promise.all([
-          queryClient.fetchQuery(trpc.user.brands.list.queryOptions()),
-          queryClient.fetchQuery(trpc.user.invites.list.queryOptions()),
-        ]);
-        const hasBrands = Array.isArray(brands) && brands.length > 0;
-        const hasInvites = Array.isArray(invites) && invites.length > 0;
-
-        if (hasBrands) {
-          router.push("/");
-        } else if (hasInvites) {
-          router.push("/invites");
-        } else {
-          router.push("/pending-access");
-        }
-      },
-      onError: (err) => {
-        setError(err.message || "Failed to save profile");
-        setIsSubmitting(false);
-      },
-    }),
-  );
+  const updateUserMutation = useMutation(trpc.user.update.mutationOptions());
 
   const onAvatarUpload = (url: string) => setAvatarUrl(url);
 
@@ -98,10 +67,53 @@ export function SetupForm() {
     }
 
     try {
-      updateUserMutation.mutate({
+      await updateUserMutation.mutateAsync({
         full_name: parsed.data.full_name,
         ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
       });
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: trpc.user.get.queryKey(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: trpc.user.brands.list.queryKey(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: trpc.user.invites.list.queryKey(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: trpc.composite.initDashboard.queryKey(),
+        }),
+      ]);
+
+      const [freshUser, brands, invites] = await Promise.all([
+        queryClient.fetchQuery(trpc.user.get.queryOptions()),
+        queryClient.fetchQuery(trpc.user.brands.list.queryOptions()),
+        queryClient.fetchQuery(trpc.user.invites.list.queryOptions()),
+      ]);
+
+      const hasCompletedProfile =
+        typeof freshUser?.full_name === "string" &&
+        freshUser.full_name.trim().length >= 2;
+
+      if (!hasCompletedProfile) {
+        setError("Unable to complete setup right now. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const hasBrands = Array.isArray(brands) && brands.length > 0;
+      const hasInvites = Array.isArray(invites) && invites.length > 0;
+      if (!hasBrands && !hasInvites) {
+        window.location.assign(noAccessDestination);
+        return;
+      }
+
+      const destination = hasBrands ? "/" : "/invites";
+
+      router.replace(destination);
+      router.refresh();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save profile";
       setError(message);

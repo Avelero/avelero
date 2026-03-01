@@ -1,6 +1,10 @@
 import { BlockedAccessScreen } from "@/components/access/blocked-access-screen";
 import { PastDueBanner } from "@/components/access/past-due-banner";
 import { PaymentRequiredOverlay } from "@/components/access/payment-required-overlay";
+import {
+  INVITE_REQUIRED_LOGIN_PATH,
+  getForceSignOutPath,
+} from "@/lib/auth-access";
 import { getQueryClient, trpc } from "@/trpc/server";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -48,7 +52,7 @@ export default async function MainLayout({
   }
 
   if (brands.length === 0 && invites.length === 0) {
-    redirect("/pending-access");
+    redirect(getForceSignOutPath(INVITE_REQUIRED_LOGIN_PATH));
   }
 
   if (brands.length === 0 && invites.length > 0) {

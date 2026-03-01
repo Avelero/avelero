@@ -1,3 +1,4 @@
+import { getForceSignOutPath, isInviteRequiredPath } from "@/lib/auth-access";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
 import {
   INVITE_COOKIE_NAME,
@@ -25,6 +26,8 @@ export async function GET(request: Request) {
       const isInviteRequired =
         normalized.includes("invite_required") ||
         normalized.includes("invite required") ||
+        normalized.includes("auth_gate_denied") ||
+        normalized.includes("auth gate denied") ||
         normalized.includes("account_not_found") ||
         normalized.includes("user not found") ||
         normalized.includes("signups not allowed") ||
@@ -47,7 +50,6 @@ export async function GET(request: Request) {
     user,
     client: supabase,
   });
-  const acceptedBrand = inviteRedemption.accepted;
 
   // Determine redirect URL based on environment
   const forwardedHost = request.headers.get("x-forwarded-host");
@@ -62,17 +64,18 @@ export async function GET(request: Request) {
     baseUrl = origin;
   }
 
-  const redirectPath = acceptedBrand
-    ? "/"
-    : await resolveAuthRedirectPath({
-        next,
-        returnTo,
-        client: supabase,
-        user,
-      });
+  const redirectPath = await resolveAuthRedirectPath({
+    next,
+    returnTo,
+    client: supabase,
+    user,
+  });
+  const finalPath = isInviteRequiredPath(redirectPath)
+    ? getForceSignOutPath(redirectPath)
+    : redirectPath;
 
   // Build response and clear the invite cookie if present
-  const response = NextResponse.redirect(`${baseUrl}${redirectPath}`, 303);
+  const response = NextResponse.redirect(`${baseUrl}${finalPath}`, 303);
   if (inviteTokenHash && inviteRedemption.shouldClearCookie) {
     response.cookies.set(INVITE_COOKIE_NAME, "", {
       maxAge: 0,

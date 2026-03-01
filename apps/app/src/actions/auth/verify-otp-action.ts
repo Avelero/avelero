@@ -1,6 +1,7 @@
 "use server";
 
 import { actionClient } from "@/actions/safe-action";
+import { getForceSignOutPath, isInviteRequiredPath } from "@/lib/auth-access";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
 import {
   INVITE_COOKIE_NAME,
@@ -78,20 +79,20 @@ export const verifyOtpAction = actionClient
       user,
       client: supabase,
     });
-    const acceptedBrand = inviteRedemption.accepted;
 
     if (cookieHash && inviteRedemption.shouldClearCookie) {
       const cs = await cookies();
       cs.set(INVITE_COOKIE_NAME, "", { maxAge: 0, path: "/" });
     }
 
-    const destination = acceptedBrand
-      ? "/"
-      : await resolveAuthRedirectPath({
-          next: sanitizeRedirectPath(redirectTo),
-          client: supabase,
-          user,
-        });
+    const destination = await resolveAuthRedirectPath({
+      next: sanitizeRedirectPath(redirectTo),
+      client: supabase,
+      user,
+    });
+    const finalDestination = isInviteRequiredPath(destination)
+      ? getForceSignOutPath(destination)
+      : destination;
 
-    redirect(destination);
+    redirect(finalDestination);
   });

@@ -1,12 +1,10 @@
 "use client";
 
+import { getForceSignOutPath } from "@/lib/auth-access";
 import { Button } from "@v1/ui/button";
 import { Skeleton } from "@v1/ui/skeleton";
-import { useRouter } from "next/navigation";
 
 export function CreateBrandForm() {
-  const router = useRouter();
-
   return (
     <div className="mx-auto w-full  max-w-[360px] space-y-6">
       <div className="text-center space-y-2">
@@ -17,7 +15,10 @@ export function CreateBrandForm() {
         </p>
       </div>
 
-      <Button className="w-full" onClick={() => router.push("/pending-access")}>
+      <Button
+        className="w-full"
+        onClick={() => window.location.assign(getForceSignOutPath())}
+      >
         Back
       </Button>
     </div>

@@ -12,7 +12,7 @@ function getLoginFeedback(params: URLSearchParams): string | null {
   if (!error) return null;
 
   if (error === "invite-required") {
-    return "This email address needs an active invitation before account creation is allowed.";
+    return "This email address needs an active invitation before sign-in is allowed.";
   }
   if (error === "auth-code-error") {
     return "Google sign-in could not be completed. Please try again or use email verification.";

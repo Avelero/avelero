@@ -1,5 +1,6 @@
 "use client";
 
+import { getForceSignOutPath } from "@/lib/auth-access";
 import { useTRPC } from "@/trpc/client";
 import {
   useMutation,
@@ -10,7 +11,7 @@ import {
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 
 /** tRPC router output types for type-safe hooks */
 type RouterOutputs = inferRouterOutputs<AppRouter>;
@@ -190,11 +191,7 @@ export function useLeaveBrandMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
-
-  // Prefetch pending-access route for users with no remaining memberships
-  useEffect(() => {
-    router.prefetch("/pending-access");
-  }, [router]);
+  const noAccessDestination = getForceSignOutPath();
 
   return useMutation(
     trpc.user.brands.leave.mutationOptions({
@@ -216,8 +213,11 @@ export function useLeaveBrandMutation() {
         const nextBrandId =
           (res as { nextBrandId?: string | null } | undefined)?.nextBrandId ??
           null;
-        // Redirect to pending-access when user has no brands left
-        if (!nextBrandId) router.push("/pending-access");
+        // Force sign-out when user has no brands left.
+        if (!nextBrandId) {
+          window.location.assign(noAccessDestination);
+          return;
+        }
         router.refresh();
       },
     }),

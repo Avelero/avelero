@@ -62,7 +62,6 @@ function getHeaderBreadcrumbs(pathname: string): BreadcrumbItem[] {
   const routeLabels: Record<string, string> = {
     setup: "Setup",
     invites: "Invites",
-    "pending-access": "Pending access",
   };
 
   const firstSegment = segments[0];

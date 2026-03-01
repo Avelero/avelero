@@ -1,6 +1,7 @@
+import { INVITE_REQUIRED_LOGIN_PATH } from "@/lib/auth-access";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@v1/supabase/server";
-import type { Tables, TablesUpdate } from "@v1/supabase/types";
+import type { Tables } from "@v1/supabase/types";
 import type { Database } from "@v1/supabase/types";
 
 interface ResolveAuthRedirectOptions {
@@ -65,10 +66,6 @@ export async function resolveAuthRedirectPath({
     Tables<"users">,
     "full_name" | "brand_id"
   > | null;
-  const isProfileIncomplete =
-    !typedProfile?.full_name || typedProfile.full_name.trim().length < 2;
-  if (isProfileIncomplete) return "/setup";
-
   const { count } = await supabase
     .from("brand_members")
     .select("*", { count: "exact" })
@@ -81,7 +78,7 @@ export async function resolveAuthRedirectPath({
   if (membershipCount === 0) {
     const normalizedEmail = currentUser.email?.trim().toLowerCase();
     if (!normalizedEmail) {
-      return "/pending-access";
+      return INVITE_REQUIRED_LOGIN_PATH;
     }
 
     const nowIso = new Date().toISOString();
@@ -94,8 +91,12 @@ export async function resolveAuthRedirectPath({
     if ((inviteCount ?? 0) > 0) {
       return "/invites";
     }
-    return "/pending-access";
+    return INVITE_REQUIRED_LOGIN_PATH;
   }
+
+  const isProfileIncomplete =
+    !typedProfile?.full_name || typedProfile.full_name.trim().length < 2;
+  if (isProfileIncomplete) return "/setup";
 
   // If user has memberships but no active brand selected, pick the most recent membership
   if (membershipCount > 0 && !typedProfile?.brand_id) {

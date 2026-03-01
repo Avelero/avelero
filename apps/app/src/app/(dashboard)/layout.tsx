@@ -1,5 +1,10 @@
 import { MainSkeleton } from "@/components/main-skeleton";
+import {
+  INVITE_REQUIRED_LOGIN_PATH,
+  getForceSignOutPath,
+} from "@/lib/auth-access";
 import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
@@ -7,9 +12,7 @@ import { Suspense } from "react";
  * Dashboard Layout - Auth Bootstrap
  *
  * This layout handles authentication and cache seeding for ALL dashboard pages.
- * It does NOT include redirect logic - that's handled by (main)/layout.tsx
- * to avoid infinite redirect loops (since /setup, /pending-access, /invites
- * are also under this layout).
+ * It includes invite-only guardrails that apply to every dashboard route.
  */
 export default function DashboardLayout({
   children,
@@ -40,18 +43,30 @@ async function DashboardLayoutContent({
   );
 
   const user = initDashboard.user;
+  const brands = initDashboard.brands;
+  const invites = initDashboard.myInvites;
+
+  // Treat missing profile as invalid session.
+  if (!user) {
+    redirect("/login");
+  }
+
+  // Invite-only gate: users without memberships and pending invites are signed out.
+  if (brands.length === 0 && invites.length === 0) {
+    redirect(getForceSignOutPath(INVITE_REQUIRED_LOGIN_PATH));
+  }
 
   // Seed caches so child components don't refetch
   queryClient.setQueryData(trpc.user.get.queryOptions().queryKey, user);
 
   queryClient.setQueryData(
     trpc.user.brands.list.queryOptions().queryKey,
-    initDashboard.brands,
+    brands,
   );
 
   queryClient.setQueryData(
     trpc.user.invites.list.queryOptions().queryKey,
-    initDashboard.myInvites,
+    invites,
   );
 
   // HydrateClient transfers seeded cache data to client components.

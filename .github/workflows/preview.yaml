@@ -28,6 +28,7 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       app_changed: ${{ steps.filter.outputs.app }}
+      admin_changed: ${{ steps.filter.outputs.admin }}
       api_changed: ${{ steps.filter.outputs.api }}
       jobs_changed: ${{ steps.filter.outputs.jobs }}
       dpp_changed: ${{ steps.filter.outputs.dpp }}
@@ -41,6 +42,9 @@ jobs:
           filters: |
             app:
               - 'apps/app/**'
+              - 'packages/**'
+            admin:
+              - 'apps/admin/**'
               - 'packages/**'
             api:
               - 'apps/api/**'
@@ -165,6 +169,25 @@ jobs:
       - name: 🪐 Check TypeScript
         run: bun run typecheck
         working-directory: ./apps/web
+
+  test-admin:
+    name: 🧪 Lint & Type Check (Admin)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.admin_changed == 'true' && github.event.action != 'closed'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: 🔦 Run linter
+        run: bun run lint
+        working-directory: ./apps/admin
+      - name: 🪐 Check TypeScript
+        run: bun run typecheck
+        working-directory: ./apps/admin
 
   # ============================================
   # Step 2.5: Setup Preview Database
@@ -441,7 +464,7 @@ jobs:
   # ============================================
   all-tests-passed:
     name: ✅ All Tests Passed
-    needs: [test-app, test-api, test-jobs, test-dpp, test-web, test-integrations]
+    needs: [test-app, test-api, test-jobs, test-dpp, test-web, test-admin, test-integrations]
     if: always() && github.event.action != 'closed'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
@@ -453,6 +476,7 @@ jobs:
           echo "  test-jobs: ${{ needs.test-jobs.result }}"
           echo "  test-dpp: ${{ needs.test-dpp.result }}"
           echo "  test-web: ${{ needs.test-web.result }}"
+          echo "  test-admin: ${{ needs.test-admin.result }}"
           echo "  test-integrations: ${{ needs.test-integrations.result }}"
           
           # If ANY test failed or was cancelled, this gate fails
@@ -461,12 +485,14 @@ jobs:
              [[ "${{ needs.test-jobs.result }}" == "failure" ]] || \
              [[ "${{ needs.test-dpp.result }}" == "failure" ]] || \
              [[ "${{ needs.test-web.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-admin.result }}" == "failure" ]] || \
              [[ "${{ needs.test-integrations.result }}" == "failure" ]] || \
              [[ "${{ needs.test-app.result }}" == "cancelled" ]] || \
              [[ "${{ needs.test-api.result }}" == "cancelled" ]] || \
              [[ "${{ needs.test-jobs.result }}" == "cancelled" ]] || \
              [[ "${{ needs.test-dpp.result }}" == "cancelled" ]] || \
              [[ "${{ needs.test-web.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-admin.result }}" == "cancelled" ]] || \
              [[ "${{ needs.test-integrations.result }}" == "cancelled" ]]; then
             echo ""
             echo "❌ One or more tests failed or were cancelled"
@@ -508,6 +534,73 @@ jobs:
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       - name: 🏗 Build Project Artifacts
         run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - name: 🚀 Deploy to Vercel
+        id: deploy
+        run: |
+          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # Step 3b: Deploy Admin
+  # ============================================
+  deploy-admin:
+    name: 🛡️ Deploy Admin
+    needs: [detect-changes, test-admin, setup-database]
+    if: |
+      always() &&
+      (needs.test-admin.result == 'success' || needs.test-admin.result == 'skipped') &&
+      needs.detect-changes.outputs.admin_changed == 'true' &&
+      (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
+      github.event.action != 'closed'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    concurrency:
+      group: pr-${{ github.event.number }}-admin
+      cancel-in-progress: true
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_ADMIN }}
+      TURBO_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: Set API URL
+        id: api-url
+        run: |
+          API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
+          echo "url=${API_URL}" >> $GITHUB_OUTPUT
+      - name: 🔗 Fetch Branch Credentials
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
+
+          # Add DATABASE_URL with correct port
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
+      - name: 📤 Pull Vercel Environment Information
+        run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - name: 🏗 Build Project Artifacts
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          export NEXT_PUBLIC_API_URL="${{ steps.api-url.outputs.url }}"
+          export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+          export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+          bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
@@ -949,7 +1042,7 @@ jobs:
   # ============================================
   summary:
     name: 📝 Post Summary
-    needs: [detect-changes, deploy-web, deploy-app, deploy-api, deploy-jobs, deploy-dpp]
+    needs: [detect-changes, deploy-web, deploy-admin, deploy-app, deploy-api, deploy-jobs, deploy-dpp]
     if: always() && github.event.action != 'closed'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
@@ -960,11 +1053,13 @@ jobs:
             const appUrl = '${{ needs.deploy-app.outputs.url }}' || null;
             const apiUrl = `https://pr-${{ github.event.number }}-avelero-api.fly.dev`;
             const webUrl = '${{ needs.deploy-web.outputs.url }}' || null;
+            const adminUrl = '${{ needs.deploy-admin.outputs.url }}' || null;
             const dppUrl = '${{ needs.deploy-dpp.outputs.url }}' || null;
             
             const appChanged = '${{ needs.detect-changes.outputs.app_changed }}' === 'true';
             const apiChanged = '${{ needs.detect-changes.outputs.api_changed }}' === 'true';
             const webChanged = '${{ needs.detect-changes.outputs.web_changed }}' === 'true';
+            const adminChanged = '${{ needs.detect-changes.outputs.admin_changed }}' === 'true';
             const dppChanged = '${{ needs.detect-changes.outputs.dpp_changed }}' === 'true';
             const jobsChanged = '${{ needs.detect-changes.outputs.jobs_changed }}' === 'true';
             
@@ -981,6 +1076,9 @@ jobs:
             if (webChanged) {
               body += `**Web:** ${webUrl || '❌ Failed'}\n`;
             }
+            if (adminChanged) {
+              body += `**Admin:** ${adminUrl || '❌ Failed'}\n`;
+            }
             if (dppChanged) {
               body += `**DPP:** ${dppUrl || '❌ Failed'}\n`;
             }
@@ -988,7 +1086,7 @@ jobs:
               body += `**Jobs:** Deployed to Trigger.dev\n`;
             }
             
-            if (!appChanged && !apiChanged && !webChanged && !dppChanged && !jobsChanged) {
+            if (!appChanged && !apiChanged && !webChanged && !adminChanged && !dppChanged && !jobsChanged) {
               body += `No components were deployed.\n`;
             }
             

@@ -133,6 +133,7 @@ export function GoogleSignin() {
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   const returnTo = searchParams.get("return_to");
+  const inviteTokenHash = searchParams.get("invite_token_hash");
 
   const handleGoogleResponse = useCallback(
     async (response: GoogleCredentialResponse) => {
@@ -170,6 +171,9 @@ export function GoogleSignin() {
         if (returnTo) {
           redirectTo.searchParams.append("return_to", returnTo);
         }
+        if (inviteTokenHash) {
+          redirectTo.searchParams.append("invite_token_hash", inviteTokenHash);
+        }
 
         // Single Google sign-in flow: popup id token sign-in, then one redirect to app callback.
         window.location.assign(redirectTo.toString());
@@ -178,7 +182,7 @@ export function GoogleSignin() {
         setIsSubmitting(false);
       }
     },
-    [returnTo, supabase],
+    [inviteTokenHash, returnTo, supabase],
   );
 
   useEffect(() => {

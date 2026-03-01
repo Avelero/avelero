@@ -171,7 +171,6 @@ type InviteResultRow = {
   role: "owner" | "member";
   brand: { id: string | null; name: string | null } | null;
   tokenHash: string | null;
-  isExistingUser: boolean;
 };
 
 type InviteEmailPayload = {
@@ -179,7 +178,7 @@ type InviteEmailPayload = {
   brandName: string;
   role: "owner" | "member";
   acceptUrl: string;
-  ctaMode: "accept" | "view";
+  ctaMode: "accept";
 };
 
 function normalizeSearch(value?: string) {
@@ -217,19 +216,30 @@ async function triggerInviteEmails(invites: InviteResultRow[]) {
   if (invites.length === 0) return;
 
   const appUrl = getAppUrl();
-  const payload: InviteEmailPayload[] = invites.map((invite) => {
-    const isExisting = invite.isExistingUser;
-    const acceptUrl = isExisting
-      ? `${appUrl}/invites`
-      : `${appUrl}/api/auth/accept?token_hash=${invite.tokenHash ?? ""}`;
-    return {
-      recipientEmail: invite.email,
-      brandName: invite.brand?.name ?? "Avelero",
-      role: invite.role,
-      acceptUrl,
-      ctaMode: isExisting ? "view" : "accept",
-    };
-  });
+  const payload = invites.reduce<InviteEmailPayload[]>((acc, invite) => {
+      if (!invite.tokenHash) {
+        logger.error(
+          {
+            inviteEmail: invite.email,
+            brandId: invite.brand?.id,
+          },
+          "Invite email skipped because token hash is missing",
+        );
+        return acc;
+      }
+
+      acc.push({
+        recipientEmail: invite.email,
+        brandName: invite.brand?.name ?? "Avelero",
+        role: invite.role,
+        acceptUrl: `${appUrl}/api/auth/accept?token_hash=${invite.tokenHash}`,
+        ctaMode: "accept",
+      });
+
+      return acc;
+    }, []);
+
+  if (payload.length === 0) return;
 
   try {
     await tasks.trigger("invite-brand-members", {

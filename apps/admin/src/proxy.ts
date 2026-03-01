@@ -1,4 +1,3 @@
-import { ADMIN_LOGIN_ERROR_COOKIE } from "@/lib/login-error";
 import { updateSession } from "@v1/supabase/proxy";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -20,14 +19,6 @@ export async function proxy(request: NextRequest) {
   const isLoginRoute = pathname === "/login" || pathname.startsWith("/login/");
 
   const { response: updatedResponse, supabase } = await updateSession(request);
-
-  if (isLoginRoute && request.cookies.has(ADMIN_LOGIN_ERROR_COOKIE)) {
-    updatedResponse.cookies.set(ADMIN_LOGIN_ERROR_COOKIE, "", {
-      maxAge: 0,
-      path: "/login",
-      sameSite: "lax",
-    });
-  }
 
   const {
     data: { user },
@@ -60,12 +51,9 @@ export async function proxy(request: NextRequest) {
 
     await supabase.auth.signOut({ scope: "global" });
 
-    const redirectResponse = NextResponse.redirect(new URL("/login", request.url));
-    redirectResponse.cookies.set(ADMIN_LOGIN_ERROR_COOKIE, "auth-denied", {
-      maxAge: 60,
-      path: "/login",
-      sameSite: "lax",
-    });
+    const url = new URL("/login", request.url);
+    url.searchParams.set("error", "auth-denied");
+    const redirectResponse = NextResponse.redirect(url);
     clearSupabaseCookies(request, redirectResponse);
 
     return redirectResponse;

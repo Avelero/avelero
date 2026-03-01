@@ -33,7 +33,7 @@ async function DashboardLayoutContent({
   try {
     await queryClient.fetchQuery(trpc.platformAdmin.viewer.get.queryOptions());
   } catch {
-    redirect("/login");
+    redirect("/login?error=auth-failed");
   }
 
   return (

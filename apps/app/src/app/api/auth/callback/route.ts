@@ -1,4 +1,8 @@
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
+import {
+  INVITE_COOKIE_NAME,
+  redeemInviteFromCookie,
+} from "@/lib/invite-redemption";
 import { createClient } from "@v1/supabase/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -8,6 +12,7 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/";
   const returnTo = searchParams.get("return_to");
+  const inviteTokenFromUrl = searchParams.get("invite_token_hash");
 
   const supabase = await createClient();
 
@@ -34,20 +39,15 @@ export async function GET(request: Request) {
   const { data: userRes } = await supabase.auth.getUser();
   const user = userRes?.user ?? null;
   const cookieStore = await cookies();
-  const cookieHash = cookieStore.get("brand_invite_token_hash")?.value ?? null;
-  let acceptedBrand = false;
-  if (user && cookieHash) {
-    try {
-      // Use SECURITY DEFINER RPC to accept invite atomically
-      const { error: rpcError } = await supabase.rpc(
-        "accept_invite_from_cookie",
-        { p_token: cookieHash },
-      );
-      if (!rpcError) acceptedBrand = true;
-    } catch {
-      // ignore failures
-    }
-  }
+  const cookieHash = cookieStore.get(INVITE_COOKIE_NAME)?.value ?? null;
+  const inviteTokenHash = cookieHash ?? inviteTokenFromUrl ?? null;
+
+  const inviteRedemption = await redeemInviteFromCookie({
+    cookieHash: inviteTokenHash,
+    user,
+    client: supabase,
+  });
+  const acceptedBrand = inviteRedemption.accepted;
 
   // Determine redirect URL based on environment
   const forwardedHost = request.headers.get("x-forwarded-host");
@@ -73,8 +73,8 @@ export async function GET(request: Request) {
 
   // Build response and clear the invite cookie if present
   const response = NextResponse.redirect(`${baseUrl}${redirectPath}`, 303);
-  if (cookieHash) {
-    response.cookies.set("brand_invite_token_hash", "", {
+  if (inviteTokenHash && inviteRedemption.shouldClearCookie) {
+    response.cookies.set(INVITE_COOKIE_NAME, "", {
       maxAge: 0,
       path: "/",
     });

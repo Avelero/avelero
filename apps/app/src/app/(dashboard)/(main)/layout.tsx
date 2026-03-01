@@ -35,9 +35,15 @@ export default async function MainLayout({
   const invites = initDashboard.myInvites;
   const access = initDashboard.access;
 
+  // The auth session can briefly outlive the app profile row (for example,
+  // immediately after account deletion). Treat this as an invalid session.
+  if (!user) {
+    redirect("/login");
+  }
+
   // Redirect logic for incomplete users
   // These destinations are OUTSIDE (main), so no infinite loops
-  if (!user?.full_name) {
+  if (!user.full_name) {
     redirect("/setup");
   }
 

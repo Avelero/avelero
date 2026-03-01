@@ -3,6 +3,7 @@
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type GoogleCredentialResponse = {
@@ -42,10 +43,13 @@ declare global {
 const GOOGLE_SCRIPT_ID = "google-identity-services-script";
 const GOOGLE_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
 const GENERIC_ERROR = "Unable to sign in. Please contact your administrator.";
+const AUTH_FAILED_ERROR = "Authentication failed. Please try again.";
 
-type Props = {
-  initialErrorMessage?: string | null;
-};
+function getQueryErrorMessage(errorCode: string | null): string | null {
+  if (errorCode === "auth-denied") return GENERIC_ERROR;
+  if (errorCode === "auth-failed") return AUTH_FAILED_ERROR;
+  return null;
+}
 
 function GoogleLogo() {
   return (
@@ -103,17 +107,21 @@ async function loadGoogleScript(): Promise<void> {
   });
 }
 
-export function GoogleSignin({ initialErrorMessage = null }: Props) {
+export function GoogleSignin() {
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
+  const queryErrorMessage = getQueryErrorMessage(searchParams.get("error"));
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(
-    initialErrorMessage,
-  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(queryErrorMessage);
 
   const hiddenGoogleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+  useEffect(() => {
+    setErrorMessage(queryErrorMessage);
+  }, [queryErrorMessage]);
 
   const handleGoogleResponse = useCallback(
     async (response: GoogleCredentialResponse) => {

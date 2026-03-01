@@ -26,6 +26,8 @@ export function UserMenu() {
           className="rounded-full focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
         >
           <SignedAvatar
+            bucket="avatars"
+            id={viewer?.id ?? ""}
             url={viewer?.avatar_url ?? null}
             name={viewer?.full_name ?? viewer?.email ?? undefined}
             size={32}

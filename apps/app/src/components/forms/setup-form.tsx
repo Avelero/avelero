@@ -50,13 +50,6 @@ export function SetupForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Prefetch possible navigation routes
-  useEffect(() => {
-    router.prefetch("/");
-    router.prefetch("/pending-access");
-    router.prefetch("/invites");
-  }, [router]);
-
   const updateUserMutation = useMutation(
     trpc.user.update.mutationOptions({
       onSuccess: async () => {

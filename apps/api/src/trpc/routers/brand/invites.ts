@@ -40,7 +40,7 @@ type InviteEmailPayload = {
   brandName: string;
   role: typeof ROLES.OWNER | typeof ROLES.MEMBER;
   acceptUrl: string;
-  ctaMode: "accept" | "view";
+  ctaMode: "accept";
 };
 
 type InviteResultRow = {
@@ -48,7 +48,6 @@ type InviteResultRow = {
   role: typeof ROLES.OWNER | typeof ROLES.MEMBER;
   brand: { id: string | null; name: string | null } | null;
   tokenHash: string | null;
-  isExistingUser: boolean;
 };
 
 // Schema for revoking an invite
@@ -130,33 +129,48 @@ export const brandInvitesRouter = createTRPCRouter({
       const inviteResults = (result.results as InviteResultRow[]) ?? [];
       if (inviteResults.length > 0) {
         const appUrl = getAppUrl();
-        const payload: InviteEmailPayload[] = inviteResults.map((invite) => {
-          const isExisting = invite.isExistingUser;
-          const acceptUrl = isExisting
-            ? `${appUrl}/invites`
-            : `${appUrl}/api/auth/accept?token_hash=${invite.tokenHash ?? ""}`;
-          return {
-            recipientEmail: invite.email,
-            brandName: invite.brand?.name ?? "Avelero",
-            role: invite.role,
-            acceptUrl,
-            ctaMode: isExisting ? ("view" as const) : ("accept" as const),
-          };
-        });
+        const payload = inviteResults.reduce<InviteEmailPayload[]>(
+          (acc, invite) => {
+            if (!invite.tokenHash) {
+              logger.error(
+                {
+                  inviteEmail: invite.email,
+                  brandId: invite.brand?.id,
+                },
+                "Invite email skipped because token hash is missing",
+              );
+              return acc;
+            }
 
-        try {
-          await tasks.trigger("invite-brand-members", {
-            invites: payload,
-            from: "Avelero <no-reply@welcome.avelero.com>",
-          });
-        } catch (error) {
-          logger.error(
-            {
-              err: error instanceof Error ? error : undefined,
-              invites: payload.map((invite) => invite.recipientEmail),
-            },
-            "Failed to enqueue brand invite emails",
-          );
+            const acceptUrl = `${appUrl}/api/auth/accept?token_hash=${invite.tokenHash}`;
+            acc.push({
+              recipientEmail: invite.email,
+              brandName: invite.brand?.name ?? "Avelero",
+              role: invite.role,
+              acceptUrl,
+              ctaMode: "accept" as const,
+            });
+
+            return acc;
+          },
+          [],
+        );
+
+        if (payload.length > 0) {
+          try {
+            await tasks.trigger("invite-brand-members", {
+              invites: payload,
+              from: "Avelero <no-reply@welcome.avelero.com>",
+            });
+          } catch (error) {
+            logger.error(
+              {
+                err: error instanceof Error ? error : undefined,
+                invites: payload.map((invite) => invite.recipientEmail),
+              },
+              "Failed to enqueue brand invite emails",
+            );
+          }
         }
       }
 

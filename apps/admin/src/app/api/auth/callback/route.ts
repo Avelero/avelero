@@ -1,15 +1,8 @@
 import { createClient } from "@v1/supabase/server";
-import { ADMIN_LOGIN_ERROR_COOKIE } from "@/lib/login-error";
 import { NextResponse } from "next/server";
 
 function toLoginRedirect(origin: string, code: string) {
-  const response = NextResponse.redirect(`${origin}/login`);
-  response.cookies.set(ADMIN_LOGIN_ERROR_COOKIE, code, {
-    maxAge: 60,
-    path: "/login",
-    sameSite: "lax",
-  });
-  return response;
+  return NextResponse.redirect(`${origin}/login?error=${code}`);
 }
 
 export async function GET(request: Request) {

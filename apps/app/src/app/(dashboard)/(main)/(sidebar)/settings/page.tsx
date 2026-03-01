@@ -5,17 +5,31 @@ import { SetEmail } from "@/components/settings/set-email";
 import { SetLogo } from "@/components/settings/set-logo";
 import { SetName } from "@/components/settings/set-name";
 import { SetSlug } from "@/components/settings/set-slug";
-import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
+import {
+  HydrateClient,
+  batchPrefetch,
+  getQueryClient,
+  trpc,
+} from "@/trpc/server";
 import { connection } from "next/server";
 
 export default async function SettingsPage() {
   await connection();
 
-  batchPrefetch([
-    trpc.user.brands.list.queryOptions(),
-    trpc.composite.membersWithInvites.queryOptions({}),
-    trpc.brand.customDomains.get.queryOptions(),
-  ]);
+  const queryClient = getQueryClient();
+  const initDashboard = await queryClient.fetchQuery(
+    trpc.composite.initDashboard.queryOptions(),
+  );
+
+  if (initDashboard.activeBrand) {
+    await batchPrefetch([
+      trpc.user.brands.list.queryOptions(),
+      trpc.composite.membersWithInvites.queryOptions({}),
+      trpc.brand.customDomains.get.queryOptions(),
+    ]);
+  } else {
+    await batchPrefetch([trpc.user.brands.list.queryOptions()]);
+  }
 
   return (
     <HydrateClient>

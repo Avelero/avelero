@@ -9,6 +9,8 @@ import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 
+const GOOGLE_TAG_ID = "G-FQ1PYE6EW8";
+
 const Switzer = localFont({
   src: "../../public/fonts/Switzer-Regular.woff2",
   variable: "--font-switzer",
@@ -159,6 +161,21 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          async
+          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_TAG_ID}`}
+        />
+        <script
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Required to bootstrap Google tag (gtag.js)
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GOOGLE_TAG_ID}');
+            `,
+          }}
+        />
         <link
           rel="preload"
           href="/fonts/Switzer-Regular.woff2"

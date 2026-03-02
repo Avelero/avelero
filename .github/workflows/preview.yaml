@@ -545,13 +545,16 @@ jobs:
         run: bun install
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./apps/web
       - name: 🏗 Build Project Artifacts
         run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./apps/web
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
           DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+        working-directory: ./apps/web
 
   # ============================================
   # Step 3b: Deploy Admin
@@ -617,6 +620,7 @@ jobs:
           echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./apps/admin
       - name: 🏗 Build Project Artifacts
         run: |
           set -a
@@ -626,11 +630,13 @@ jobs:
           export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
           export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
           bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./apps/admin
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
           DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+        working-directory: ./apps/admin
 
   # ============================================
   # Step 4: Deploy App (outputs URL for API)
@@ -699,6 +705,7 @@ jobs:
           echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./apps/app
       - name: 🏗 Build Project Artifacts
         run: |
           set -a
@@ -711,11 +718,13 @@ jobs:
           # Set DPP URL for passport links (from deploy-dpp output or empty if not deployed)
           export NEXT_PUBLIC_DPP_URL="${{ needs.deploy-dpp.outputs.url }}"
           bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./apps/app
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
           DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+        working-directory: ./apps/app
 
   # ============================================
   # Step 6: Deploy API (needs App URL and DPP URL)
@@ -1100,15 +1109,18 @@ jobs:
           echo "url=${API_URL}" >> $GITHUB_OUTPUT
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ./apps/dpp
       - name: 🏗 Build Project Artifacts
         run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
         env:
           NEXT_PUBLIC_API_URL: ${{ steps.api-url.outputs.url }}
+        working-directory: ./apps/dpp
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
           DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+        working-directory: ./apps/dpp
 
   # ============================================
   # Summary: Post deployment URLs to PR

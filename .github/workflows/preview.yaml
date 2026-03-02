@@ -15,6 +15,7 @@ permissions:
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_CLI_VERSION: 50.25.4
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
   FLY_REGION: ams
   FLY_ORG: personal
@@ -544,17 +545,14 @@ jobs:
       - name: Install dependencies
         run: bun install
       - name: 📤 Pull Vercel Environment Information
-        run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: ./apps/web
+        run: bunx vercel@${{ env.VERCEL_CLI_VERSION }} pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --debug
       - name: 🏗 Build Project Artifacts
-        run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: ./apps/web
+        run: bunx vercel@${{ env.VERCEL_CLI_VERSION }} build --token=${{ secrets.VERCEL_TOKEN }} --debug
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
-          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
+          DEPLOYMENT_URL=$(bunx vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }} --debug)
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
-        working-directory: ./apps/web
 
   # ============================================
   # Step 3b: Deploy Admin
@@ -619,8 +617,7 @@ jobs:
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
           echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
       - name: 📤 Pull Vercel Environment Information
-        run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: ./apps/admin
+        run: bunx vercel@${{ env.VERCEL_CLI_VERSION }} pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --debug
       - name: 🏗 Build Project Artifacts
         run: |
           set -a
@@ -629,14 +626,12 @@ jobs:
           export NEXT_PUBLIC_API_URL="${{ steps.api-url.outputs.url }}"
           export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
           export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
-          bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: ./apps/admin
+          bunx vercel@${{ env.VERCEL_CLI_VERSION }} build --token=${{ secrets.VERCEL_TOKEN }} --debug
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
-          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
+          DEPLOYMENT_URL=$(bunx vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }} --debug)
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
-        working-directory: ./apps/admin
 
   # ============================================
   # Step 4: Deploy App (outputs URL for API)
@@ -704,8 +699,7 @@ jobs:
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
           echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
       - name: 📤 Pull Vercel Environment Information
-        run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: ./apps/app
+        run: bunx vercel@${{ env.VERCEL_CLI_VERSION }} pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --debug
       - name: 🏗 Build Project Artifacts
         run: |
           set -a
@@ -717,14 +711,12 @@ jobs:
           export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
           # Set DPP URL for passport links (from deploy-dpp output or empty if not deployed)
           export NEXT_PUBLIC_DPP_URL="${{ needs.deploy-dpp.outputs.url }}"
-          bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: ./apps/app
+          bunx vercel@${{ env.VERCEL_CLI_VERSION }} build --token=${{ secrets.VERCEL_TOKEN }} --debug
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
-          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
+          DEPLOYMENT_URL=$(bunx vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }} --debug)
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
-        working-directory: ./apps/app
 
   # ============================================
   # Step 6: Deploy API (needs App URL and DPP URL)
@@ -1108,19 +1100,16 @@ jobs:
           API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
           echo "url=${API_URL}" >> $GITHUB_OUTPUT
       - name: 📤 Pull Vercel Environment Information
-        run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: ./apps/dpp
+        run: bunx vercel@${{ env.VERCEL_CLI_VERSION }} pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }} --debug
       - name: 🏗 Build Project Artifacts
-        run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: bunx vercel@${{ env.VERCEL_CLI_VERSION }} build --token=${{ secrets.VERCEL_TOKEN }} --debug
         env:
           NEXT_PUBLIC_API_URL: ${{ steps.api-url.outputs.url }}
-        working-directory: ./apps/dpp
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
-          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
+          DEPLOYMENT_URL=$(bunx vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }} --debug)
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
-        working-directory: ./apps/dpp
 
   # ============================================
   # Summary: Post deployment URLs to PR

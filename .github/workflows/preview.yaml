@@ -407,6 +407,32 @@ jobs:
           echo "✅ Migrations applied successfully"
         working-directory: ./apps/api
 
+      - name: 👥 Seed Founder Admin Allowlist
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+
+          psql "$DATABASE_URL" <<'SQL'
+          DO $$
+          BEGIN
+            IF to_regclass('public.platform_admin_allowlist') IS NULL THEN
+              RETURN;
+            END IF;
+
+            INSERT INTO public.platform_admin_allowlist (email)
+            VALUES
+              ('raf@avelero.com'),
+              ('moussa@avelero.com')
+            ON CONFLICT (email) DO NOTHING;
+          END;
+          $$;
+          SQL
+
+          echo "✅ Founder allowlist seeded"
+
       - name: 📚 Sync Taxonomy Data
         # Sync categories, attributes, and Shopify-to-Avelero mappings required for integration tests
         run: |

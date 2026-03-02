@@ -64,7 +64,7 @@ export function OTPSignIn({ className }: Props) {
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: normalized,
         options: {
-          shouldCreateUser: false,
+          shouldCreateUser: true,
         },
       });
 

@@ -13,6 +13,64 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const GENERIC_GOOGLE_ERROR =
   "Google sign-in could not be completed. Please try again or use email verification.";
+const INVITE_REQUIRED_MESSAGE =
+  "This email address needs an active invitation before sign-in is allowed.";
+const BRAND_ACCESS_REMOVED_MESSAGE =
+  "Your brand access has been removed, please contact your administrator.";
+const RATE_LIMITED_MESSAGE =
+  "Too many attempts. Please wait a moment and try again.";
+
+function sanitizeGoogleErrorMessage(message: string | undefined): string {
+  if (!message) return GENERIC_GOOGLE_ERROR;
+
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("invite_required") ||
+    normalized.includes("invite required") ||
+    normalized.includes("auth_gate_denied") ||
+    normalized.includes("auth gate denied") ||
+    normalized.includes("account_not_found") ||
+    normalized.includes("user not found") ||
+    normalized.includes("signups not allowed") ||
+    normalized.includes("signup is disabled")
+  ) {
+    return INVITE_REQUIRED_MESSAGE;
+  }
+
+  if (
+    normalized.includes("too many requests") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("for security purposes") ||
+    normalized.includes("429")
+  ) {
+    return RATE_LIMITED_MESSAGE;
+  }
+
+  return GENERIC_GOOGLE_ERROR;
+}
+
+function getQueryGoogleErrorMessage(
+  errorCode: string | null,
+  provider: string | null,
+): string | null {
+  if (provider !== "google") return null;
+  if (!errorCode) return null;
+
+  if (errorCode === "invite-required") {
+    return INVITE_REQUIRED_MESSAGE;
+  }
+  if (errorCode === "brand-access-removed") {
+    return BRAND_ACCESS_REMOVED_MESSAGE;
+  }
+  if (errorCode === "auth-rate-limited") {
+    return RATE_LIMITED_MESSAGE;
+  }
+  if (errorCode === "auth-code-error" || errorCode === "auth-unavailable") {
+    return GENERIC_GOOGLE_ERROR;
+  }
+
+  return null;
+}
 
 function extractEmailFromIdToken(token: string): string | null {
   const parts = token.split(".");
@@ -36,16 +94,26 @@ function extractEmailFromIdToken(token: string): string | null {
 export function GoogleSignin() {
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
+  const queryErrorMessage = getQueryGoogleErrorMessage(
+    searchParams.get("error"),
+    searchParams.get("provider"),
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(
+    queryErrorMessage,
+  );
 
   const hiddenGoogleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   const returnTo = searchParams.get("return_to");
   const inviteTokenHash = searchParams.get("invite_token_hash");
+
+  useEffect(() => {
+    setErrorMessage(queryErrorMessage);
+  }, [queryErrorMessage]);
 
   const handleGoogleResponse = useCallback(
     async (response: GoogleCredentialResponse) => {
@@ -73,7 +141,7 @@ export function GoogleSignin() {
         });
 
         if (error) {
-          setErrorMessage(GENERIC_GOOGLE_ERROR);
+          setErrorMessage(sanitizeGoogleErrorMessage(error.message));
           setIsSubmitting(false);
           return;
         }

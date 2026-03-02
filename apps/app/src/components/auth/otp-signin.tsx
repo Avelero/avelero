@@ -14,38 +14,74 @@ type Props = {
   className?: string;
 };
 
+const INVITE_REQUIRED_MESSAGE =
+  "This email address needs an active invitation before sign-in is allowed.";
+const BRAND_ACCESS_REMOVED_MESSAGE =
+  "Your brand access has been removed, please contact your administrator.";
+const RATE_LIMITED_MESSAGE =
+  "Too many attempts. Please wait a moment and try again.";
+const GENERIC_MESSAGE = "Unable to sign in. Please try again.";
+
 /**
  * Converts technical Supabase error messages to user-friendly ones.
  * Prevents showing developer-facing errors to end users.
  */
 function sanitizeErrorMessage(message: string | undefined): string {
-  const genericMessage = "Unable to sign in. Please try again.";
-  if (!message) return genericMessage;
+  if (!message) return GENERIC_MESSAGE;
 
   const normalized = message.toLowerCase();
-  const genericErrorPatterns = [
+  const inviteRequiredPatterns = [
     /invite_required/i,
     /invite required/i,
+    /auth_gate_denied/i,
+    /auth gate denied/i,
     /account_not_found/i,
     /user not found/i,
     /signups not allowed/i,
     /signup is disabled/i,
-    /failed to reach hook/i,
-    /maximum time of \d+/i,
-    /hook.*timeout/i,
-    /internal server error/i,
-    /unexpected.*error/i,
-    /fetch failed/i,
-    /network.*error/i,
+    /otp_disabled/i,
   ];
 
-  for (const pattern of genericErrorPatterns) {
+  for (const pattern of inviteRequiredPatterns) {
     if (pattern.test(normalized)) {
-      return genericMessage;
+      return INVITE_REQUIRED_MESSAGE;
     }
   }
 
-  return genericMessage;
+  if (
+    normalized.includes("too many requests") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("for security purposes") ||
+    normalized.includes("429")
+  ) {
+    return RATE_LIMITED_MESSAGE;
+  }
+
+  return GENERIC_MESSAGE;
+}
+
+function getQueryErrorMessage(
+  errorCode: string | null,
+  provider: string | null,
+): string | null {
+  if (provider && provider !== "otp") return null;
+  if (!errorCode) return null;
+
+  if (errorCode === "invite-required") {
+    return INVITE_REQUIRED_MESSAGE;
+  }
+  if (errorCode === "brand-access-removed") {
+    return BRAND_ACCESS_REMOVED_MESSAGE;
+  }
+  if (errorCode === "auth-rate-limited") {
+    return RATE_LIMITED_MESSAGE;
+  }
+
+  if (errorCode === "auth-unavailable") {
+    return GENERIC_MESSAGE;
+  }
+
+  return null;
 }
 
 export function OTPSignIn({ className }: Props) {
@@ -56,9 +92,15 @@ export function OTPSignIn({ className }: Props) {
   const [email, setEmail] = useState<string>();
   const [otpValue, setOtpValue] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+  const [showQueryError, setShowQueryError] = useState(true);
   const supabase = createClient();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const queryErrorMessage = getQueryErrorMessage(
+    searchParams.get("error"),
+    searchParams.get("provider"),
+  );
+  const visibleError = sendError ?? (showQueryError ? queryErrorMessage : null);
 
   // Track mount count to force reset on navigation (handles bfcache)
   const mountCountRef = useRef(0);
@@ -71,6 +113,7 @@ export function OTPSignIn({ className }: Props) {
     setEmailInput("");
     setEmail(undefined);
     setSendError(null);
+    setShowQueryError(true);
     setLoading(false);
     verifyOtp.reset();
   }, [pathname]);
@@ -237,16 +280,17 @@ export function OTPSignIn({ className }: Props) {
             onChange={(e) => {
               setEmailInput(e.target.value);
               setSendError(null);
+              setShowQueryError(false);
             }}
             className={cn(
-              sendError &&
+              visibleError &&
                 "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none",
             )}
-            aria-invalid={!!sendError}
+            aria-invalid={!!visibleError}
           />
-          {sendError && (
+          {visibleError && (
             <p className="text-[12px] leading-[16px] text-destructive px-0.5">
-              {sendError}
+              {visibleError}
             </p>
           )}
         </div>

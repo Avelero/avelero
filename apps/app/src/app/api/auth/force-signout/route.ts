@@ -1,5 +1,5 @@
 import {
-  INVITE_REQUIRED_LOGIN_PATH,
+  BRAND_ACCESS_REMOVED_LOGIN_PATH,
   sanitizeAppPath,
 } from "@/lib/auth-access";
 import { createClient } from "@v1/supabase/server";
@@ -22,11 +22,11 @@ function isPrefetchRequest(request: Request): boolean {
   );
 }
 
-export async function GET(request: Request) {
+async function handleForceSignOut(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const next = sanitizeAppPath(
     searchParams.get("next"),
-    INVITE_REQUIRED_LOGIN_PATH,
+    BRAND_ACCESS_REMOVED_LOGIN_PATH,
   );
 
   // Ignore speculative prefetches; signout is a side effect.
@@ -46,4 +46,12 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.redirect(`${origin}${next}`, 303);
+}
+
+export async function GET(request: Request) {
+  return handleForceSignOut(request);
+}
+
+export async function POST(request: Request) {
+  return handleForceSignOut(request);
 }

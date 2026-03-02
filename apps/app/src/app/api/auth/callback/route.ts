@@ -1,4 +1,8 @@
-import { getForceSignOutPath, isInviteRequiredPath } from "@/lib/auth-access";
+import {
+  BRAND_ACCESS_REMOVED_LOGIN_PATH,
+  getForceSignOutPath,
+  isInviteRequiredPath,
+} from "@/lib/auth-access";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
 import {
   INVITE_COOKIE_NAME,
@@ -14,6 +18,7 @@ export async function GET(request: Request) {
   const next = searchParams.get("next") ?? "/";
   const returnTo = searchParams.get("return_to");
   const inviteTokenFromUrl = searchParams.get("invite_token_hash");
+  const provider = searchParams.get("provider");
 
   const supabase = await createClient();
 
@@ -34,7 +39,12 @@ export async function GET(request: Request) {
         normalized.includes("signup is disabled");
       const mappedError =
         isInviteRequired ? "invite-required" : "auth-code-error";
-      return NextResponse.redirect(`${origin}/login?error=${mappedError}`);
+      const loginUrl = new URL("/login", origin);
+      loginUrl.searchParams.set("error", mappedError);
+      if (provider === "google") {
+        loginUrl.searchParams.set("provider", "google");
+      }
+      return NextResponse.redirect(loginUrl.toString());
     }
   }
 
@@ -70,8 +80,12 @@ export async function GET(request: Request) {
     client: supabase,
     user,
   });
+  const noAccessPath =
+    provider === "google"
+      ? `${BRAND_ACCESS_REMOVED_LOGIN_PATH}&provider=google`
+      : BRAND_ACCESS_REMOVED_LOGIN_PATH;
   const finalPath = isInviteRequiredPath(redirectPath)
-    ? getForceSignOutPath(redirectPath)
+    ? getForceSignOutPath(noAccessPath)
     : redirectPath;
 
   // Build response and clear the invite cookie if present

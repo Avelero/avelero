@@ -1,7 +1,11 @@
 "use server";
 
 import { actionClient } from "@/actions/safe-action";
-import { getForceSignOutPath, isInviteRequiredPath } from "@/lib/auth-access";
+import {
+  BRAND_ACCESS_REMOVED_LOGIN_PATH,
+  getForceSignOutPath,
+  isInviteRequiredPath,
+} from "@/lib/auth-access";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
 import {
   INVITE_COOKIE_NAME,
@@ -91,7 +95,7 @@ export const verifyOtpAction = actionClient
       user,
     });
     const finalDestination = isInviteRequiredPath(destination)
-      ? getForceSignOutPath(destination)
+      ? getForceSignOutPath(`${BRAND_ACCESS_REMOVED_LOGIN_PATH}&provider=otp`)
       : destination;
 
     redirect(finalDestination);

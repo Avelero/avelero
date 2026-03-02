@@ -1,4 +1,6 @@
 export const INVITE_REQUIRED_LOGIN_PATH = "/login?error=invite-required";
+export const BRAND_ACCESS_REMOVED_LOGIN_PATH =
+  "/login?error=brand-access-removed";
 export const FORCE_SIGN_OUT_ROUTE = "/api/auth/force-signout";
 
 export function sanitizeAppPath(
@@ -31,9 +33,9 @@ export function sanitizeAppPath(
 }
 
 export function getForceSignOutPath(
-  next: string = INVITE_REQUIRED_LOGIN_PATH,
+  next: string = BRAND_ACCESS_REMOVED_LOGIN_PATH,
 ): string {
-  const safeNext = sanitizeAppPath(next, INVITE_REQUIRED_LOGIN_PATH);
+  const safeNext = sanitizeAppPath(next, BRAND_ACCESS_REMOVED_LOGIN_PATH);
   return `${FORCE_SIGN_OUT_ROUTE}?next=${encodeURIComponent(safeNext)}`;
 }
 

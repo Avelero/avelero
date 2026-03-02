@@ -10,10 +10,22 @@ function getLoginFeedback(params: URLSearchParams): string | null {
 
   const error = params.get("error");
   if (!error) return null;
+  const provider = params.get("provider");
 
-  if (error === "invite-required") {
-    return "This email address needs an active invitation before sign-in is allowed.";
+  // Shown inline beneath OTP/Google controls.
+  if (
+    error === "invite-required" ||
+    error === "brand-access-removed" ||
+    error === "auth-rate-limited" ||
+    error === "auth-unavailable"
+  ) {
+    return null;
   }
+
+  if (provider === "google" && error === "auth-code-error") {
+    return null;
+  }
+
   if (error === "auth-code-error") {
     return "Google sign-in could not be completed. Please try again or use email verification.";
   }

@@ -12,9 +12,12 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const GENERIC_ERROR = "Unable to sign in. Please contact your administrator.";
 const AUTH_FAILED_ERROR = "Authentication failed. Please try again.";
+const RATE_LIMITED_ERROR = "Too many attempts. Please wait a moment and try again.";
 
 function getQueryErrorMessage(errorCode: string | null): string | null {
   if (errorCode === "auth-denied") return GENERIC_ERROR;
+  if (errorCode === "auth-rate-limited") return RATE_LIMITED_ERROR;
+  if (errorCode === "auth-unavailable") return GENERIC_ERROR;
   if (errorCode === "auth-failed") return AUTH_FAILED_ERROR;
   return null;
 }

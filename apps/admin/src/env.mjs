@@ -9,7 +9,9 @@ export const env = createEnv({
       .transform((v) => (v ? `https://${v}` : undefined)),
     PORT: z.coerce.number().default(3003),
   },
-  server: {},
+  server: {
+    SUPABASE_SERVICE_KEY: z.string().min(1),
+  },
   client: {
     NEXT_PUBLIC_API_URL: z.string().min(1),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
@@ -23,6 +25,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
     PORT: process.env.PORT,
     VERCEL_URL: process.env.VERCEL_URL,
   },

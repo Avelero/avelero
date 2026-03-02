@@ -1,7 +1,7 @@
 "use client";
 
+import { startOtpAction } from "@/actions/auth/start-otp-action";
 import { verifyOtpAction } from "@/actions/auth/verify-otp-action";
-import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
@@ -22,41 +22,10 @@ const RATE_LIMITED_MESSAGE =
   "Too many attempts. Please wait a moment and try again.";
 const GENERIC_MESSAGE = "Unable to sign in. Please try again.";
 
-/**
- * Converts technical Supabase error messages to user-friendly ones.
- * Prevents showing developer-facing errors to end users.
- */
-function sanitizeErrorMessage(message: string | undefined): string {
-  if (!message) return GENERIC_MESSAGE;
-
-  const normalized = message.toLowerCase();
-  const inviteRequiredPatterns = [
-    /invite_required/i,
-    /invite required/i,
-    /auth_gate_denied/i,
-    /auth gate denied/i,
-    /account_not_found/i,
-    /user not found/i,
-    /signups not allowed/i,
-    /signup is disabled/i,
-    /otp_disabled/i,
-  ];
-
-  for (const pattern of inviteRequiredPatterns) {
-    if (pattern.test(normalized)) {
-      return INVITE_REQUIRED_MESSAGE;
-    }
-  }
-
-  if (
-    normalized.includes("too many requests") ||
-    normalized.includes("rate limit") ||
-    normalized.includes("for security purposes") ||
-    normalized.includes("429")
-  ) {
-    return RATE_LIMITED_MESSAGE;
-  }
-
+function getAuthErrorMessage(errorCode: string | null | undefined): string {
+  if (errorCode === "invite-required") return INVITE_REQUIRED_MESSAGE;
+  if (errorCode === "brand-access-removed") return BRAND_ACCESS_REMOVED_MESSAGE;
+  if (errorCode === "auth-rate-limited") return RATE_LIMITED_MESSAGE;
   return GENERIC_MESSAGE;
 }
 
@@ -85,6 +54,7 @@ function getQueryErrorMessage(
 }
 
 export function OTPSignIn({ className }: Props) {
+  const startOtp = useAction(startOtpAction);
   const verifyOtp = useAction(verifyOtpAction);
   const [isLoading, setLoading] = useState(false);
   const [isSent, setSent] = useState(false);
@@ -93,7 +63,6 @@ export function OTPSignIn({ className }: Props) {
   const [otpValue, setOtpValue] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const [showQueryError, setShowQueryError] = useState(true);
-  const supabase = createClient();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const queryErrorMessage = getQueryErrorMessage(
@@ -115,8 +84,9 @@ export function OTPSignIn({ className }: Props) {
     setSendError(null);
     setShowQueryError(true);
     setLoading(false);
+    startOtp.reset();
     verifyOtp.reset();
-  }, [pathname]);
+  }, [pathname, startOtp, verifyOtp]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -141,15 +111,23 @@ export function OTPSignIn({ className }: Props) {
     setLoading(true);
     setEmail(emailValue);
 
-    const { error } = await supabase.auth.signInWithOtp({
+    const result = await startOtp.executeAsync({
       email: emailValue,
-      options: {
-        shouldCreateUser: true,
-      },
     });
 
-    if (error) {
-      setSendError(sanitizeErrorMessage(error.message));
+    if (result?.serverError) {
+      setSendError(GENERIC_MESSAGE);
+      setLoading(false);
+      return;
+    }
+
+    const actionData = result?.data;
+    if (!actionData?.ok) {
+      const errorCode =
+        actionData && "errorCode" in actionData
+          ? actionData.errorCode
+          : "auth-unavailable";
+      setSendError(getAuthErrorMessage(errorCode));
       setLoading(false);
       return;
     }

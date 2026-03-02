@@ -1,3 +1,4 @@
+import { getPlatformAdminActorAccess } from "@/lib/platform-admin-access";
 import { updateSession } from "@v1/supabase/proxy";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -36,11 +37,8 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user) {
-    const { data: isPlatformAdmin, error } = await supabase.rpc(
-      "is_platform_admin_actor",
-    );
-
-    if (error) {
+    const access = await getPlatformAdminActorAccess(supabase);
+    if (access.unavailable) {
       const errorResponse = NextResponse.json(
         { error: "auth-unavailable" },
         { status: 500 },
@@ -49,7 +47,7 @@ export async function proxy(request: NextRequest) {
       return errorResponse;
     }
 
-    if (isPlatformAdmin) {
+    if (access.allowed) {
       if (isLoginRoute) {
         const url = new URL("/", request.url);
         const redirectResponse = NextResponse.redirect(url);

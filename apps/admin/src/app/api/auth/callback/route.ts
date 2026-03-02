@@ -1,3 +1,4 @@
+import { getPlatformAdminActorAccess } from "@/lib/platform-admin-access";
 import { createClient } from "@v1/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -27,11 +28,8 @@ export async function GET(request: Request) {
     return toLoginRedirect(origin, "auth-failed");
   }
 
-  const { data: isPlatformAdmin, error: adminCheckError } = await supabase.rpc(
-    "is_platform_admin_actor",
-  );
-
-  if (adminCheckError || !isPlatformAdmin) {
+  const access = await getPlatformAdminActorAccess(supabase);
+  if (access.unavailable || !access.allowed) {
     await supabase.auth.signOut({ scope: "global" });
     return toLoginRedirect(origin, "auth-denied");
   }

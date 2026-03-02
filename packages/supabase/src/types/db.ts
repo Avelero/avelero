@@ -3055,6 +3055,7 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: undefined;
       };
+      custom_access_token_auth_gate: { Args: { event: Json }; Returns: Json };
       get_brands_for_authenticated_user: {
         Args: never;
         Returns: {
@@ -3066,6 +3067,14 @@ export type Database = {
         Returns: string;
       };
       has_auth_user_email: { Args: { p_email: string }; Returns: boolean };
+      has_brand_membership_email: {
+        Args: { p_email: string };
+        Returns: boolean;
+      };
+      has_brand_membership_user_id: {
+        Args: { p_user_id: string };
+        Returns: boolean;
+      };
       has_pending_invite_email: { Args: { p_email: string }; Returns: boolean };
       has_platform_admin_email: { Args: { p_email: string }; Returns: boolean };
       is_brand_member: { Args: { b_id: string }; Returns: boolean };

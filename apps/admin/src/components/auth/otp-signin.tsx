@@ -1,7 +1,7 @@
 "use client";
 
+import { startOtpAction } from "@/actions/auth/start-otp-action";
 import { verifyOtpAction } from "@/actions/auth/verify-otp-action";
-import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
@@ -11,14 +11,15 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 const GENERIC_ERROR = "Unable to sign in. Please contact your administrator.";
+const RATE_LIMITED_ERROR = "Too many attempts. Please wait a moment and try again.";
 
 type Props = {
   className?: string;
 };
 
 export function OTPSignIn({ className }: Props) {
+  const startOtp = useAction(startOtpAction);
   const verifyOtp = useAction(verifyOtpAction);
-  const supabase = createClient();
   const pathname = usePathname();
 
   const [isSent, setSent] = useState(false);
@@ -37,8 +38,9 @@ export function OTPSignIn({ className }: Props) {
     setEmail(undefined);
     setSendError(null);
     setLoading(false);
+    startOtp.reset();
     verifyOtp.reset();
-  }, [pathname]);
+  }, [pathname, startOtp, verifyOtp]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -61,14 +63,26 @@ export function OTPSignIn({ className }: Props) {
     setEmail(normalized);
 
     try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
+      const result = await startOtp.executeAsync({
         email: normalized,
-        options: {
-          shouldCreateUser: true,
-        },
       });
 
-      if (otpError) {
+      if (result?.serverError) {
+        setSendError(GENERIC_ERROR);
+        return;
+      }
+
+      const actionData = result?.data;
+      if (!actionData?.ok) {
+        const errorCode =
+          actionData && "errorCode" in actionData
+            ? actionData.errorCode
+            : "auth-unavailable";
+
+        if (errorCode === "auth-rate-limited") {
+          setSendError(RATE_LIMITED_ERROR);
+          return;
+        }
         setSendError(GENERIC_ERROR);
         return;
       }

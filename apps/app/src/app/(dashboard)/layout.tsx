@@ -1,5 +1,8 @@
 import { MainSkeleton } from "@/components/main-skeleton";
-import { getForceSignOutPath } from "@/lib/auth-access";
+import {
+  INVITE_REQUIRED_LOGIN_PATH,
+  getForceSignOutPath,
+} from "@/lib/auth-access";
 import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -50,7 +53,7 @@ async function DashboardLayoutContent({
 
   // Invite-only gate: users without memberships and pending invites are signed out.
   if (brands.length === 0 && invites.length === 0) {
-    redirect(getForceSignOutPath());
+    redirect(getForceSignOutPath(INVITE_REQUIRED_LOGIN_PATH));
   }
 
   // Seed caches so child components don't refetch

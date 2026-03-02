@@ -3,71 +3,16 @@
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
+import {
+  GoogleLogo,
+  loadGoogleScript,
+  type GoogleCredentialResponse,
+} from "@v1/ui/google-signin-shared";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type GoogleCredentialResponse = {
-  credential?: string;
-};
-
-type GoogleIdentityApi = {
-  initialize: (input: {
-    client_id: string;
-    callback: (response: GoogleCredentialResponse) => void;
-    nonce?: string;
-  }) => void;
-  renderButton: (
-    parent: HTMLElement,
-    options: {
-      type: "standard";
-      theme: "outline";
-      size: "large";
-      text: "continue_with";
-      shape: "rectangular";
-      width: number;
-      logo_alignment: "left" | "center";
-    },
-  ) => void;
-};
-
-declare global {
-  interface Window {
-    google?: {
-      accounts?: {
-        id?: GoogleIdentityApi;
-      };
-    };
-  }
-}
-
-const GOOGLE_SCRIPT_ID = "google-identity-services-script";
-const GOOGLE_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
-
 const GENERIC_GOOGLE_ERROR =
   "Google sign-in could not be completed. Please try again or use email verification.";
-
-function GoogleLogo() {
-  return (
-    <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true">
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.2 0 6.1 1.1 8.3 3.1l6.2-6.2C34.6 2.8 29.7.5 24 .5 14.6.5 6.5 5.9 2.5 13.8l7.3 5.7C11.8 13.4 17.4 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.5 24.6c0-1.5-.1-2.9-.4-4.3H24v8.1h12.7c-.6 3-2.3 5.5-4.8 7.1l7.4 5.7c4.3-4 6.8-9.8 6.8-16.6z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M9.8 28.5c-.5-1.5-.8-3-.8-4.6s.3-3.2.8-4.6l-7.3-5.7C.9 16.9 0 20.4 0 23.9s.9 7 2.5 10.2l7.3-5.6z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 47.5c5.7 0 10.5-1.9 14-5.1l-7.4-5.7c-2 1.4-4.6 2.3-7.6 2.3-6.6 0-12.2-3.9-14.2-9.7l-7.3 5.6c4 7.9 12.1 12.6 22.5 12.6z"
-      />
-    </svg>
-  );
-}
 
 function extractEmailFromIdToken(token: string): string | null {
   const parts = token.split(".");
@@ -86,39 +31,6 @@ function extractEmailFromIdToken(token: string): string | null {
   } catch {
     return null;
   }
-}
-
-async function loadGoogleScript(): Promise<void> {
-  if (window.google?.accounts?.id) {
-    return;
-  }
-
-  const existingScript = document.getElementById(
-    GOOGLE_SCRIPT_ID,
-  ) as HTMLScriptElement | null;
-
-  if (existingScript) {
-    await new Promise<void>((resolve, reject) => {
-      existingScript.addEventListener("load", () => resolve(), { once: true });
-      existingScript.addEventListener(
-        "error",
-        () => reject(new Error("Failed to load Google script")),
-        { once: true },
-      );
-    });
-    return;
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script");
-    script.id = GOOGLE_SCRIPT_ID;
-    script.src = GOOGLE_SCRIPT_SRC;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load Google script"));
-    document.head.appendChild(script);
-  });
 }
 
 export function GoogleSignin() {

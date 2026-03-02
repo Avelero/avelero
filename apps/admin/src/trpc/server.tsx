@@ -23,16 +23,15 @@ async function fetchWithAuth(
   init?: RequestInit,
 ): Promise<Response> {
   const token = await getAuthToken();
-  const authHeaders: HeadersInit = token
-    ? { Authorization: `Bearer ${token}` }
-    : {};
+  const requestHeaders = new Headers(init?.headers);
+
+  if (token) {
+    requestHeaders.set("Authorization", `Bearer ${token}`);
+  }
 
   return fetch(input, {
     ...init,
-    headers: {
-      ...init?.headers,
-      ...authHeaders,
-    },
+    headers: requestHeaders,
   });
 }
 

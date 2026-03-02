@@ -82,7 +82,7 @@ export function OTPSignIn({ className }: Props) {
   }
 
   async function onComplete(token: string) {
-    if (!email) return;
+    if (!email || token.length !== 6) return;
 
     const result = await verifyOtp.executeAsync({
       token,
@@ -100,6 +100,8 @@ export function OTPSignIn({ className }: Props) {
     setSendError(null);
     verifyOtp.reset();
   };
+
+  const isOtpComplete = otpValue.length === 6;
 
   if (isSent) {
     return (
@@ -149,8 +151,11 @@ export function OTPSignIn({ className }: Props) {
           </Button>
           <Button
             type="button"
-            onClick={() => onComplete(otpValue)}
-            disabled={verifyOtp.status === "executing"}
+            onClick={() => {
+              if (!isOtpComplete) return;
+              onComplete(otpValue);
+            }}
+            disabled={verifyOtp.status === "executing" || !isOtpComplete}
             className="flex-1"
           >
             {verifyOtp.status === "executing" ? "Verifying..." : "Submit"}

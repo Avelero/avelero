@@ -11,6 +11,12 @@ function clearSupabaseCookies(request: NextRequest, response: NextResponse) {
   }
 }
 
+function copyResponseCookies(source: NextResponse, target: NextResponse) {
+  for (const cookie of source.cookies.getAll()) {
+    target.cookies.set(cookie);
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const nextUrl = request.nextUrl;
   const pathname = nextUrl.pathname;
@@ -34,15 +40,20 @@ export async function proxy(request: NextRequest) {
       "is_platform_admin_actor",
     );
 
-    if (!error && isPlatformAdmin) {
+    if (error) {
+      const errorResponse = NextResponse.json(
+        { error: "auth-unavailable" },
+        { status: 500 },
+      );
+      copyResponseCookies(updatedResponse, errorResponse);
+      return errorResponse;
+    }
+
+    if (isPlatformAdmin) {
       if (isLoginRoute) {
         const url = new URL("/", request.url);
         const redirectResponse = NextResponse.redirect(url);
-
-        for (const cookie of updatedResponse.cookies.getAll()) {
-          redirectResponse.cookies.set(cookie);
-        }
-
+        copyResponseCookies(updatedResponse, redirectResponse);
         return redirectResponse;
       }
 

@@ -291,7 +291,27 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
   }, [brandData]);
 
   const refreshAll = async () => {
-    await queryClient.invalidateQueries();
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: trpc.platformAdmin.brands.get.queryKey({ brand_id: brandId }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: trpc.platformAdmin.brands.list.queryKey(),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: trpc.platformAdmin.members.list.queryKey({ brand_id: brandId }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: trpc.platformAdmin.invites.list.queryKey({ brand_id: brandId }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: trpc.platformAdmin.audit.list.queryKey({
+          brand_id: brandId,
+          page: 1,
+          page_size: 20,
+        }),
+      }),
+    ]);
   };
 
   const updateIdentityMutation = useMutation(

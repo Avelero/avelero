@@ -317,6 +317,49 @@ export const platformAdminRouter = createTRPCRouter({
     list: platformAdminProcedure
       .input(platformBrandsListSchema)
       .query(async ({ ctx, input }) => {
+        const normalizedSearch = normalizeSearch(input.search);
+        const filters = [isNull(brands.deletedAt)];
+
+        if (input.phase) {
+          filters.push(eq(brandLifecycle.phase, input.phase));
+        }
+
+        if (normalizedSearch) {
+          filters.push(
+            sql`LOWER(${brands.name}) LIKE ${`%${normalizedSearch}%`}`,
+          );
+        }
+
+        const whereClause = and(...filters);
+        const membersCountExpr = sql<number>`COUNT(${brandMembers.userId})::int`;
+        const sortDirection = input.sort_dir === "asc" ? asc : desc;
+        const sortExpression = (() => {
+          switch (input.sort_by) {
+            case "name":
+              return brands.name;
+            case "phase":
+              return sql`COALESCE(${brandLifecycle.phase}, 'demo')`;
+            case "plan":
+              return sql`COALESCE(${brandPlan.planType}, '')`;
+            case "sku_usage":
+              return sql`COALESCE(${brandPlan.skusCreatedThisYear}, 0)`;
+            case "trial_ends":
+              return sql`COALESCE(${brandLifecycle.trialEndsAt}, '1970-01-01T00:00:00.000Z'::timestamptz)`;
+            case "members":
+              return sql`COUNT(${brandMembers.userId})`;
+            default:
+              return brands.createdAt;
+          }
+        })();
+
+        const [countRow] = await ctx.db
+          .select({
+            total: sql<number>`COUNT(DISTINCT ${brands.id})::int`,
+          })
+          .from(brands)
+          .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brands.id))
+          .where(whereClause);
+
         const rows = await ctx.db
           .select({
             id: brands.id,
@@ -329,50 +372,36 @@ export const platformAdminRouter = createTRPCRouter({
             skuAnnualLimit: brandPlan.skuAnnualLimit,
             skuLimitOverride: brandPlan.skuLimitOverride,
             skusCreatedThisYear: brandPlan.skusCreatedThisYear,
+            membersCount: membersCountExpr,
           })
           .from(brands)
           .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brands.id))
           .leftJoin(brandPlan, eq(brandPlan.brandId, brands.id))
-          .where(isNull(brands.deletedAt));
+          .leftJoin(
+            brandMembers,
+            and(
+              eq(brandMembers.brandId, brands.id),
+              inArray(brandMembers.role, ["owner", "member"]),
+            ),
+          )
+          .where(whereClause)
+          .groupBy(
+            brands.id,
+            brands.name,
+            brands.slug,
+            brands.createdAt,
+            brandLifecycle.phase,
+            brandLifecycle.trialEndsAt,
+            brandPlan.planType,
+            brandPlan.skuAnnualLimit,
+            brandPlan.skuLimitOverride,
+            brandPlan.skusCreatedThisYear,
+          )
+          .orderBy(sortDirection(sortExpression), asc(brands.id))
+          .limit(input.page_size)
+          .offset((input.page - 1) * input.page_size);
 
-        const brandIds = rows.map((row) => row.id);
-
-        const memberCountRows =
-          brandIds.length > 0
-            ? await ctx.db
-                .select({
-                  brandId: brandMembers.brandId,
-                  count: sql<number>`COUNT(*)::int`,
-                })
-                .from(brandMembers)
-                .where(
-                  and(
-                    inArray(brandMembers.brandId, brandIds),
-                    inArray(brandMembers.role, ["owner", "member"]),
-                  ),
-                )
-                .groupBy(brandMembers.brandId)
-            : [];
-
-        const memberCountMap = new Map(
-          memberCountRows.map((row) => [row.brandId, row.count]),
-        );
-
-        const normalizedSearch = normalizeSearch(input.search);
-
-        const filtered = rows.filter((row) => {
-          if (input.phase && row.phase !== input.phase) {
-            return false;
-          }
-
-          if (normalizedSearch && !row.name.toLowerCase().includes(normalizedSearch)) {
-            return false;
-          }
-
-          return true;
-        });
-
-        const mapped = filtered.map((row) => {
+        const items = rows.map((row) => {
           const annualLimit = row.skuLimitOverride ?? row.skuAnnualLimit;
           const annualUsed = row.skusCreatedThisYear ?? 0;
 
@@ -388,47 +417,13 @@ export const platformAdminRouter = createTRPCRouter({
               limit: annualLimit,
             },
             trial_ends_at: row.trialEndsAt,
-            members_count: memberCountMap.get(row.id) ?? 0,
+            members_count: row.membersCount,
           };
         });
 
-        const sortDir = input.sort_dir === "asc" ? 1 : -1;
-
-        mapped.sort((a, b) => {
-          switch (input.sort_by) {
-            case "name":
-              return a.name.localeCompare(b.name) * sortDir;
-            case "phase":
-              return a.phase.localeCompare(b.phase) * sortDir;
-            case "plan":
-              return (a.plan_type ?? "").localeCompare(b.plan_type ?? "") * sortDir;
-            case "sku_usage": {
-              const left = a.sku_usage.used;
-              const right = b.sku_usage.used;
-              return (left - right) * sortDir;
-            }
-            case "trial_ends": {
-              const left = a.trial_ends_at ? new Date(a.trial_ends_at).getTime() : 0;
-              const right = b.trial_ends_at ? new Date(b.trial_ends_at).getTime() : 0;
-              return (left - right) * sortDir;
-            }
-            case "members":
-              return (a.members_count - b.members_count) * sortDir;
-            default: {
-              const left = new Date(a.created_at).getTime();
-              const right = new Date(b.created_at).getTime();
-              return (left - right) * sortDir;
-            }
-          }
-        });
-
-        const total = mapped.length;
-        const start = (input.page - 1) * input.page_size;
-        const items = mapped.slice(start, start + input.page_size);
-
         return {
           items,
-          total,
+          total: countRow?.total ?? 0,
           page: input.page,
           page_size: input.page_size,
         };
@@ -608,10 +603,15 @@ export const platformAdminRouter = createTRPCRouter({
           updates.countryCode = input.country_code;
         }
 
-        await ctx.db
+        const [updatedBrand] = await ctx.db
           .update(brands)
           .set(updates)
-          .where(eq(brands.id, input.brand_id));
+          .where(and(eq(brands.id, input.brand_id), isNull(brands.deletedAt)))
+          .returning({ id: brands.id });
+
+        if (!updatedBrand) {
+          throw notFound("Brand", input.brand_id);
+        }
 
         await logPlatformAdminAction(ctx, {
           action: "platform_admin.brand.update_identity",
@@ -678,13 +678,18 @@ export const platformAdminRouter = createTRPCRouter({
       .mutation(async ({ ctx, input }) => {
         const nowIso = new Date().toISOString();
 
-        await ctx.db
+        const [updatedLifecycle] = await ctx.db
           .update(brandLifecycle)
           .set({
             phase: "suspended",
             phaseChangedAt: nowIso,
           })
-          .where(eq(brandLifecycle.brandId, input.brand_id));
+          .where(eq(brandLifecycle.brandId, input.brand_id))
+          .returning({ id: brandLifecycle.id });
+
+        if (!updatedLifecycle) {
+          throw badRequest("Brand lifecycle row not found");
+        }
 
         await logPlatformAdminAction(ctx, {
           action: "platform_admin.lifecycle.suspend",
@@ -767,7 +772,7 @@ export const platformAdminRouter = createTRPCRouter({
           input.hard_delete_after ??
           new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-        await ctx.db
+        const [updatedLifecycle] = await ctx.db
           .update(brandLifecycle)
           .set({
             phase: "cancelled",
@@ -775,7 +780,12 @@ export const platformAdminRouter = createTRPCRouter({
             cancelledAt: now.toISOString(),
             hardDeleteAfter,
           })
-          .where(eq(brandLifecycle.brandId, input.brand_id));
+          .where(eq(brandLifecycle.brandId, input.brand_id))
+          .returning({ id: brandLifecycle.id });
+
+        if (!updatedLifecycle) {
+          throw badRequest("Brand lifecycle row not found");
+        }
 
         await logPlatformAdminAction(ctx, {
           action: "platform_admin.lifecycle.cancel",

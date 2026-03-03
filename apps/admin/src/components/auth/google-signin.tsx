@@ -10,9 +10,15 @@ import {
 } from "@v1/ui/google-signin-shared";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 const GENERIC_ERROR = "Unable to sign in. Please contact your administrator.";
 const AUTH_FAILED_ERROR = "Authentication failed. Please try again.";
 const RATE_LIMITED_ERROR = "Too many attempts. Please wait a moment and try again.";
+const DEBUG_SCOPE = "[TEMP_DEBUG][admin-auth][google]";
+
+function debugLog(event: string, payload: Record<string, unknown> = {}) {
+  console.info(`${DEBUG_SCOPE} ${event}`, payload);
+}
 
 function getQueryErrorMessage(errorCode: string | null): string | null {
   if (errorCode === "auth-denied") return GENERIC_ERROR;
@@ -25,7 +31,8 @@ function getQueryErrorMessage(errorCode: string | null): string | null {
 export function GoogleSignin() {
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
-  const queryErrorMessage = getQueryErrorMessage(searchParams.get("error"));
+  const queryErrorCode = searchParams.get("error");
+  const queryErrorMessage = getQueryErrorMessage(queryErrorCode);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -38,10 +45,19 @@ export function GoogleSignin() {
     setErrorMessage(queryErrorMessage);
   }, [queryErrorMessage]);
 
+  useEffect(() => {
+    if (!queryErrorCode) return;
+    debugLog("query-error", {
+      errorCode: queryErrorCode,
+      mappedMessage: queryErrorMessage,
+    });
+  }, [queryErrorCode, queryErrorMessage]);
+
   const handleGoogleResponse = useCallback(
     async (response: GoogleCredentialResponse) => {
       const token = response.credential;
       if (!token) {
+        debugLog("id-token-missing");
         setErrorMessage(GENERIC_ERROR);
         setIsSubmitting(false);
         return;
@@ -57,14 +73,31 @@ export function GoogleSignin() {
         });
 
         if (error) {
+          debugLog("supabase-id-token-error", {
+            message: error.message ?? null,
+            code: error.code ?? null,
+            status: error.status ?? null,
+          });
           setErrorMessage(GENERIC_ERROR);
           setIsSubmitting(false);
           return;
         }
 
         const redirectTo = new URL("/api/auth/callback", window.location.origin);
+        debugLog("redirecting-callback", {
+          target: redirectTo.toString(),
+        });
         window.location.assign(redirectTo.toString());
-      } catch {
+      } catch (error) {
+        debugLog("google-signin-exception", {
+          error:
+            error instanceof Error
+              ? {
+                  name: error.name,
+                  message: error.message,
+                }
+              : String(error),
+        });
         setErrorMessage(GENERIC_ERROR);
         setIsSubmitting(false);
       }
@@ -76,6 +109,7 @@ export function GoogleSignin() {
     let isMounted = true;
 
     if (!googleClientId) {
+      debugLog("google-client-id-missing");
       setErrorMessage("Google sign-in is unavailable.");
       return;
     }
@@ -89,6 +123,10 @@ export function GoogleSignin() {
         const buttonContainer = hiddenGoogleButtonRef.current;
 
         if (!googleId || !buttonContainer) {
+          debugLog("google-script-ready-but-id-api-missing", {
+            hasGoogleIdApi: !!googleId,
+            hasButtonContainer: !!buttonContainer,
+          });
           setErrorMessage(GENERIC_ERROR);
           return;
         }
@@ -110,8 +148,17 @@ export function GoogleSignin() {
         });
 
         setIsReady(true);
-      } catch {
+      } catch (error) {
         if (!isMounted) return;
+        debugLog("google-init-exception", {
+          error:
+            error instanceof Error
+              ? {
+                  name: error.name,
+                  message: error.message,
+                }
+              : String(error),
+        });
         setErrorMessage(GENERIC_ERROR);
       }
     };

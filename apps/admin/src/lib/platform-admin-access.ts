@@ -11,31 +11,104 @@ export function normalizeAuthEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-function createServiceRoleClient(): SupabaseClient<Database> | null {
+type ErrorDebug = {
+  message: string | null;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+  status: number | null;
+};
+
+export type PlatformAdminAllowlistDebug =
+  | { stage: "invalid-email" }
+  | {
+      stage: "missing-service-role-config";
+      missingUrl: boolean;
+      missingServiceKey: boolean;
+    }
+  | { stage: "allowlist-rpc-error"; rpcError: ErrorDebug }
+  | { stage: "allowlist-hit" }
+  | { stage: "allowlist-miss" };
+
+function toErrorDebug(
+  error:
+    | {
+        message?: string;
+        code?: string;
+        details?: string;
+        hint?: string;
+        status?: number;
+      }
+    | null
+    | undefined,
+): ErrorDebug {
+  return {
+    message: error?.message ?? null,
+    code: error?.code ?? null,
+    details: error?.details ?? null,
+    hint: error?.hint ?? null,
+    status: typeof error?.status === "number" ? error.status : null,
+  };
+}
+
+function createServiceRoleClient(): {
+  client: SupabaseClient<Database> | null;
+  missingUrl: boolean;
+  missingServiceKey: boolean;
+} {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_KEY;
-  if (!url || !serviceKey) return null;
+  if (!url || !serviceKey) {
+    return {
+      client: null,
+      missingUrl: !url,
+      missingServiceKey: !serviceKey,
+    };
+  }
 
-  return createSupabaseJsClient<Database>(url, serviceKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
+  return {
+    client: createSupabaseJsClient<Database>(url, serviceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    }),
+    missingUrl: false,
+    missingServiceKey: false,
+  };
 }
+
+export type PlatformAdminAllowlistAccess = {
+  allowed: boolean;
+  unavailable: boolean;
+  debug: PlatformAdminAllowlistDebug;
+};
 
 export async function isPlatformAdminEmailAllowlisted(
   email: string,
-): Promise<{ allowed: boolean; unavailable: boolean }> {
+): Promise<PlatformAdminAllowlistAccess> {
   const normalizedEmail = normalizeAuthEmail(email);
   if (!normalizedEmail) {
-    return { allowed: false, unavailable: true };
+    return {
+      allowed: false,
+      unavailable: true,
+      debug: { stage: "invalid-email" },
+    };
   }
 
-  const admin = createServiceRoleClient();
+  const { client: admin, missingUrl, missingServiceKey } =
+    createServiceRoleClient();
   if (!admin) {
-    return { allowed: false, unavailable: true };
+    return {
+      allowed: false,
+      unavailable: true,
+      debug: {
+        stage: "missing-service-role-config",
+        missingUrl,
+        missingServiceKey,
+      },
+    };
   }
 
   const { data, error } = await admin.rpc("has_platform_admin_email", {
@@ -43,10 +116,21 @@ export async function isPlatformAdminEmailAllowlisted(
   });
 
   if (error) {
-    return { allowed: false, unavailable: true };
+    return {
+      allowed: false,
+      unavailable: true,
+      debug: {
+        stage: "allowlist-rpc-error",
+        rpcError: toErrorDebug(error),
+      },
+    };
   }
 
-  return { allowed: data === true, unavailable: false };
+  return {
+    allowed: data === true,
+    unavailable: false,
+    debug: { stage: data === true ? "allowlist-hit" : "allowlist-miss" },
+  };
 }
 
 export async function getPlatformAdminActorAccess(

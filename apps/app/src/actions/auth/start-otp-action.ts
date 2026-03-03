@@ -16,7 +16,11 @@ const schema = z.object({
 
 type StartOtpActionResult =
   | { ok: true }
-  | { ok: false; errorCode: MainAuthErrorCode };
+  | {
+      ok: false;
+      errorCode: MainAuthErrorCode;
+      debug?: Record<string, unknown>;
+    };
 
 export const startOtpAction = actionClient
   .schema(schema)
@@ -25,7 +29,14 @@ export const startOtpAction = actionClient
 
     const policy = await evaluateMainOtpStartPolicy(normalizedEmail);
     if (!policy.ok) {
-      return { ok: false, errorCode: policy.errorCode };
+      return {
+        ok: false,
+        errorCode: policy.errorCode,
+        debug: {
+          stage: "policy-check",
+          policyDebug: policy.debug ?? null,
+        },
+      };
     }
 
     const supabase = await createClient();
@@ -37,13 +48,23 @@ export const startOtpAction = actionClient
     });
 
     if (error) {
+      const mappedErrorCode = mapMainOtpStartSupabaseError({
+        message: error.message,
+        code: error.code,
+        status: error.status,
+      });
+
       return {
         ok: false,
-        errorCode: mapMainOtpStartSupabaseError({
-          message: error.message,
-          code: error.code,
-          status: error.status,
-        }),
+        errorCode: mappedErrorCode,
+        debug: {
+          stage: "otp-send",
+          supabaseError: {
+            message: error.message ?? null,
+            code: error.code ?? null,
+            status: error.status ?? null,
+          },
+        },
       };
     }
 

@@ -65,18 +65,19 @@ export function OTPSignIn({ className }: Props) {
   const [showQueryError, setShowQueryError] = useState(true);
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const startOtpResetRef = useRef(startOtp.reset);
+  const verifyOtpResetRef = useRef(verifyOtp.reset);
   const queryErrorMessage = getQueryErrorMessage(
     searchParams.get("error"),
     searchParams.get("provider"),
   );
   const visibleError = sendError ?? (showQueryError ? queryErrorMessage : null);
 
-  // Track mount count to force reset on navigation (handles bfcache)
-  const mountCountRef = useRef(0);
+  startOtpResetRef.current = startOtp.reset;
+  verifyOtpResetRef.current = verifyOtp.reset;
 
-  // Reset all form state on mount and when navigating back to this page
+  // Reset form state when the route changes.
   useEffect(() => {
-    mountCountRef.current += 1;
     setSent(false);
     setOtpValue("");
     setEmailInput("");
@@ -84,9 +85,9 @@ export function OTPSignIn({ className }: Props) {
     setSendError(null);
     setShowQueryError(true);
     setLoading(false);
-    startOtp.reset();
-    verifyOtp.reset();
-  }, [pathname, startOtp, verifyOtp]);
+    startOtpResetRef.current();
+    verifyOtpResetRef.current();
+  }, [pathname]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

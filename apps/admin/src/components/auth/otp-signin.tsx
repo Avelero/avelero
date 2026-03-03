@@ -21,6 +21,8 @@ export function OTPSignIn({ className }: Props) {
   const startOtp = useAction(startOtpAction);
   const verifyOtp = useAction(verifyOtpAction);
   const pathname = usePathname();
+  const startOtpResetRef = useRef(startOtp.reset);
+  const verifyOtpResetRef = useRef(verifyOtp.reset);
 
   const [isSent, setSent] = useState(false);
   const [emailInput, setEmailInput] = useState("");
@@ -28,19 +30,20 @@ export function OTPSignIn({ className }: Props) {
   const [otpValue, setOtpValue] = useState("");
   const [isLoading, setLoading] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const mountCountRef = useRef(0);
+
+  startOtpResetRef.current = startOtp.reset;
+  verifyOtpResetRef.current = verifyOtp.reset;
 
   useEffect(() => {
-    mountCountRef.current += 1;
     setSent(false);
     setOtpValue("");
     setEmailInput("");
     setEmail(undefined);
     setSendError(null);
     setLoading(false);
-    startOtp.reset();
-    verifyOtp.reset();
-  }, [pathname, startOtp, verifyOtp]);
+    startOtpResetRef.current();
+    verifyOtpResetRef.current();
+  }, [pathname]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

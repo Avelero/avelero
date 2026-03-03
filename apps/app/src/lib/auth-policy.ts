@@ -25,60 +25,32 @@ export async function evaluateMainOtpStartPolicy(
   }
 
   const admin = await createClient({ admin: true });
-  const nowIso = new Date().toISOString();
 
   const [
     allowlistResult,
     inviteResult,
     authUserResult,
-    userResult,
+    membershipResult,
   ] = await Promise.all([
-    admin
-      .from("platform_admin_allowlist")
-      .select("email")
-      .ilike("email", normalizedEmail)
-      .limit(1)
-      .maybeSingle(),
-    admin
-      .from("brand_invites")
-      .select("*", { count: "exact", head: true })
-      .ilike("email", normalizedEmail)
-      .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+    admin.rpc("has_platform_admin_email", { p_email: normalizedEmail }),
+    admin.rpc("has_pending_invite_email", { p_email: normalizedEmail }),
     admin.rpc("has_auth_user_email", { p_email: normalizedEmail }),
-    admin
-      .from("users")
-      .select("id")
-      .ilike("email", normalizedEmail)
-      .limit(1)
-      .maybeSingle(),
+    admin.rpc("has_brand_membership_email", { p_email: normalizedEmail }),
   ]);
 
   if (
     allowlistResult.error ||
     inviteResult.error ||
     authUserResult.error ||
-    userResult.error
+    membershipResult.error
   ) {
     return { ok: false, errorCode: "auth-unavailable" };
   }
 
-  const userId = userResult.data?.id ?? null;
-
-  const membershipResult = userId
-    ? await admin
-        .from("brand_members")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", userId)
-    : { error: null, count: 0 };
-
-  if (membershipResult.error) {
-    return { ok: false, errorCode: "auth-unavailable" };
-  }
-
-  const isAllowlisted = Boolean(allowlistResult.data);
-  const hasPendingInvite = (inviteResult.count ?? 0) > 0;
-  const hasMembership = (membershipResult.count ?? 0) > 0;
-  const hasExistingAccount = Boolean(authUserResult.data);
+  const isAllowlisted = allowlistResult.data === true;
+  const hasPendingInvite = inviteResult.data === true;
+  const hasMembership = membershipResult.data === true;
+  const hasExistingAccount = authUserResult.data === true;
 
   if (isAllowlisted || hasPendingInvite || hasMembership) {
     return { ok: true };

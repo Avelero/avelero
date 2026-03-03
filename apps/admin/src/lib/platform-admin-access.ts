@@ -38,18 +38,15 @@ export async function isPlatformAdminEmailAllowlisted(
     return { allowed: false, unavailable: true };
   }
 
-  const { data, error } = await admin
-    .from("platform_admin_allowlist")
-    .select("email")
-    .ilike("email", normalizedEmail)
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await admin.rpc("has_platform_admin_email", {
+    p_email: normalizedEmail,
+  });
 
   if (error) {
     return { allowed: false, unavailable: true };
   }
 
-  return { allowed: Boolean(data), unavailable: false };
+  return { allowed: data === true, unavailable: false };
 }
 
 export async function getPlatformAdminActorAccess(

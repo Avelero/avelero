@@ -108,32 +108,36 @@ export function OTPSignIn({ className }: Props) {
       return;
     }
 
+    const normalizedEmail = emailValue.toLowerCase();
     setLoading(true);
-    setEmail(emailValue);
+    setEmail(normalizedEmail);
 
-    const result = await startOtp.executeAsync({
-      email: emailValue,
-    });
+    try {
+      const result = await startOtp.executeAsync({
+        email: normalizedEmail,
+      });
 
-    if (result?.serverError) {
+      if (result?.serverError) {
+        setSendError(GENERIC_MESSAGE);
+        return;
+      }
+
+      const actionData = result?.data;
+      if (!actionData?.ok) {
+        const errorCode =
+          actionData && "errorCode" in actionData
+            ? actionData.errorCode
+            : "auth-unavailable";
+        setSendError(getAuthErrorMessage(errorCode));
+        return;
+      }
+
+      setSent(true);
+    } catch {
       setSendError(GENERIC_MESSAGE);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const actionData = result?.data;
-    if (!actionData?.ok) {
-      const errorCode =
-        actionData && "errorCode" in actionData
-          ? actionData.errorCode
-          : "auth-unavailable";
-      setSendError(getAuthErrorMessage(errorCode));
-      setLoading(false);
-      return;
-    }
-
-    setSent(true);
-    setLoading(false);
   }
 
   async function onComplete(token: string) {

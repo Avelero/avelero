@@ -4,6 +4,7 @@ import { actionClient } from "@/actions/safe-action";
 import {
   evaluateMainOtpStartPolicy,
   mapMainOtpStartSupabaseError,
+  normalizeAuthEmail,
   type MainAuthErrorCode,
 } from "@/lib/auth-policy";
 import { createClient } from "@v1/supabase/server";
@@ -20,16 +21,16 @@ type StartOtpActionResult =
 export const startOtpAction = actionClient
   .schema(schema)
   .action(async ({ parsedInput }): Promise<StartOtpActionResult> => {
-    const { email } = parsedInput;
+    const normalizedEmail = normalizeAuthEmail(parsedInput.email);
 
-    const policy = await evaluateMainOtpStartPolicy(email);
+    const policy = await evaluateMainOtpStartPolicy(normalizedEmail);
     if (!policy.ok) {
       return { ok: false, errorCode: policy.errorCode };
     }
 
     const supabase = await createClient();
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: normalizedEmail,
       options: {
         shouldCreateUser: true,
       },

@@ -52,7 +52,11 @@ import {
   createPaginatedResponse,
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 import { publishRouter } from "./publish.js";
 import { productVariantsRouter } from "./variants.js";
 
@@ -230,7 +234,7 @@ async function getQrCachePathsForDeletedProducts(
 }
 
 export const productsRouter = createTRPCRouter({
-  list: brandRequiredProcedure
+  list: brandReadProcedure
     .input(productsDomainListSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -268,7 +272,7 @@ export const productsRouter = createTRPCRouter({
   /**
    * Count selected products and variants for export workflows.
    */
-  count: brandRequiredProcedure
+  count: brandReadProcedure
     .input(productsCountSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -300,7 +304,7 @@ export const productsRouter = createTRPCRouter({
    * Get a single product by ID or handle.
    * Unified endpoint that accepts discriminated union: { id } | { handle }
    */
-  get: brandRequiredProcedure
+  get: brandReadProcedure
     .input(productUnifiedGetSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -316,7 +320,7 @@ export const productsRouter = createTRPCRouter({
       });
     }),
 
-  create: brandRequiredProcedure
+  create: brandWriteProcedure
     .input(productsDomainCreateSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -370,7 +374,7 @@ export const productsRouter = createTRPCRouter({
    *
    * For bulk operations, only certain fields are supported (status, category_id, season_id).
    */
-  update: brandRequiredProcedure
+  update: brandWriteProcedure
     .input(unifiedUpdateSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -518,7 +522,7 @@ export const productsRouter = createTRPCRouter({
    * - 'explicit': Delete specific products by ID
    * - 'all': Delete all products matching filters, optionally excluding some IDs
    */
-  delete: brandRequiredProcedure
+  delete: brandWriteProcedure
     .input(unifiedDeleteSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;

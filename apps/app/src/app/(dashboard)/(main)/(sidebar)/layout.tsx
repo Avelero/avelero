@@ -47,14 +47,16 @@ export default async function SidebarLayout({
     workflowInit.myInvites,
   );
 
-  await queryClient.fetchQuery(trpc.notifications.getUnreadCount.queryOptions());
-  await queryClient.fetchQuery(
-    trpc.notifications.getRecent.queryOptions({
-      limit: 30,
-      unreadOnly: false,
-      includeDismissed: false,
-    }),
-  );
+  if (workflowInit.activeBrand) {
+    await queryClient.fetchQuery(trpc.notifications.getUnreadCount.queryOptions());
+    await queryClient.fetchQuery(
+      trpc.notifications.getRecent.queryOptions({
+        limit: 30,
+        unreadOnly: false,
+        includeDismissed: false,
+      }),
+    );
+  }
 
   // HydrateClient transfers seeded cache data to Header/Sidebar client components.
   // Note: children (page content) has its own HydrateClient for page-specific data.

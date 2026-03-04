@@ -15,6 +15,7 @@ const SETTINGS_NAV_ICONS: Record<SettingsNavIconKey, LucideIcon> = {
   SlidersHorizontal: Icons.SlidersHorizontal,
   UserRound: Icons.UserRound,
   Layers: Icons.Layers,
+  FileText: Icons.FileText,
   Calendar: Icons.Calendar,
   Tag: Icons.Tag,
   Bookmark: Icons.Bookmark,

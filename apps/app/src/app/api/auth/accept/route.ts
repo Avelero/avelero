@@ -20,6 +20,10 @@ export async function GET(request: Request) {
         .update(rawToken as string)
         .digest("hex");
 
+  // Keep a URL fallback for OAuth flows where server-side callback might not
+  // receive the invite cookie reliably after client-side token sign-in.
+  loginUrl.searchParams.set("invite_token_hash", tokenHash);
+
   const res = NextResponse.redirect(loginUrl);
   res.cookies.set("brand_invite_token_hash", tokenHash, {
     httpOnly: true,

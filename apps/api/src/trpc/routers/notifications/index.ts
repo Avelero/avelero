@@ -30,14 +30,18 @@ import {
   markNotificationAsSeenSchema,
 } from "../../../schemas/notifications.js";
 import { wrapError } from "../../../utils/errors.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 export const notificationsRouter = createTRPCRouter({
   /**
    * Get count of unread notifications for the current user in the active brand.
    * Used for the notification badge.
    */
-  getUnreadCount: brandRequiredProcedure.query(async ({ ctx }) => {
+  getUnreadCount: brandReadProcedure.query(async ({ ctx }) => {
     try {
       const count = await getUnreadNotificationCount(
         ctx.db,
@@ -54,7 +58,7 @@ export const notificationsRouter = createTRPCRouter({
    * Get recent notifications for the current user in the active brand.
    * Returns notifications ordered by creation date (newest first).
    */
-  getRecent: brandRequiredProcedure
+  getRecent: brandReadProcedure
     .input(getRecentNotificationsSchema)
     .query(async ({ ctx, input }) => {
       try {
@@ -92,7 +96,7 @@ export const notificationsRouter = createTRPCRouter({
    * Mark a specific notification as seen.
    * The notification will no longer count towards the unread badge.
    */
-  markAsSeen: brandRequiredProcedure
+  markAsSeen: brandWriteProcedure
     .input(markNotificationAsSeenSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -116,7 +120,7 @@ export const notificationsRouter = createTRPCRouter({
    * Mark multiple notifications as seen.
    * Used when opening the notification center.
    */
-  markManyAsSeen: brandRequiredProcedure
+  markManyAsSeen: brandWriteProcedure
     .input(markNotificationsAsSeenSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -144,7 +148,7 @@ export const notificationsRouter = createTRPCRouter({
   /**
    * Mark all notifications as seen for the current user in the active brand.
    */
-  markAllAsSeen: brandRequiredProcedure.mutation(async ({ ctx }) => {
+  markAllAsSeen: brandWriteProcedure.mutation(async ({ ctx }) => {
     try {
       const count = await markAllNotificationsAsSeen(
         ctx.db,
@@ -171,7 +175,7 @@ export const notificationsRouter = createTRPCRouter({
    * Dismiss a notification.
    * The notification will be hidden from the UI but kept for analytics.
    */
-  dismiss: brandRequiredProcedure
+  dismiss: brandWriteProcedure
     .input(dismissNotificationSchema)
     .mutation(async ({ ctx, input }) => {
       try {
@@ -194,7 +198,7 @@ export const notificationsRouter = createTRPCRouter({
   /**
    * Permanently delete a notification.
    */
-  delete: brandRequiredProcedure
+  delete: brandWriteProcedure
     .input(deleteNotificationSchema)
     .mutation(async ({ ctx, input }) => {
       try {

@@ -1,5 +1,6 @@
 "use client";
 
+import { getForceSignOutPath } from "@/lib/auth-access";
 import { useTRPC } from "@/trpc/client";
 import {
   useMutation,
@@ -10,16 +11,13 @@ import {
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 
 /** tRPC router output types for type-safe hooks */
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 /** Brand membership data returned from user.brands queries */
 type BrandMembership = RouterOutputs["user"]["brands"]["list"][number];
-
-/** User profile data shape */
-type UserProfile = RouterOutputs["user"]["get"];
 
 /** Result from leaving a brand, includes next brand ID if available */
 type LeaveBrandResult = RouterOutputs["user"]["brands"]["leave"];
@@ -115,48 +113,6 @@ export function useSetActiveBrandMutation() {
 }
 
 /**
- * Creates a new brand and assigns the current user as owner.
- *
- * On success, invalidates all brand-related queries to reflect the new brand
- * in the UI. The newly created brand becomes the user's active brand automatically.
- *
- * @returns Mutation hook for brand creation
- *
- * @example
- * ```tsx
- * const createBrand = useCreateBrandMutation();
- *
- * const handleCreateBrand = async () => {
- *   await createBrand.mutateAsync({
- *     name: "Acme Corp",
- *     email: "contact@acme.com"
- *   });
- * };
- * ```
- */
-function useCreateBrandMutation() {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-
-  return useMutation(
-    trpc.user.brands.create.mutationOptions({
-      onSuccess: async () => {
-        // Invalidate brands list and user data to show new brand
-        await queryClient.invalidateQueries({
-          queryKey: trpc.user.brands.list.queryKey(),
-        });
-        await queryClient.invalidateQueries({
-          queryKey: trpc.user.get.queryKey(),
-        });
-        await queryClient.invalidateQueries({
-          queryKey: trpc.composite.initDashboard.queryKey(),
-        });
-      },
-    }),
-  );
-}
-
-/**
  * Updates brand profile information (name, logo, email, country).
  *
  * Implements lightweight optimistic updates by canceling in-flight queries
@@ -235,11 +191,7 @@ export function useLeaveBrandMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
-
-  // Prefetch create-brand route for post-leave navigation
-  useEffect(() => {
-    router.prefetch("/create-brand");
-  }, [router]);
+  const noAccessDestination = getForceSignOutPath();
 
   return useMutation(
     trpc.user.brands.leave.mutationOptions({
@@ -261,8 +213,11 @@ export function useLeaveBrandMutation() {
         const nextBrandId =
           (res as { nextBrandId?: string | null } | undefined)?.nextBrandId ??
           null;
-        // Redirect to brand creation when user has no brands left
-        if (!nextBrandId) router.push("/create-brand");
+        // Force sign-out when user has no brands left.
+        if (!nextBrandId) {
+          window.location.assign(noAccessDestination);
+          return;
+        }
         router.refresh();
       },
     }),

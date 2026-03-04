@@ -1,3 +1,10 @@
+import { BlockedAccessScreen } from "@/components/access/blocked-access-screen";
+import { PastDueBanner } from "@/components/access/past-due-banner";
+import { PaymentRequiredOverlay } from "@/components/access/payment-required-overlay";
+import {
+  INVITE_REQUIRED_LOGIN_PATH,
+  getForceSignOutPath,
+} from "@/lib/auth-access";
 import { getQueryClient, trpc } from "@/trpc/server";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -30,20 +37,39 @@ export default async function MainLayout({
   const user = initDashboard.user;
   const brands = initDashboard.brands;
   const invites = initDashboard.myInvites;
+  const access = initDashboard.access;
+
+  // The auth session can briefly outlive the app profile row (for example,
+  // immediately after account deletion). Treat this as an invalid session.
+  if (!user) {
+    redirect("/login");
+  }
 
   // Redirect logic for incomplete users
   // These destinations are OUTSIDE (main), so no infinite loops
-  if (!user?.full_name) {
+  if (!user.full_name) {
     redirect("/setup");
   }
 
   if (brands.length === 0 && invites.length === 0) {
-    redirect("/create-brand");
+    redirect(getForceSignOutPath(INVITE_REQUIRED_LOGIN_PATH));
   }
 
   if (brands.length === 0 && invites.length > 0) {
     redirect("/invites");
   }
 
-  return children;
+  if (access.overlay === "suspended" || access.overlay === "cancelled") {
+    return <BlockedAccessScreen reason={access.overlay} />;
+  }
+
+  return (
+    <div className="relative h-full min-h-0">
+      {access.banner === "past_due" ? <PastDueBanner /> : null}
+      <div className="relative h-full min-h-0">
+        {children}
+        {access.overlay === "payment_required" ? <PaymentRequiredOverlay /> : null}
+      </div>
+    </div>
+  );
 }

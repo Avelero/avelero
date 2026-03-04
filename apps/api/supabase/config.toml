@@ -18,12 +18,20 @@ additional_redirect_urls = [
   "http://localhost:3000/auth/callback",
   "http://127.0.0.1:3000/auth/callback"
 ]
-jwt_expiry = 36000
+jwt_expiry = 3600
 
 [auth.hook.send_email]
 enabled = true
 uri = "env(SEND_EMAIL_HOOK_URI)"
 secrets = "env(SEND_EMAIL_HOOK_SECRET)"
+
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/before_user_created_invite_gate"
+
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/custom_access_token_auth_gate"
 
 [functions.send-email]
 verify_jwt = false
@@ -50,4 +58,3 @@ enabled = true
 port = 54327
 vector_port = 54328
 backend = "postgres"
-

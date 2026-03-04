@@ -553,7 +553,7 @@ export async function createPassportForVariant(
  * @returns Array of created passports
  */
 export async function batchCreatePassportsForVariants(
-  db: Database,
+  db: DatabaseOrTransaction,
   brandId: string,
   variants: Array<{
     variantId: string;

@@ -3,8 +3,8 @@
 import { useTRPC } from "@/trpc/client";
 import {
   useMutation,
+  useQuery,
   useQueryClient,
-  useSuspenseQuery,
 } from "@tanstack/react-query";
 
 /**
@@ -24,13 +24,12 @@ export interface CurrentUser {
 }
 
 /**
- * Fetches the current user's profile using Suspense.
+ * Fetches the current user's profile without suspending route rendering.
  *
  * Returns the authenticated user's profile data including email, name,
- * avatar, and active brand ID. This query suspends rendering until data
- * is available.
+ * avatar, and active brand ID.
  *
- * @returns Suspense query hook for current user profile
+ * @returns Query hook for current user profile
  *
  * @example
  * ```tsx
@@ -39,11 +38,20 @@ export interface CurrentUser {
  */
 export function useUserQuery() {
   const trpc = useTRPC();
-  return useSuspenseQuery(trpc.user.get.queryOptions());
+  const result = useQuery({
+    ...trpc.user.get.queryOptions(),
+    refetchInterval: 6 * 60 * 60 * 1000,
+  });
+
+  return result as typeof result & { data: NonNullable<typeof result.data> };
 }
 
-// Alias with explicit Suspense naming
-export { useUserQuery as useUserQuerySuspense };
+/**
+ * Backwards-compatible alias for existing call sites.
+ */
+export function useUserQuerySuspense() {
+  return useUserQuery();
+}
 
 /**
  * Updates the current user's profile fields (name, email, avatar).

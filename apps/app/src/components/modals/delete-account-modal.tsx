@@ -45,11 +45,15 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
       // Step 1: Delete account via API
       await deleteMutation.mutateAsync();
 
-      // Step 2: Sign out locally (this will clear session)
+      // Step 2: Clear in-memory cache to prevent post-delete refetch races.
+      await queryClient.cancelQueries();
+      queryClient.clear();
+
+      // Step 3: Sign out locally (this clears browser auth state)
       await supabase.auth.signOut({ scope: "local" });
 
-      // Step 3: Redirect to login (query cache will be invalidated on navigation)
-      router.push("/login");
+      // Step 4: Redirect to login
+      router.replace("/login");
     } catch (e: unknown) {
       const error =
         e instanceof Error ? e : new Error("Failed to delete account");

@@ -2,10 +2,10 @@ import { eq, sql } from "@v1/db/queries";
 import { products } from "@v1/db/schema";
 import { summaryProductStatusSchema } from "../../../schemas/summary.js";
 import { createEntityResponse } from "../../../utils/response.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import { brandReadProcedure, createTRPCRouter } from "../../init.js";
 
 export const summaryRouter = createTRPCRouter({
-  productStatus: brandRequiredProcedure
+  productStatus: brandReadProcedure
     .input(summaryProductStatusSchema)
     .query(async ({ ctx }) => {
       const { db, brandId } = ctx;

@@ -21,7 +21,11 @@ import {
 } from "../../../schemas/bulk.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -68,7 +72,7 @@ export const qrExportRouter = createTRPCRouter({
   /**
    * Start a QR export job.
    */
-  start: brandRequiredProcedure
+  start: brandWriteProcedure
     .input(startQrExportSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -188,7 +192,7 @@ export const qrExportRouter = createTRPCRouter({
   /**
    * Get QR export job status.
    */
-  status: brandRequiredProcedure
+  status: brandReadProcedure
     .input(getQrExportStatusSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;

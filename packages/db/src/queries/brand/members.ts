@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import { brandMembers } from "../../schema";
 
@@ -18,7 +18,7 @@ export class BrandMemberSoleOwnerError extends Error {
 
 export interface BrandMemberRecord {
   readonly userId: string;
-  readonly role: "owner" | "member" | null;
+  readonly role: "owner" | "member" | "avelero" | null;
   readonly createdAt: string;
 }
 
@@ -38,7 +38,10 @@ export async function getMembersByBrandId(
 
   return rows.map((row) => ({
     userId: row.userId,
-    role: row.role === "owner" || row.role === "member" ? row.role : null,
+    role:
+      row.role === "owner" || row.role === "member" || row.role === "avelero"
+        ? row.role
+        : null,
     createdAt: row.createdAt,
   }));
 }
@@ -101,7 +104,7 @@ export async function deleteMember(
       and(
         eq(brandMembers.brandId, brandId),
         eq(brandMembers.userId, actingUserId),
-        eq(brandMembers.role, "owner"),
+        inArray(brandMembers.role, ["owner", "avelero"]),
       ),
     );
   if (!actingOwner.length) throw new BrandMemberForbiddenError();

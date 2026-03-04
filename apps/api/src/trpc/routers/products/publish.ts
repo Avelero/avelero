@@ -19,7 +19,11 @@ import {
 import { z } from "zod";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -60,7 +64,7 @@ export const publishRouter = createTRPCRouter({
    * @param variantId - The variant's UUID
    * @returns Success status with passport and version info
    */
-  variant: brandRequiredProcedure
+  variant: brandWriteProcedure
     .input(publishVariantSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -93,7 +97,7 @@ export const publishRouter = createTRPCRouter({
    * @param productId - The product's UUID
    * @returns Success status with count of published variants
    */
-  product: brandRequiredProcedure
+  product: brandWriteProcedure
     .input(publishProductSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -126,7 +130,7 @@ export const publishRouter = createTRPCRouter({
    * @param productIds - Array of product UUIDs to publish
    * @returns Success status with total counts
    */
-  bulk: brandRequiredProcedure
+  bulk: brandWriteProcedure
     .input(publishBulkSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -159,7 +163,7 @@ export const publishRouter = createTRPCRouter({
    * @param productId - The product's UUID
    * @returns Publishing state info
    */
-  state: brandRequiredProcedure
+  state: brandReadProcedure
     .input(getPublishingStateSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;

@@ -59,10 +59,9 @@ export const productVariants = pgTable(
     index("idx_product_variants_upid")
       .using("btree", table.upid.asc().nullsLast().op("text_ops"))
       .where(sql`(upid IS NOT NULL)`),
-    // Unique constraint: UPID must be unique within a brand
-    // Uses get_product_brand_id function to resolve brand from product
-    uniqueIndex("idx_unique_upid_per_brand")
-      .on(table.upid, sql`get_product_brand_id(product_id)`)
+    // Unique constraint: UPID must be globally unique.
+    uniqueIndex("idx_unique_upid_global")
+      .on(table.upid)
       .where(sql`upid IS NOT NULL AND upid != ''`),
     // Unique constraint: Barcode must be unique within a brand
     // Uses get_product_brand_id function to resolve brand from product

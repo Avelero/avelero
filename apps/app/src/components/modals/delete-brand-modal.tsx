@@ -1,5 +1,6 @@
 "use client";
 
+import { getForceSignOutPath } from "@/lib/auth-access";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -27,11 +28,11 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
   const trpc = useTRPC();
   const router = useRouter();
   const deleteMutation = useMutation(trpc.brand.delete.mutationOptions());
+  const noAccessDestination = getForceSignOutPath();
 
   // Prefetch possible navigation routes for post-deletion
   useEffect(() => {
     router.prefetch("/");
-    router.prefetch("/create-brand");
   }, [router]);
 
   async function onConfirm() {
@@ -47,11 +48,14 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
 
       // Smart redirection based on remaining brands
       const payload = result as { nextBrandId?: string | null };
-      const destination = payload.nextBrandId ? "/" : "/create-brand";
+      if (!payload.nextBrandId) {
+        window.location.assign(noAccessDestination);
+        return;
+      }
 
       // Force fresh server data after brand deletion
       router.refresh();
-      router.push(destination);
+      router.push("/");
     } catch (e: unknown) {
       const error =
         e instanceof Error ? e : new Error("Failed to delete brand");

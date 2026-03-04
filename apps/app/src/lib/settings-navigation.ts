@@ -4,6 +4,7 @@ export type SettingsNavIconKey =
   | "SlidersHorizontal"
   | "UserRound"
   | "Layers"
+  | "FileText"
   | "Calendar"
   | "Tag"
   | "Bookmark"
@@ -49,6 +50,11 @@ export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
         href: "/settings/integrations",
         icon: "Layers",
         match: "prefix",
+      },
+      {
+        label: "Billing",
+        href: "/settings/billing",
+        icon: "FileText",
       },
     ],
   },

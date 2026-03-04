@@ -18,7 +18,11 @@ import {
 } from "../../../schemas/bulk.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -45,7 +49,7 @@ export const exportRouter = createTRPCRouter({
    * Creates export job record and triggers background processing.
    * Returns job ID for status tracking.
    */
-  start: brandRequiredProcedure
+  start: brandWriteProcedure
     .input(startExportSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -152,7 +156,7 @@ export const exportRouter = createTRPCRouter({
    * Returns current status, progress, and download URL when ready.
    * Used for polling from the export modal.
    */
-  status: brandRequiredProcedure
+  status: brandReadProcedure
     .input(getExportStatusSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;

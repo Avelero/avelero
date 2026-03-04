@@ -61,7 +61,6 @@ function getHeaderBreadcrumbs(pathname: string): BreadcrumbItem[] {
   // Other routes
   const routeLabels: Record<string, string> = {
     setup: "Setup",
-    "create-brand": "Create brand",
     invites: "Invites",
   };
 

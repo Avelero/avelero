@@ -18,7 +18,11 @@ import { z } from "zod";
 import { getUnmappedValuesSchema } from "../../../schemas/bulk.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -32,7 +36,7 @@ export const valuesRouter = createTRPCRouter({
    * during import. Only categories cannot be auto-created (they're hierarchical
    * and pre-seeded). This endpoint now primarily returns category errors.
    */
-  unmapped: brandRequiredProcedure
+  unmapped: brandReadProcedure
     .input(getUnmappedValuesSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -69,7 +73,7 @@ export const valuesRouter = createTRPCRouter({
    * The cost of fetching unused entity types is negligible compared to
    * the overhead of checking which types are needed first.
    */
-  catalogData: brandRequiredProcedure
+  catalogData: brandReadProcedure
     .input(getUnmappedValuesSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -184,7 +188,7 @@ export const valuesRouter = createTRPCRouter({
   /**
    * Ensure category path exists in database
    */
-  ensureCategory: brandRequiredProcedure
+  ensureCategory: brandWriteProcedure
     .input(
       z.object({
         jobId: z.string().uuid(),

@@ -1,0 +1,87 @@
+---
+title: "What the GS1 Digital Link means for your product passport"
+description: "It's simpler than it sounds. Here's how it works, why it matters, and why we built on it."
+date: "2026-03-03"
+image: "/updates/gs1-digital-link-digital-product-passport.webp"
+author: "Rafaël Mevis"
+linkedin: "https://www.linkedin.com/in/rafaelmevis/"
+---
+
+If you've spent any time reading about the Digital Product Passport, you've probably come across the term "GS1 Digital Link." It shows up in EU guidance documents, in DPP platform marketing pages, and in conversations with anyone working on compliance infrastructure. It sounds like a complex technical standard. The kind of thing you'd need an IT team to understand. In practice, it's one of the simplest concepts in the entire DPP ecosystem. It's a URL structure. That's it.
+
+This post explains what the GS1 Digital Link actually is, why it matters for the product passport your fashion brand will need to provide, and why building on an open standard like this is better than the proprietary alternatives.
+
+> **In short:** The GS1 Digital Link is a standardized way of encoding product identifiers (like your GTIN/barcode number) into a web URL. The format looks like `https://yourdomain.com/01/GTIN`. When this URL is embedded in a QR code, it can be scanned by a consumer's phone to open the product passport and by a POS system to read the barcode number for checkout. It's an open standard maintained by [GS1](https://www.gs1.org/standards/gs1-digital-link), the same organization behind the barcodes already on your products.
+
+## What the GS1 Digital Link actually is
+
+GS1 is the global organization that manages product identification standards. If your products have a barcode, you're already using GS1 infrastructure. The number encoded in that barcode is a GTIN (Global Trade Item Number), and it's how every system in the supply chain, from your warehouse to the retailer's checkout, identifies your product.
+
+The GS1 Digital Link takes that same GTIN and puts it inside a URL. The structure follows a specific pattern:
+
+`https://yourbrand.com/01/09506000134352`
+
+That's a complete GS1 Digital Link. Let's break it down:
+
+- `https://yourbrand.com` is the domain. This can be your own domain, a subdomain like `id.yourbrand.com`, or a third-party resolver. The standard doesn't care whose domain it is.
+- `/01/` is the GS1 Application Identifier for GTIN. It tells any system reading the URL that what follows is a product identifier.
+- `09506000134352` is the GTIN itself, padded to 14 digits. This is the same number that's encoded in your existing barcode.
+
+If you need to identify products at a more granular level, you can extend the URL with additional identifiers. For example, adding a serial number looks like this:
+
+`https://yourbrand.com/01/09506000134352/21/ABC123`
+
+Here, `/21/` is the Application Identifier for serial number, and `ABC123` is the unique serial value. This lets you identify individual items rather than just product models, which is relevant for the DPP since the regulation may require item-level or batch-level identification depending on the product category.
+
+The important thing to understand is that the structure is what makes it a GS1 Digital Link, not the domain. You can host it on your own website, on a DPP platform, or on GS1's public resolver at `id.gs1.org`. As long as the URL follows the `/01/GTIN` pattern, it's compliant with the standard.
+
+<GS1DigitalLinkBreakdown />
+
+## One QR code, two purposes
+
+This is where the GS1 Digital Link becomes genuinely useful for fashion brands, not just technically elegant.
+
+When you encode a GS1 Digital Link into a QR code, that single code can serve two completely different purposes. A customer scans it with their phone, and the URL opens in their browser, taking them to the product's Digital Product Passport. A retail POS scanner reads the same QR code and extracts the GTIN from the URL structure, using it for checkout exactly like a traditional barcode.
+
+This works because the barcode number is embedded in the URL itself. The POS system doesn't need to visit the webpage. It just reads the QR code data, recognizes the GS1 Digital Link pattern, and pulls out the GTIN. The consumer's phone, on the other hand, follows the URL to whatever page the brand has set up.
+
+For fashion brands, this has practical implications. The care label on a garment has limited space. If you're already printing care symbols, material composition, and country of origin, adding both a barcode and a separate QR code for the DPP creates a layout problem. A GS1 Digital Link QR code consolidates both functions into one symbol. It's also why the retail industry globally is moving toward 2D barcodes as replacements for the traditional linear barcodes that have been on products since the 1970s.
+
+This dual functionality isn't something every brand will need on day one. But as retailers adopt 2D barcode scanning at checkout (a transition already underway with major retailers), having your product passport built on a standard that supports it means you won't need to change your labels later.
+
+
+## Why the EU expects this for the DPP
+
+The [ESPR](https://commission.europa.eu/energy-climate-change-environment/standards-tools-and-labels/products-labelling-rules-and-requirements/ecodesign-sustainable-products-regulation_en) requires that the Digital Product Passport be accessible through a data carrier that complies with ISO/IEC standards. It doesn't name GS1 Digital Link explicitly. But the standard is built on ISO/IEC 15459 (for identification) and ISO/IEC 18004 (for QR codes), both of which satisfy the regulation's requirements.
+
+More importantly, GS1 is actively involved in shaping the DPP's technical architecture. The organization participates in [CIRPASS-2](https://cirpassproject.eu/), the EU-funded pilot programme developing real-world DPP implementations, and has published a [white paper on how GS1 standards support ESPR requirements](https://gs1.eu/activities/digital-product-passport/). The EU's own guidance documents consistently reference GS1 standards as the foundation for DPP data carriers.
+
+The reason the EU is building around GS1 rather than inventing something new is straightforward: over 2 million companies worldwide already use GS1 identifiers. Your products almost certainly have GTINs assigned. The supply chain infrastructure, from ERP systems to retail scanners, already speaks GS1. Building the DPP on top of this existing infrastructure means less friction for brands, less cost for implementation, and a system that works across borders without requiring everyone to adopt something unfamiliar.
+
+This also connects to the broader [data requirements](/updates/fashion-digital-product-passport-data-requirements/) of the textile DPP. The delegated act is expected to require a unique product identifier as part of the passport, and the GTIN provided through GS1 standards is the most widely adopted candidate for that role. If your passport is built on a GS1 Digital Link, the identifier is already embedded in the URL structure.
+
+## Open standards vs. proprietary QR codes
+
+Not every DPP platform uses the GS1 Digital Link. Some generate QR codes that point to proprietary URLs on their own domain, in their own format. When you scan these codes, they work fine. You see the product passport. But there's a meaningful difference under the hood.
+
+A proprietary QR code ties your product data to a specific platform. If you switch DPP providers, those QR codes stop working unless the old provider agrees to redirect them, which they have no obligation to do. If the provider goes out of business, your codes break entirely. Every garment you've already labeled becomes a dead link. For products with multi-year lifecycles (which is most of fashion), this is a real risk.
+
+A GS1 Digital Link, by contrast, is an open standard. The URL structure is defined by [GS1's published specifications](https://ref.gs1.org/standards/digital-link/uri-syntax/), not by any single software vendor. Any system that understands the GS1 Digital Link format can read and resolve it. If you move to a different DPP provider, you update where the URL resolves to without changing the QR code on the product. The physical label stays the same. Only the destination changes.
+
+This matters beyond just vendor flexibility. The DPP is designed to be a product's digital identity across its entire lifecycle. Resale platforms, recyclers, customs authorities, and consumers all need to access it at different points. An open, standardized identifier makes that possible without requiring every stakeholder to integrate with the same proprietary system. It's better for interoperability, better for longevity, and better for the circular economy the regulation is trying to enable.
+
+## What this means at Avelero
+
+We adopted the GS1 Digital Link as the standard for all passports generated through Avelero. When you connect your product data and generate QR codes through our platform, those codes follow the GS1 Digital Link structure by default. Your GTIN is embedded in the URL, the format is compliant with the standard, and the resulting QR code is ready for both the [DPP regulation](/updates/fashion-digital-product-passport-timeline/) and future retail scanning infrastructure.
+
+We made this decision early because we think the choice of data carrier is one of those foundational decisions that's easy to overlook and expensive to fix later. Once a QR code is printed on a care label and sewn into a garment, it's there for the life of the product. Building on an open standard from day one means brands using Avelero don't have to worry about lock-in, broken links, or re-labeling when the ecosystem evolves.
+
+The passport itself is still fully customizable. You control the design, the branding, and the content through our [theme editor](/updates/the-last-step-in-your-customer-journey/). The GS1 Digital Link is the infrastructure underneath, not the experience on top. Customers see your brand, not a technical standard.
+
+## The simple version
+
+The GS1 Digital Link is a URL that follows a specific structure: your domain, followed by `/01/`, followed by your product's GTIN. That's the entire concept. When you put this URL in a QR code, it works as both a link to your product passport and a machine-readable product identifier. It's built on an open standard used by millions of companies, it aligns with what the EU is building for the DPP, and it protects your brand from being locked into a single vendor's infrastructure.
+
+If you're evaluating DPP tools and the topic of data carriers comes up, now you know what to ask: does this platform generate GS1 Digital Link compliant QR codes, or proprietary ones?
+
+If you want to see how it works in practice, [we'd like to show you](https://avelero.com).

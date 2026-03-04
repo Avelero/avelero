@@ -8,15 +8,13 @@ import { TRPCError } from "@trpc/server";
  *
  * Phase 3 additions:
  * - user.invites.accept/reject - Accept or reject brand invites
- * - user.brands.list/create/leave/setActive - Manage user's brand memberships
+ * - user.brands.list/leave/setActive - Manage user's brand memberships
  */
 import {
   acceptBrandInvite,
-  createBrand,
   declineBrandInvite,
   getBrandsByUserId,
   getOwnerCountsByBrandIds,
-  isSlugTaken,
   leaveBrand,
   listPendingInvitesForEmail,
   setActiveBrand,
@@ -31,7 +29,6 @@ import {
 } from "@v1/db/queries/user";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
-import { brandCreateSchema } from "../../../schemas/brand.js";
 import {
   brandLeaveSchema,
   brandSetActiveSchema,
@@ -461,7 +458,7 @@ export const userRouter = createTRPCRouter({
 
   /**
    * Brand management for the current user.
-   * Moved from workflow.list, workflow.create, workflow.members.update (leave case).
+   * Moved from workflow.list and workflow.members.update (leave case).
    */
   brands: createTRPCRouter({
     /**
@@ -474,7 +471,7 @@ export const userRouter = createTRPCRouter({
       if (memberships.length === 0) return [];
 
       const ownerBrandIds = memberships
-        .filter((brand) => brand.role === "owner")
+        .filter((brand) => brand.role === "owner" || brand.role === "avelero")
         .map((brand) => brand.id);
 
       // Use standardized query function to get owner counts
@@ -489,52 +486,14 @@ export const userRouter = createTRPCRouter({
           email: membership.email ?? null,
           country_code: membership.country_code ?? null,
           logo_url: buildBrandLogoUrl(membership.logo_path ?? null),
-          role: membership.role,
-          canLeave: canLeaveFromRole(membership.role, ownerCount),
+          role: membership.role === "member" ? "member" : "owner",
+          canLeave: canLeaveFromRole(
+            membership.role === "member" ? "member" : "owner",
+            ownerCount,
+          ),
         };
       });
     }),
-
-    /**
-     * Creates a new brand with the current user as owner.
-     * Moved from workflow.create.
-     */
-    create: protectedProcedure
-      .input(brandCreateSchema)
-      .mutation(async ({ ctx, input }) => {
-        const { db, user } = ctx;
-
-        // Validate slug uniqueness if provided
-        if (input.slug) {
-          const taken = await isSlugTaken(db, input.slug);
-          if (taken) {
-            throw badRequest("This slug is already taken");
-          }
-        }
-
-        const payload = {
-          name: input.name,
-          slug: input.slug ?? null,
-          email: input.email ?? user.email ?? null,
-          country_code: input.country_code ?? null,
-          logo_path: extractStoragePath(input.logo_url),
-        };
-
-        try {
-          const result = await createBrand(db, user.id, payload);
-          logger.info(
-            {
-              userId: user.id,
-              brandId: result.id,
-              brandSlug: result.slug,
-            },
-            "Brand created successfully",
-          );
-          return result;
-        } catch (error) {
-          throw wrapError(error, "Failed to create brand");
-        }
-      }),
 
     /**
      * Leaves a brand the user is a member of.
@@ -614,32 +573,6 @@ function canLeaveFromRole(
 ): boolean {
   if (role !== "owner") return true;
   return ownerCount > 1;
-}
-
-/**
- * Extracts storage path from a URL or returns the input if already a path.
- */
-function extractStoragePath(url: string | null | undefined): string | null {
-  if (!url) return null;
-  const knownPrefixes = [
-    "/api/storage/brand-avatars/",
-    `${getAppUrl()}/api/storage/brand-avatars/`,
-  ];
-  for (const prefix of knownPrefixes) {
-    if (url.startsWith(prefix)) {
-      return url.slice(prefix.length);
-    }
-  }
-  const match = url.match(/brand-avatars\/(.+)$/);
-  if (match?.[1]) {
-    // Decode each segment to handle URL encoding (e.g., %20 for spaces)
-    // This matches the pattern in extractAvatarPath for consistent path handling
-    return match[1]
-      .split("/")
-      .map((segment) => decodeURIComponent(segment))
-      .join("/");
-  }
-  return url;
 }
 
 type UserRouter = typeof userRouter;

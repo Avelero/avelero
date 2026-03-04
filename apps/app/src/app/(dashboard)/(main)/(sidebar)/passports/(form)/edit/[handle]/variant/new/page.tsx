@@ -16,7 +16,7 @@ export default async function VariantCreatePage({
 
   const { handle } = await params;
 
-  await batchPrefetch([
+  batchPrefetch([
     trpc.products.get.queryOptions({
       handle,
       includeVariants: true,

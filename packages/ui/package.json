@@ -59,6 +59,7 @@
     "./switch": "./src/components/switch.tsx",
     "./boolean": "./src/components/boolean.tsx",
     "./progress": "./src/components/progress.tsx",
+    "./google-signin-shared": "./src/components/google-signin-shared.tsx",
     "./tailwind.config": "./tailwind.config.ts",
     "./postcss": "./postcss.config.js",
     "./sonner": "./src/components/sonner.tsx"

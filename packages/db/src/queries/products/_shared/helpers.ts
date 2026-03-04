@@ -469,7 +469,9 @@ export interface ProductPassportData {
  * Batch loads passport data for multiple products.
  *
  * For each product, fetches:
- * - firstVariantUpid: The UPID of the first variant's passport (by creation order)
+ * - firstVariantUpid: The UPID for URL navigation:
+ *   first non-ghost variant with a passport (by creation order),
+ *   falling back to first ghost variant with a passport
  * - variantCount: Total number of non-ghost variants
  * - variantsWithBarcode: Number of non-ghost variants with a non-empty barcode
  *
@@ -485,46 +487,47 @@ export async function loadPassportDataForProducts(
   // Import the passport table schema
   const { productPassports } = await import("../../../schema");
 
-  // Get all non-ghost variants for the products in one query
+  // Load all variants so URL candidate selection can fall back to ghost variants.
+  // Metrics still only count non-ghost variants.
   const variantRows = await db
     .select({
       id: productVariants.id,
       productId: productVariants.productId,
       barcode: productVariants.barcode,
       createdAt: productVariants.createdAt,
+      isGhost: productVariants.isGhost,
     })
     .from(productVariants)
-    .where(
-      and(
-        inArray(productVariants.productId, [...productIds]),
-        eq(productVariants.isGhost, false),
-      ),
-    )
+    .where(inArray(productVariants.productId, [...productIds]))
     .orderBy(asc(productVariants.createdAt));
 
-  // Build maps for variant counts and first variant per product
-  const firstVariantByProduct = new Map<string, string>();
+  // Build maps for metrics and ordered variant ids per product.
+  const orderedVariantIdsByProduct = new Map<string, string[]>();
+  const variantIsGhostById = new Map<string, boolean>();
   const variantCountByProduct = new Map<string, number>();
   const variantsWithBarcodeByProduct = new Map<string, number>();
 
   for (const row of variantRows) {
-    // Track first variant (for passport lookup)
-    if (!firstVariantByProduct.has(row.productId)) {
-      firstVariantByProduct.set(row.productId, row.id);
-    }
+    variantIsGhostById.set(row.id, row.isGhost);
 
-    // Count total variants
-    variantCountByProduct.set(
-      row.productId,
-      (variantCountByProduct.get(row.productId) ?? 0) + 1,
-    );
+    const productVariantIds = orderedVariantIdsByProduct.get(row.productId) ?? [];
+    productVariantIds.push(row.id);
+    orderedVariantIdsByProduct.set(row.productId, productVariantIds);
 
-    // Count variants with barcodes (non-null, non-empty)
-    if (row.barcode && row.barcode.trim() !== "") {
-      variantsWithBarcodeByProduct.set(
+    if (!row.isGhost) {
+      // Count only non-ghost variants in table metrics.
+      variantCountByProduct.set(
         row.productId,
-        (variantsWithBarcodeByProduct.get(row.productId) ?? 0) + 1,
+        (variantCountByProduct.get(row.productId) ?? 0) + 1,
       );
+
+      // Count non-ghost variants with barcodes.
+      if (row.barcode && row.barcode.trim() !== "") {
+        variantsWithBarcodeByProduct.set(
+          row.productId,
+          (variantsWithBarcodeByProduct.get(row.productId) ?? 0) + 1,
+        );
+      }
     }
   }
 
@@ -559,13 +562,27 @@ export async function loadPassportDataForProducts(
     }
   }
 
-  // Now build the result map - get first variant's passport UPID per product
+  // Resolve per-product URL UPID:
+  // 1) first non-ghost variant with passport UPID
+  // 2) fallback to first ghost variant with passport UPID
   for (const productId of productIds) {
-    // Get the first variant's passport UPID
-    const firstVariantId = firstVariantByProduct.get(productId);
-    const firstVariantUpid = firstVariantId
-      ? passportByVariant.get(firstVariantId) ?? null
-      : null;
+    const orderedVariantIds = orderedVariantIdsByProduct.get(productId) ?? [];
+
+    let firstNonGhostUpid: string | null = null;
+    let firstGhostUpid: string | null = null;
+    for (const variantId of orderedVariantIds) {
+      const upid = passportByVariant.get(variantId);
+      if (!upid) continue;
+
+      if (variantIsGhostById.get(variantId) === true) {
+        if (!firstGhostUpid) firstGhostUpid = upid;
+      } else if (!firstNonGhostUpid) {
+        firstNonGhostUpid = upid;
+      }
+
+      if (firstNonGhostUpid && firstGhostUpid) break;
+    }
+    const firstVariantUpid = firstNonGhostUpid ?? firstGhostUpid ?? null;
 
     map.set(productId, {
       firstVariantUpid,

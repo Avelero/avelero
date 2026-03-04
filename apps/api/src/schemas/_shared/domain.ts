@@ -24,8 +24,15 @@ import { z } from "zod";
  *
  * @property owner - Full administrative access to brand and all resources
  * @property member - Standard member access with limited permissions
+ * @property avelero - Hidden internal founder role with owner-equivalent access
  */
-export const roleSchema = z.enum(["owner", "member"]);
+export const roleSchema = z.enum(["owner", "member", "avelero"]);
+
+/**
+ * Roles that can be assigned via customer-facing members/invites flows.
+ * Internal-only roles (for example `avelero`) must not be assignable there.
+ */
+export const assignableRoleSchema = z.enum(["owner", "member"]);
 
 /**
  * TypeScript type derived from roleSchema.

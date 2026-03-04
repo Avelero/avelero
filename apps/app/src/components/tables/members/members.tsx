@@ -64,9 +64,17 @@ export function MembersTable() {
 
   // Determine if current user is an owner of this brand
   const currentUserRole = useMemo(() => {
+    const viewerRole =
+      compositeRes?.viewerRole === "member"
+        ? "member"
+        : compositeRes?.viewerRole
+          ? "owner"
+          : null;
+    if (viewerRole) return viewerRole;
+
     const currentMember = members.find((m) => m.user_id === meUser?.id);
     return currentMember?.role ?? null;
-  }, [members, meUser?.id]);
+  }, [compositeRes?.viewerRole, members, meUser?.id]);
   const isOwner = currentUserRole === "owner";
 
   const isLoading = false;

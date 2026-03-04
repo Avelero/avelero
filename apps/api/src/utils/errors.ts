@@ -71,6 +71,56 @@ export function forbidden(
   return createError("FORBIDDEN", message);
 }
 
+/**
+ * Stable access-control error tokens for customer app restrictions.
+ */
+export const ACCESS_ERROR_TOKENS = {
+  PAYMENT_REQUIRED: "ACCESS_PAYMENT_REQUIRED",
+  PAST_DUE_READ_ONLY: "ACCESS_PAST_DUE_READ_ONLY",
+  SUSPENDED: "ACCESS_SUSPENDED",
+  CANCELLED: "ACCESS_CANCELLED",
+  SKU_LIMIT_REACHED: "ACCESS_SKU_LIMIT_REACHED",
+} as const;
+
+function accessForbidden(token: string, detail: string): TRPCError {
+  return forbidden(`${token}: ${detail}`);
+}
+
+export function accessPaymentRequired(): TRPCError {
+  return accessForbidden(
+    ACCESS_ERROR_TOKENS.PAYMENT_REQUIRED,
+    "Payment is required before write actions can continue.",
+  );
+}
+
+export function accessPastDueReadOnly(): TRPCError {
+  return accessForbidden(
+    ACCESS_ERROR_TOKENS.PAST_DUE_READ_ONLY,
+    "Your brand is currently read-only due to a past-due invoice.",
+  );
+}
+
+export function accessSuspended(): TRPCError {
+  return accessForbidden(
+    ACCESS_ERROR_TOKENS.SUSPENDED,
+    "Brand access is suspended. Contact support to restore access.",
+  );
+}
+
+export function accessCancelled(): TRPCError {
+  return accessForbidden(
+    ACCESS_ERROR_TOKENS.CANCELLED,
+    "Brand access is cancelled. Contact support to restore access.",
+  );
+}
+
+export function accessSkuLimitReached(): TRPCError {
+  return accessForbidden(
+    ACCESS_ERROR_TOKENS.SKU_LIMIT_REACHED,
+    "SKU creation limit reached. Upgrade or contact support to increase your limit.",
+  );
+}
+
 // ============================================================================
 // Validation & Input Errors
 // ============================================================================

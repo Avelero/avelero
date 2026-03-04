@@ -1,7 +1,16 @@
 "use server";
 
 import { actionClient } from "@/actions/safe-action";
+import {
+  BRAND_ACCESS_REMOVED_LOGIN_PATH,
+  getForceSignOutPath,
+  isInviteRequiredPath,
+} from "@/lib/auth-access";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
+import {
+  INVITE_COOKIE_NAME,
+  redeemInviteFromCookie,
+} from "@/lib/invite-redemption";
 import { createClient } from "@v1/supabase/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -48,13 +57,44 @@ export const verifyOtpAction = actionClient
     });
 
     if (error) {
-      if (error.message.includes("expired")) {
+      const normalizedMessage = (error.message ?? "").toLowerCase();
+      const hasExpired = normalizedMessage.includes("expired");
+      const hasInvalid = normalizedMessage.includes("invalid");
+      const hasAuthGateDenied =
+        normalizedMessage.includes("auth_gate_denied") ||
+        normalizedMessage.includes("auth gate denied") ||
+        normalizedMessage.includes("invite_required") ||
+        normalizedMessage.includes("invite required");
+      const isRateLimited =
+        error.status === 429 ||
+        normalizedMessage.includes("too many requests") ||
+        normalizedMessage.includes("rate limit") ||
+        normalizedMessage.includes("for security purposes");
+
+      if (hasAuthGateDenied) {
+        throw new Error(
+          "Your brand access has been removed, please contact your administrator.",
+        );
+      }
+
+      if (isRateLimited) {
+        throw new Error("Too many attempts. Please wait a moment and try again.");
+      }
+
+      if (hasExpired && hasInvalid) {
+        throw new Error(
+          "Verification code is invalid or has expired. Please request a new one.",
+        );
+      }
+
+      if (hasInvalid) {
+        throw new Error("Invalid verification code. Please try again.");
+      }
+
+      if (hasExpired) {
         throw new Error(
           "Verification code has expired. Please request a new one.",
         );
-      }
-      if (error.message.includes("invalid")) {
-        throw new Error("Invalid verification code. Please try again.");
       }
 
       throw new Error(error.message || "Invalid verification code");
@@ -67,31 +107,27 @@ export const verifyOtpAction = actionClient
     // Successful verification: redeem invite cookie if present, then compute final destination
     const user = data.user ?? data.session.user ?? null;
     const cookieStore = await cookies();
-    const cookieHash =
-      cookieStore.get("brand_invite_token_hash")?.value ?? null;
-    let acceptedBrand = false;
+    const cookieHash = cookieStore.get(INVITE_COOKIE_NAME)?.value ?? null;
 
-    if (user && cookieHash) {
-      try {
-        const { error: rpcError } = await supabase.rpc(
-          "accept_invite_from_cookie",
-          { p_token: cookieHash },
-        );
-        if (!rpcError) acceptedBrand = true;
-      } finally {
-        // clear cookie regardless
-        const cs = await cookies();
-        cs.set("brand_invite_token_hash", "", { maxAge: 0, path: "/" });
-      }
+    const inviteRedemption = await redeemInviteFromCookie({
+      cookieHash,
+      user,
+      client: supabase,
+    });
+
+    if (cookieHash && inviteRedemption.shouldClearCookie) {
+      const cs = await cookies();
+      cs.set(INVITE_COOKIE_NAME, "", { maxAge: 0, path: "/" });
     }
 
-    const destination = acceptedBrand
-      ? "/"
-      : await resolveAuthRedirectPath({
-          next: sanitizeRedirectPath(redirectTo),
-          client: supabase,
-          user,
-        });
+    const destination = await resolveAuthRedirectPath({
+      next: sanitizeRedirectPath(redirectTo),
+      client: supabase,
+      user,
+    });
+    const finalDestination = isInviteRequiredPath(destination)
+      ? getForceSignOutPath(`${BRAND_ACCESS_REMOVED_LOGIN_PATH}&provider=otp`)
+      : destination;
 
-    redirect(destination);
+    redirect(finalDestination);
   });

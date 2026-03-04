@@ -1,0 +1,126 @@
+"use client";
+
+import { CountrySelect } from "@/components/select/country-select";
+import { MainSkeleton } from "@/components/main-skeleton";
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@v1/ui/button";
+import { Input } from "@v1/ui/input";
+import { Label } from "@v1/ui/label";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { z } from "zod";
+
+const schema = z.object({
+  name: z.string().min(2, "Please enter a brand name"),
+  country_code: z.string().length(2).optional(),
+});
+
+export function CreateBrandForm() {
+  const [name, setName] = useState("");
+  const [countryCode, setCountryCode] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setName("");
+    setCountryCode("");
+    setError("");
+    setIsSubmitting(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    router.prefetch("/");
+  }, [router]);
+
+  const createMutation = useMutation(
+    trpc.platformAdmin.brands.create.mutationOptions({
+      onSuccess: async (result) => {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.platformAdmin.brands.list.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.platformAdmin.viewer.get.queryKey(),
+          }),
+        ]);
+        router.refresh();
+        router.push(`/brands/${result.id}`);
+      },
+      onError: (mutationError) => {
+        setError(mutationError.message || "Failed to create brand");
+        setIsSubmitting(false);
+      },
+    }),
+  );
+
+  const onSubmit = async () => {
+    setError("");
+    setIsSubmitting(true);
+
+    const parsed = schema.safeParse({
+      name: name.trim(),
+      country_code: countryCode || undefined,
+    });
+
+    if (!parsed.success) {
+      setError(parsed.error.errors[0]?.message ?? "Invalid input");
+      setIsSubmitting(false);
+      return;
+    }
+
+    createMutation.mutate(parsed.data);
+  };
+
+  return (
+    <div className="mx-auto w-full max-w-[360px] space-y-6">
+      <div className="text-center space-y-2">
+        <h6 className="text-foreground">Create your brand</h6>
+        <p className="text-secondary">
+          Name your brand and select the country where it operates.
+        </p>
+      </div>
+
+      <div className="flex flex-col items-center gap-4 w-full">
+        <div className="space-y-1.5 w-full">
+          <Label>Brand name</Label>
+          <Input
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              setError("");
+            }}
+            placeholder="Acme Inc."
+            error={!!error}
+          />
+          {error ? (
+            <p className="type-small text-destructive text-center">{error}</p>
+          ) : null}
+        </div>
+        <CountrySelect
+          id="country_code"
+          label="Country"
+          placeholder="Select country"
+          value={countryCode}
+          onChange={(code) => setCountryCode(code)}
+        />
+      </div>
+
+      <Button
+        className="w-full"
+        onClick={onSubmit}
+        disabled={isSubmitting || createMutation.isPending}
+      >
+        {isSubmitting || createMutation.isPending ? "Creating..." : "Create"}
+      </Button>
+    </div>
+  );
+}
+
+export function CreateBrandFormSkeleton() {
+  return <MainSkeleton contained className="h-full w-full min-h-[320px]" />;
+}

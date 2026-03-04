@@ -59,7 +59,7 @@ export const brandMembers = pgTable(
     // Check constraint
     check(
       "brand_members_role_check",
-      sql`role = ANY (ARRAY['owner'::text, 'member'::text])`,
+      sql`role = ANY (ARRAY['owner'::text, 'member'::text, 'avelero'::text])`,
     ),
 
     // RLS policies

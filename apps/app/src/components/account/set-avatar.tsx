@@ -2,16 +2,27 @@
 
 import {
   type CurrentUser,
-  useUserQuery,
   useUserQuerySuspense,
 } from "@/hooks/use-user";
 import { Icons } from "@v1/ui/icons";
 import { Suspense } from "react";
 import { AvatarUpload } from "../avatar-upload";
 
+function AvatarFallback() {
+  return (
+    <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center bg-accent">
+      <Icons.UserRound className="text-tertiary" />
+    </div>
+  );
+}
+
 function InnerAvatarUpload() {
   const { data: user } = useUserQuerySuspense();
-  const u = user as CurrentUser;
+  const u = user as CurrentUser | null | undefined;
+
+  if (!u?.id) {
+    return <AvatarFallback />;
+  }
 
   return (
     <AvatarUpload
@@ -25,7 +36,6 @@ function InnerAvatarUpload() {
 }
 
 function SetAvatar() {
-  const { data: user } = useUserQuery();
   return (
     <div className="relative">
       <div className="flex flex-row p-6 border justify-between items-center">
@@ -35,13 +45,7 @@ function SetAvatar() {
             Click on the profile picture on the right to upload your image.
           </p>
         </div>
-        <Suspense
-          fallback={
-            <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center bg-accent">
-              <Icons.UserRound className="text-tertiary" />
-            </div>
-          }
-        >
+        <Suspense fallback={<AvatarFallback />}>
           <InnerAvatarUpload />
         </Suspense>
       </div>

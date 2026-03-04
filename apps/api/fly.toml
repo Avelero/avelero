@@ -6,7 +6,7 @@ primary_region = 'ams'
 
 [env]
   PORT = '3000'
-  ALLOWED_API_ORIGINS = 'https://app.avelero.com,http://localhost:3000'
+  ALLOWED_API_ORIGINS = 'https://app.avelero.com,https://admin.avelero.com,http://localhost:3000'
 
 [http_service]
   internal_port = 3000

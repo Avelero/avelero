@@ -28,7 +28,11 @@ import {
   createListResponse,
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandSkuWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 /** tRPC context with guaranteed brand ID from middleware */
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
@@ -53,7 +57,7 @@ export const syncRouter = createTRPCRouter({
    * - Integration is not active
    * - A sync is already in progress
    */
-  trigger: brandRequiredProcedure
+  trigger: brandSkuWriteProcedure
     .input(triggerSyncSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -136,7 +140,7 @@ export const syncRouter = createTRPCRouter({
    * Returns past sync jobs with stats and status.
    * Most recent jobs first.
    */
-  history: brandRequiredProcedure
+  history: brandReadProcedure
     .input(listSyncHistorySchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -174,7 +178,7 @@ export const syncRouter = createTRPCRouter({
    * - Latest sync job info (if any)
    * - Time until next scheduled sync
    */
-  status: brandRequiredProcedure
+  status: brandReadProcedure
     .input(getSyncStatusSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -270,7 +274,7 @@ export const syncRouter = createTRPCRouter({
    *
    * Includes the full error log (if any) for debugging.
    */
-  getJob: brandRequiredProcedure
+  getJob: brandReadProcedure
     .input(getSyncJobSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;

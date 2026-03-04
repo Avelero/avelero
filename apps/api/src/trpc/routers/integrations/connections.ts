@@ -51,7 +51,11 @@ import {
   createSuccessWithMeta,
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 /** tRPC context with guaranteed brand ID from middleware */
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
@@ -74,7 +78,7 @@ export const connectionsRouter = createTRPCRouter({
    *
    * Returns all available integrations with connection info if connected.
    */
-  list: brandRequiredProcedure
+  list: brandReadProcedure
     .input(listIntegrationsSchema)
     .query(async ({ ctx }) => {
       const brandCtx = ctx as BrandContext;
@@ -95,7 +99,7 @@ export const connectionsRouter = createTRPCRouter({
    * Returns detailed information including sync status.
    * Does NOT return decrypted credentials.
    */
-  get: brandRequiredProcedure
+  get: brandReadProcedure
     .input(getIntegrationSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -121,7 +125,7 @@ export const connectionsRouter = createTRPCRouter({
    *
    * Useful for checking if a specific integration type is already connected.
    */
-  getBySlug: brandRequiredProcedure
+  getBySlug: brandReadProcedure
     .input(getIntegrationBySlugSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -153,7 +157,7 @@ export const connectionsRouter = createTRPCRouter({
    * 3. Encrypt credentials
    * 4. Create brand integration record
    */
-  connect: brandRequiredProcedure
+  connect: brandWriteProcedure
     .input(connectApiKeySchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -225,7 +229,7 @@ export const connectionsRouter = createTRPCRouter({
    * - Match identifier (for secondary integrations)
    * - Primary status (will demote current primary if setting to true)
    */
-  update: brandRequiredProcedure
+  update: brandWriteProcedure
     .input(updateIntegrationSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -270,7 +274,7 @@ export const connectionsRouter = createTRPCRouter({
    *
    * Products and their data are NOT deleted - only the integration link is removed.
    */
-  disconnect: brandRequiredProcedure
+  disconnect: brandWriteProcedure
     .input(disconnectSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -295,7 +299,7 @@ export const connectionsRouter = createTRPCRouter({
    * Decrypts stored credentials and attempts to connect to the integration's API.
    * Returns success/failure status.
    */
-  testConnection: brandRequiredProcedure
+  testConnection: brandWriteProcedure
     .input(testConnectionSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -375,7 +379,7 @@ export const connectionsRouter = createTRPCRouter({
    * The operation runs asynchronously as a background job.
    * If no variants exist, the promotion happens instantly.
    */
-  promoteToPrimary: brandRequiredProcedure
+  promoteToPrimary: brandWriteProcedure
     .input(promoteToPrimarySchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -446,7 +450,7 @@ export const connectionsRouter = createTRPCRouter({
    * Used when a user installs from Shopify App Store first, then logs into Avelero.
    * This moves credentials from pending_installations to brand_integrations.
    */
-  claimInstallation: brandRequiredProcedure
+  claimInstallation: brandWriteProcedure
     .input(claimInstallationSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;

@@ -19,5 +19,6 @@ export * from "./passports";
 export * from "./dpp-versions";
 export * from "./snapshot";
 export * from "./publish";
+export * from "./publish-batch";
 export * from "./upid-generation";
 export * from "./qr-export";

@@ -107,14 +107,35 @@ export interface DppSnapshot {
 // =============================================================================
 
 /**
+ * Recursively sort object keys for deterministic JSON serialization.
+ */
+function sortObjectKeys(obj: unknown): unknown {
+  // Return primitives as-is.
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
+
+  // Recursively sort arrays.
+  if (Array.isArray(obj)) {
+    return obj.map(sortObjectKeys);
+  }
+
+  // Recursively sort object keys.
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(obj).sort()) {
+    sorted[key] = sortObjectKeys((obj as Record<string, unknown>)[key]);
+  }
+  return sorted;
+}
+
+/**
  * Calculate SHA-256 hash of the canonical JSON representation.
  * Used for integrity verification.
  */
 function calculateContentHash(data: unknown): string {
-  const canonicalJson = JSON.stringify(
-    data,
-    Object.keys(data as object).sort(),
-  );
+  // Canonicalize nested objects before hashing to keep snapshots stable.
+  const sortedData = sortObjectKeys(data);
+  const canonicalJson = JSON.stringify(sortedData);
   return createHash("sha256").update(canonicalJson, "utf8").digest("hex");
 }
 

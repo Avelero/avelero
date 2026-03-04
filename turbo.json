@@ -32,7 +32,7 @@
     },
     "test": {
       "cache": false,
-      "env": ["DATABASE_URL"]
+      "env": ["DATABASE_URL", "INTERNAL_API_KEY"]
     },
     "clean": {
       "cache": false

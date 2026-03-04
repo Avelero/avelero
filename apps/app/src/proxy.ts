@@ -22,9 +22,11 @@ export async function proxy(request: NextRequest) {
 
   // Check if pathname is login route: /login or /login/...
   const isLoginRoute = pathname === "/login" || pathname.startsWith("/login/");
+  const isForceSignOutRoute =
+    pathname === "/force-signout" || pathname.startsWith("/force-signout/");
 
   // Not authenticated - redirect to login
-  if (!user && !isLoginRoute && !isApiRoute) {
+  if (!user && !isLoginRoute && !isForceSignOutRoute && !isApiRoute) {
     const url = new URL("/login", request.url);
     if (encodedSearchParams) {
       url.searchParams.append("return_to", encodedSearchParams);

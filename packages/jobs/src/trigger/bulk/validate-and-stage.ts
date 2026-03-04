@@ -38,6 +38,11 @@ import {
   parseSemicolonSeparated,
   validateTemplateMatch,
 } from "../../lib/excel";
+import {
+  type UpidClaimMap,
+  buildUpidClaimMap,
+  hasGlobalUpidConflict,
+} from "../../lib/upid-collision";
 
 // ============================================================================
 // Types
@@ -97,6 +102,8 @@ interface PreFetchedData {
     string,
     Array<{ id: string; upid: string | null }>
   >;
+  /** Map of UPID -> existing global claims (variants + passports). */
+  upidClaims: UpidClaimMap;
 }
 
 /**
@@ -125,6 +132,7 @@ const {
   brandTags,
   brandOperators,
   brandManufacturers,
+  productPassports,
   products,
   productVariants,
 } = schema;
@@ -545,6 +553,13 @@ async function batchPreFetchExistingData(
 ): Promise<PreFetchedData> {
   // Extract all unique product handles from this batch
   const handles = batchProducts.map((p) => p.productHandle);
+  const batchUpids = Array.from(
+    new Set(
+      batchProducts
+        .flatMap((product) => product.variants.map((variant) => variant.upid))
+        .filter((upid): upid is string => Boolean(upid?.trim())),
+    ),
+  );
 
   // Single query: fetch existing products by handle for this batch
   const existingProducts = await database
@@ -587,7 +602,30 @@ async function batchPreFetchExistingData(
     }
   }
 
-  return { existingProductsByHandle, existingVariantsByProductId };
+  // Build global UPID claims for this batch so validation can block collisions early.
+  let upidClaims: UpidClaimMap = new Map();
+  if (batchUpids.length > 0) {
+    const [claimedVariants, claimedPassports] = await Promise.all([
+      database
+        .select({
+          id: productVariants.id,
+          upid: productVariants.upid,
+        })
+        .from(productVariants)
+        .where(inArray(productVariants.upid, batchUpids)),
+      database
+        .select({
+          upid: productPassports.upid,
+          workingVariantId: productPassports.workingVariantId,
+        })
+        .from(productPassports)
+        .where(inArray(productPassports.upid, batchUpids)),
+    ]);
+
+    upidClaims = buildUpidClaimMap(claimedVariants, claimedPassports);
+  }
+
+  return { existingProductsByHandle, existingVariantsByProductId, upidClaims };
 }
 
 // ============================================================================
@@ -896,6 +934,33 @@ function computeNormalizedRowData(
   const warningErrors: RowError[] = [];
   const normalizeKey = (s: string) => s.toLowerCase().trim();
 
+  // Resolve product and mode-specific action from pre-fetched lookups.
+  const existingProduct = preFetched.existingProductsByHandle.get(
+    product.productHandle.toLowerCase(),
+  );
+  const existingProductId = existingProduct?.id || null;
+
+  let productAction: ProductAction;
+  if (existingProductId) {
+    if (mode === "CREATE") {
+      productAction = "SKIP";
+    } else {
+      productAction = "ENRICH";
+    }
+  } else {
+    productAction = "CREATE";
+  }
+
+  const existingVariants = existingProductId
+    ? preFetched.existingVariantsByProductId.get(existingProductId) || []
+    : [];
+  const existingVariantsByUpid = new Map<string, string>();
+  for (const existingVariant of existingVariants) {
+    if (existingVariant.upid) {
+      existingVariantsByUpid.set(existingVariant.upid, existingVariant.id);
+    }
+  }
+
   // ========================================================================
   // BLOCKING VALIDATION: Missing Product Title = cannot create product
   // ========================================================================
@@ -988,7 +1053,9 @@ function computeNormalizedRowData(
 
   // Track errors per variant (by row number) for error reporting
   const variantErrorsByRow = new Map<number, RowError[]>();
+  const blockedVariantRows = new Set<number>();
   let hasVariantErrors = false; // Track if any variant has errors (for product status)
+  let hasBlockingVariantErrors = false;
 
   // Check for duplicate UPIDs within the file and validate variant-level fields
   for (let variantIdx = 0; variantIdx < product.variants.length; variantIdx++) {
@@ -1007,6 +1074,44 @@ function computeNormalizedRowData(
           message: `Duplicate UPID: ${variant.upid}. Variant will be skipped.`,
         });
       }
+    }
+
+    // Validate global UPID uniqueness (across variants + passports, all brands).
+    // For ENRICH mode, we allow the UPID only when it resolves to this product's
+    // existing variant (same variant ID).
+    let hasGlobalUpidCollision = false;
+    const existingVariantIdForUpid =
+      productAction === "ENRICH" && variant.upid
+        ? existingVariantsByUpid.get(variant.upid) || null
+        : null;
+    if (
+      variant.upid &&
+      hasGlobalUpidConflict(
+        preFetched.upidClaims.get(variant.upid),
+        existingVariantIdForUpid,
+      )
+    ) {
+      hasGlobalUpidCollision = true;
+      hasBlockingVariantErrors = true;
+      blockedVariantRows.add(variant.rowNumber);
+      variantErrors.push({
+        field: "UPID",
+        message: `UPID already exists globally: "${variant.upid}". Remove it to auto-generate a new UPID.`,
+      });
+    }
+
+    // ENRICH mode expects provided UPIDs to match an existing variant.
+    // If a global collision already exists, we avoid adding a second UPID error.
+    if (
+      productAction === "ENRICH" &&
+      variant.upid &&
+      !existingVariantIdForUpid &&
+      !hasGlobalUpidCollision
+    ) {
+      variantErrors.push({
+        field: "UPID",
+        message: `UPID not found in database: "${variant.upid}". UPID must match an existing variant.`,
+      });
     }
 
     // Validate attribute pairs - both must be present
@@ -1106,7 +1211,7 @@ function computeNormalizedRowData(
   // Determine row status (considers both product and variant errors)
   let rowStatus: StagingRowStatus;
   let canCommit: boolean;
-  if (blockingErrors.length > 0) {
+  if (blockingErrors.length > 0 || hasBlockingVariantErrors) {
     rowStatus = "BLOCKED";
     canCommit = false;
   } else if (warningErrors.length > 0 || hasVariantErrors) {
@@ -1125,23 +1230,6 @@ function computeNormalizedRowData(
     ? catalog.seasons.get(normalizeKey(product.seasonName)) ?? null
     : null;
 
-  // Determine action using PRE-FETCHED data (no DB query!)
-  const existingProduct = preFetched.existingProductsByHandle.get(
-    product.productHandle.toLowerCase(),
-  );
-  const existingProductId = existingProduct?.id || null;
-
-  let productAction: ProductAction;
-  if (existingProductId) {
-    if (mode === "CREATE") {
-      productAction = "SKIP";
-    } else {
-      productAction = "ENRICH";
-    }
-  } else {
-    productAction = "CREATE";
-  }
-
   // For SKIP action in CREATE mode, return success without normalized data
   if (productAction === "SKIP") {
     return {
@@ -1156,17 +1244,6 @@ function computeNormalizedRowData(
       normalized: null,
       raw: product.rawData,
     };
-  }
-
-  // Look up existing variants from PRE-FETCHED data (no DB query!)
-  const existingVariants = existingProductId
-    ? preFetched.existingVariantsByProductId.get(existingProductId) || []
-    : [];
-  const existingVariantsByUpid = new Map<string, string>();
-  for (const v of existingVariants) {
-    if (v.upid) {
-      existingVariantsByUpid.set(v.upid, v.id);
-    }
   }
 
   // Generate IDs
@@ -1194,17 +1271,13 @@ function computeNormalizedRowData(
       ...(variantErrorsByRow.get(variant.rowNumber) ?? []),
     ];
 
-    // Validate UPID: if provided but doesn't exist in database, it's an error
-    // This only applies in ENRICH mode where we expect UPIDs to match existing variants
-    if (productAction === "ENRICH" && variant.upid && !existingVariantId) {
-      variantRowErrors.push({
-        field: "UPID",
-        message: `UPID not found in database: "${variant.upid}". UPID must match an existing variant.`,
-      });
-    }
-
-    const variantRowStatus: NormalizedRowStatus =
-      variantRowErrors.length > 0 ? "PENDING_WITH_WARNINGS" : "PENDING";
+    const variantRowStatus: NormalizedRowStatus = blockedVariantRows.has(
+      variant.rowNumber,
+    )
+      ? "BLOCKED"
+      : variantRowErrors.length > 0
+        ? "PENDING_WITH_WARNINGS"
+        : "PENDING";
 
     // Build variant attributes
     const attributes: NormalizedVariant["attributes"] = [];

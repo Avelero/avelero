@@ -1,7 +1,7 @@
 "use client";
 
+import { startOtpAction } from "@/actions/auth/start-otp-action";
 import { verifyOtpAction } from "@/actions/auth/verify-otp-action";
-import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
@@ -14,36 +14,47 @@ type Props = {
   className?: string;
 };
 
-/**
- * Converts technical Supabase error messages to user-friendly ones.
- * Prevents showing developer-facing errors to end users.
- */
-function sanitizeErrorMessage(message: string | undefined): string {
-  if (!message) return "Something went wrong. Please try again.";
+const INVITE_REQUIRED_MESSAGE =
+  "This email address needs an active invitation before sign-in is allowed.";
+const BRAND_ACCESS_REMOVED_MESSAGE =
+  "Your brand access has been removed, please contact your administrator.";
+const RATE_LIMITED_MESSAGE =
+  "Too many attempts. Please wait a moment and try again.";
+const GENERIC_MESSAGE = "Unable to sign in. Please try again.";
 
-  // List of patterns that indicate technical/developer errors
-  const technicalErrorPatterns = [
-    /failed to reach hook/i,
-    /maximum time of \d+/i,
-    /hook.*timeout/i,
-    /internal server error/i,
-    /unexpected.*error/i,
-    /fetch failed/i,
-    /network.*error/i,
-  ];
+function getAuthErrorMessage(errorCode: string | null | undefined): string {
+  if (errorCode === "invite-required") return INVITE_REQUIRED_MESSAGE;
+  if (errorCode === "brand-access-removed") return BRAND_ACCESS_REMOVED_MESSAGE;
+  if (errorCode === "auth-rate-limited") return RATE_LIMITED_MESSAGE;
+  return GENERIC_MESSAGE;
+}
 
-  // Check if the message matches any technical error pattern
-  for (const pattern of technicalErrorPatterns) {
-    if (pattern.test(message)) {
-      return "Something went wrong. Please try again.";
-    }
+function getQueryErrorMessage(
+  errorCode: string | null,
+  provider: string | null,
+): string | null {
+  if (provider && provider !== "otp") return null;
+  if (!errorCode) return null;
+
+  if (errorCode === "invite-required") {
+    return INVITE_REQUIRED_MESSAGE;
+  }
+  if (errorCode === "brand-access-removed") {
+    return BRAND_ACCESS_REMOVED_MESSAGE;
+  }
+  if (errorCode === "auth-rate-limited") {
+    return RATE_LIMITED_MESSAGE;
   }
 
-  // Return the original message if it's user-friendly
-  return message;
+  if (errorCode === "auth-unavailable") {
+    return GENERIC_MESSAGE;
+  }
+
+  return null;
 }
 
 export function OTPSignIn({ className }: Props) {
+  const startOtp = useAction(startOtpAction);
   const verifyOtp = useAction(verifyOtpAction);
   const [isLoading, setLoading] = useState(false);
   const [isSent, setSent] = useState(false);
@@ -51,23 +62,31 @@ export function OTPSignIn({ className }: Props) {
   const [email, setEmail] = useState<string>();
   const [otpValue, setOtpValue] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
-  const supabase = createClient();
+  const [showQueryError, setShowQueryError] = useState(true);
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const startOtpResetRef = useRef(startOtp.reset);
+  const verifyOtpResetRef = useRef(verifyOtp.reset);
+  const queryErrorMessage = getQueryErrorMessage(
+    searchParams.get("error"),
+    searchParams.get("provider"),
+  );
+  const visibleError = sendError ?? (showQueryError ? queryErrorMessage : null);
 
-  // Track mount count to force reset on navigation (handles bfcache)
-  const mountCountRef = useRef(0);
+  startOtpResetRef.current = startOtp.reset;
+  verifyOtpResetRef.current = verifyOtp.reset;
 
-  // Reset all form state on mount and when navigating back to this page
+  // Reset form state when the route changes.
   useEffect(() => {
-    mountCountRef.current += 1;
     setSent(false);
     setOtpValue("");
     setEmailInput("");
     setEmail(undefined);
     setSendError(null);
+    setShowQueryError(true);
     setLoading(false);
-    verifyOtp.reset();
+    startOtpResetRef.current();
+    verifyOtpResetRef.current();
   }, [pathname]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -90,24 +109,36 @@ export function OTPSignIn({ className }: Props) {
       return;
     }
 
+    const normalizedEmail = emailValue.toLowerCase();
     setLoading(true);
-    setEmail(emailValue);
+    setEmail(normalizedEmail);
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: emailValue,
-      options: {
-        shouldCreateUser: true,
-      },
-    });
+    try {
+      const result = await startOtp.executeAsync({
+        email: normalizedEmail,
+      });
 
-    if (error) {
-      setSendError(sanitizeErrorMessage(error.message));
+      if (result?.serverError) {
+        setSendError(GENERIC_MESSAGE);
+        return;
+      }
+
+      const actionData = result?.data;
+      if (!actionData?.ok) {
+        const errorCode =
+          actionData && "errorCode" in actionData
+            ? actionData.errorCode
+            : "auth-unavailable";
+        setSendError(getAuthErrorMessage(errorCode));
+        return;
+      }
+
+      setSent(true);
+    } catch {
+      setSendError(GENERIC_MESSAGE);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setSent(true);
-    setLoading(false);
   }
 
   async function onComplete(token: string) {
@@ -232,16 +263,17 @@ export function OTPSignIn({ className }: Props) {
             onChange={(e) => {
               setEmailInput(e.target.value);
               setSendError(null);
+              setShowQueryError(false);
             }}
             className={cn(
-              sendError &&
+              visibleError &&
                 "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none",
             )}
-            aria-invalid={!!sendError}
+            aria-invalid={!!visibleError}
           />
-          {sendError && (
+          {visibleError && (
             <p className="text-[12px] leading-[16px] text-destructive px-0.5">
-              {sendError}
+              {visibleError}
             </p>
           )}
         </div>

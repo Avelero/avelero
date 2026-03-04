@@ -5,7 +5,7 @@ import { connection } from "next/server";
 export default async function SettingsCertificationsPage() {
   await connection();
 
-  await batchPrefetch([
+  batchPrefetch([
     trpc.catalog.certifications.list.queryOptions(undefined),
     trpc.composite.catalogContent.queryOptions(),
   ]);

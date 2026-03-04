@@ -5,7 +5,7 @@ import { connection } from "next/server";
 export default async function SettingsSeasonsPage() {
   await connection();
 
-  await batchPrefetch([
+  batchPrefetch([
     trpc.catalog.seasons.list.queryOptions(undefined),
     trpc.composite.catalogContent.queryOptions(),
   ]);

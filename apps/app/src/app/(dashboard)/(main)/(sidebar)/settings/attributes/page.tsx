@@ -5,7 +5,7 @@ import { connection } from "next/server";
 export default async function SettingsAttributesPage() {
   await connection();
 
-  await batchPrefetch([
+  batchPrefetch([
     trpc.catalog.attributes.listGrouped.queryOptions(undefined),
     trpc.composite.catalogContent.queryOptions(),
   ]);

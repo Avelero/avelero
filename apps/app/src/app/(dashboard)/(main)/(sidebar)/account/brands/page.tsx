@@ -5,7 +5,7 @@ import { connection } from "next/server";
 export default async function Page() {
   await connection();
 
-  await prefetch(trpc.user.invites.list.queryOptions());
+  prefetch(trpc.user.invites.list.queryOptions());
 
   return (
     <HydrateClient>

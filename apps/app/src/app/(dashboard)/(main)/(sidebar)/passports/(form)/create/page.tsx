@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default async function CreatePassportsPage() {
   await connection();
 
-  await prefetch(trpc.composite.catalogContent.queryOptions());
+  prefetch(trpc.composite.catalogContent.queryOptions());
 
   return (
     <HydrateClient>

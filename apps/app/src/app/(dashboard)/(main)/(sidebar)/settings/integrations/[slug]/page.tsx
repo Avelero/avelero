@@ -10,7 +10,7 @@ export default async function IntegrationDetailPage({ params }: PageProps) {
   await connection();
   const { slug } = await params;
 
-  await batchPrefetch([
+  batchPrefetch([
     trpc.integrations.connections.getBySlug.queryOptions({ slug }),
     trpc.integrations.connections.list.queryOptions({}),
   ]);

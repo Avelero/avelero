@@ -16,7 +16,7 @@ export default async function EditPassportPage({
 
   const { handle } = await params;
 
-  await batchPrefetch([
+  batchPrefetch([
     trpc.products.get.queryOptions({
       handle,
       includeVariants: true,

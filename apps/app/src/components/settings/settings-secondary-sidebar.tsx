@@ -1,20 +1,14 @@
 "use client";
 
-/**
- * Settings Secondary Sidebar
- *
- * Renders settings sub-navigation links with keep-warm prefetch behavior.
- */
-
 import {
   SETTINGS_NAV_GROUPS,
   getActiveSettingsNavItem,
   type SettingsNavIconKey,
 } from "@/lib/settings-navigation";
-import { SmartLink } from "@/components/smart-link";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const SETTINGS_NAV_ICONS: Record<SettingsNavIconKey, LucideIcon> = {
@@ -32,7 +26,6 @@ const SETTINGS_NAV_ICONS: Record<SettingsNavIconKey, LucideIcon> = {
 };
 
 export function SettingsSecondarySidebar() {
-  // Computes active state and renders grouped settings route links.
   const pathname = usePathname();
   const activeItem = getActiveSettingsNavItem(pathname);
 
@@ -54,7 +47,7 @@ export function SettingsSecondarySidebar() {
                   const isActive = activeItem?.href === item.href;
 
                   return (
-                    <SmartLink
+                    <Link
                       key={item.href}
                       href={item.href}
                       prefetch
@@ -101,7 +94,7 @@ export function SettingsSecondarySidebar() {
                           {item.label}
                         </span>
                       </div>
-                    </SmartLink>
+                    </Link>
                   );
                 })}
               </div>

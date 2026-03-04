@@ -5,7 +5,7 @@ import { connection } from "next/server";
 export default async function SettingsMaterialsPage() {
   await connection();
 
-  await batchPrefetch([
+  batchPrefetch([
     trpc.catalog.materials.list.queryOptions(undefined),
     trpc.composite.catalogContent.queryOptions(),
   ]);

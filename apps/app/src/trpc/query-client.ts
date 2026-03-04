@@ -1,6 +1,7 @@
 import {
   QueryClient,
   defaultShouldDehydrateQuery,
+  isServer,
 } from "@tanstack/react-query";
 import superjson from "superjson";
 
@@ -17,23 +18,16 @@ export function makeQueryClient(): QueryClient {
          * Keep data fresh for 60 seconds to prevent unnecessary refetches.
          * Queries within this window reuse cached data instead of refetching.
          */
-        staleTime: 60 * 1000,
+        staleTime: 2 * 60 * 1000,
         /**
          * Deduplicate identical requests within 1 second.
          * Prevents triple-render behavior from triggering multiple network calls.
          */
-        gcTime: 1000 * 60 * 5, // 5 minutes garbage collection
+        gcTime: 10 * 60 * 1000,
         /**
-         * Disable automatic refetch on window focus during development.
-         * Reduces noise when switching between editor and browser.
+         * Avoid server-side retry stalls; keep moderate retries on the client.
          */
-        refetchOnWindowFocus: process.env.NODE_ENV === "production",
-        /**
-         * Enable retry with exponential backoff for transient failures.
-         */
-        retry: 3,
-        retryDelay: (attemptIndex: number): number =>
-          Math.min(1000 * 2 ** attemptIndex, 30000),
+        retry: isServer ? 0 : 2,
       },
       dehydrate: {
         serializeData: superjson.serialize,

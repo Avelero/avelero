@@ -11,7 +11,11 @@ import { makeQueryClient } from "./query-client";
 
 export const getQueryClient = cache(makeQueryClient);
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL as string;
+const apiUrl =
+  (process.env.API_INTERNAL_URL as string | undefined) ??
+  (process.env.NEXT_PUBLIC_API_URL as string);
+
+const SSR_FETCH_TIMEOUT_MS = 8_000;
 
 /**
  * Get the auth token from request headers.
@@ -31,17 +35,27 @@ async function fetchWithAuth(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
+  const timeoutSignal = AbortSignal.timeout(SSR_FETCH_TIMEOUT_MS);
+  const signal = init?.signal
+    ? AbortSignal.any([init.signal, timeoutSignal])
+    : timeoutSignal;
+
   const token = await getAuthToken();
-  const authHeaders: HeadersInit = token
-    ? { Authorization: `Bearer ${token}` }
-    : {};
+  const requestHeaders = new Headers(init?.headers);
+
+  if (token) {
+    requestHeaders.set("Authorization", `Bearer ${token}`);
+  }
+
+  // Prevent stale keep-alive sockets when using internal API networking.
+  if (process.env.API_INTERNAL_URL) {
+    requestHeaders.set("Connection", "close");
+  }
 
   return fetch(input, {
     ...init,
-    headers: {
-      ...init?.headers,
-      ...authHeaders,
-    },
+    signal,
+    headers: requestHeaders,
   });
 }
 
@@ -74,16 +88,7 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
  *
  * @see https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
  *
- * @example
- * ```tsx
- * // In a server component page
- * await batchPrefetch([trpc.products.list.queryOptions()]);
- * return (
- *   <HydrateClient>
- *     <ProductList /> // Client component uses useSuspenseQuery
- *   </HydrateClient>
- * );
- * ```
+ * Start prefetches first, then render HydrateClient.
  */
 export function HydrateClient(props: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
@@ -97,67 +102,64 @@ export function HydrateClient(props: { children: React.ReactNode }) {
 /**
  * Prefetch a query on the server.
  *
- * Errors are caught and logged rather than thrown to prevent auth failures
- * during RSC navigation from breaking the entire page. If prefetch fails,
- * the client will refetch with client-side auth.
+ * Starts a query prefetch without blocking route rendering.
  */
-export async function prefetch<T>(queryOptions: T) {
+export function prefetch<T>(queryOptions: T) {
   const queryClient = getQueryClient();
   const qo = queryOptions as { queryKey?: unknown[] };
   const second =
     (qo.queryKey?.[1] as { type?: string } | undefined) ?? undefined;
   const isInfinite = second?.type === "infinite";
-  try {
-    if (isInfinite) {
-      await queryClient.prefetchInfiniteQuery(
+  if (isInfinite) {
+    void queryClient
+      .prefetchInfiniteQuery(
         queryOptions as Parameters<
           (typeof queryClient)["prefetchInfiniteQuery"]
         >[0],
-      );
-    } else {
-      await queryClient.prefetchQuery(
+      )
+      .catch(() => {
+        // Avoid unhandled promise rejections from fire-and-forget prefetches.
+      });
+  } else {
+    void queryClient
+      .prefetchQuery(
         queryOptions as Parameters<(typeof queryClient)["prefetchQuery"]>[0],
-      );
-    }
-  } catch (error) {
-    // Log but don't throw - let the client refetch if server prefetch fails
-    console.error("[prefetch] Server prefetch failed:", error);
+      )
+      .catch(() => {
+        // Avoid unhandled promise rejections from fire-and-forget prefetches.
+      });
   }
 }
 
 /**
- * Prefetch multiple queries on the server in parallel.
- *
- * Errors are caught and logged rather than thrown to prevent auth failures
- * during RSC navigation from breaking the entire page. If prefetch fails,
- * the client will refetch with client-side auth.
+ * Starts multiple query prefetches without blocking route rendering.
  */
-export async function batchPrefetch<T>(queryOptionsArray: T[]) {
+export function batchPrefetch<T>(queryOptionsArray: T[]) {
   const queryClient = getQueryClient();
-  await Promise.all(
-    queryOptionsArray.map(async (queryOptions) => {
-      const qo = queryOptions as { queryKey?: unknown[] };
-      const second =
-        (qo.queryKey?.[1] as { type?: string } | undefined) ?? undefined;
-      const isInfinite = second?.type === "infinite";
-      try {
-        if (isInfinite) {
-          await queryClient.prefetchInfiniteQuery(
-            queryOptions as Parameters<
-              (typeof queryClient)["prefetchInfiniteQuery"]
-            >[0],
-          );
-        } else {
-          await queryClient.prefetchQuery(
-            queryOptions as Parameters<
-              (typeof queryClient)["prefetchQuery"]
-            >[0],
-          );
-        }
-      } catch (error) {
-        // Log but don't throw - let the client refetch if server prefetch fails
-        console.error("[batchPrefetch] Server prefetch failed:", error);
-      }
-    }),
-  );
+  for (const queryOptions of queryOptionsArray) {
+    const qo = queryOptions as { queryKey?: unknown[] };
+    const second =
+      (qo.queryKey?.[1] as { type?: string } | undefined) ?? undefined;
+    const isInfinite = second?.type === "infinite";
+
+    if (isInfinite) {
+      void queryClient
+        .prefetchInfiniteQuery(
+          queryOptions as Parameters<
+            (typeof queryClient)["prefetchInfiniteQuery"]
+          >[0],
+        )
+        .catch(() => {
+          // Avoid unhandled promise rejections from fire-and-forget prefetches.
+        });
+    } else {
+      void queryClient
+        .prefetchQuery(
+          queryOptions as Parameters<(typeof queryClient)["prefetchQuery"]>[0],
+        )
+        .catch(() => {
+          // Avoid unhandled promise rejections from fire-and-forget prefetches.
+        });
+    }
+  }
 }

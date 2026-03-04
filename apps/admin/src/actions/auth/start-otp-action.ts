@@ -16,11 +16,7 @@ const schema = z.object({
 
 type StartOtpActionResult =
   | { ok: true }
-  | {
-      ok: false;
-      errorCode: AdminAuthErrorCode;
-      debug?: Record<string, unknown>;
-    };
+  | { ok: false; errorCode: AdminAuthErrorCode };
 
 export const startOtpAction = actionClient
   .schema(schema)
@@ -29,25 +25,11 @@ export const startOtpAction = actionClient
     const allowlistAccess = await isPlatformAdminEmailAllowlisted(normalizedEmail);
 
     if (allowlistAccess.unavailable) {
-      return {
-        ok: false,
-        errorCode: "auth-unavailable",
-        debug: {
-          stage: "allowlist-check",
-          allowlistDebug: allowlistAccess.debug,
-        },
-      };
+      return { ok: false, errorCode: "auth-unavailable" };
     }
 
     if (!allowlistAccess.allowed) {
-      return {
-        ok: false,
-        errorCode: "auth-denied",
-        debug: {
-          stage: "allowlist-check",
-          allowlistDebug: allowlistAccess.debug,
-        },
-      };
+      return { ok: false, errorCode: "auth-denied" };
     }
 
     const supabase = await createClient();
@@ -59,23 +41,13 @@ export const startOtpAction = actionClient
     });
 
     if (error) {
-      const mappedErrorCode = mapAdminOtpStartSupabaseError({
-        message: error.message,
-        code: error.code,
-        status: error.status,
-      });
-
       return {
         ok: false,
-        errorCode: mappedErrorCode,
-        debug: {
-          stage: "otp-send",
-          supabaseError: {
-            message: error.message ?? null,
-            code: error.code ?? null,
-            status: error.status ?? null,
-          },
-        },
+        errorCode: mapAdminOtpStartSupabaseError({
+          message: error.message,
+          code: error.code,
+          status: error.status,
+        }),
       };
     }
 

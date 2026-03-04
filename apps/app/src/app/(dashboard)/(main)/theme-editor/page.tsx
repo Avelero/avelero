@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default async function Page() {
   await connection();
 
-  prefetch(trpc.brand.theme.get.queryOptions());
+  await prefetch(trpc.brand.theme.get.queryOptions());
 
   return (
     <HydrateClient>

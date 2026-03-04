@@ -19,17 +19,6 @@ const BRAND_ACCESS_REMOVED_MESSAGE =
   "Your brand access has been removed, please contact your administrator.";
 const RATE_LIMITED_MESSAGE =
   "Too many attempts. Please wait a moment and try again.";
-const DEBUG_SCOPE = "[TEMP_DEBUG][app-auth][google]";
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!local || !domain) return "***";
-  return `${local.slice(0, Math.min(2, local.length))}***@${domain}`;
-}
-
-function debugLog(event: string, payload: Record<string, unknown> = {}) {
-  console.info(`${DEBUG_SCOPE} ${event}`, payload);
-}
 
 function sanitizeGoogleErrorMessage(message: string | undefined): string {
   if (!message) return GENERIC_GOOGLE_ERROR;
@@ -105,11 +94,9 @@ function extractEmailFromIdToken(token: string): string | null {
 export function GoogleSignin() {
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
-  const queryErrorCode = searchParams.get("error");
-  const queryProvider = searchParams.get("provider");
   const queryErrorMessage = getQueryGoogleErrorMessage(
-    queryErrorCode,
-    queryProvider,
+    searchParams.get("error"),
+    searchParams.get("provider"),
   );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,20 +115,10 @@ export function GoogleSignin() {
     setErrorMessage(queryErrorMessage);
   }, [queryErrorMessage]);
 
-  useEffect(() => {
-    if (!queryErrorCode) return;
-    debugLog("query-error", {
-      errorCode: queryErrorCode,
-      provider: queryProvider,
-      mappedMessage: queryErrorMessage,
-    });
-  }, [queryErrorCode, queryErrorMessage, queryProvider]);
-
   const handleGoogleResponse = useCallback(
     async (response: GoogleCredentialResponse) => {
       const token = response.credential;
       if (!token) {
-        debugLog("id-token-missing");
         setErrorMessage(GENERIC_GOOGLE_ERROR);
         setIsSubmitting(false);
         return;
@@ -152,29 +129,18 @@ export function GoogleSignin() {
 
       const tokenEmail = extractEmailFromIdToken(token);
       if (!tokenEmail) {
-        debugLog("id-token-email-missing");
         setErrorMessage(GENERIC_GOOGLE_ERROR);
         setIsSubmitting(false);
         return;
       }
 
       try {
-        debugLog("supabase-id-token-start", {
-          email: maskEmail(tokenEmail),
-        });
-
         const { error } = await supabase.auth.signInWithIdToken({
           provider: "google",
           token,
         });
 
         if (error) {
-          debugLog("supabase-id-token-error", {
-            email: maskEmail(tokenEmail),
-            message: error.message ?? null,
-            code: error.code ?? null,
-            status: error.status ?? null,
-          });
           setErrorMessage(sanitizeGoogleErrorMessage(error.message));
           setIsSubmitting(false);
           return;
@@ -190,22 +156,8 @@ export function GoogleSignin() {
         }
 
         // Single Google sign-in flow: popup id token sign-in, then one redirect to app callback.
-        debugLog("redirecting-callback", {
-          email: maskEmail(tokenEmail),
-          target: redirectTo.toString(),
-        });
         window.location.assign(redirectTo.toString());
-      } catch (error) {
-        debugLog("google-signin-exception", {
-          email: maskEmail(tokenEmail),
-          error:
-            error instanceof Error
-              ? {
-                  name: error.name,
-                  message: error.message,
-                }
-              : String(error),
-        });
+      } catch {
         setErrorMessage(GENERIC_GOOGLE_ERROR);
         setIsSubmitting(false);
       }
@@ -217,7 +169,6 @@ export function GoogleSignin() {
     let isMounted = true;
 
     if (!googleClientId) {
-      debugLog("google-client-id-missing");
       setErrorMessage(
         "Google sign-in is unavailable. Please use email verification.",
       );
@@ -233,10 +184,6 @@ export function GoogleSignin() {
         const buttonContainer = hiddenGoogleButtonRef.current;
 
         if (!googleId || !buttonContainer) {
-          debugLog("google-script-ready-but-id-api-missing", {
-            hasGoogleIdApi: !!googleId,
-            hasButtonContainer: !!buttonContainer,
-          });
           setErrorMessage(GENERIC_GOOGLE_ERROR);
           return;
         }
@@ -258,17 +205,8 @@ export function GoogleSignin() {
         });
 
         setIsReady(true);
-      } catch (error) {
+      } catch {
         if (!isMounted) return;
-        debugLog("google-init-exception", {
-          error:
-            error instanceof Error
-              ? {
-                  name: error.name,
-                  message: error.message,
-                }
-              : String(error),
-        });
         setErrorMessage(GENERIC_GOOGLE_ERROR);
       }
     };

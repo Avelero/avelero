@@ -21,17 +21,6 @@ const BRAND_ACCESS_REMOVED_MESSAGE =
 const RATE_LIMITED_MESSAGE =
   "Too many attempts. Please wait a moment and try again.";
 const GENERIC_MESSAGE = "Unable to sign in. Please try again.";
-const DEBUG_SCOPE = "[TEMP_DEBUG][app-auth][otp]";
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!local || !domain) return "***";
-  return `${local.slice(0, Math.min(2, local.length))}***@${domain}`;
-}
-
-function debugLog(event: string, payload: Record<string, unknown> = {}) {
-  console.info(`${DEBUG_SCOPE} ${event}`, payload);
-}
 
 function getAuthErrorMessage(errorCode: string | null | undefined): string {
   if (errorCode === "invite-required") return INVITE_REQUIRED_MESSAGE;
@@ -76,13 +65,11 @@ export function OTPSignIn({ className }: Props) {
   const [showQueryError, setShowQueryError] = useState(true);
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const queryErrorCode = searchParams.get("error");
-  const queryProvider = searchParams.get("provider");
   const startOtpResetRef = useRef(startOtp.reset);
   const verifyOtpResetRef = useRef(verifyOtp.reset);
   const queryErrorMessage = getQueryErrorMessage(
-    queryErrorCode,
-    queryProvider,
+    searchParams.get("error"),
+    searchParams.get("provider"),
   );
   const visibleError = sendError ?? (showQueryError ? queryErrorMessage : null);
 
@@ -101,15 +88,6 @@ export function OTPSignIn({ className }: Props) {
     startOtpResetRef.current();
     verifyOtpResetRef.current();
   }, [pathname]);
-
-  useEffect(() => {
-    if (!queryErrorCode) return;
-    debugLog("query-error", {
-      errorCode: queryErrorCode,
-      provider: queryProvider,
-      mappedMessage: queryErrorMessage,
-    });
-  }, [queryErrorCode, queryErrorMessage, queryProvider]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -136,19 +114,11 @@ export function OTPSignIn({ className }: Props) {
     setEmail(normalizedEmail);
 
     try {
-      debugLog("startOtp.execute", {
-        email: maskEmail(normalizedEmail),
-      });
-
       const result = await startOtp.executeAsync({
         email: normalizedEmail,
       });
 
       if (result?.serverError) {
-        debugLog("startOtp.server-error", {
-          email: maskEmail(normalizedEmail),
-          serverError: result.serverError,
-        });
         setSendError(GENERIC_MESSAGE);
         return;
       }
@@ -159,32 +129,12 @@ export function OTPSignIn({ className }: Props) {
           actionData && "errorCode" in actionData
             ? actionData.errorCode
             : "auth-unavailable";
-        const debugData =
-          actionData && "debug" in actionData ? actionData.debug : undefined;
-        debugLog("startOtp.denied", {
-          email: maskEmail(normalizedEmail),
-          errorCode,
-          debug: debugData ?? null,
-        });
         setSendError(getAuthErrorMessage(errorCode));
         return;
       }
 
-      debugLog("startOtp.success", {
-        email: maskEmail(normalizedEmail),
-      });
       setSent(true);
-    } catch (error) {
-      debugLog("startOtp.exception", {
-        email: maskEmail(normalizedEmail),
-        error:
-          error instanceof Error
-            ? {
-                name: error.name,
-                message: error.message,
-              }
-            : String(error),
-      });
+    } catch {
       setSendError(GENERIC_MESSAGE);
     } finally {
       setLoading(false);
@@ -211,10 +161,6 @@ export function OTPSignIn({ className }: Props) {
 
     // If there's an error, clear the OTP so user can try again
     if (result?.serverError) {
-      debugLog("verifyOtp.server-error", {
-        email: maskEmail(email),
-        serverError: result.serverError,
-      });
       setOtpValue("");
     }
   }

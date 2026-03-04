@@ -12,66 +12,16 @@ export function normalizeAuthEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-type ErrorDebug = {
-  message: string | null;
-  code: string | null;
-  details: string | null;
-  hint: string | null;
-  status: number | null;
-};
-
-function toErrorDebug(
-  error:
-    | {
-        message?: string;
-        code?: string;
-        details?: string;
-        hint?: string;
-        status?: number;
-      }
-    | null
-    | undefined,
-): ErrorDebug {
-  return {
-    message: error?.message ?? null,
-    code: error?.code ?? null,
-    details: error?.details ?? null,
-    hint: error?.hint ?? null,
-    status: typeof error?.status === "number" ? error.status : null,
-  };
-}
-
-export type MainOtpPolicyDebug =
-  | { stage: "invalid-email" }
-  | {
-      stage: "policy-rpc-error";
-      rpcErrors: {
-        allowlist: ErrorDebug | null;
-        invite: ErrorDebug | null;
-        authUser: ErrorDebug | null;
-        membership: ErrorDebug | null;
-      };
-    }
-  | { stage: "policy-allowlisted" }
-  | { stage: "policy-invited" }
-  | { stage: "policy-member" }
-  | { stage: "policy-brand-access-removed" }
-  | { stage: "policy-invite-required" };
-
 type MainAuthStartPolicyDecision =
-  | { ok: true; debug?: MainOtpPolicyDebug }
-  | { ok: false; errorCode: MainAuthErrorCode; debug?: MainOtpPolicyDebug };
+  | { ok: true }
+  | { ok: false; errorCode: MainAuthErrorCode };
 
 export async function evaluateMainOtpStartPolicy(
   email: string,
 ): Promise<MainAuthStartPolicyDecision> {
   const normalizedEmail = normalizeAuthEmail(email);
   if (!normalizedEmail) {
-    return {
-      ok: false,
-      errorCode: "auth-unavailable",
-      debug: { stage: "invalid-email" },
-    };
+    return { ok: false, errorCode: "auth-unavailable" };
   }
 
   const admin = await createClient({ admin: true });
@@ -94,25 +44,7 @@ export async function evaluateMainOtpStartPolicy(
     authUserResult.error ||
     membershipResult.error
   ) {
-    return {
-      ok: false,
-      errorCode: "auth-unavailable",
-      debug: {
-        stage: "policy-rpc-error",
-        rpcErrors: {
-          allowlist: allowlistResult.error
-            ? toErrorDebug(allowlistResult.error)
-            : null,
-          invite: inviteResult.error ? toErrorDebug(inviteResult.error) : null,
-          authUser: authUserResult.error
-            ? toErrorDebug(authUserResult.error)
-            : null,
-          membership: membershipResult.error
-            ? toErrorDebug(membershipResult.error)
-            : null,
-        },
-      },
-    };
+    return { ok: false, errorCode: "auth-unavailable" };
   }
 
   const isAllowlisted = allowlistResult.data === true;
@@ -121,28 +53,14 @@ export async function evaluateMainOtpStartPolicy(
   const hasExistingAccount = authUserResult.data === true;
 
   if (isAllowlisted || hasPendingInvite || hasMembership) {
-    if (isAllowlisted) {
-      return { ok: true, debug: { stage: "policy-allowlisted" } };
-    }
-    if (hasPendingInvite) {
-      return { ok: true, debug: { stage: "policy-invited" } };
-    }
-    return { ok: true, debug: { stage: "policy-member" } };
+    return { ok: true };
   }
 
   if (hasExistingAccount) {
-    return {
-      ok: false,
-      errorCode: "brand-access-removed",
-      debug: { stage: "policy-brand-access-removed" },
-    };
+    return { ok: false, errorCode: "brand-access-removed" };
   }
 
-  return {
-    ok: false,
-    errorCode: "invite-required",
-    debug: { stage: "policy-invite-required" },
-  };
+  return { ok: false, errorCode: "invite-required" };
 }
 
 type AuthOtpError = {

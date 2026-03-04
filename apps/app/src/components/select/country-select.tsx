@@ -1,3 +1,4 @@
+/** Country select component with searchable options. */
 "use client";
 
 import { countries } from "@v1/selections/countries";
@@ -41,6 +42,7 @@ export function CountrySelect({
   className,
   container,
 }: CountrySelectProps) {
+  // Manage popover visibility and local search state.
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,8 +51,6 @@ export function CountrySelect({
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 0);
-    } else {
-      setSearchTerm("");
     }
   }, [open]);
 
@@ -72,11 +72,21 @@ export function CountrySelect({
   const displayValue = selectedOption?.label || placeholder;
   const isPlaceholder = !selectedOption;
 
+  // Persist filtered state during close animation, then close the popover.
   const handleSelect = (code: string) => {
     const country = countries[code as keyof typeof countries];
     onChange(code, country?.name);
     setOpen(false);
-    setSearchTerm("");
+  };
+
+  // Clear the search only after close animation completes to avoid flicker.
+  const handleContentAnimationEnd = (
+    event: React.AnimationEvent<HTMLDivElement>,
+  ) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.currentTarget.dataset.state === "closed") {
+      setSearchTerm("");
+    }
   };
 
   return (
@@ -98,7 +108,11 @@ export function CountrySelect({
             <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
           </Button>
         </SelectTrigger>
-        <SelectContent shouldFilter={false} container={container}>
+        <SelectContent
+          shouldFilter={false}
+          container={container}
+          onAnimationEnd={handleContentAnimationEnd}
+        >
           <SelectSearch
             ref={inputRef}
             placeholder="Search..."

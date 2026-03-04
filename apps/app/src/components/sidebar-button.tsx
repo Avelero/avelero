@@ -1,10 +1,16 @@
 "use client";
 
+/**
+ * Sidebar Button Component
+ *
+ * Renders one sidebar action and applies keep-warm navigation for route links.
+ */
+
 import { cn } from "@v1/ui/cn";
 import { LordIcon, type LottieRefCurrentProps } from "@v1/ui/lord-icon";
 import type { LucideIcon } from "lucide-react";
-import Link from "next/link";
 import { useRef } from "react";
+import { SmartLink } from "./smart-link";
 
 interface ItemData {
   path?: string;
@@ -35,6 +41,7 @@ export function SidebarButton({
   onSelect,
   onClick,
 }: SidebarButtonProps) {
+  // Plays hover icon animations and renders link/button content for one item.
   const lottieRef = useRef<LottieRefCurrentProps>(null);
 
   const handleMouseEnter = () => {
@@ -121,7 +128,7 @@ export function SidebarButton({
       onMouseLeave={handleMouseLeave}
     >
       {item.path ? (
-        <Link
+        <SmartLink
           prefetch
           href={item.path}
           onClick={() => onSelect?.()}
@@ -129,7 +136,7 @@ export function SidebarButton({
           className="relative block h-10"
         >
           {content}
-        </Link>
+        </SmartLink>
       ) : (
         <button
           type="button"

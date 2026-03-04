@@ -12,21 +12,10 @@ import { useEffect, useRef, useState } from "react";
 
 const GENERIC_ERROR = "Unable to sign in. Please contact your administrator.";
 const RATE_LIMITED_ERROR = "Too many attempts. Please wait a moment and try again.";
-const DEBUG_SCOPE = "[TEMP_DEBUG][admin-auth][otp]";
 
 type Props = {
   className?: string;
 };
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!local || !domain) return "***";
-  return `${local.slice(0, Math.min(2, local.length))}***@${domain}`;
-}
-
-function debugLog(event: string, payload: Record<string, unknown> = {}) {
-  console.info(`${DEBUG_SCOPE} ${event}`, payload);
-}
 
 export function OTPSignIn({ className }: Props) {
   const startOtp = useAction(startOtpAction);
@@ -77,19 +66,11 @@ export function OTPSignIn({ className }: Props) {
     setEmail(normalized);
 
     try {
-      debugLog("startOtp.execute", {
-        email: maskEmail(normalized),
-      });
-
       const result = await startOtp.executeAsync({
         email: normalized,
       });
 
       if (result?.serverError) {
-        debugLog("startOtp.server-error", {
-          email: maskEmail(normalized),
-          serverError: result.serverError,
-        });
         setSendError(GENERIC_ERROR);
         return;
       }
@@ -100,14 +81,6 @@ export function OTPSignIn({ className }: Props) {
           actionData && "errorCode" in actionData
             ? actionData.errorCode
             : "auth-unavailable";
-        const debugData =
-          actionData && "debug" in actionData ? actionData.debug : undefined;
-
-        debugLog("startOtp.denied", {
-          email: maskEmail(normalized),
-          errorCode,
-          debug: debugData ?? null,
-        });
 
         if (errorCode === "auth-rate-limited") {
           setSendError(RATE_LIMITED_ERROR);
@@ -117,21 +90,8 @@ export function OTPSignIn({ className }: Props) {
         return;
       }
 
-      debugLog("startOtp.success", {
-        email: maskEmail(normalized),
-      });
       setSent(true);
-    } catch (error) {
-      debugLog("startOtp.exception", {
-        email: maskEmail(normalized),
-        error:
-          error instanceof Error
-            ? {
-                name: error.name,
-                message: error.message,
-              }
-            : String(error),
-      });
+    } catch {
       setSendError(GENERIC_ERROR);
     } finally {
       setLoading(false);
@@ -147,10 +107,6 @@ export function OTPSignIn({ className }: Props) {
     });
 
     if (result?.serverError) {
-      debugLog("verifyOtp.server-error", {
-        email: maskEmail(email),
-        serverError: result.serverError,
-      });
       setOtpValue("");
     }
   }

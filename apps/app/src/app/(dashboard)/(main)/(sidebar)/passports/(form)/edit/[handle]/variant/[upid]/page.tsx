@@ -16,7 +16,7 @@ export default async function VariantEditPage({
 
   const { handle, upid } = await params;
 
-  batchPrefetch([
+  await batchPrefetch([
     trpc.products.variants.getOverrides.queryOptions({
       productHandle: handle,
       variantUpid: upid,

@@ -17,7 +17,7 @@ import { connection } from "next/server";
 export default async function PassportsPage() {
   await connection();
 
-  batchPrefetch([
+  await batchPrefetch([
     trpc.summary.productStatus.queryOptions(),
     trpc.products.list.queryOptions({
       limit: 50,

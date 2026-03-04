@@ -1,8 +1,8 @@
 import {
   BRAND_ACCESS_REMOVED_LOGIN_PATH,
-  FORCE_SIGN_OUT_ROUTE,
   sanitizeAppPath,
 } from "@/lib/auth-access";
+import { createClient } from "@v1/supabase/server";
 import { NextResponse } from "next/server";
 
 async function handleForceSignOut(request: Request) {
@@ -12,9 +12,15 @@ async function handleForceSignOut(request: Request) {
     BRAND_ACCESS_REMOVED_LOGIN_PATH,
   );
 
-  const url = new URL(FORCE_SIGN_OUT_ROUTE, origin);
-  url.searchParams.set("next", next);
-  return NextResponse.redirect(url, 307);
+  const supabase = await createClient();
+
+  try {
+    await supabase.auth.signOut({ scope: "global" });
+  } catch {
+    // Best effort: always continue to login destination.
+  }
+
+  return NextResponse.redirect(`${origin}${next}`, 303);
 }
 
 export async function GET(request: Request) {

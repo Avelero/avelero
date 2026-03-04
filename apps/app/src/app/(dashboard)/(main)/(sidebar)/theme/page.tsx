@@ -5,7 +5,7 @@ import { connection } from "next/server";
 export default async function DesignPage() {
   await connection();
 
-  prefetch(trpc.brand.theme.get.queryOptions());
+  await prefetch(trpc.brand.theme.get.queryOptions());
 
   // Fetch theme data to pass updatedAt prop
   const queryClient = getQueryClient();

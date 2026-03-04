@@ -218,6 +218,13 @@
       "when": 1772316705864,
       "tag": "20260228221145_marvelous_energizer",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1772619565718,
+      "tag": "20260304101925_sticky_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }

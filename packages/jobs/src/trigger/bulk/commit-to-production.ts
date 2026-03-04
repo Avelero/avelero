@@ -30,7 +30,10 @@ import {
   getImportJobStatus,
 } from "@v1/db/queries/bulk";
 import { publishNotificationEvent } from "@v1/db/queries/notifications";
-import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
+import {
+  generateGloballyUniqueUpids,
+  publishProductsSetBased,
+} from "@v1/db/queries/products";
 import * as schema from "@v1/db/schema";
 import { sendBulkBroadcast } from "@v1/db/utils";
 import ImportFailuresEmail from "@v1/email/emails/import-failures";
@@ -231,6 +234,9 @@ const IMAGE_CONCURRENCY = 15;
 /** Image upload timeout in ms */
 const IMAGE_TIMEOUT_MS = 60_000;
 
+/** Variant publish chunk size for set-based publishing */
+const PUBLISH_VARIANT_CHUNK_SIZE = 500;
+
 /** Email from address */
 const EMAIL_FROM = "Avelero <noreply@welcome.avelero.com>";
 
@@ -364,6 +370,16 @@ export const commitToProduction = task({
         try {
           await batchExecuteProductionOps(db, ops);
 
+          // PHASE 6.1: Publish immutable snapshots for products in published state.
+          // Uses set-based operations (no per-product publish loop).
+          await publishProductsSetBased(db, {
+            brandId,
+            productIds: batchData.map(
+              (product) => product.existingProductId ?? product.id,
+            ),
+            variantChunkSize: PUBLISH_VARIANT_CHUNK_SIZE,
+          });
+
           // Accumulate stats
           totalStats.productsCreated += batchStats.productsCreated;
           totalStats.productsUpdated += batchStats.productsUpdated;
@@ -431,23 +447,24 @@ export const commitToProduction = task({
       });
 
       // Determine final status
-      // Consider commit failures, validation errors, AND image failures
+      // Exportable failures are user-correctable (validation/image/warnings/blocked).
+      // Commit failures are operational errors and should not trigger correction exports.
       const hasCommitFailures = failedCount > 0;
       const hasValidationErrors = payload.hasValidationErrors ?? false;
       const hasImageFailures = allImageFailures.length > 0;
-      const hasAnyFailures =
-        hasCommitFailures ||
+      const hasExportableFailures =
         hasValidationErrors ||
         hasImageFailures ||
         blockedProducts > 0 ||
         warningProducts > 0;
+      const hasAnyFailures = hasCommitFailures || hasExportableFailures;
       const finalStatus = hasAnyFailures
         ? "COMPLETED_WITH_FAILURES"
         : "COMPLETED";
 
-      // PHASE 10: Generate error report if there are any errors
+      // PHASE 10: Generate error report only for exportable (user-correctable) failures
       // Must happen BEFORE deleting committed rows
-      if (hasAnyFailures) {
+      if (hasExportableFailures) {
         logger.info("Generating error report", {
           jobId,
           hasValidationErrors,
@@ -552,7 +569,7 @@ export const commitToProduction = task({
         .set({
           status: finalStatus,
           finishedAt: new Date().toISOString(),
-          hasExportableFailures: hasAnyFailures,
+          hasExportableFailures,
           summary: {
             committed: committedCount,
             failed: failedCount,
@@ -956,7 +973,7 @@ function computeProductionOps(
         const updateData: PendingProductionOps["variantUpdates"][0]["data"] =
           {};
 
-        if (variant.upid?.trim()) updateData.upid = variant.upid;
+        // UPIDs are immutable during import updates to avoid global identity drift.
         if (variant.barcode?.trim()) updateData.barcode = variant.barcode;
         if (variant.sku?.trim()) updateData.sku = variant.sku;
         if (variant.nameOverride?.trim())

@@ -1,7 +1,7 @@
 export const INVITE_REQUIRED_LOGIN_PATH = "/login?error=invite-required";
 export const BRAND_ACCESS_REMOVED_LOGIN_PATH =
   "/login?error=brand-access-removed";
-export const FORCE_SIGN_OUT_ROUTE = "/api/auth/force-signout";
+export const FORCE_SIGN_OUT_ROUTE = "/force-signout";
 
 export function sanitizeAppPath(
   path: string | null | undefined,

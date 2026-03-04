@@ -17,6 +17,9 @@ begin
     return new;
   end if;
 
+  -- Serialize same-UPID checks across tables to avoid TOCTOU races.
+  perform pg_advisory_xact_lock(hashtext('upid_global::' || new.upid));
+
   if exists (
     select 1
     from public.product_passports pp
@@ -60,6 +63,9 @@ begin
   if new.upid is null or btrim(new.upid) = '' then
     return new;
   end if;
+
+  -- Serialize same-UPID checks across tables to avoid TOCTOU races.
+  perform pg_advisory_xact_lock(hashtext('upid_global::' || new.upid));
 
   -- Allow transitions where a passport is being orphaned before variant delete.
   allowed_variant_id := coalesce(new.working_variant_id, old.working_variant_id);

@@ -192,5 +192,6 @@ export function SmartLink({
     };
   }, [keepWarm, keepWarmHref, warmPrefetch]);
 
-  return <Link ref={anchorRef} {...props} />;
+  const prefetch = keepWarm && keepWarmHref ? false : props.prefetch;
+  return <Link ref={anchorRef} {...props} prefetch={prefetch} />;
 }

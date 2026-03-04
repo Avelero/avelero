@@ -176,11 +176,9 @@ function calculateContentOnlyHash(snapshot: DppSnapshot): string {
  * Compute the immutable snapshot hash used in product_passport_versions.
  */
 function calculateSnapshotHash(snapshot: DppSnapshot): string {
-  // Match dpp-versions create hash behavior.
-  const canonicalJson = JSON.stringify(
-    snapshot,
-    Object.keys(snapshot as object).sort(),
-  );
+  // Match dpp-versions create hash behavior with recursive key ordering.
+  const sortedSnapshot = sortObjectKeys(snapshot);
+  const canonicalJson = JSON.stringify(sortedSnapshot);
   return createHash("sha256").update(canonicalJson, "utf8").digest("hex");
 }
 
@@ -213,7 +211,9 @@ function parseNumber(value: string | null | undefined): number | null {
   if (!value) return null;
 
   // Convert numeric text to number.
-  return Number.parseFloat(value);
+  const parsed = Number.parseFloat(value);
+  if (Number.isNaN(parsed)) return null;
+  return parsed;
 }
 
 /**

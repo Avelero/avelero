@@ -9,6 +9,13 @@ import { FeatureCard, FeatureCards } from "@/components/feature-cards";
 import { Hero } from "@/components/hero";
 import { HeroImage } from "@/components/hero-image";
 import { TextBlock } from "@/components/text-block";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "https://avelero.com/",
+  },
+};
 
 export default function Page() {
   const jsonLd = {

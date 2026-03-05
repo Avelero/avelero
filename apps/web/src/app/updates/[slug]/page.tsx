@@ -153,11 +153,39 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
     ...(citations.length > 0 ? { citation: citations } : {}),
   };
 
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: `${baseUrl}/`,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Updates",
+        item: `${baseUrl}/updates/`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: update.title,
+      },
+    ],
+  };
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <main className="w-full flex flex-col items-center">
         <article className="w-full flex flex-col items-center">

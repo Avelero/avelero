@@ -2,11 +2,9 @@
  * Minimal Google Fonts URL generation utilities for ThemeStyles typography.
  * This intentionally avoids any browser or React dependencies so it can be used in server actions.
  */
+import { findFont } from "@v1/selections/fonts";
 
 const LOCAL_FONTS = [
-  "geist",
-  "geist sans",
-  "geist mono",
   "system-ui",
   "sans-serif",
   "monospace",
@@ -16,6 +14,7 @@ const LOCAL_FONTS = [
   "times",
   "verdana",
 ];
+const PRESET_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
 /**
  * Checks if a font is a Google Font (not a local/system font).
@@ -75,17 +74,60 @@ function formatFontFamily(font: string): string {
   return font.replace(/\s+/g, "+");
 }
 
+function parseVariantWeight(variant: string): number | undefined {
+  // Normalize static variant values such as "regular", "700", or "700italic".
+  const normalized = variant.toLowerCase();
+  if (normalized === "regular" || normalized === "italic") {
+    return 400;
+  }
+
+  const match = normalized.match(/\d{3}/);
+  if (!match?.[0]) return undefined;
+
+  const weight = Number.parseInt(match[0], 10);
+  return Number.isNaN(weight) ? undefined : weight;
+}
+
+function getFontWeights(fontFamily: string): number[] {
+  // Resolve the safest available weight set for each Google font family.
+  const metadata = findFont(fontFamily);
+  if (!metadata) {
+    return PRESET_WEIGHTS;
+  }
+
+  if (metadata.isVariable) {
+    const weightAxis = metadata.axes.find((axis) => axis.tag === "wght");
+    if (!weightAxis) {
+      return PRESET_WEIGHTS;
+    }
+
+    return PRESET_WEIGHTS.filter(
+      (weight) => weight >= weightAxis.start && weight <= weightAxis.end,
+    );
+  }
+
+  const staticWeights = Array.from(
+    new Set(
+      (metadata.variants ?? [])
+        .map(parseVariantWeight)
+        .filter((weight): weight is number => weight !== undefined),
+    ),
+  ).sort((a, b) => a - b);
+
+  return staticWeights.length > 0 ? staticWeights : [400];
+}
+
 /**
  * Generates a Google Fonts CSS2 URL for a list of fonts.
- * Loads weights 100-900 to support the full preset typography scale.
+ * Always includes an explicit weight axis for consistent rendering behavior.
  */
 export function generateGoogleFontsUrl(fonts: string[]): string {
   if (!fonts.length) return "";
 
-  const families = fonts.map(
-    (font) =>
-      `family=${formatFontFamily(font)}:wght@100;200;300;400;500;600;700;800;900`,
-  );
+  const families = fonts.map((font) => {
+    const weights = getFontWeights(font);
+    return `family=${formatFontFamily(font)}:wght@${weights.join(";")}`;
+  });
 
   return `https://fonts.googleapis.com/css2?${families.join("&")}&display=swap`;
 }

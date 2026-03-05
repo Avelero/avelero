@@ -358,6 +358,19 @@ function buildMaterialsSnapshot(
       const certification = material.certificationId
         ? certificationsById.get(material.certificationId)
         : null;
+      const hasTestingInstituteData = certification
+        ? Boolean(
+            certification.instituteName ||
+              certification.instituteEmail ||
+              certification.instituteWebsite ||
+              certification.instituteAddressLine1 ||
+              certification.instituteAddressLine2 ||
+              certification.instituteCity ||
+              certification.instituteState ||
+              certification.instituteZip ||
+              certification.instituteCountryCode,
+          )
+        : false;
 
       return {
         material: material.name,
@@ -368,7 +381,7 @@ function buildMaterialsSnapshot(
           ? {
               title: certification.title,
               certificationCode: certification.certificationCode,
-              testingInstitute: certification.instituteName
+              testingInstitute: hasTestingInstituteData
                 ? {
                     instituteName: certification.instituteName,
                     instituteEmail: certification.instituteEmail,

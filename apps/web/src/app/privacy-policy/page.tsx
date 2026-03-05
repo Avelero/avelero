@@ -6,6 +6,9 @@ import matter from "gray-matter";
 export const metadata = {
   title: "Privacy policy",
   description: "Privacy policy for Avelero's digital product passport platform",
+  alternates: {
+    canonical: "https://avelero.com/privacy-policy/",
+  },
 };
 
 export default async function PrivacyPolicyPage() {

@@ -7,6 +7,9 @@ export const metadata = {
   title: "Terms and conditions",
   description:
     "Terms and conditions for using Avelero's digital product passport platform",
+  alternates: {
+    canonical: "https://avelero.com/terms-and-conditions/",
+  },
 };
 
 export default async function TermsAndConditionsPage() {

@@ -1,16 +1,22 @@
 # Avelero
-> Digital Product Passport platform for fashion brands. We help brands turn EU ESPR compliance into a post-purchase engagement channel.
+> Digital Product Passport platform for fashion brands. Avelero turns EU ESPR compliance into a post-purchase engagement channel with product passports that customers actually use.
 
-## Key pages
-- / : Homepage with platform overview, features, and value proposition for Digital Product Passports.
-- /updates/ : Blog and news section with articles about DPPs, sustainability, and fashion industry trends.
-- /updates/fashion-digital-product-passport-data-requirements/ : Article on likely textile DPP data fields under ESPR, including traceability, materials, and lifecycle impacts.
-- /updates/fashion-digital-product-timeline/ : Timeline of confirmed and expected EU DPP milestones for fashion from 2022 through projected mid-2028 enforcement.
-- /updates/the-last-step-in-your-customer-journey/ : Article on using DPPs as a post-purchase customer engagement channel; includes resale market data, care/repair use cases, and circular economy insights.
-
-## About Avelero
-Avelero transforms Digital Product Passports from compliance checkboxes into customer experience infrastructure. We provide:
+## What Avelero does
+- Provides Digital Product Passports (DPPs) for fashion and textile brands selling in the EU
+- Built-in LCA engine that calculates cradle-to-gate carbon and water footprint from material and production data
+- GS1 Digital Link support: product passport URLs follow the open GS1 standard (https://yourdomain.com/01/GTIN), making QR codes scannable by both consumers and POS systems
 - Shopify integration for automatic product data sync
-- Customizable passport templates matching brand identity
-- Care instructions, repair guides, and resale program integration
-- Machine-readable structured data for supply chain transparency
+- Customizable passport templates with brand-specific typography, colors, and layout
+- Modular passport sections: care guides, repair services, resale programs, product stories, related products
+- Machine-readable structured data for supply chain transparency and regulatory compliance
+
+## Pages
+- [Homepage](https://avelero.com/) : Platform overview, features, and value proposition for Digital Product Passports in fashion.
+- [Updates](https://avelero.com/updates/) : Blog with articles about DPP regulation, implementation, and fashion industry sustainability.
+- [What data does the digital product passport require?](https://avelero.com/updates/fashion-digital-product-passport-data-requirements/) : Breakdown of expected ESPR data fields for textiles including materials, traceability, environmental impact, and end-of-life handling.
+- [The digital product passport timeline for fashion](https://avelero.com/updates/fashion-digital-product-passport-timeline/) : Timeline of confirmed and expected EU DPP milestones from ESPR entering into force in 2024 through projected mid-2028 enforcement.
+- [The best digital product passport tools for fashion](https://avelero.com/updates/fashion-digital-product-passport-tools/) : Comparison of five DPP platforms for fashion brands, covering compliance-focused vs. engagement-focused approaches.
+- [What the GS1 Digital Link means for your product passport](https://avelero.com/updates/gs1-digital-link-digital-product-passport/) : Explanation of the GS1 Digital Link URL standard, how it encodes GTINs into web URLs, and why it matters for DPP QR codes.
+- [The last step in your customer journey](https://avelero.com/updates/the-last-step-in-your-customer-journey/) : Why DPPs should be post-purchase engagement infrastructure, not just compliance. Covers care, repair, resale, and customer loyalty use cases.
+- [Privacy Policy](https://avelero.com/privacy-policy/) : Avelero's privacy policy.
+- [Terms and Conditions](https://avelero.com/terms-and-conditions/) : Avelero's terms and conditions.

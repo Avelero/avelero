@@ -6,6 +6,9 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Updates",
   description: "Latest news, announcements, and insights from Avelero.",
+  alternates: {
+    canonical: "https://avelero.com/updates/",
+  },
   openGraph: {
     title: "Updates | Avelero",
     description: "Latest news, announcements, and insights from Avelero.",

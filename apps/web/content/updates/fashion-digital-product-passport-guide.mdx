@@ -1,0 +1,106 @@
+---
+title: "What is an EU digital product passport?"
+description: "A practical explanation of the EU's Digital Product Passport: what it is, what data it requires, who it applies to, and what it means for fashion brands."
+date: "2026-03-XX"
+image: "/hero-image.webp"
+author: "Rafaël Mevis"
+linkedin: "https://www.linkedin.com/in/rafaelmevis/"
+---
+
+A Digital Product Passport is a digital record attached to a physical product that contains information about its materials, production, environmental impact, and end-of-life handling. For fashion, that means a customer can scan a QR code on a garment's care label and access everything from material composition to care instructions to the product's carbon footprint. It's being introduced by the European Union as part of a broader push toward transparency and circularity, and it will apply to virtually every textile product sold in the EU market.
+
+The concept sounds abstract until you see one. In practice, a DPP is just a webpage linked to your product through a QR code. The difference from what exists today is that the content, structure, and availability of that page will be regulated. Instead of a brand choosing what to share, the EU will define a minimum set of data that every passport must contain. And instead of that information being optional or marketing-driven, it will be a legal requirement for any textile product placed on the European market.
+
+> **In short:** The Digital Product Passport (DPP) is a digital record that travels with a product across its lifecycle. It's part of the EU's [Ecodesign for Sustainable Products Regulation (ESPR)](https://commission.europa.eu/energy-climate-change-environment/standards-tools-and-labels/products-labelling-rules-and-requirements/ecodesign-sustainable-products-regulation_en), which entered into force on 18 July 2024. Fashion brands that sell or import textile products into the EU will need to provide one. The textile-specific requirements are expected to be finalized in 2027, with mandatory compliance roughly 18 months after that.
+
+## What a Digital Product Passport looks like
+
+Most explanations of the DPP stay abstract. Here's what one actually looks like. The passport below is a working example generated through Avelero. It shows the kind of product information a customer would see after scanning the QR code on a garment.
+
+<DPPDemoCallout />
+
+That's the customer-facing side of the DPP. Behind it sits structured product data that satisfies the regulation's requirements. The point is that these two things don't have to be at odds. A passport can be both compliant and useful to the person scanning it.
+
+## Why the EU is requiring it
+
+The DPP is part of the [Ecodesign for Sustainable Products Regulation (ESPR)](https://commission.europa.eu/energy-climate-change-environment/standards-tools-and-labels/products-labelling-rules-and-requirements/ecodesign-sustainable-products-regulation_en), which is the EU's framework for setting sustainability requirements on products sold in the European market. The ESPR itself doesn't define the specific rules for each product category. Instead, it delegates those details to separate legal instruments called delegated acts. Textiles have been designated as a priority product group, and the textile-specific delegated act is expected to be adopted around 2027.
+
+The regulation's goal is to enable circular economy practices: making it easier to repair, resell, and recycle products by ensuring the relevant information is available and standardized. Right now, most of this information either doesn't exist in a structured format or is locked inside a brand's internal systems where no one else can access it. A recycler processing end-of-life textiles has no easy way to know what materials a garment contains. A consumer who wants to resell an item has no way to prove its authenticity or history. A repair service has no access to the product's construction details. The DPP is designed to change that by making product data accessible to consumers, recyclers, resale platforms, and regulators through a single digital interface.
+
+Textiles are a priority for the EU because the environmental numbers are hard to ignore. The fashion industry accounts for a significant share of global carbon emissions, water consumption, and waste. Most garments are worn only a handful of times before being discarded, and less than 1% of clothing is recycled into new clothing. The DPP is part of the EU's strategy to address this by giving everyone in the value chain the information they need to keep products in use longer and recover materials when they reach end of life.
+
+It's worth noting that while the EU has scaled back some sustainability reporting requirements through its 2025 "Omnibus" simplification wave, the DPP framework was left untouched. Product-level transparency requirements are moving forward as planned. For a full breakdown of every milestone and deadline, see our [DPP timeline for fashion](/updates/fashion-digital-product-passport-timeline/).
+
+## Who it applies to
+
+The DPP is expected to apply to fashion brands that sell or import textile products into the EU market. This includes clothing, accessories, and home textiles, whether your brand is based in Europe or elsewhere. If you place textile products on the EU market, you'll need to provide a DPP.
+
+As of now, the EU has not published specific exemptions for smaller brands. It's possible the delegated act could introduce tiered requirements based on company size, similar to how the ESPR's ban on the destruction of unsold goods exempts micro and small enterprises. But until the delegated act is published, the safest assumption is that this will apply broadly.
+
+The scope of who needs to comply is one of the most common questions we hear from brands. The short answer: if you sell in the EU, this applies to you regardless of where your company is headquartered.
+
+## What data the DPP requires
+
+The exact data fields will be defined in the textile delegated act, which hasn't been published yet. But the ESPR framework and the preparatory work informing the delegated act already outline the expected categories. For textiles, these include:
+
+- Product identification (name, type, color, size, unique identifier)
+- Manufacturer and importer details
+- Material composition and percentages
+- Material origins and supply chain traceability
+- Substances of concern (chemicals, dyes, finishes)
+- Durability and repairability information
+- Care instructions
+- Lifecycle environmental impacts (carbon footprint, water consumption)
+- Recycled and bio-based content percentages
+- Recyclability per material
+- Certifications and compliance documentation
+
+Some of this data is straightforward. Material compositions and certifications are usually within reach for most brands. Supply chain traceability takes more coordination, particularly when it involves getting suppliers at multiple tiers to share information they haven't been asked for before. And lifecycle environmental impacts like carbon footprint and water scarcity often require dedicated tooling to calculate at the product level.
+
+The challenge for most brands isn't that the data doesn't exist. It's that it lives in different systems that don't talk to each other. Material compositions sit in your PLM. Supplier information is in your ERP or scattered across spreadsheets. Certifications are PDF files in someone's inbox. Environmental impact data, if you have it, might come from a separate LCA tool. Getting all of this into a single, structured format that a DPP can use is where the real work happens.
+
+For a detailed walkthrough of each data category, including where the data typically comes from and what's harder to get, see our [full breakdown of DPP data requirements](/updates/fashion-digital-product-passport-data-requirements/).
+
+## How it works technically
+
+The DPP will be accessible through a data carrier on the product, most likely a QR code printed on the care label. When a customer scans it with their phone, it opens the product passport in their browser.
+
+The underlying standard the EU is building around is the [GS1 Digital Link](https://www.gs1.org/standards/gs1-digital-link). Despite the technical-sounding name, it's a simple concept: your product's existing barcode number (GTIN) gets encoded into a URL structure that looks like `https://yourbrand.com/01/09506000134352`. That URL can be embedded in a QR code that serves two purposes. A customer's phone follows the link to the passport. A retail POS scanner reads the same QR code and extracts the barcode number for checkout. One code, two functions.
+
+This matters practically because care labels have limited space. A GS1 Digital Link QR code consolidates product identification and the DPP into a single symbol, which avoids the need to print both a barcode and a separate QR code. It's also an open standard, meaning your QR codes aren't tied to a specific software vendor. If you switch DPP platforms, the physical labels on your products don't need to change.
+
+For a full explanation of how the GS1 Digital Link works, including the URL anatomy and why open standards matter for vendor independence, see our [GS1 Digital Link explainer](/updates/gs1-digital-link-digital-product-passport/).
+
+## When it takes effect
+
+The ESPR has been in force since 18 July 2024. The textile-specific delegated act is expected between late 2026 and Q2 2027. Once it's adopted, brands get an 18-month compliance window. That puts mandatory DPPs for new textile products at roughly mid-2028.
+
+A few other dates matter. By July 2026, the central EU DPP registry must be operational. In September 2026, the [Empowering Consumers Directive](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024L0825) kicks in, prohibiting generic green claims without verifiable data. In December 2027, the [Forced Labour Regulation](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R3015) becomes fully applicable, making supply chain traceability a market access requirement independent of the DPP.
+
+The practical implication: the delegated act will define the exact data fields, so full implementation starts once it's published. But production lead times mean the first products needing DPP-ready labels will enter pre-production roughly nine months into the compliance window. That doesn't leave as much time as 18 months suggests. Our [timeline post](/updates/fashion-digital-product-passport-timeline/) has the full sequence of confirmed and expected dates.
+
+## Why it matters beyond compliance
+
+Most brands are approaching the DPP as a regulatory checkbox. Collect the data, generate a page, print a QR code, move on. The result is a passport that looks like a government form: dense, unformatted, and completely ignored by customers after the first scan.
+
+This misses the opportunity. The DPP is a permanent channel that sits with the product for its entire life. Unlike email or social media, customers only access it when they have a specific reason: how to wash the item, whether it's under warranty, how to repair it, what it's worth for resale, whether it's authentic. Every interaction has context and intent.
+
+If the passport is designed well, it becomes useful infrastructure. Care instructions replace cryptic laundry symbols with clear guidance or video tutorials. Repair guides connect the customer to services that can fix the product without shipping it back. Resale information makes it easier to verify authenticity and find buyback programs. Brand storytelling reminds the customer why they bought the product in the first place, with details about materials, craftsmanship, and the people who made it.
+
+The secondhand market reinforces why this matters. Younger consumers increasingly think about longevity and resale value when they buy clothing. They want to know an item will last, that they can maintain it properly, and that they can resell it later with documentation to prove what it is. The DPP is the infrastructure that makes all of this work. And for brands, it means staying in the customer's life without being intrusive, because every interaction is initiated by the customer when they actually need something.
+
+This is the difference between compliance and a customer experience. The brands that treat the DPP as a product rather than a document will get more value from it. We've written about this in detail in [The last step in your customer journey](/updates/the-last-step-in-your-customer-journey/).
+
+## How to get started
+
+The delegated act will finalize the exact requirements, but the direction is clear enough to start now. The most practical approach is to run a small pilot: pick a handful of products, map the data you already have, and generate test passports. This surfaces gaps, particularly around supply chain traceability and lifecycle environmental data, that take time to fill. It also gives your team hands-on experience with the format before compliance becomes mandatory.
+
+You don't need to solve everything at once. Start with the data that's already accessible: material compositions, basic supplier information, certifications, care instructions. Then work backward through the harder requirements like multi-tier traceability and product-level environmental impacts. The goal is to have your data infrastructure in order so that when the delegated act drops and the requirements are final, you're filling in fields rather than building a system from scratch.
+
+Once the delegated act is published, you move from pilot to production. Integrate your DPP system with your existing tools, start generating QR codes for upcoming collections, and include them in your label specifications for factory production.
+
+If you're evaluating tools, the landscape breaks down into a few categories: traceability-first platforms, LCA-first platforms, enterprise connected-product systems, and DPP-first platforms. Each is good at something different. We've written an [honest comparison of the main options](/updates/fashion-digital-product-passport-tools/) to help you figure out which one fits your situation.
+
+We built Avelero as a DPP-first platform for fashion brands. You can connect your product data, customize the passport to match your brand, and start generating QR codes in days. We've also built an LCA prediction engine into the platform that calculates carbon footprint and water scarcity impacts directly from your product data, so lifecycle environmental impacts don't require a separate tool or subscription.
+
+If you want to see how it works, [we'd like to show you](https://avelero.com).

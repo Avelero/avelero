@@ -1,5 +1,6 @@
 import { getAllUpdates } from "@/lib/updates";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { UpdateCard } from "./update-card";
 
 interface RelatedUpdatesProps {
@@ -32,7 +33,7 @@ export async function RelatedUpdates({ currentSlug }: RelatedUpdatesProps) {
           href="/updates/"
           className="text-button text-foreground hover:text-foreground/70 transition-colors duration-150"
         >
-          See more →
+          See more <ChevronRight className="inline size-[14px]" />
         </Link>
       </div>
 

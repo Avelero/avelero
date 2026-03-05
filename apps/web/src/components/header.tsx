@@ -81,18 +81,18 @@ export function Header() {
               Designer
             </Link>
             <Link
-              href="/#automation"
-              aria-label="Go to automation section"
-              className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150"
-            >
-              Automation
-            </Link>
-            <Link
               href="/#compliance"
               aria-label="Go to compliance section"
               className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150"
             >
               Compliance
+            </Link>
+            <Link
+              href="/about/"
+              aria-label="Go to about page"
+              className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150"
+            >
+              About
             </Link>
             <Link
               href="/updates/"

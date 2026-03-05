@@ -92,6 +92,15 @@ export function Footer() {
                       Updates
                     </Link>
                   </li>
+                  <li>
+                    <Link
+                      aria-label="Go to about page"
+                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
+                      href="/about/"
+                    >
+                      About
+                    </Link>
+                  </li>
                 </ul>
               </div>
               <div>

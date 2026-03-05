@@ -137,3 +137,6 @@ sort-and-filter-plan.md
 *.local.json
 shopify-credentials*.json
 integration-credentials*.json
+
+# SEO & GEO audit files
+seo-geo-audit-march-2026.md

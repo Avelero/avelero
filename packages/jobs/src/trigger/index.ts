@@ -15,3 +15,6 @@ export { syncIntegration, integrationSyncScheduler } from "./integrations";
 
 // Certification expiry reminder task
 export { certificationExpiryReminder } from "./certification-expiry-reminder";
+
+// Catalog fan-out task
+export { catalogFanOut } from "./catalog";

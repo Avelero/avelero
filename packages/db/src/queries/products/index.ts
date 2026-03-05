@@ -22,3 +22,4 @@ export * from "./publish";
 export * from "./publish-batch";
 export * from "./upid-generation";
 export * from "./qr-export";
+export * from "./catalog-fan-out";

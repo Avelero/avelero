@@ -1,4 +1,5 @@
 import type { Database } from "@v1/db/client";
+import { tasks } from "@trigger.dev/sdk/v3";
 /**
  * Catalog router implementation.
  *
@@ -280,6 +281,36 @@ function createDeleteProcedure<TInput extends { id: string }>(
 }
 
 /**
+ * Enqueue a catalog fan-out job for the given entity.
+ *
+ * Fire-and-forget: trigger failures are logged but do not propagate,
+ * since fan-out is a background concern and should never fail a catalog write.
+ *
+ * Uses a 45-second delay so that rapid consecutive edits within the same window
+ * arrive at the task with the latest data. Multiple triggers within the window
+ * will each schedule a run, but publish is content-hash-deduplicated so only
+ * genuine content changes produce new versions (redundant runs are no-ops).
+ */
+function enqueueCatalogFanOut(
+  brandId: string,
+  entityType: "manufacturer" | "material" | "certification" | "operator",
+  entityId: string,
+): void {
+  tasks
+    .trigger(
+      "catalog-fan-out",
+      { brandId, entityType, entityId },
+      { delay: "45s" },
+    )
+    .catch((err) => {
+      console.error(
+        `[CatalogFanOut] Failed to enqueue fan-out for ${entityType} ${entityId}:`,
+        err,
+      );
+    });
+}
+
+/**
  * Factory function creating a complete CRUD router for catalog resources.
  *
  * Eliminates boilerplate by generating four standard endpoints (list, create,
@@ -294,6 +325,7 @@ function createDeleteProcedure<TInput extends { id: string }>(
  * @param schemas - Zod schemas for each operation
  * @param operations - Database query functions for each operation
  * @param transformInput - Optional function to transform snake_case schema to camelCase DB input
+ * @param fanOutEntityType - If set, triggers catalog fan-out after successful mutations
  * @returns tRPC router with list/create/update/delete endpoints
  *
  * @example
@@ -327,6 +359,7 @@ function createCatalogResourceRouter<T>(
     delete: (db: Database, brandId: string, id: string) => Promise<T>;
   },
   transformInput?: (input: any) => any,
+  fanOutEntityType?: "manufacturer" | "material" | "certification" | "operator",
 ) {
   return createTRPCRouter({
     list: createListProcedure(
@@ -335,23 +368,104 @@ function createCatalogResourceRouter<T>(
       resourceName,
       transformInput,
     ),
-    create: createCreateProcedure(
-      schemas.create,
-      operations.create,
-      resourceName,
-      transformInput,
-    ),
-    update: createUpdateProcedure(
-      schemas.update,
-      operations.update,
-      resourceName,
-      transformInput,
-    ),
-    delete: createDeleteProcedure(
-      schemas.delete,
-      operations.delete,
-      resourceName,
-    ),
+    create: fanOutEntityType
+      ? brandWriteProcedure
+          .input(schemas.create)
+          .mutation(async ({ ctx, input }) => {
+            const brandCtx = ctx as BrandContext;
+            try {
+              const transformedInput = transformInput
+                ? transformInput(input)
+                : input;
+              const result = await operations.create(
+                brandCtx.db,
+                brandCtx.brandId,
+                transformedInput,
+              );
+              const response = createEntityResponse(result);
+              enqueueCatalogFanOut(
+                brandCtx.brandId,
+                fanOutEntityType,
+                (result as any).id,
+              );
+              return response;
+            } catch (error) {
+              throw wrapError(error, `Failed to create ${resourceName}`);
+            }
+          })
+      : createCreateProcedure(
+          schemas.create,
+          operations.create,
+          resourceName,
+          transformInput,
+        ),
+    update: fanOutEntityType
+      ? brandWriteProcedure
+          .input(schemas.update)
+          .mutation(async ({ ctx, input }) => {
+            const brandCtx = ctx as BrandContext;
+            const typedInput = input as { id: string };
+            try {
+              const transformedInput = transformInput
+                ? transformInput(typedInput)
+                : typedInput;
+              const result = await operations.update(
+                brandCtx.db,
+                brandCtx.brandId,
+                typedInput.id,
+                transformedInput,
+              );
+              if (!result) {
+                throw notFound(resourceName, typedInput.id);
+              }
+              const response = createEntityResponse(result);
+              enqueueCatalogFanOut(
+                brandCtx.brandId,
+                fanOutEntityType,
+                typedInput.id,
+              );
+              return response;
+            } catch (error) {
+              throw wrapError(error, `Failed to update ${resourceName}`);
+            }
+          })
+      : createUpdateProcedure(
+          schemas.update,
+          operations.update,
+          resourceName,
+          transformInput,
+        ),
+    delete: fanOutEntityType
+      ? brandWriteProcedure
+          .input(schemas.delete)
+          .mutation(async ({ ctx, input }) => {
+            const brandCtx = ctx as BrandContext;
+            const typedInput = input as { id: string };
+            try {
+              const result = await operations.delete(
+                brandCtx.db,
+                brandCtx.brandId,
+                typedInput.id,
+              );
+              if (!result) {
+                throw notFound(resourceName, typedInput.id);
+              }
+              const response = createEntityResponse(result);
+              enqueueCatalogFanOut(
+                brandCtx.brandId,
+                fanOutEntityType,
+                typedInput.id,
+              );
+              return response;
+            } catch (error) {
+              throw wrapError(error, `Failed to delete ${resourceName}`);
+            }
+          })
+      : createDeleteProcedure(
+          schemas.delete,
+          operations.delete,
+          resourceName,
+        ),
   });
 }
 
@@ -573,6 +687,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteMaterial,
     },
     transformMaterialInput,
+    "material",
   ),
 
   /**
@@ -617,6 +732,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteOperator,
     },
     transformOperatorInput,
+    "operator",
   ),
 
   /**
@@ -640,6 +756,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteBrandManufacturer,
     },
     transformManufacturerInput,
+    "manufacturer",
   ),
 
   /**
@@ -662,6 +779,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteCertification,
     },
     transformCertificationInput,
+    "certification",
   ),
 });
 

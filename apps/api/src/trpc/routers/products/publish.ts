@@ -17,6 +17,10 @@ import {
   publishVariant,
 } from "@v1/db/queries/products";
 import { z } from "zod";
+import {
+  revalidateBarcodes,
+  revalidatePassports,
+} from "../../../lib/dpp-revalidation.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import {
@@ -76,6 +80,10 @@ export const publishRouter = createTRPCRouter({
           throw badRequest(result.error ?? "Failed to publish variant");
         }
 
+        if (result.passport?.upid) {
+          revalidatePassports([result.passport.upid]).catch(() => {});
+        }
+
         return {
           success: true,
           variantId: result.variantId,
@@ -109,6 +117,13 @@ export const publishRouter = createTRPCRouter({
           throw badRequest(result.error ?? "Failed to publish product");
         }
 
+        const upids = result.variants
+          .map((v) => v.passport?.upid)
+          .filter((u): u is string => Boolean(u));
+        if (upids.length > 0) {
+          revalidatePassports(upids).catch(() => {});
+        }
+
         return {
           success: true,
           productId: result.productId,
@@ -140,6 +155,13 @@ export const publishRouter = createTRPCRouter({
 
         if (!result.success) {
           throw badRequest("Failed to bulk publish products");
+        }
+
+        const upids = result.products
+          .flatMap((p) => p.variants.map((v) => v.passport?.upid))
+          .filter((u): u is string => Boolean(u));
+        if (upids.length > 0) {
+          revalidatePassports(upids).catch(() => {});
         }
 
         return {

@@ -7,6 +7,8 @@
  * Authentication: Uses a shared secret to prevent unauthorized revalidation.
  *
  * Cache tags supported:
+ * - `dpp-passport-{upid}` - Invalidate a specific passport's DPP page (primary)
+ * - `dpp-barcode-{brandId}-{barcode}` - Invalidate a barcode-based DPP page (primary)
  * - `dpp-product-{productHandle}` - Invalidate a specific product's DPP page
  * - `dpp-variant-{variantUpid}` - Invalidate a specific variant's DPP page
  * - `dpp-brand-{brandSlug}` - Invalidate all DPP pages for a brand
@@ -44,7 +46,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate tag format (only allow expected prefixes)
-    const validPrefixes = ["dpp-product-", "dpp-variant-", "dpp-brand-"];
+    const validPrefixes = [
+      "dpp-passport-",
+      "dpp-barcode-",
+      "dpp-product-",
+      "dpp-variant-",
+      "dpp-brand-",
+    ];
     const invalidTags = tags.filter(
       (tag) => !validPrefixes.some((prefix) => tag.startsWith(prefix)),
     );

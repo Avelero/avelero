@@ -96,3 +96,50 @@ export function revalidateBrand(brandSlug: string): Promise<void> {
   if (!brandSlug) return Promise.resolve();
   return revalidateDppCache([`dpp-brand-${brandSlug}`]);
 }
+
+/**
+ * Revalidate DPP cache for a list of published passports by UPID.
+ *
+ * These tags match the `dpp-passport-{upid}` tags applied at fetch time in
+ * apps/dpp/src/lib/api.ts fetchPassportDpp(). Call this after publishing.
+ *
+ * Tags are sent in chunks to avoid hitting request size limits.
+ *
+ * @param upids - Array of UPIDs to invalidate
+ */
+export async function revalidatePassports(upids: string[]): Promise<void> {
+  const filtered = upids.filter(Boolean);
+  if (filtered.length === 0) return;
+  const CHUNK_SIZE = 100;
+  for (let i = 0; i < filtered.length; i += CHUNK_SIZE) {
+    const chunk = filtered.slice(i, i + CHUNK_SIZE);
+    await revalidateDppCache(chunk.map((upid) => `dpp-passport-${upid}`));
+  }
+}
+
+/**
+ * Revalidate DPP cache for a list of barcodes within a brand.
+ *
+ * These tags match the `dpp-barcode-{brandId}-{barcode}` tags applied at
+ * fetch time in apps/dpp/src/lib/api.ts fetchPassportByBarcode(). Call this
+ * after publishing variants that have barcodes.
+ *
+ * Tags are sent in chunks to avoid hitting request size limits.
+ *
+ * @param brandId - The brand UUID
+ * @param barcodes - Array of barcodes to invalidate
+ */
+export async function revalidateBarcodes(
+  brandId: string,
+  barcodes: string[],
+): Promise<void> {
+  const filtered = barcodes.filter(Boolean);
+  if (!brandId || filtered.length === 0) return;
+  const CHUNK_SIZE = 100;
+  for (let i = 0; i < filtered.length; i += CHUNK_SIZE) {
+    const chunk = filtered.slice(i, i + CHUNK_SIZE);
+    await revalidateDppCache(
+      chunk.map((barcode) => `dpp-barcode-${brandId}-${barcode}`),
+    );
+  }
+}

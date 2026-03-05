@@ -77,13 +77,14 @@ function formatFontFamily(font: string): string {
 
 /**
  * Generates a Google Fonts CSS2 URL for a list of fonts.
- * Loads weights 300, 400, 500, 700 to support Light, Regular, Medium, Bold.
+ * Loads weights 100-900 to support the full preset typography scale.
  */
 export function generateGoogleFontsUrl(fonts: string[]): string {
   if (!fonts.length) return "";
 
   const families = fonts.map(
-    (font) => `family=${formatFontFamily(font)}:wght@300;400;500;700`,
+    (font) =>
+      `family=${formatFontFamily(font)}:wght@100;200;300;400;500;600;700;800;900`,
   );
 
   return `https://fonts.googleapis.com/css2?${families.join("&")}&display=swap`;

@@ -1,3 +1,6 @@
+/**
+ * Product image renderer for the DPP content layout.
+ */
 import Image from "next/image";
 
 interface Props {
@@ -6,31 +9,29 @@ interface Props {
 }
 
 export function ProductImage({ image, alt }: Props) {
+  // Render the product image at full width while preserving its native aspect ratio.
   // Next.js blocks image optimization for private IPs (security feature)
   // Use unoptimized for local development URLs
   const isLocalDev =
     image?.includes("127.0.0.1") || image?.includes("localhost:");
 
   return (
-    <div
-      className="product__image relative w-full border-b @3xl:border overflow-hidden"
-      style={{
-        aspectRatio: "393 / 539",
-      }}
-    >
+    <div className="product__image w-full border-b @3xl:border overflow-hidden">
       {image ? (
         <Image
           src={image}
           alt={alt}
-          width={393}
-          height={539}
-          className="absolute top-0 left-0 w-full h-full object-cover"
+          width={0}
+          height={0}
+          className="block w-full h-auto object-contain"
+          sizes="100vw"
+          quality={90}
           loading="lazy"
           unoptimized={isLocalDev}
         />
       ) : (
         <div
-          className="absolute top-0 left-0 w-full h-full flex items-center justify-center"
+          className="flex min-h-[240px] w-full items-center justify-center"
           style={{ backgroundColor: "var(--accent)" }}
         >
           <span

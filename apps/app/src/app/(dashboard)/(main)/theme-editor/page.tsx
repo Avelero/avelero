@@ -11,7 +11,16 @@ export const metadata: Metadata = {
 export default async function Page() {
   await connection();
 
+  // Prefetch theme editor and header data for hydration on refresh.
   prefetch(trpc.brand.theme.get.queryOptions());
+  prefetch(trpc.notifications.getUnreadCount.queryOptions());
+  prefetch(
+    trpc.notifications.getRecent.queryOptions({
+      limit: 30,
+      unreadOnly: false,
+      includeDismissed: false,
+    }),
+  );
 
   return (
     <HydrateClient>

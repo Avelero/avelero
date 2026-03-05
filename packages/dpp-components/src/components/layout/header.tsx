@@ -1,3 +1,6 @@
+/**
+ * DPP header with optional brand logo image and powered-by line.
+ */
 import type { ThemeConfig } from "@v1/dpp-components";
 import { AveleroLogo } from "@v1/ui/avelero-logo";
 import Image from "next/image";
@@ -9,6 +12,7 @@ interface Props {
 }
 
 export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
+  // Render a crisp logo while keeping local development image handling intact.
   const { branding } = themeConfig;
   const logoHeight = 18;
 
@@ -51,6 +55,7 @@ export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
             width={logoHeight * 4}
             className="object-contain"
             style={{ height: `${logoHeight}px`, width: "auto" }}
+            quality={90}
             unoptimized={isLocalDev}
           />
         ) : (

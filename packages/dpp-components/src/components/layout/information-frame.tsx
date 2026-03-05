@@ -1,3 +1,6 @@
+/**
+ * Information frame that composes product metadata sections.
+ */
 import type { DppData, ThemeConfig } from "@v1/dpp-components";
 import { countries } from "@v1/selections";
 import { ImpactFrame } from "../impact/impact-frame";
@@ -13,6 +16,7 @@ interface Props {
 }
 
 export function InformationFrame({ data, themeConfig }: Props) {
+  // Transform DPP data into display models for details, materials, and journey.
   const { sections } = themeConfig;
   const {
     productIdentifiers,
@@ -55,7 +59,7 @@ export function InformationFrame({ data, themeConfig }: Props) {
       type: m.material,
       origin: getCountryName(m.countryOfOrigin) || m.countryOfOrigin || "",
       certification: m.certification?.type,
-      certificationUrl: undefined, // No URL in new structure
+      certificationUrl: m.certification?.testingInstitute?.website,
     })) ?? [];
 
   // Transform journey/supply chain for display - group by process step
@@ -109,6 +113,7 @@ export function InformationFrame({ data, themeConfig }: Props) {
         <ProductDetails
           articleNumber={productIdentifiers.articleNumber}
           manufacturer={manufacturing?.manufacturer?.name ?? ""}
+          manufacturerUrl={manufacturing?.manufacturer?.website}
           countryOfOrigin={
             getCountryName(manufacturing?.manufacturer?.countryCode) || ""
           }

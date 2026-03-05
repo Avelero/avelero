@@ -1,0 +1,18 @@
+{
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "rewrites": [
+      {
+        "source": "/storage/v1/object/public/:path*",
+        "destination": "https://auth.avelero.com/storage/v1/object/public/:path*"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/storage/v1/object/public/:path*",
+        "headers": [
+          { "key": "x-vercel-enable-rewrite-caching", "value": "1" }
+        ]
+      }
+    ]
+  }
+  

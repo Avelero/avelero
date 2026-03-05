@@ -1,3 +1,6 @@
+/**
+ * CTA banner section for DPP pages.
+ */
 import type { ThemeConfig } from "@v1/dpp-components";
 import Image from "next/image";
 
@@ -6,6 +9,7 @@ interface Props {
 }
 
 export function CTABanner({ themeConfig }: Props) {
+  // Render the banner image with explicit quality settings for clearer visuals.
   const { cta } = themeConfig;
 
   // Visibility toggles - default to true if not set
@@ -32,6 +36,7 @@ export function CTABanner({ themeConfig }: Props) {
             fill
             className="object-cover"
             sizes="100vw"
+            quality={90}
             priority={false}
             unoptimized={isLocalDev}
           />
@@ -57,7 +62,11 @@ export function CTABanner({ themeConfig }: Props) {
               href={cta.bannerCTAUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="banner__button px-lg py-sm cursor-pointer text-center"
+              className="banner__button inline-flex items-center justify-center self-center px-lg py-sm cursor-pointer text-center"
+              style={{
+                boxShadow:
+                  "inset 0 0 0 1px var(--banner-button-border-color, var(--primary))",
+              }}
               aria-label={`${cta.bannerCTAText} (opens in new tab)`}
             >
               {cta.bannerCTAText}

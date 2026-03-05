@@ -202,6 +202,20 @@ type PassportFormValidationFields = Pick<
   | "weightGrams"
 >;
 
+const PERCENTAGE_SCALE = 100;
+const MAX_PERCENTAGE_UNITS = 100 * PERCENTAGE_SCALE;
+
+function toPercentageUnits(value: number): number {
+  // Convert percentages to integer hundredths to avoid floating-point drift.
+  if (!Number.isFinite(value)) return 0;
+  return Math.round((value + Number.EPSILON) * PERCENTAGE_SCALE);
+}
+
+function formatPercentageFromUnits(units: number): string {
+  // Format integer hundredths back to a clean percentage string.
+  return (units / PERCENTAGE_SCALE).toFixed(2).replace(/\.?0+$/, "");
+}
+
 const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
   name: [
     rules.required("Name is required"),
@@ -232,19 +246,23 @@ const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
     (materials) => {
       if (!materials || materials.length === 0) return undefined;
 
-      let total = 0;
+      let totalUnits = 0;
       for (const material of materials) {
         if (!material.materialId || material.materialId.startsWith("temp-")) {
           return "All materials must be selected";
         }
-        if (material.percentage < 0 || material.percentage > 100) {
+        if (!Number.isFinite(material.percentage)) {
+          return "Material percentages must be valid numbers";
+        }
+        const percentageUnits = toPercentageUnits(material.percentage);
+        if (percentageUnits < 0 || percentageUnits > MAX_PERCENTAGE_UNITS) {
           return "Material percentages must be between 0 and 100";
         }
-        total += material.percentage;
+        totalUnits += percentageUnits;
       }
 
-      if (total > 100) {
-        return `Material percentages sum to ${total.toFixed(1)}%, but cannot exceed 100%`;
+      if (totalUnits > MAX_PERCENTAGE_UNITS) {
+        return `Material percentages sum to ${formatPercentageFromUnits(totalUnits)}%, but cannot exceed 100%`;
       }
 
       return undefined;

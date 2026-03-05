@@ -1,4 +1,7 @@
-import type { SimilarProduct, ThemeConfig } from "@v1/dpp-components";
+/**
+ * Carousel card used for similar products in the DPP.
+ */
+import type { SimilarProduct } from "@v1/dpp-components";
 import Image from "next/image";
 import { formatPrice } from "../../utils/formatting";
 
@@ -15,6 +18,7 @@ export function ProductCard({
   showPrice = true,
   roundPrice = true,
 }: Props) {
+  // Render a higher-quality responsive image source for sharper product thumbnails.
   return (
     <a
       href={product.url}
@@ -31,7 +35,8 @@ export function ProductCard({
           alt={product.name}
           fill
           className="object-cover"
-          sizes="(max-width: 768px) 50vw, 200px"
+          sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 280px"
+          quality={90}
         />
       </div>
       {(showTitle || showPrice) && (

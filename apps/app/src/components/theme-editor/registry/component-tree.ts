@@ -1339,6 +1339,13 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
       },
       {
         type: "url",
+        path: "social.youtubeUrl",
+        label: "YouTube",
+        placeholder: "https://youtube.com/@...",
+        section: "Social Links",
+      },
+      {
+        type: "url",
         path: "social.linkedinUrl",
         label: "LinkedIn",
         placeholder: "https://linkedin.com/company/...",

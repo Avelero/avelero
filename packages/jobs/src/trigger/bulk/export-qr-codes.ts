@@ -30,6 +30,7 @@ import {
   resolveQrExportProductIds,
 } from "@v1/db/queries/products";
 import QrExportReadyEmail from "@v1/email/emails/qr-export-ready";
+import { getPublicUrl } from "@v1/supabase/storage";
 import {
   type GenerateQrPngOptions,
   type QrExportCsvRow,
@@ -79,40 +80,6 @@ const MAX_CONSECUTIVE_PROGRESS_FLUSH_FAILURES = 3;
 const QR_GENERATION_MAX_THREADS = 6;
 const DOWNLOAD_EXPIRY_DAYS = 7;
 const EMAIL_FROM = "Avelero <noreply@welcome.avelero.com>";
-
-/**
- * Resolve the preferred storage base URL for public assets.
- */
-function getStoragePublicBaseUrl(): string | null {
-  return (
-    process.env.SUPABASE_STORAGE_URL ??
-    process.env.NEXT_PUBLIC_STORAGE_URL ??
-    null
-  );
-}
-
-/**
- * Rewrite Supabase public storage URLs to the configured storage domain.
- */
-function remapStoragePublicUrl(url: string): string {
-  const storageBaseUrl = getStoragePublicBaseUrl();
-  if (!storageBaseUrl) return url;
-
-  try {
-    const parsedUrl = new URL(url);
-    if (!parsedUrl.pathname.startsWith("/storage/v1/object/public/")) {
-      return url;
-    }
-
-    const parsedStorageBaseUrl = new URL(storageBaseUrl);
-    parsedUrl.protocol = parsedStorageBaseUrl.protocol;
-    parsedUrl.hostname = parsedStorageBaseUrl.hostname;
-    parsedUrl.port = parsedStorageBaseUrl.port;
-    return parsedUrl.toString();
-  } catch {
-    return url;
-  }
-}
 
 /**
  * Create the service-role Supabase client used by this job.
@@ -501,16 +468,21 @@ export const exportQrCodes = task({
                 cacheHitCount += 1;
               }
 
-              const { data: publicData } = supabase.storage
-                .from(QR_IMAGES_BUCKET)
-                .getPublicUrl(qrPngPath);
+              const qrPngUrl = getPublicUrl(
+                supabase,
+                QR_IMAGES_BUCKET,
+                qrPngPath,
+              );
+              if (!qrPngUrl) {
+                throw new Error("Failed to resolve public URL for QR PNG");
+              }
 
               csvRowsByIndex[index] = {
                 productTitle: row.productTitle,
                 variantUpid: row.variantUpid,
                 barcode: row.barcode,
                 gs1DigitalLinkUrl,
-                qrPngUrl: remapStoragePublicUrl(publicData.publicUrl),
+                qrPngUrl,
               };
             } catch (error) {
               failedVariants.push({

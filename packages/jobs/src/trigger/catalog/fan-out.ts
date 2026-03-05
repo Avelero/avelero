@@ -44,65 +44,93 @@ export interface CatalogFanOutPayload {
   brandId: string;
   entityType: CatalogEntityType;
   entityId: string;
+  productIds?: string[];
 }
+
+type CatalogFanOutProductResolvers = {
+  findPublishedProductIdsByCertification: typeof findPublishedProductIdsByCertification;
+  findPublishedProductIdsByManufacturer: typeof findPublishedProductIdsByManufacturer;
+  findPublishedProductIdsByMaterial: typeof findPublishedProductIdsByMaterial;
+  findPublishedProductIdsByOperator: typeof findPublishedProductIdsByOperator;
+};
+
+const defaultCatalogFanOutResolvers: CatalogFanOutProductResolvers = {
+  findPublishedProductIdsByCertification,
+  findPublishedProductIdsByManufacturer,
+  findPublishedProductIdsByMaterial,
+  findPublishedProductIdsByOperator,
+};
 
 // =============================================================================
 // TASK
 // =============================================================================
 
+/**
+ * Resolve the published product IDs for a catalog fan-out run.
+ */
+export async function resolveCatalogFanOutProductIds(
+  payload: CatalogFanOutPayload,
+  resolvers: CatalogFanOutProductResolvers = defaultCatalogFanOutResolvers,
+): Promise<string[]> {
+  // Prefer pre-delete product IDs captured by the API before FK nullification.
+  if (payload.productIds) {
+    return Array.from(new Set(payload.productIds));
+  }
+
+  switch (payload.entityType) {
+    case "manufacturer":
+      return resolvers.findPublishedProductIdsByManufacturer(
+        db,
+        payload.brandId,
+        payload.entityId,
+      );
+    case "material":
+      return resolvers.findPublishedProductIdsByMaterial(
+        db,
+        payload.brandId,
+        payload.entityId,
+      );
+    case "certification":
+      return resolvers.findPublishedProductIdsByCertification(
+        db,
+        payload.brandId,
+        payload.entityId,
+      );
+    case "operator":
+      return resolvers.findPublishedProductIdsByOperator(
+        db,
+        payload.brandId,
+        payload.entityId,
+      );
+    default:
+      logger.warn("Unknown entity type, skipping", {
+        entityType: payload.entityType,
+      });
+      return [];
+  }
+}
+
 export const catalogFanOut = task({
   id: "catalog-fan-out",
-  // Concurrency limit of 1 per brand prevents fan-outs for the same brand from
-  // running simultaneously and stepping on each other's snapshot writes.
+  // A per-brand concurrency key plus a queue limit of 1 prevents overlapping
+  // fan-outs for the same brand from stepping on each other's snapshot writes.
   queue: {
     name: "catalog-fan-out",
-    concurrencyLimit: 5,
+    concurrencyLimit: 1,
   },
   run: async (payload: CatalogFanOutPayload) => {
+    // Resolve affected products, preferring any pre-delete IDs from the payload.
     const { brandId, entityType, entityId } = payload;
 
     logger.info("Starting catalog fan-out", { brandId, entityType, entityId });
 
-    // Step 1: Resolve affected published product IDs.
-    let productIds: string[];
-    switch (entityType) {
-      case "manufacturer":
-        productIds = await findPublishedProductIdsByManufacturer(
-          db,
-          brandId,
-          entityId,
-        );
-        break;
-      case "material":
-        productIds = await findPublishedProductIdsByMaterial(
-          db,
-          brandId,
-          entityId,
-        );
-        break;
-      case "certification":
-        productIds = await findPublishedProductIdsByCertification(
-          db,
-          brandId,
-          entityId,
-        );
-        break;
-      case "operator":
-        productIds = await findPublishedProductIdsByOperator(
-          db,
-          brandId,
-          entityId,
-        );
-        break;
-      default:
-        logger.warn("Unknown entity type, skipping", { entityType });
-        return { skipped: true, reason: "unknown_entity_type" };
-    }
+    const productIds = await resolveCatalogFanOutProductIds(payload);
 
     logger.info("Resolved affected products", {
       entityType,
       entityId,
       productCount: productIds.length,
+      resolvedFromPayload: Boolean(payload.productIds),
     });
 
     if (productIds.length === 0) {

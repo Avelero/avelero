@@ -21,6 +21,60 @@ import {
 } from "../../schema";
 
 /**
+ * Resolve published product IDs for one or more material IDs.
+ */
+async function findPublishedProductIdsByMaterialIds(
+  db: Database,
+  brandId: string,
+  materialIds: string[],
+): Promise<string[]> {
+  // Resolve both product-level and variant-level material references.
+  if (materialIds.length === 0) {
+    return [];
+  }
+
+  const productIds = new Set<string>();
+
+  const viaProduct = await db
+    .select({ productId: productMaterials.productId })
+    .from(productMaterials)
+    .innerJoin(products, eq(products.id, productMaterials.productId))
+    .where(
+      and(
+        eq(products.brandId, brandId),
+        inArray(productMaterials.brandMaterialId, materialIds),
+        eq(products.status, "published"),
+      ),
+    );
+
+  for (const row of viaProduct) {
+    productIds.add(row.productId);
+  }
+
+  const viaVariant = await db
+    .select({ productId: productVariants.productId })
+    .from(variantMaterials)
+    .innerJoin(
+      productVariants,
+      eq(productVariants.id, variantMaterials.variantId),
+    )
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(
+      and(
+        eq(products.brandId, brandId),
+        inArray(variantMaterials.brandMaterialId, materialIds),
+        eq(products.status, "published"),
+      ),
+    );
+
+  for (const row of viaVariant) {
+    productIds.add(row.productId);
+  }
+
+  return Array.from(productIds);
+}
+
+/**
  * Find published product IDs affected by a manufacturer change.
  *
  * Manufacturers link directly to products via products.manufacturer_id.
@@ -55,47 +109,8 @@ export async function findPublishedProductIdsByMaterial(
   brandId: string,
   materialId: string,
 ): Promise<string[]> {
-  const productIds = new Set<string>();
-
-  // Path 1: product_materials → products
-  const viaProduct = await db
-    .select({ productId: productMaterials.productId })
-    .from(productMaterials)
-    .innerJoin(products, eq(products.id, productMaterials.productId))
-    .where(
-      and(
-        eq(products.brandId, brandId),
-        eq(productMaterials.brandMaterialId, materialId),
-        eq(products.status, "published"),
-      ),
-    );
-
-  for (const r of viaProduct) {
-    productIds.add(r.productId);
-  }
-
-  // Path 2: variant_materials → product_variants → products
-  const viaVariant = await db
-    .select({ productId: productVariants.productId })
-    .from(variantMaterials)
-    .innerJoin(
-      productVariants,
-      eq(productVariants.id, variantMaterials.variantId),
-    )
-    .innerJoin(products, eq(products.id, productVariants.productId))
-    .where(
-      and(
-        eq(products.brandId, brandId),
-        eq(variantMaterials.brandMaterialId, materialId),
-        eq(products.status, "published"),
-      ),
-    );
-
-  for (const r of viaVariant) {
-    productIds.add(r.productId);
-  }
-
-  return Array.from(productIds);
+  // Delegate single-material lookups to the shared material resolver.
+  return findPublishedProductIdsByMaterialIds(db, brandId, [materialId]);
 }
 
 /**
@@ -110,6 +125,7 @@ export async function findPublishedProductIdsByCertification(
   brandId: string,
   certificationId: string,
 ): Promise<string[]> {
+  // Resolve linked materials first, then reuse the shared material resolver.
   // Step 1: find materials that reference this certification
   const affectedMaterials = await db
     .select({ id: brandMaterials.id })
@@ -125,48 +141,11 @@ export async function findPublishedProductIdsByCertification(
     return [];
   }
 
-  const materialIds = affectedMaterials.map((m) => m.id);
-  const productIds = new Set<string>();
-
-  // Path 1: product_materials → products
-  const viaProduct = await db
-    .select({ productId: productMaterials.productId })
-    .from(productMaterials)
-    .innerJoin(products, eq(products.id, productMaterials.productId))
-    .where(
-      and(
-        eq(products.brandId, brandId),
-        inArray(productMaterials.brandMaterialId, materialIds),
-        eq(products.status, "published"),
-      ),
-    );
-
-  for (const r of viaProduct) {
-    productIds.add(r.productId);
-  }
-
-  // Path 2: variant_materials → product_variants → products
-  const viaVariant = await db
-    .select({ productId: productVariants.productId })
-    .from(variantMaterials)
-    .innerJoin(
-      productVariants,
-      eq(productVariants.id, variantMaterials.variantId),
-    )
-    .innerJoin(products, eq(products.id, productVariants.productId))
-    .where(
-      and(
-        eq(products.brandId, brandId),
-        inArray(variantMaterials.brandMaterialId, materialIds),
-        eq(products.status, "published"),
-      ),
-    );
-
-  for (const r of viaVariant) {
-    productIds.add(r.productId);
-  }
-
-  return Array.from(productIds);
+  return findPublishedProductIdsByMaterialIds(
+    db,
+    brandId,
+    affectedMaterials.map((material) => material.id),
+  );
 }
 
 /**

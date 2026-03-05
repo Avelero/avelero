@@ -13,6 +13,7 @@
  * Bucket name for product images.
  */
 export const PRODUCTS_BUCKET = "products";
+const STORAGE_PUBLIC_PREFIX = "/storage/v1/object/public/";
 
 // =============================================================================
 // URL BUILDING
@@ -29,6 +30,46 @@ function encodePath(path: string): string {
 }
 
 /**
+ * Escape regex metacharacters for safe dynamic patterns.
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Decode URI path segments safely.
+ */
+function decodePath(path: string): string {
+  return path
+    .split("/")
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    })
+    .join("/");
+}
+
+/**
+ * Extract a storage object path from a full public storage URL.
+ */
+function extractStoragePathFromPublicUrl(
+  value: string,
+  bucket: string,
+): string | null {
+  const escapedBucket = escapeRegExp(bucket);
+  const pattern = new RegExp(
+    `${STORAGE_PUBLIC_PREFIX}${escapedBucket}/(.+?)(?:[?#].*)?$`,
+    "i",
+  );
+  const match = value.match(pattern);
+  if (!match?.[1]) return null;
+  return decodePath(match[1]);
+}
+
+/**
  * Build a public URL for a product image.
  *
  * @param storageBaseUrl - The Supabase storage base URL (e.g., https://xxx.supabase.co)
@@ -41,15 +82,27 @@ export function buildProductImageUrl(
 ): string | null {
   if (!imagePath) return null;
 
-  // If already a full URL, return as-is
-  if (isFullUrl(imagePath)) return imagePath;
+  // Normalize legacy full public storage URLs back to a storage path first.
+  const extractedStoragePath = extractStoragePathFromPublicUrl(
+    imagePath,
+    PRODUCTS_BUCKET,
+  );
+  const normalizedPath = extractedStoragePath ?? imagePath;
+
+  // Preserve external full URLs as-is.
+  if (isFullUrl(normalizedPath)) return normalizedPath;
 
   // If no storage base URL available, return the path as-is
   // (fallback for backward compatibility)
-  if (!storageBaseUrl) return imagePath;
+  if (!storageBaseUrl) {
+    return extractedStoragePath ? imagePath : normalizedPath;
+  }
 
-  const encodedPath = encodePath(imagePath);
-  return `${storageBaseUrl}/storage/v1/object/public/${PRODUCTS_BUCKET}/${encodedPath}`;
+  const normalizedStorageBaseUrl = storageBaseUrl.endsWith("/")
+    ? storageBaseUrl.slice(0, -1)
+    : storageBaseUrl;
+  const encodedPath = encodePath(normalizedPath);
+  return `${normalizedStorageBaseUrl}/storage/v1/object/public/${PRODUCTS_BUCKET}/${encodedPath}`;
 }
 
 /**
@@ -65,8 +118,12 @@ export function isFullUrl(value: string | null | undefined): boolean {
  * Works in both Node.js and edge contexts.
  */
 export function getSupabaseUrlFromEnv(): string | null {
-  // Try common environment variable names
+  // Prefer dedicated storage URL overrides, then fall back to Supabase URL.
   return (
-    process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? null
+    process.env.SUPABASE_STORAGE_URL ??
+    process.env.NEXT_PUBLIC_STORAGE_URL ??
+    process.env.SUPABASE_URL ??
+    process.env.NEXT_PUBLIC_SUPABASE_URL ??
+    null
   );
 }

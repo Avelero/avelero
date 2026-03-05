@@ -47,11 +47,11 @@ export function buildPublicUrl(
 ): string | null {
   if (!path) return null;
 
-  const supabaseUrl = getSupabaseUrl();
+  const storageBaseUrl = getSupabaseUrl();
   const encodedPath = encodePath(path);
 
-  if (supabaseUrl) {
-    return `${supabaseUrl}/storage/v1/object/public/${bucket}/${encodedPath}`;
+  if (storageBaseUrl) {
+    return `${storageBaseUrl}/storage/v1/object/public/${bucket}/${encodedPath}`;
   }
 
   // Fallback for SSR or missing env var
@@ -192,9 +192,13 @@ export function resolveThemeConfigImageUrls<T>(themeConfig: T): T {
 // ============================================================================
 
 /**
- * Get the Supabase URL from environment.
- * NEXT_PUBLIC_ env vars are available on both client and server.
+ * Get the public storage base URL from environment.
+ * Falls back to the Supabase URL when a dedicated storage URL is not configured.
  */
 export function getSupabaseUrl(): string | null {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
+  return (
+    process.env.NEXT_PUBLIC_STORAGE_URL ??
+    process.env.NEXT_PUBLIC_SUPABASE_URL ??
+    null
+  );
 }

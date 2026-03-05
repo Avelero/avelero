@@ -11,6 +11,7 @@ import type { Database } from "../types";
 export type StorageClient = Pick<SupabaseClient<Database>, "storage">;
 
 export const EMPTY_FOLDER_PLACEHOLDER_FILE_NAME = ".emptyFolderPlaceholder";
+const STORAGE_PUBLIC_PATH_PREFIX = "/storage/v1/object/public/";
 
 // ============================================================================
 // Upload / Remove / Download
@@ -90,7 +91,43 @@ export function getPublicUrl(
 ): string | null {
   if (!path) return null;
   const { data } = client.storage.from(bucket).getPublicUrl(path);
-  return data?.publicUrl ?? null;
+  return remapStoragePublicUrl(data?.publicUrl ?? null);
+}
+
+/**
+ * Resolve the preferred public base URL for storage objects.
+ */
+function getStoragePublicBaseUrl(): string | null {
+  return (
+    process.env.SUPABASE_STORAGE_URL ??
+    process.env.NEXT_PUBLIC_STORAGE_URL ??
+    null
+  );
+}
+
+/**
+ * Rewrite Supabase public object URLs to the configured storage domain.
+ */
+function remapStoragePublicUrl(url: string | null): string | null {
+  if (!url) return null;
+
+  const storageBaseUrl = getStoragePublicBaseUrl();
+  if (!storageBaseUrl) return url;
+
+  try {
+    const parsedUrl = new URL(url);
+    if (!parsedUrl.pathname.startsWith(STORAGE_PUBLIC_PATH_PREFIX)) {
+      return url;
+    }
+
+    const parsedStorageBaseUrl = new URL(storageBaseUrl);
+    parsedUrl.protocol = parsedStorageBaseUrl.protocol;
+    parsedUrl.hostname = parsedStorageBaseUrl.hostname;
+    parsedUrl.port = parsedStorageBaseUrl.port;
+    return parsedUrl.toString();
+  } catch {
+    return url;
+  }
 }
 
 /**

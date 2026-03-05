@@ -364,6 +364,72 @@ export function joinSemicolon(arr: string[] | null | undefined): string {
   return arr.join("; ");
 }
 
+const PRODUCTS_BUCKET = "products";
+const STORAGE_PUBLIC_PREFIX = "/storage/v1/object/public/";
+
+/**
+ * Escape regex metacharacters for dynamic path extraction.
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Decode URI path segments safely.
+ */
+function decodeStoragePath(pathValue: string): string {
+  return pathValue
+    .split("/")
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    })
+    .join("/");
+}
+
+/**
+ * Encode a storage path for inclusion in a URL.
+ */
+function encodeStoragePath(pathValue: string): string {
+  return pathValue
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
+/**
+ * Extract the object path from a known storage public URL.
+ */
+function extractStoragePathFromPublicUrl(
+  value: string,
+  bucket: string,
+): string | null {
+  const escapedBucket = escapeRegExp(bucket);
+  const pattern = new RegExp(
+    `${STORAGE_PUBLIC_PREFIX}${escapedBucket}/(.+?)(?:[?#].*)?$`,
+    "i",
+  );
+  const match = value.match(pattern);
+  if (!match?.[1]) return null;
+  return decodeStoragePath(match[1]);
+}
+
+/**
+ * Resolve the preferred public storage base URL from environment.
+ */
+function getPublicStorageBaseUrl(): string | null {
+  return (
+    process.env.SUPABASE_STORAGE_URL ??
+    process.env.NEXT_PUBLIC_STORAGE_URL ??
+    process.env.SUPABASE_URL ??
+    process.env.NEXT_PUBLIC_SUPABASE_URL ??
+    null
+  );
+}
+
 export function formatMaterials(
   materials:
     | Array<{ name: string; percentage: number | null }>
@@ -381,15 +447,29 @@ export function formatMaterials(
 
 export function buildImageUrl(imagePath: string | null | undefined): string {
   if (!imagePath) return "";
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-    return imagePath;
+
+  const extractedPath = extractStoragePathFromPublicUrl(
+    imagePath,
+    PRODUCTS_BUCKET,
+  );
+  const normalizedPath = extractedPath ?? imagePath;
+  if (
+    normalizedPath.startsWith("http://") ||
+    normalizedPath.startsWith("https://")
+  ) {
+    return normalizedPath;
   }
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) return imagePath;
-  const baseUrl = supabaseUrl.endsWith("/")
-    ? supabaseUrl.slice(0, -1)
-    : supabaseUrl;
-  return `${baseUrl}/storage/v1/object/public/products/${imagePath}`;
+
+  const storageBaseUrl = getPublicStorageBaseUrl();
+  if (!storageBaseUrl) {
+    return extractedPath ? imagePath : normalizedPath;
+  }
+
+  const baseUrl = storageBaseUrl.endsWith("/")
+    ? storageBaseUrl.slice(0, -1)
+    : storageBaseUrl;
+  const encodedPath = encodeStoragePath(normalizedPath);
+  return `${baseUrl}/storage/v1/object/public/${PRODUCTS_BUCKET}/${encodedPath}`;
 }
 
 export function getAttributeByIndex(

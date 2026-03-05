@@ -80,6 +80,43 @@ const QR_GENERATION_MAX_THREADS = 6;
 const DOWNLOAD_EXPIRY_DAYS = 7;
 const EMAIL_FROM = "Avelero <noreply@welcome.avelero.com>";
 
+/**
+ * Resolve the preferred storage base URL for public assets.
+ */
+function getStoragePublicBaseUrl(): string | null {
+  return (
+    process.env.SUPABASE_STORAGE_URL ??
+    process.env.NEXT_PUBLIC_STORAGE_URL ??
+    null
+  );
+}
+
+/**
+ * Rewrite Supabase public storage URLs to the configured storage domain.
+ */
+function remapStoragePublicUrl(url: string): string {
+  const storageBaseUrl = getStoragePublicBaseUrl();
+  if (!storageBaseUrl) return url;
+
+  try {
+    const parsedUrl = new URL(url);
+    if (!parsedUrl.pathname.startsWith("/storage/v1/object/public/")) {
+      return url;
+    }
+
+    const parsedStorageBaseUrl = new URL(storageBaseUrl);
+    parsedUrl.protocol = parsedStorageBaseUrl.protocol;
+    parsedUrl.hostname = parsedStorageBaseUrl.hostname;
+    parsedUrl.port = parsedStorageBaseUrl.port;
+    return parsedUrl.toString();
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Create the service-role Supabase client used by this job.
+ */
 function createSupabaseServiceClient() {
   const supabaseUrl =
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -473,7 +510,7 @@ export const exportQrCodes = task({
                 variantUpid: row.variantUpid,
                 barcode: row.barcode,
                 gs1DigitalLinkUrl,
-                qrPngUrl: publicData.publicUrl,
+                qrPngUrl: remapStoragePublicUrl(publicData.publicUrl),
               };
             } catch (error) {
               failedVariants.push({

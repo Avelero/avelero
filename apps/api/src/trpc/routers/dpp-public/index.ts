@@ -23,6 +23,8 @@ import { resolveThemeConfigImageUrls } from "../../../utils/theme-config-images.
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
 import { createTRPCRouter, publicProcedure } from "../../init.js";
 
+const PRODUCTS_BUCKET = "products";
+
 /**
  * UPID schema: 16-character alphanumeric identifier
  */
@@ -37,6 +39,70 @@ const upidSchema = z
 const getThemePreviewSchema = z.object({
   brandSlug: slugSchema,
 });
+
+/**
+ * Escape regex metacharacters for a dynamic path pattern.
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Decode URI path segments safely.
+ */
+function decodeStoragePath(path: string): string {
+  return path
+    .split("/")
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    })
+    .join("/");
+}
+
+/**
+ * Extract a bucket object path from known Supabase storage URL shapes.
+ */
+function extractStorageObjectPath(
+  value: string,
+  bucket: string,
+): string | null {
+  const escapedBucket = escapeRegExp(bucket);
+  const pattern = new RegExp(
+    `(?:https?:\\/\\/[^/]+)?\\/storage\\/v1\\/object\\/(?:public|sign)\\/${escapedBucket}\\/(.+?)(?:[?#].*)?$`,
+    "i",
+  );
+  const match = value.match(pattern);
+  if (!match?.[1]) return null;
+  return decodeStoragePath(match[1]);
+}
+
+/**
+ * Resolve snapshot image values to a current public URL on the configured storage domain.
+ */
+function resolveSnapshotProductImageUrl(
+  storageClient: Parameters<typeof getPublicUrl>[0],
+  imageValue: string | null | undefined,
+): string | null {
+  if (!imageValue) return null;
+
+  const normalizedImage =
+    extractStorageObjectPath(imageValue, PRODUCTS_BUCKET) ?? imageValue;
+  if (
+    normalizedImage.startsWith("http://") ||
+    normalizedImage.startsWith("https://")
+  ) {
+    return normalizedImage;
+  }
+
+  return (
+    getPublicUrl(storageClient, PRODUCTS_BUCKET, normalizedImage) ??
+    normalizedImage
+  );
+}
 
 export const dppPublicRouter = createTRPCRouter({
   /**
@@ -115,24 +181,11 @@ export const dppPublicRouter = createTRPCRouter({
         ? getPublicUrl(ctx.supabase, "dpp-themes", result.theme.stylesheetPath)
         : null;
 
-      // Resolve product image in the snapshot to public URL
-      let productImageUrl: string | null = null;
-      const snapshotImage = result.snapshot.productAttributes?.image;
-      if (snapshotImage && typeof snapshotImage === "string") {
-        // Check if it's already a full URL or a storage path
-        if (
-          snapshotImage.startsWith("http://") ||
-          snapshotImage.startsWith("https://")
-        ) {
-          productImageUrl = snapshotImage;
-        } else {
-          productImageUrl = getPublicUrl(
-            ctx.supabase,
-            "products",
-            snapshotImage,
-          );
-        }
-      }
+      // Resolve product image in the snapshot to a current public URL.
+      const productImageUrl = resolveSnapshotProductImageUrl(
+        ctx.supabase,
+        result.snapshot.productAttributes?.image,
+      );
 
       // Resolve image paths in themeConfig to full URLs
       const resolvedThemeConfig = resolveThemeConfigImageUrls(
@@ -266,23 +319,11 @@ export const dppPublicRouter = createTRPCRouter({
         ? getPublicUrl(ctx.supabase, "dpp-themes", result.theme.stylesheetPath)
         : null;
 
-      // Resolve product image in the snapshot to public URL
-      let productImageUrl: string | null = null;
-      const snapshotImage = result.snapshot.productAttributes?.image;
-      if (snapshotImage && typeof snapshotImage === "string") {
-        if (
-          snapshotImage.startsWith("http://") ||
-          snapshotImage.startsWith("https://")
-        ) {
-          productImageUrl = snapshotImage;
-        } else {
-          productImageUrl = getPublicUrl(
-            ctx.supabase,
-            "products",
-            snapshotImage,
-          );
-        }
-      }
+      // Resolve product image in the snapshot to a current public URL.
+      const productImageUrl = resolveSnapshotProductImageUrl(
+        ctx.supabase,
+        result.snapshot.productAttributes?.image,
+      );
 
       // Resolve image paths in themeConfig to full URLs
       const resolvedThemeConfig = resolveThemeConfigImageUrls(

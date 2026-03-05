@@ -88,6 +88,12 @@ function parseVariantWeight(variant: string): number | undefined {
   return Number.isNaN(weight) ? undefined : weight;
 }
 
+function getFallbackAxisWeight(start: number, end: number): number {
+  // Clamp regular weight into axis range so URL generation always has a valid weight.
+  const clampedWeight = Math.min(Math.max(400, start), end);
+  return Math.round(clampedWeight);
+}
+
 function getFontWeights(fontFamily: string): number[] {
   // Resolve the safest available weight set for each Google font family.
   const metadata = findFont(fontFamily);
@@ -98,12 +104,16 @@ function getFontWeights(fontFamily: string): number[] {
   if (metadata.isVariable) {
     const weightAxis = metadata.axes.find((axis) => axis.tag === "wght");
     if (!weightAxis) {
-      return PRESET_WEIGHTS;
+      return [400];
     }
 
-    return PRESET_WEIGHTS.filter(
+    const variableWeights = PRESET_WEIGHTS.filter(
       (weight) => weight >= weightAxis.start && weight <= weightAxis.end,
     );
+    if (variableWeights.length > 0) {
+      return variableWeights;
+    }
+    return [getFallbackAxisWeight(weightAxis.start, weightAxis.end)];
   }
 
   const staticWeights = Array.from(

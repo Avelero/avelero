@@ -1,3 +1,8 @@
+/**
+ * usePassportForm
+ *
+ * Form state management hook for creating and editing passport-level product data.
+ */
 import type {
   ExpandedVariantMappings,
   VariantDimension,
@@ -12,6 +17,12 @@ import {
   validateForm,
 } from "@/hooks/use-form-validation";
 import { useImageUpload } from "@/hooks/use-upload";
+import {
+  MAX_PERCENTAGE_UNITS,
+  formatPercentageFromUnits,
+  isPercentageWithinBounds,
+  toPercentageUnits,
+} from "@/lib/percentage-utils";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
@@ -202,20 +213,6 @@ type PassportFormValidationFields = Pick<
   | "weightGrams"
 >;
 
-const PERCENTAGE_SCALE = 100;
-const MAX_PERCENTAGE_UNITS = 100 * PERCENTAGE_SCALE;
-
-function toPercentageUnits(value: number): number {
-  // Convert percentages to integer hundredths to avoid floating-point drift.
-  if (!Number.isFinite(value)) return 0;
-  return Math.round((value + Number.EPSILON) * PERCENTAGE_SCALE);
-}
-
-function formatPercentageFromUnits(units: number): string {
-  // Format integer hundredths back to a clean percentage string.
-  return (units / PERCENTAGE_SCALE).toFixed(2).replace(/\.?0+$/, "");
-}
-
 const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
   name: [
     rules.required("Name is required"),
@@ -254,11 +251,10 @@ const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
         if (!Number.isFinite(material.percentage)) {
           return "Material percentages must be valid numbers";
         }
-        const percentageUnits = toPercentageUnits(material.percentage);
-        if (percentageUnits < 0 || percentageUnits > MAX_PERCENTAGE_UNITS) {
+        if (!isPercentageWithinBounds(material.percentage)) {
           return "Material percentages must be between 0 and 100";
         }
-        totalUnits += percentageUnits;
+        totalUnits += toPercentageUnits(material.percentage);
       }
 
       if (totalUnits > MAX_PERCENTAGE_UNITS) {

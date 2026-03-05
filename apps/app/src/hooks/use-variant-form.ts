@@ -7,6 +7,12 @@
 
 import { useFormState } from "@/hooks/use-form-state";
 import { useImageUpload } from "@/hooks/use-upload";
+import {
+  MAX_PERCENTAGE_UNITS,
+  formatPercentageFromUnits,
+  isPercentageWithinBounds,
+  toPercentageUnits,
+} from "@/lib/percentage-utils";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
@@ -100,20 +106,6 @@ const initialFormValues: VariantFormValues = {
   materials: [],
   journeySteps: [],
 };
-
-const PERCENTAGE_SCALE = 100;
-const MAX_PERCENTAGE_UNITS = 100 * PERCENTAGE_SCALE;
-
-function toPercentageUnits(value: number): number {
-  // Convert percentages to integer hundredths to avoid floating-point drift.
-  if (!Number.isFinite(value)) return 0;
-  return Math.round((value + Number.EPSILON) * PERCENTAGE_SCALE);
-}
-
-function formatPercentageFromUnits(units: number): string {
-  // Format integer hundredths back to a clean percentage string.
-  return (units / PERCENTAGE_SCALE).toFixed(2).replace(/\.?0+$/, "");
-}
 
 // ============================================================================
 // Hook
@@ -271,18 +263,15 @@ export function useVariantForm(options: UseVariantFormOptions) {
     // Materials percentage validation
     let totalPercentageUnits = 0;
     for (const material of state.materials) {
-      if (material.percentage) {
-        if (!Number.isFinite(material.percentage)) {
-          errors.materials = "Material percentages must be valid numbers";
-          break;
-        }
-        const percentageUnits = toPercentageUnits(material.percentage);
-        if (percentageUnits < 0) {
-          errors.materials = "Material percentages must be positive numbers";
-          break;
-        }
-        totalPercentageUnits += percentageUnits;
+      if (!Number.isFinite(material.percentage)) {
+        errors.materials = "Material percentages must be valid numbers";
+        break;
       }
+      if (!isPercentageWithinBounds(material.percentage)) {
+        errors.materials = "Material percentages must be between 0 and 100";
+        break;
+      }
+      totalPercentageUnits += toPercentageUnits(material.percentage);
     }
     if (totalPercentageUnits > MAX_PERCENTAGE_UNITS) {
       errors.materials = `Material percentages sum to ${formatPercentageFromUnits(totalPercentageUnits)}%, but cannot exceed 100%`;

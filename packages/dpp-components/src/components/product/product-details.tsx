@@ -2,6 +2,7 @@
  * Product details table for article metadata and variant attributes.
  */
 import type { ThemeConfig, VariantAttribute } from "@v1/dpp-components";
+import { toExternalHref } from "../../lib/url-utils";
 
 interface Props {
   articleNumber: string;
@@ -23,16 +24,6 @@ function toCapitalizedLabel(value: string): string {
     .filter(Boolean)
     .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
     .join(" ");
-}
-
-function toExternalHref(url?: string): string | undefined {
-  // Normalize plain domain values so external links still open correctly.
-  const trimmed = url?.trim();
-  if (!trimmed) return undefined;
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed;
-  }
-  return `https://${trimmed}`;
 }
 
 export function ProductDetails({

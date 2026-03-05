@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function ProductImage({ image, alt }: Props) {
-  // Render the product image at full width while preserving its native aspect ratio.
+  // Reserve intrinsic dimensions to reduce layout shift while keeping responsive scaling.
   // Next.js blocks image optimization for private IPs (security feature)
   // Use unoptimized for local development URLs
   const isLocalDev =
@@ -21,8 +21,8 @@ export function ProductImage({ image, alt }: Props) {
         <Image
           src={image}
           alt={alt}
-          width={0}
-          height={0}
+          width={393}
+          height={539}
           className="block w-full h-auto object-contain"
           sizes="100vw"
           quality={90}

@@ -114,6 +114,12 @@ function toWeightOption(weight: number): { value: string; label: string } {
   return { value: String(weight), label: `${bucketLabel} (${weight})` };
 }
 
+function getFallbackAxisWeight(start: number, end: number): number {
+  // Clamp regular weight into axis range to provide a valid single fallback option.
+  const clampedWeight = Math.min(Math.max(400, start), end);
+  return Math.round(clampedWeight);
+}
+
 function collectWeightsFromCustomFont(font: CustomFont): number[] {
   // Expand custom font metadata into concrete selectable weight values.
   if (typeof font.fontWeight === "number") {
@@ -176,12 +182,18 @@ function getAvailableWeightOptions(
 
   if (googleFont.isVariable) {
     const weightAxis = googleFont.axes.find((axis) => axis.tag === "wght");
-    if (weightAxis) {
-      for (const weight of FONT_WEIGHT_VALUES) {
-        if (weight >= weightAxis.start && weight <= weightAxis.end) {
-          googleWeights.add(weight);
-        }
+    if (!weightAxis) {
+      return [toWeightOption(400)];
+    }
+
+    for (const weight of FONT_WEIGHT_VALUES) {
+      if (weight >= weightAxis.start && weight <= weightAxis.end) {
+        googleWeights.add(weight);
       }
+    }
+
+    if (googleWeights.size === 0) {
+      googleWeights.add(getFallbackAxisWeight(weightAxis.start, weightAxis.end));
     }
   } else if (googleFont.variants?.length) {
     for (const variant of googleFont.variants) {
@@ -197,7 +209,7 @@ function getAvailableWeightOptions(
   const sortedGoogleWeights = Array.from(googleWeights).sort((a, b) => a - b);
   return sortedGoogleWeights.length > 0
     ? sortedGoogleWeights.map(toWeightOption)
-    : FONT_WEIGHT_OPTIONS;
+    : [toWeightOption(400)];
 }
 
 // ============================================================================

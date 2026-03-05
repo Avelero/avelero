@@ -4,6 +4,7 @@
 import type { ThemeConfig } from "@v1/dpp-components";
 import { Icons } from "@v1/ui/icons";
 import { Fragment } from "react";
+import { toExternalHref } from "../../lib/url-utils";
 
 /**
  * Display-only material type for UI rendering.
@@ -20,16 +21,6 @@ interface MaterialDisplay {
 interface Props {
   materials: MaterialDisplay[];
   themeConfig: ThemeConfig;
-}
-
-function toExternalHref(url?: string): string | undefined {
-  // Normalize optional URLs so external certification links resolve consistently.
-  const trimmed = url?.trim();
-  if (!trimmed) return undefined;
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed;
-  }
-  return `https://${trimmed}`;
 }
 
 export function MaterialsFrame({ materials, themeConfig }: Props) {

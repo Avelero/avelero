@@ -130,10 +130,9 @@ export function FontSelect({
     const previousSources = customFontSourcesSnapshot.current;
     const addedFonts = customFonts.filter((font) => !previousSources.has(font.src));
     customFontSourcesSnapshot.current = new Set(customFonts.map((font) => font.src));
+    pendingCustomFontAutoSelect.current = false;
 
     if (addedFonts.length === 0) return;
-
-    pendingCustomFontAutoSelect.current = false;
     const latestAddedFont = addedFonts[addedFonts.length - 1];
     if (!latestAddedFont) return;
 

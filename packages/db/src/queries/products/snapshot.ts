@@ -376,6 +376,19 @@ async function fetchMaterialsWithCertifications(
       const certification = material.certificationId
         ? certificationsMap.get(material.certificationId)
         : null;
+      const hasTestingInstituteData = certification
+        ? Boolean(
+            certification.instituteName ||
+              certification.instituteEmail ||
+              certification.instituteWebsite ||
+              certification.instituteAddressLine1 ||
+              certification.instituteAddressLine2 ||
+              certification.instituteCity ||
+              certification.instituteState ||
+              certification.instituteZip ||
+              certification.instituteCountryCode,
+          )
+        : false;
 
       return {
         material: material.name,
@@ -386,7 +399,7 @@ async function fetchMaterialsWithCertifications(
           ? {
               title: certification.title,
               certificationCode: certification.certificationCode,
-              testingInstitute: certification.instituteName
+              testingInstitute: hasTestingInstituteData
                 ? {
                     instituteName: certification.instituteName,
                     instituteEmail: certification.instituteEmail,

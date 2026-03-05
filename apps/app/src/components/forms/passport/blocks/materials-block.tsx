@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Materials block for passport forms.
+ * Handles row editing, selection, percentages, and total validation feedback.
+ */
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { countries as countryData } from "@v1/selections/countries";
 import { Button } from "@v1/ui/button";
@@ -31,6 +35,43 @@ interface Material {
   percentage: string;
 }
 
+const MAX_PERCENTAGE_DECIMALS = 2;
+const PERCENTAGE_PRECISION_FACTOR = 10 ** MAX_PERCENTAGE_DECIMALS;
+
+function roundPercentage(value: number): number {
+  // Keep percentage math stable to avoid floating-point artifacts.
+  if (!Number.isFinite(value)) return 0;
+  return (
+    Math.round((value + Number.EPSILON) * PERCENTAGE_PRECISION_FACTOR) /
+    PERCENTAGE_PRECISION_FACTOR
+  );
+}
+
+function formatPercentageForDisplay(value: number): string {
+  // Show up to two decimals and strip trailing zeros.
+  const rounded = roundPercentage(value);
+  if (Object.is(rounded, -0)) return "0";
+  return rounded
+    .toFixed(MAX_PERCENTAGE_DECIMALS)
+    .replace(/\.?0+$/, "");
+}
+
+function parsePercentageFromInput(value: string): number {
+  // Parse percentage text, including dot-prefixed values like ".7".
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === ".") return 0;
+  const normalized = trimmed.startsWith(".") ? `0${trimmed}` : trimmed;
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? roundPercentage(parsed) : 0;
+}
+
+function normalizePercentageInput(value: string): string {
+  // Normalize free-form text on blur so user-entered values are consistent.
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === ".") return "";
+  return formatPercentageForDisplay(parsePercentageFromInput(trimmed));
+}
+
 const MaterialDropdown = ({
   material,
   onMaterialChange,
@@ -44,11 +85,13 @@ const MaterialDropdown = ({
   availableMaterials: Array<{ id: string; name: string }>;
   excludeMaterialIds?: string[];
 }) => {
+  // Manage searchable material selection in the row popover.
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [pendingSelectedId, setPendingSelectedId] = React.useState<
     string | null
   >(null);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   // Filter out materials that are already added
   const filteredMaterials = React.useMemo(() => {
@@ -68,6 +111,15 @@ const MaterialDropdown = ({
     () => filteredMaterials.map((m) => m.name),
     [filteredMaterials],
   );
+
+  React.useEffect(() => {
+    // Focus the search field when the popover opens.
+    if (!dropdownOpen) return;
+    const animationFrame = requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(animationFrame);
+  }, [dropdownOpen]);
 
   const handleSelect = (selectedMaterial: string) => {
     const selected = availableMaterials.find(
@@ -106,12 +158,12 @@ const MaterialDropdown = ({
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className={cn(
-              "group w-full h-full px-4 py-2 flex items-center cursor-pointer transition-all",
+              "group w-full h-full min-w-0 px-4 py-2 flex items-center text-left cursor-pointer transition-all",
             )}
           >
             <div
               className={cn(
-                "border-b border-border type-p transition-colors",
+                "inline-block max-w-full min-w-0 truncate whitespace-nowrap text-left border-b border-border type-p transition-colors",
                 material
                   ? "text-primary group-hover:text-secondary group-hover:border-secondary group-data-[state=open]:border-secondary group-data-[state=open]:text-secondary"
                   : "text-tertiary group-hover:text-secondary group-hover:border-secondary group-data-[state=open]:border-secondary group-data-[state=open]:text-secondary",
@@ -122,12 +174,13 @@ const MaterialDropdown = ({
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="p-0 w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]"
+          className="p-0 w-[--radix-popover-trigger-width] min-w-[320px] max-w-[calc(100vw-2rem)]"
           align="start"
           sideOffset={4}
         >
           <Command shouldFilter={false}>
             <CommandInput
+              ref={searchInputRef}
               placeholder="Search..."
               value={searchQuery}
               onValueChange={setSearchQuery}
@@ -144,7 +197,7 @@ const MaterialDropdown = ({
                         onSelect={() => handleSelect(option)}
                         className="justify-between"
                       >
-                        <span className="type-p">{option}</span>
+                        <span className="type-p truncate">{option}</span>
                         {isSelected && (
                           <Icons.Check className="h-4 w-4 text-brand" />
                         )}
@@ -155,10 +208,11 @@ const MaterialDropdown = ({
                   <CommandItem
                     value={searchQuery.trim()}
                     onSelect={handleCreate}
+                    className="h-auto items-start py-2"
                   >
-                    <div className="flex items-center">
+                    <div className="flex items-start w-full min-w-0">
                       <Icons.Plus className="h-3.5 w-3.5" />
-                      <span className="type-p text-primary px-1">
+                      <span className="type-p text-primary px-1 whitespace-normal break-words leading-5">
                         Create &quot;{searchQuery.trim()}&quot;
                       </span>
                     </div>
@@ -176,6 +230,7 @@ const MaterialDropdown = ({
 };
 
 const CountryTags = ({ countries }: { countries: string[] }) => {
+  // Render origin chips for each material row.
   return (
     <div className="flex flex-wrap gap-1.5">
       {countries.map((countryCode) => {
@@ -200,11 +255,14 @@ const PercentageCell = ({
   percentage,
   onPercentageChange,
   onDelete,
+  onFocusChange,
 }: {
   percentage: string;
   onPercentageChange: (value: string) => void;
   onDelete: () => void;
+  onFocusChange?: (isFocused: boolean) => void;
 }) => {
+  // Render the inline percentage editor with row actions.
   const [isHovered, setIsHovered] = React.useState(false);
   const [isFocused, setIsFocused] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -214,15 +272,20 @@ const PercentageCell = ({
   };
 
   const handlePercentageChange = (value: string) => {
-    // Coerce a single "." back to an empty string
-    if (value === ".") {
-      onPercentageChange("");
-      return;
-    }
-    // Allow empty, numbers, and decimal point
+    // Allow empty, numbers, and decimal point while typing.
     if (value === "" || /^\d*\.?\d*$/.test(value)) {
       onPercentageChange(value);
     }
+  };
+
+  const handlePercentageBlur = (value: string) => {
+    // Normalize percentages after editing so ".7" becomes "0.7".
+    const normalizedValue = normalizePercentageInput(value);
+    if (normalizedValue !== value) {
+      onPercentageChange(normalizedValue);
+    }
+    setIsFocused(false);
+    onFocusChange?.(false);
   };
 
   return (
@@ -236,8 +299,11 @@ const PercentageCell = ({
         type="text"
         value={percentage}
         onChange={(e) => handlePercentageChange(e.target.value)}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
+        onFocus={() => {
+          setIsFocused(true);
+          onFocusChange?.(true);
+        }}
+        onBlur={(e) => handlePercentageBlur(e.target.value)}
         placeholder="Value"
         className="h-full w-full rounded-none border-0 bg-transparent type-p pl-8 pr-10 focus-visible:ring-[1.5px] focus-visible:ring-brand"
       />
@@ -264,6 +330,8 @@ const PercentageCell = ({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
+              tabIndex={menuOpen ? 0 : -1}
+              aria-hidden={!menuOpen}
               className={cn(
                 "p-1 hover:bg-accent data-[state=open]:bg-accent data-[state=open]:opacity-100 rounded transition-colors",
                 isHovered || menuOpen ? "opacity-100" : "opacity-0",
@@ -311,6 +379,7 @@ export function MaterialsSection({
   materialsError,
   sectionRef,
 }: MaterialsSectionProps) {
+  // Manage editable material rows while syncing normalized values to the parent form.
   const { materials: materialOptions } = useBrandCatalog();
   // Local display state (enriched with names and countries from materialOptions)
   const [displayMaterials, setDisplayMaterials] = React.useState<Material[]>(
@@ -322,6 +391,7 @@ export function MaterialsSection({
   const [creatingForMaterialId, setCreatingForMaterialId] = React.useState<
     string | null
   >(null);
+  const editingPercentageMaterialIdRef = React.useRef<string | null>(null);
   // Track materials that were just created to preserve them during sync
   const [justCreatedMaterial, setJustCreatedMaterial] = React.useState<{
     id: string;
@@ -335,31 +405,43 @@ export function MaterialsSection({
   // Sync parent materials with display materials
   // Preserve pending materials (temp IDs) and materials being created
   React.useEffect(() => {
-    const enriched: Material[] = parentMaterials
-      .map((pm) => {
-        const materialInfo = materialOptions.find(
-          (m) => m.id === pm.materialId,
-        );
-
-        // Skip materials not yet in materialOptions (waiting for refetch)
-        if (!materialInfo) {
-          return null;
-        }
-
-        return {
-          id: pm.materialId,
-          name: materialInfo.name || "",
-          countries: materialInfo.country_of_origin
-            ? [materialInfo.country_of_origin]
-            : [],
-          percentage: pm.percentage === 0 ? "" : pm.percentage.toString(),
-        };
-      })
-      .filter((m): m is Material => m !== null);
-
     // Preserve pending materials (temp IDs) that aren't in parentMaterials yet
     // Use functional update to read current displayMaterials
     setDisplayMaterials((prev) => {
+      const prevById = new Map(prev.map((item) => [item.id, item]));
+      const editingPercentageMaterialId = editingPercentageMaterialIdRef.current;
+      const enriched: Material[] = parentMaterials
+        .map((pm) => {
+          const materialInfo = materialOptions.find(
+            (m) => m.id === pm.materialId,
+          );
+
+          // Skip materials not yet in materialOptions (waiting for refetch)
+          if (!materialInfo) {
+            return null;
+          }
+
+          const isCurrentlyEditing =
+            editingPercentageMaterialId === pm.materialId;
+          const previousValue = prevById.get(pm.materialId)?.percentage;
+
+          return {
+            id: pm.materialId,
+            name: materialInfo.name || "",
+            countries: materialInfo.country_of_origin
+              ? [materialInfo.country_of_origin]
+              : [],
+            // Keep the raw input while focused so typing is never interrupted.
+            percentage:
+              isCurrentlyEditing && previousValue !== undefined
+                ? previousValue
+                : pm.percentage === 0
+                  ? ""
+                  : pm.percentage.toString(),
+          };
+        })
+        .filter((m): m is Material => m !== null);
+
       const pendingMaterials = prev.filter(
         (m) =>
           m.id.startsWith("temp-") &&
@@ -398,7 +480,11 @@ export function MaterialsSection({
 
       return [...enriched, ...pendingMaterials];
     });
-  }, [parentMaterials, materialOptions, justCreatedMaterial]);
+  }, [
+    parentMaterials,
+    materialOptions,
+    justCreatedMaterial,
+  ]);
 
   // Helper to sync display materials back to parent
   const syncToParent = React.useCallback(
@@ -413,12 +499,9 @@ export function MaterialsSection({
               percentage: 0,
             };
           }
-          const parsed = Number.parseFloat(percentageValue);
-          // Treat NaN or non-finite values as 0
-          const safePercentage = Number.isFinite(parsed) ? parsed : 0;
           return {
             materialId: m.id,
-            percentage: safePercentage,
+            percentage: parsePercentageFromInput(percentageValue),
           };
         });
       setParentMaterials(parentMats);
@@ -490,9 +573,10 @@ export function MaterialsSection({
           if (!percentageValue || percentageValue === ".") {
             return { materialId: m.id, percentage: 0 };
           }
-          const parsed = Number.parseFloat(percentageValue);
-          const safePercentage = Number.isFinite(parsed) ? parsed : 0;
-          return { materialId: m.id, percentage: safePercentage };
+          return {
+            materialId: m.id,
+            percentage: parsePercentageFromInput(percentageValue),
+          };
         });
       setParentMaterials(parentMats);
 
@@ -525,6 +609,10 @@ export function MaterialsSection({
   };
 
   const deleteMaterial = (id: string) => {
+    // Clear focused tracking if the active row is deleted.
+    if (editingPercentageMaterialIdRef.current === id) {
+      editingPercentageMaterialIdRef.current = null;
+    }
     // If deleting the just-created material, clear the safety net
     // to prevent the useEffect from resurrecting it
     if (justCreatedMaterial?.id === id) {
@@ -550,14 +638,15 @@ export function MaterialsSection({
     // Don't sync to parent yet (no real material ID)
   };
 
-  // Calculate totals
-  const materialCount = displayMaterials.length;
-  const countryCount = new Set(displayMaterials.flatMap((m) => m.countries))
-    .size;
-  const totalPercentage = displayMaterials.reduce((sum, material) => {
-    const percentage = Number.parseFloat(material.percentage) || 0;
-    return sum + percentage;
-  }, 0);
+  // Calculate total percentage with stable rounding for display and color state.
+  const totalPercentage = roundPercentage(
+    displayMaterials.reduce(
+      (sum, material) => sum + parsePercentageFromInput(material.percentage),
+      0,
+    ),
+  );
+  const totalPercentageLabel = formatPercentageForDisplay(totalPercentage);
+  const isTotalOverLimit = totalPercentage > 100;
 
   return (
     <div
@@ -607,9 +696,12 @@ export function MaterialsSection({
           </div>
         ) : (
           displayMaterials.map((material) => (
-            <div key={material.id} className="grid grid-cols-3">
+            <div
+              key={material.id}
+              className="grid grid-cols-3 border-b border-border"
+            >
               {/* Material Column */}
-              <div className="border-r border-b border-border">
+              <div className="border-r border-border">
                 <MaterialDropdown
                   material={material.name}
                   availableMaterials={materialOptions}
@@ -647,7 +739,7 @@ export function MaterialsSection({
               </div>
 
               {/* Country Column */}
-              <div className="px-2 py-2 border-r border-b border-border flex items-center">
+              <div className="px-2 py-2 border-r border-border flex items-center">
                 {material.countries.length > 0 ? (
                   <CountryTags countries={material.countries} />
                 ) : (
@@ -656,12 +748,21 @@ export function MaterialsSection({
               </div>
 
               {/* Percentage Column */}
-              <div className="border-b border-border">
+              <div>
                 <PercentageCell
                   percentage={material.percentage}
                   onPercentageChange={(value) =>
                     updateMaterial(material.id, "percentage", value)
                   }
+                  onFocusChange={(isFocused) => {
+                    if (isFocused) {
+                      editingPercentageMaterialIdRef.current = material.id;
+                      return;
+                    }
+                    if (editingPercentageMaterialIdRef.current === material.id) {
+                      editingPercentageMaterialIdRef.current = null;
+                    }
+                  }}
                   onDelete={() => deleteMaterial(material.id)}
                 />
               </div>
@@ -672,16 +773,14 @@ export function MaterialsSection({
 
       {/* Summary Row */}
       {displayMaterials.length > 0 && (
-        <div className="grid grid-cols-3 border-t border-border -mt-px">
+        <div className="grid grid-cols-3">
           <div className="bg-background px-4 py-2" />
           <div className="bg-background px-4 py-2" />
           <div className="bg-background px-4 py-2 type-small font-medium flex justify-end items-center gap-[6px]">
             <span
-              className={cn(
-                totalPercentage > 100 ? "text-destructive" : "text-primary",
-              )}
+              className={cn(isTotalOverLimit ? "text-destructive" : "text-primary")}
             >
-              {totalPercentage}
+              {totalPercentageLabel}
             </span>
             <span className="text-tertiary font-normal">/</span>
             <span className="text-tertiary font-normal">100 %</span>
@@ -691,7 +790,7 @@ export function MaterialsSection({
 
       {/* Add Material Button - Only show if materials exist */}
       {displayMaterials.length > 0 && (
-        <div className="bg-accent-light border-t border-border px-4 py-3 -mt-px">
+        <div className="bg-accent-light border-t border-border px-4 py-3">
           <Button
             type="button"
             variant="outline"

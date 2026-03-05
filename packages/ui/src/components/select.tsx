@@ -60,6 +60,9 @@ const SelectContent = React.forwardRef<
     },
     ref,
   ) => {
+    const contentRef =
+      React.useRef<React.ElementRef<typeof PopoverContent>>(null);
+
     // Track the controlled value for cmdk selection
     const [value, setValue] = React.useState(defaultValue ?? "");
 
@@ -67,6 +70,45 @@ const SelectContent = React.forwardRef<
     React.useEffect(() => {
       setValue(defaultValue ?? "");
     }, [defaultValue]);
+
+    // Keep the currently selected cmdk item visible when the list opens.
+    React.useEffect(() => {
+      if (!value || value === "__clear__") return;
+
+      const frameId = requestAnimationFrame(() => {
+        const selectedItem =
+          contentRef.current?.querySelector<HTMLElement>(
+            '[cmdk-item][data-selected="true"]',
+          ) ??
+          contentRef.current?.querySelector<HTMLElement>(
+            '[cmdk-item][aria-selected="true"]',
+          );
+
+        selectedItem?.scrollIntoView({ block: "nearest" });
+      });
+
+      return () => cancelAnimationFrame(frameId);
+    }, [value]);
+
+    const handleRef = React.useCallback(
+      (node: React.ElementRef<typeof PopoverContent> | null) => {
+        contentRef.current = node;
+
+        if (typeof ref === "function") {
+          ref(node);
+          return;
+        }
+
+        if (ref) {
+          (
+            ref as React.MutableRefObject<React.ElementRef<
+              typeof PopoverContent
+            > | null>
+          ).current = node;
+        }
+      },
+      [ref],
+    );
 
     const contextValue = React.useMemo<SelectContextValue>(
       () => ({
@@ -77,7 +119,7 @@ const SelectContent = React.forwardRef<
 
     return (
       <PopoverContent
-        ref={ref}
+        ref={handleRef}
         className={cn(
           "w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0",
           className,

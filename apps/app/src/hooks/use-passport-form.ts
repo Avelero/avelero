@@ -1,3 +1,8 @@
+/**
+ * usePassportForm
+ *
+ * Form state management hook for creating and editing passport-level product data.
+ */
 import type {
   ExpandedVariantMappings,
   VariantDimension,
@@ -12,6 +17,12 @@ import {
   validateForm,
 } from "@/hooks/use-form-validation";
 import { useImageUpload } from "@/hooks/use-upload";
+import {
+  MAX_PERCENTAGE_UNITS,
+  formatPercentageFromUnits,
+  isPercentageWithinBounds,
+  toPercentageUnits,
+} from "@/lib/percentage-utils";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
@@ -232,19 +243,22 @@ const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
     (materials) => {
       if (!materials || materials.length === 0) return undefined;
 
-      let total = 0;
+      let totalUnits = 0;
       for (const material of materials) {
         if (!material.materialId || material.materialId.startsWith("temp-")) {
           return "All materials must be selected";
         }
-        if (material.percentage < 0 || material.percentage > 100) {
+        if (!Number.isFinite(material.percentage)) {
+          return "Material percentages must be valid numbers";
+        }
+        if (!isPercentageWithinBounds(material.percentage)) {
           return "Material percentages must be between 0 and 100";
         }
-        total += material.percentage;
+        totalUnits += toPercentageUnits(material.percentage);
       }
 
-      if (total > 100) {
-        return `Material percentages sum to ${total.toFixed(1)}%, but cannot exceed 100%`;
+      if (totalUnits > MAX_PERCENTAGE_UNITS) {
+        return `Material percentages sum to ${formatPercentageFromUnits(totalUnits)}%, but cannot exceed 100%`;
       }
 
       return undefined;

@@ -1,4 +1,3 @@
-import type { Database } from "@v1/db/client";
 /**
  * Catalog router implementation.
  *
@@ -15,6 +14,8 @@ import type { Database } from "@v1/db/client";
  * All endpoints follow a consistent CRUD pattern using shared helper
  * functions to minimize code duplication and ensure uniform error handling.
  */
+import { tasks } from "@trigger.dev/sdk/v3";
+import type { Database } from "@v1/db/client";
 import {
   batchCreateBrandAttributeValues,
   countBrandAttributeValueVariantReferences,
@@ -53,6 +54,10 @@ import {
   updateOperator,
   updateSeason,
 } from "@v1/db/queries/catalog";
+import {
+  findPublishedProductIdsByCertification,
+  findPublishedProductIdsByManufacturer,
+} from "@v1/db/queries/products";
 import {
   batchCreateBrandAttributeValuesSchema,
   createBrandAttributeSchema,
@@ -117,6 +122,52 @@ import {
 /** tRPC context with guaranteed brand ID from middleware */
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
+type CatalogFanOutEntityType =
+  | "manufacturer"
+  | "material"
+  | "certification"
+  | "operator";
+
+type CatalogDeleteProductIdsResolver = (
+  db: Database,
+  brandId: string,
+  entityId: string,
+) => Promise<string[]>;
+
+type CatalogFanOutConfig = {
+  entityType: CatalogFanOutEntityType;
+  resolveDeleteProductIds?: CatalogDeleteProductIdsResolver;
+};
+
+type CreateProcedureOptions<TInput> = {
+  afterSuccess?: (args: {
+    brandCtx: BrandContext;
+    input: TInput;
+    result: any;
+  }) => Promise<void> | void;
+};
+
+type UpdateProcedureOptions<TInput extends { id: string }> = {
+  afterSuccess?: (args: {
+    brandCtx: BrandContext;
+    input: TInput;
+    result: any;
+  }) => Promise<void> | void;
+};
+
+type DeleteProcedureOptions<TInput extends { id: string }, TBeforeDelete = undefined> = {
+  beforeDelete?: (args: {
+    brandCtx: BrandContext;
+    input: TInput;
+  }) => Promise<TBeforeDelete> | TBeforeDelete;
+  afterSuccess?: (args: {
+    brandCtx: BrandContext;
+    input: TInput;
+    result: any;
+    beforeDeleteData: TBeforeDelete | undefined;
+  }) => Promise<void> | void;
+};
+
 /**
  * Creates a standardized list procedure for brand catalog resources.
  *
@@ -171,10 +222,12 @@ function createCreateProcedure<TInput>(
   createFn: (db: Database, brandId: string, input: any) => Promise<any>,
   resourceName: string,
   transformInput?: (input: any) => any,
+  options?: CreateProcedureOptions<TInput>,
 ) {
   return brandWriteProcedure
     .input(schema)
     .mutation(async ({ ctx, input }) => {
+      // Execute the create mutation and run any configured success hooks.
       const brandCtx = ctx as BrandContext;
       try {
         const transformedInput = transformInput ? transformInput(input) : input;
@@ -183,6 +236,11 @@ function createCreateProcedure<TInput>(
           brandCtx.brandId,
           transformedInput,
         );
+        await options?.afterSuccess?.({
+          brandCtx,
+          input: input as TInput,
+          result,
+        });
         return createEntityResponse(result);
       } catch (error) {
         throw wrapError(error, `Failed to create ${resourceName}`);
@@ -214,10 +272,12 @@ function createUpdateProcedure<TInput extends { id: string }>(
   ) => Promise<any>,
   resourceName: string,
   transformInput?: (input: any) => any,
+  options?: UpdateProcedureOptions<TInput>,
 ) {
   return brandWriteProcedure
     .input(schema)
     .mutation(async ({ ctx, input }) => {
+      // Execute the update mutation and run any configured success hooks.
       const brandCtx = ctx as BrandContext;
       const typedInput = input as TInput;
       try {
@@ -233,6 +293,11 @@ function createUpdateProcedure<TInput extends { id: string }>(
         if (!result) {
           throw notFound(resourceName, typedInput.id);
         }
+        await options?.afterSuccess?.({
+          brandCtx,
+          input: typedInput,
+          result,
+        });
         return createEntityResponse(result);
       } catch (error) {
         throw wrapError(error, `Failed to update ${resourceName}`);
@@ -253,17 +318,26 @@ function createUpdateProcedure<TInput extends { id: string }>(
  * @param resourceName - Human-readable resource name for error messages
  * @returns tRPC mutation procedure with brand context and not-found handling
  */
-function createDeleteProcedure<TInput extends { id: string }>(
+function createDeleteProcedure<
+  TInput extends { id: string },
+  TBeforeDelete = undefined,
+>(
   schema: any,
   deleteFn: (db: Database, brandId: string, id: string) => Promise<any>,
   resourceName: string,
+  options?: DeleteProcedureOptions<TInput, TBeforeDelete>,
 ) {
   return brandWriteProcedure
     .input(schema)
     .mutation(async ({ ctx, input }) => {
+      // Resolve any pre-delete state before removing the resource.
       const brandCtx = ctx as BrandContext;
       const typedInput = input as TInput;
       try {
+        const beforeDeleteData = await options?.beforeDelete?.({
+          brandCtx,
+          input: typedInput,
+        });
         const result = await deleteFn(
           brandCtx.db,
           brandCtx.brandId,
@@ -272,10 +346,55 @@ function createDeleteProcedure<TInput extends { id: string }>(
         if (!result) {
           throw notFound(resourceName, typedInput.id);
         }
+        await options?.afterSuccess?.({
+          brandCtx,
+          input: typedInput,
+          result,
+          beforeDeleteData,
+        });
         return createEntityResponse(result);
       } catch (error) {
         throw wrapError(error, `Failed to delete ${resourceName}`);
       }
+    });
+}
+
+/**
+ * Enqueue a catalog fan-out job for the given entity.
+ *
+ * Fire-and-forget: trigger failures are logged but do not propagate,
+ * since fan-out is a background concern and should never fail a catalog write.
+ *
+ * Uses a 45-second delay so that rapid consecutive edits within the same window
+ * arrive at the task with the latest data. Multiple triggers within the window
+ * will each schedule a run, but publish is content-hash-deduplicated so only
+ * genuine content changes produce new versions (redundant runs are no-ops).
+ */
+function enqueueCatalogFanOut(
+  brandId: string,
+  entityType: CatalogFanOutEntityType,
+  entityId: string,
+  options?: {
+    productIds?: string[];
+  },
+): void {
+  // Schedule the fan-out on a per-brand queue so related writes serialize.
+  tasks
+    .trigger(
+      "catalog-fan-out",
+      {
+        brandId,
+        entityType,
+        entityId,
+        productIds: options?.productIds,
+      },
+      { delay: "45s", concurrencyKey: brandId },
+    )
+    .catch((err) => {
+      console.error(
+        `[CatalogFanOut] Failed to enqueue fan-out for ${entityType} ${entityId}:`,
+        err,
+      );
     });
 }
 
@@ -294,6 +413,7 @@ function createDeleteProcedure<TInput extends { id: string }>(
  * @param schemas - Zod schemas for each operation
  * @param operations - Database query functions for each operation
  * @param transformInput - Optional function to transform snake_case schema to camelCase DB input
+ * @param fanOutConfig - Optional fan-out hooks for background DPP refreshes
  * @returns tRPC router with list/create/update/delete endpoints
  *
  * @example
@@ -327,7 +447,11 @@ function createCatalogResourceRouter<T>(
     delete: (db: Database, brandId: string, id: string) => Promise<T>;
   },
   transformInput?: (input: any) => any,
+  fanOutConfig?: CatalogFanOutConfig,
 ) {
+  // Compose the shared CRUD helpers with optional catalog fan-out hooks.
+  const resolveDeleteProductIds = fanOutConfig?.resolveDeleteProductIds;
+
   return createTRPCRouter({
     list: createListProcedure(
       schemas.list,
@@ -340,17 +464,55 @@ function createCatalogResourceRouter<T>(
       operations.create,
       resourceName,
       transformInput,
+      fanOutConfig
+        ? {
+            afterSuccess: ({ brandCtx, result }) => {
+              enqueueCatalogFanOut(
+                brandCtx.brandId,
+                fanOutConfig.entityType,
+                (result as { id: string }).id,
+              );
+            },
+          }
+        : undefined,
     ),
     update: createUpdateProcedure(
       schemas.update,
       operations.update,
       resourceName,
       transformInput,
+      fanOutConfig
+        ? {
+            afterSuccess: ({ brandCtx, input }) => {
+              enqueueCatalogFanOut(
+                brandCtx.brandId,
+                fanOutConfig.entityType,
+                input.id,
+              );
+            },
+          }
+        : undefined,
     ),
     delete: createDeleteProcedure(
       schemas.delete,
       operations.delete,
       resourceName,
+      fanOutConfig
+        ? {
+            beforeDelete: resolveDeleteProductIds
+              ? ({ brandCtx, input }) =>
+                  resolveDeleteProductIds(brandCtx.db, brandCtx.brandId, input.id)
+              : undefined,
+            afterSuccess: ({ brandCtx, input, beforeDeleteData }) => {
+              enqueueCatalogFanOut(
+                brandCtx.brandId,
+                fanOutConfig.entityType,
+                input.id,
+                { productIds: beforeDeleteData },
+              );
+            },
+          }
+        : undefined,
     ),
   });
 }
@@ -573,6 +735,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteMaterial,
     },
     transformMaterialInput,
+    { entityType: "material" },
   ),
 
   /**
@@ -617,6 +780,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteOperator,
     },
     transformOperatorInput,
+    { entityType: "operator" },
   ),
 
   /**
@@ -640,6 +804,10 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteBrandManufacturer,
     },
     transformManufacturerInput,
+    {
+      entityType: "manufacturer",
+      resolveDeleteProductIds: findPublishedProductIdsByManufacturer,
+    },
   ),
 
   /**
@@ -662,6 +830,10 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteCertification,
     },
     transformCertificationInput,
+    {
+      entityType: "certification",
+      resolveDeleteProductIds: findPublishedProductIdsByCertification,
+    },
   ),
 });
 

@@ -36,7 +36,10 @@ import {
   products,
   qrExportJobs,
 } from "@v1/db/schema";
-import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
+import {
+  revalidatePassports,
+  revalidateProduct,
+} from "../../../lib/dpp-revalidation.js";
 import { generateProductHandle } from "../../../schemas/_shared/primitives.js";
 import {
   productUnifiedGetSchema,
@@ -483,6 +486,13 @@ export const productsRouter = createTRPCRouter({
                 "Publish failed after status change:",
                 publishResult.error,
               );
+            } else {
+              const upids = publishResult.variants
+                .map((v) => v.passport?.upid)
+                .filter((u): u is string => Boolean(u));
+              if (upids.length > 0) {
+                revalidatePassports(upids).catch(() => {});
+              }
             }
           } catch (err) {
             console.error(

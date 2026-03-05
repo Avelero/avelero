@@ -249,7 +249,7 @@ export function TableSection() {
       // Build selection for bulk update
       const bulkSelection =
         selection.mode === "explicit"
-          ? { mode: "explicit" as const, includeIds: selection.includeIds }
+          ? { mode: "explicit" as const, ids: selection.includeIds }
           : {
               mode: "all" as const,
               excludeIds: selection.excludeIds,

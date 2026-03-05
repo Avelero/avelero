@@ -1,3 +1,6 @@
+/**
+ * Trigger.dev build/runtime configuration for background jobs.
+ */
 import {
   additionalFiles,
   syncEnvVars,
@@ -73,6 +76,20 @@ export const config: TriggerConfig = {
           });
         }
 
+        if (process.env.SUPABASE_STORAGE_URL) {
+          envVars.push({
+            name: "SUPABASE_STORAGE_URL",
+            value: process.env.SUPABASE_STORAGE_URL,
+          });
+        }
+
+        if (process.env.NEXT_PUBLIC_STORAGE_URL) {
+          envVars.push({
+            name: "NEXT_PUBLIC_STORAGE_URL",
+            value: process.env.NEXT_PUBLIC_STORAGE_URL,
+          });
+        }
+
         if (process.env.SUPABASE_SERVICE_KEY) {
           envVars.push({
             name: "SUPABASE_SERVICE_KEY",
@@ -105,6 +122,12 @@ export const config: TriggerConfig = {
         );
         console.log(
           `[syncEnvVars] NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "NOT SET"}`,
+        );
+        console.log(
+          `[syncEnvVars] SUPABASE_STORAGE_URL: ${process.env.SUPABASE_STORAGE_URL ? "SET" : "NOT SET"}`,
+        );
+        console.log(
+          `[syncEnvVars] NEXT_PUBLIC_STORAGE_URL: ${process.env.NEXT_PUBLIC_STORAGE_URL ? "SET" : "NOT SET"}`,
         );
         console.log(
           `[syncEnvVars] SUPABASE_SERVICE_KEY: ${process.env.SUPABASE_SERVICE_KEY ? "SET" : "NOT SET"}`,

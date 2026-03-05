@@ -1,7 +1,10 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type { CustomFont } from "@v1/dpp-components";
+import {
+  generateGoogleFontsUrlForFont,
+  type CustomFont,
+} from "@v1/dpp-components";
 import { type FontMetadata, fonts } from "@v1/selections/fonts";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -27,12 +30,14 @@ const loadedFonts = new Set<string>();
 // Load a font from Google Fonts
 function loadGoogleFont(family: string) {
   if (loadedFonts.has(family)) return;
-  loadedFonts.add(family);
+  const fontUrl = generateGoogleFontsUrlForFont(family);
+  if (!fontUrl) return;
 
   const link = document.createElement("link");
-  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&display=swap`;
+  link.href = fontUrl;
   link.rel = "stylesheet";
   document.head.appendChild(link);
+  loadedFonts.add(family);
 }
 
 // Load a custom font via @font-face
@@ -76,6 +81,10 @@ export function FontSelect({
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const pendingCustomFontAutoSelect = React.useRef(false);
+  const customFontSourcesSnapshot = React.useRef<Set<string>>(
+    new Set(customFonts.map((font) => font.src)),
+  );
 
   // Get unique custom font families (deduplicated)
   const customFontFamilies = React.useMemo(() => {
@@ -114,6 +123,24 @@ export function FontSelect({
     }
   }, [value, isCustomFontSelected, customFonts]);
 
+  // Auto-select the newly uploaded custom font after returning from the modal.
+  React.useEffect(() => {
+    if (!pendingCustomFontAutoSelect.current) return;
+
+    const previousSources = customFontSourcesSnapshot.current;
+    const addedFonts = customFonts.filter((font) => !previousSources.has(font.src));
+    customFontSourcesSnapshot.current = new Set(customFonts.map((font) => font.src));
+    pendingCustomFontAutoSelect.current = false;
+
+    if (addedFonts.length === 0) return;
+    const latestAddedFont = addedFonts[addedFonts.length - 1];
+    if (!latestAddedFont) return;
+
+    if (value?.toLowerCase() !== latestAddedFont.fontFamily.toLowerCase()) {
+      onValueChange(latestAddedFont.fontFamily);
+    }
+  }, [customFonts, onValueChange, value]);
+
   // Focus input when popover opens
   React.useEffect(() => {
     if (open) {
@@ -129,6 +156,10 @@ export function FontSelect({
   };
 
   const handleManageCustomFonts = () => {
+    pendingCustomFontAutoSelect.current = true;
+    customFontSourcesSnapshot.current = new Set(
+      customFonts.map((font) => font.src),
+    );
     setOpen(false);
     onManageCustomFonts?.();
   };
@@ -273,42 +304,76 @@ function FontList({
   // Track if we've done the initial scroll to selected item
   const hasScrolledToSelected = React.useRef(false);
 
-  // Scroll to selected Google font when opening (deferred to avoid flushSync during render)
+  // Center the selected item when opening.
   React.useEffect(() => {
-    if (!isOpen || searchTerm.trim()) {
+    if (!isOpen) {
       hasScrolledToSelected.current = false;
       return;
     }
-    // Skip if custom font is selected or no Google font selected
-    if (selectedCustomFontIndex >= 0 || selectedGoogleFontIndex < 0) return;
-    // Only scroll once per open
+
+    if (searchTerm.trim()) {
+      hasScrolledToSelected.current = false;
+      return;
+    }
     if (hasScrolledToSelected.current) return;
 
-    hasScrolledToSelected.current = true;
 
-    // Use queueMicrotask to defer the scroll outside of React's render cycle
-    queueMicrotask(() => {
-      virtualizer.scrollToIndex(selectedGoogleFontIndex, { align: "center" });
+    let innerFrameId = 0;
+    const frameId = requestAnimationFrame(() => {
+      innerFrameId = requestAnimationFrame(() => {
+        const container = scrollRef.current;
+        if (!container) return;
+
+        const containerHeight = container.clientHeight;
+        const customRowHeight = 30;
+        const googleRowHeight = 32;
+        const sectionHeaderHeight = showSectionHeaders ? 28 : 0;
+
+        if (selectedCustomFontIndex >= 0) {
+          const customOffset =
+            sectionHeaderHeight + selectedCustomFontIndex * customRowHeight;
+          const centeredTop =
+            customOffset - containerHeight / 2 + customRowHeight / 2;
+          container.scrollTop = Math.max(0, centeredTop);
+          hasScrolledToSelected.current = true;
+          return;
+        }
+
+        if (selectedGoogleFontIndex >= 0) {
+          const customSectionHeight = hasCustomFonts
+            ? sectionHeaderHeight + filteredCustomFonts.length * customRowHeight
+            : 0;
+          const googleHeaderOffset = hasGoogleFonts ? sectionHeaderHeight : 0;
+          const googleRowOffset =
+            customSectionHeight +
+            googleHeaderOffset +
+            selectedGoogleFontIndex * googleRowHeight;
+          const centeredTop =
+            googleRowOffset - containerHeight / 2 + googleRowHeight / 2;
+
+          container.scrollTop = Math.max(0, centeredTop);
+          hasScrolledToSelected.current = true;
+          return;
+        }
+      });
     });
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      if (innerFrameId) {
+        cancelAnimationFrame(innerFrameId);
+      }
+    };
   }, [
     isOpen,
     searchTerm,
-    selectedGoogleFontIndex,
     selectedCustomFontIndex,
-    virtualizer,
+    selectedGoogleFontIndex,
+    hasCustomFonts,
+    hasGoogleFonts,
+    filteredCustomFonts.length,
+    showSectionHeaders,
   ]);
-
-  // Scroll to selected custom font when opening (non-virtualized)
-  React.useEffect(() => {
-    if (!isOpen || searchTerm.trim()) return;
-    if (selectedCustomFontIndex < 0) return;
-
-    // Immediate scroll for custom fonts section
-    const itemHeight = 32;
-    const headerHeight = showSectionHeaders ? 28 : 0;
-    const scrollTop = headerHeight + selectedCustomFontIndex * itemHeight;
-    scrollRef.current?.scrollTo({ top: Math.max(0, scrollTop - 48) });
-  }, [isOpen, searchTerm, selectedCustomFontIndex, showSectionHeaders]);
 
   // Load fonts for visible Google font items
   const virtualItems = virtualizer.getVirtualItems();
@@ -345,7 +410,7 @@ function FontList({
   return (
     <div
       ref={scrollRef}
-      className="overflow-auto p-1"
+      className="overflow-auto px-1 pb-1"
       style={{ maxHeight: 300 }}
     >
       {/* Custom Fonts Section */}

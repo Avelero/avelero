@@ -11,6 +11,7 @@ import type {
 } from "@v1/dpp-components";
 import {
   type ColorTokenKey,
+  generateGoogleFontsUrlFromTypography,
   getTokenName,
   isTokenReference,
 } from "@v1/dpp-components";
@@ -238,44 +239,75 @@ export function DesignEditorProvider({
     setSavedThemeConfig(initialThemeConfig);
   }, [initialThemeConfig]);
 
-  // Load saved Google Fonts on mount to display typography correctly
+  const previewGoogleFontsUrl = useMemo(() => {
+    // Always prefer a canonical weighted URL generated from current typography.
+    const generatedUrl = generateGoogleFontsUrlFromTypography(
+      themeStylesDraft?.typography as Record<string, unknown> | undefined,
+    );
+    return generatedUrl || initialGoogleFontsUrl || "";
+  }, [themeStylesDraft?.typography, initialGoogleFontsUrl]);
+
+  // Load Google Fonts in preview to match current typography settings
   useEffect(() => {
-    if (!initialGoogleFontsUrl) return;
+    if (!previewGoogleFontsUrl) return;
 
     // Check if this font link already exists
     const existingLink = document.querySelector(
-      `link[href="${initialGoogleFontsUrl}"]`,
+      `link[href="${previewGoogleFontsUrl}"]`,
     );
     if (existingLink) return;
 
-    // Add preconnect for faster font loading
-    const preconnect1 = document.createElement("link");
-    preconnect1.rel = "preconnect";
-    preconnect1.href = "https://fonts.googleapis.com";
-    document.head.appendChild(preconnect1);
+    // Ensure preconnects exist (reuse if already present)
+    let preconnect1: HTMLLinkElement | null = document.querySelector(
+      'link[rel="preconnect"][href="https://fonts.googleapis.com"]',
+    );
+    let preconnect2: HTMLLinkElement | null = document.querySelector(
+      'link[rel="preconnect"][href="https://fonts.gstatic.com"]',
+    );
+    const createdPreconnect1 = !preconnect1;
+    const createdPreconnect2 = !preconnect2;
 
-    const preconnect2 = document.createElement("link");
-    preconnect2.rel = "preconnect";
-    preconnect2.href = "https://fonts.gstatic.com";
-    preconnect2.crossOrigin = "anonymous";
-    document.head.appendChild(preconnect2);
+    // Add preconnect for faster font loading
+    if (!preconnect1) {
+      preconnect1 = document.createElement("link");
+      preconnect1.rel = "preconnect";
+      preconnect1.href = "https://fonts.googleapis.com";
+      document.head.appendChild(preconnect1);
+    }
+
+    if (!preconnect2) {
+      preconnect2 = document.createElement("link");
+      preconnect2.rel = "preconnect";
+      preconnect2.href = "https://fonts.gstatic.com";
+      preconnect2.crossOrigin = "anonymous";
+      document.head.appendChild(preconnect2);
+    }
 
     // Add the font stylesheet
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = initialGoogleFontsUrl;
+    link.href = previewGoogleFontsUrl;
     document.head.appendChild(link);
 
     return () => {
       // Cleanup on unmount or URL change
       link.remove();
-      // Only remove preconnects if no other font links exist
-      if (!document.querySelector('link[href*="fonts.googleapis.com/css"]')) {
-        preconnect1.remove();
-        preconnect2.remove();
+
+      // Remove preconnects only if they were created by this effect and unused
+      if (
+        !document.querySelector('link[href*="fonts.googleapis.com/css"]') &&
+        createdPreconnect1
+      ) {
+        preconnect1?.remove();
+      }
+      if (
+        !document.querySelector('link[href*="fonts.googleapis.com/css"]') &&
+        createdPreconnect2
+      ) {
+        preconnect2?.remove();
       }
     };
-  }, [initialGoogleFontsUrl]);
+  }, [previewGoogleFontsUrl]);
 
   // ---------------------------------------------------------------------------
   // Unsaved Changes Detection

@@ -30,6 +30,7 @@ import {
   resolveQrExportProductIds,
 } from "@v1/db/queries/products";
 import QrExportReadyEmail from "@v1/email/emails/qr-export-ready";
+import { getPublicUrl } from "@v1/supabase/storage";
 import {
   type GenerateQrPngOptions,
   type QrExportCsvRow,
@@ -80,6 +81,9 @@ const QR_GENERATION_MAX_THREADS = 6;
 const DOWNLOAD_EXPIRY_DAYS = 7;
 const EMAIL_FROM = "Avelero <noreply@welcome.avelero.com>";
 
+/**
+ * Create the service-role Supabase client used by this job.
+ */
 function createSupabaseServiceClient() {
   const supabaseUrl =
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -464,16 +468,21 @@ export const exportQrCodes = task({
                 cacheHitCount += 1;
               }
 
-              const { data: publicData } = supabase.storage
-                .from(QR_IMAGES_BUCKET)
-                .getPublicUrl(qrPngPath);
+              const qrPngUrl = getPublicUrl(
+                supabase,
+                QR_IMAGES_BUCKET,
+                qrPngPath,
+              );
+              if (!qrPngUrl) {
+                throw new Error("Failed to resolve public URL for QR PNG");
+              }
 
               csvRowsByIndex[index] = {
                 productTitle: row.productTitle,
                 variantUpid: row.variantUpid,
                 barcode: row.barcode,
                 gs1DigitalLinkUrl,
-                qrPngUrl: publicData.publicUrl,
+                qrPngUrl,
               };
             } catch (error) {
               failedVariants.push({

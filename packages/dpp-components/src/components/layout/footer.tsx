@@ -1,3 +1,6 @@
+/**
+ * DPP footer with brand label and social link shortcuts.
+ */
 import type { ThemeConfig } from "@v1/dpp-components";
 
 interface Props {
@@ -7,6 +10,7 @@ interface Props {
 }
 
 export function Footer({ themeConfig, brandName }: Props) {
+  // Render social links only when their URLs are valid and safe to open.
   const { social } = themeConfig;
 
   // Helper function to validate URLs
@@ -27,6 +31,7 @@ export function Footer({ themeConfig, brandName }: Props) {
     { text: "X", url: social?.twitterUrl },
     { text: "PT", url: social?.pinterestUrl },
     { text: "TK", url: social?.tiktokUrl },
+    { text: "YT", url: social?.youtubeUrl },
     { text: "LK", url: social?.linkedinUrl },
   ].filter((item) => isValidUrl(item.url ?? ""));
 

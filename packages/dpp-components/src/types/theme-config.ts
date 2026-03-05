@@ -36,12 +36,14 @@ export interface ThemeConfig {
     showTwitter: boolean;
     showPinterest: boolean;
     showTiktok: boolean;
+    showYoutube: boolean;
     showLinkedin: boolean;
     instagramUrl: string;
     facebookUrl: string;
     twitterUrl: string;
     pinterestUrl: string;
     tiktokUrl: string;
+    youtubeUrl: string;
     linkedinUrl: string;
   };
 

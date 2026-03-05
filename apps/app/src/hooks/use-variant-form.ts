@@ -7,6 +7,12 @@
 
 import { useFormState } from "@/hooks/use-form-state";
 import { useImageUpload } from "@/hooks/use-upload";
+import {
+  MAX_PERCENTAGE_UNITS,
+  formatPercentageFromUnits,
+  isPercentageWithinBounds,
+  toPercentageUnits,
+} from "@/lib/percentage-utils";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
@@ -255,18 +261,20 @@ export function useVariantForm(options: UseVariantFormOptions) {
     }
 
     // Materials percentage validation
-    let totalPercentage = 0;
+    let totalPercentageUnits = 0;
     for (const material of state.materials) {
-      if (material.percentage) {
-        if (material.percentage < 0) {
-          errors.materials = "Material percentages must be positive numbers";
-          break;
-        }
-        totalPercentage += material.percentage;
+      if (!Number.isFinite(material.percentage)) {
+        errors.materials = "Material percentages must be valid numbers";
+        break;
       }
+      if (!isPercentageWithinBounds(material.percentage)) {
+        errors.materials = "Material percentages must be between 0 and 100";
+        break;
+      }
+      totalPercentageUnits += toPercentageUnits(material.percentage);
     }
-    if (totalPercentage > 100) {
-      errors.materials = `Material percentages sum to ${totalPercentage.toFixed(1)}%, but cannot exceed 100%`;
+    if (totalPercentageUnits > MAX_PERCENTAGE_UNITS) {
+      errors.materials = `Material percentages sum to ${formatPercentageFromUnits(totalPercentageUnits)}%, but cannot exceed 100%`;
     }
 
     setField("validationErrors", errors);

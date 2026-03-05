@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * Typography editor for type scale, font family, and font-specific weight controls.
+ */
 import { saveThemeAction } from "@/actions/design/save-theme-action";
 import { CustomFontsModal } from "@/components/modals/custom-fonts-modal";
 import { FontSelect } from "@/components/select/font-select";
@@ -7,6 +10,7 @@ import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { useTRPC } from "@/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import type { CustomFont, TypographyScale } from "@v1/dpp-components";
+import { fonts } from "@v1/selections/fonts";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
@@ -38,11 +42,26 @@ type TypographyScaleKey = (typeof TYPOGRAPHY_SCALES)[number]["key"];
 
 // Select options for typography fields
 const FONT_WEIGHT_OPTIONS = [
+  { value: "100", label: "Thin" },
+  { value: "200", label: "Extra Light" },
   { value: "300", label: "Light" },
   { value: "400", label: "Regular" },
   { value: "500", label: "Medium" },
+  { value: "600", label: "Semi Bold" },
   { value: "700", label: "Bold" },
+  { value: "800", label: "Extra Bold" },
+  { value: "900", label: "Black" },
 ];
+
+const PRESET_WEIGHT_LABEL_BY_VALUE = new Map(
+  FONT_WEIGHT_OPTIONS.map((option) => [Number.parseInt(option.value, 10), option.label]),
+);
+const FONT_WEIGHT_VALUES = FONT_WEIGHT_OPTIONS.map((option) =>
+  Number.parseInt(option.value, 10),
+);
+const GOOGLE_FONT_BY_FAMILY = new Map(
+  fonts.map((font) => [font.family.toLowerCase(), font]),
+);
 
 const LINE_HEIGHT_OPTIONS = [
   { value: "1", label: "Tight" },
@@ -56,6 +75,142 @@ const LETTER_SPACING_OPTIONS = [
   { value: "0em", label: "Normal" },
   { value: "0.025em", label: "Wide" },
 ];
+
+function parseVariantWeight(variant: string): number | undefined {
+  // Normalize Google variant values such as "regular", "700", or "700italic".
+  const normalizedVariant = variant.toLowerCase();
+  if (normalizedVariant === "regular" || normalizedVariant === "italic") {
+    return 400;
+  }
+
+  const match = normalizedVariant.match(/\d{3}/);
+  if (!match?.[0]) return undefined;
+
+  const parsedWeight = Number.parseInt(match[0], 10);
+  return Number.isNaN(parsedWeight) ? undefined : parsedWeight;
+}
+
+function getWeightBucketLabel(weight: number): string {
+  // Bucket arbitrary numeric weights into the nearest named interval.
+  if (weight < 200) return "Thin";
+  if (weight < 300) return "Extra Light";
+  if (weight < 400) return "Light";
+  if (weight < 500) return "Regular";
+  if (weight < 600) return "Medium";
+  if (weight < 700) return "Semi Bold";
+  if (weight < 800) return "Bold";
+  if (weight < 900) return "Extra Bold";
+  return "Black";
+}
+
+function toWeightOption(weight: number): { value: string; label: string } {
+  // Format exact custom weights with a bucket label and numeric divergence.
+  const presetLabel = PRESET_WEIGHT_LABEL_BY_VALUE.get(weight);
+  if (presetLabel) {
+    return { value: String(weight), label: presetLabel };
+  }
+
+  const bucketLabel = getWeightBucketLabel(weight);
+  return { value: String(weight), label: `${bucketLabel} (${weight})` };
+}
+
+function getFallbackAxisWeight(start: number, end: number): number {
+  // Clamp regular weight into axis range to provide a valid single fallback option.
+  const clampedWeight = Math.min(Math.max(400, start), end);
+  return Math.round(clampedWeight);
+}
+
+function collectWeightsFromCustomFont(font: CustomFont): number[] {
+  // Expand custom font metadata into concrete selectable weight values.
+  if (typeof font.fontWeight === "number") {
+    return [font.fontWeight];
+  }
+
+  if (
+    typeof font.fontWeight === "string" &&
+    font.fontWeight.trim().includes(" ")
+  ) {
+    const [rawMin, rawMax] = font.fontWeight.trim().split(/\s+/);
+    const minWeight = Number.parseInt(rawMin ?? "", 10);
+    const maxWeight = Number.parseInt(rawMax ?? "", 10);
+
+    if (!Number.isNaN(minWeight) && !Number.isNaN(maxWeight)) {
+      return FONT_WEIGHT_VALUES.filter(
+        (weight) => weight >= minWeight && weight <= maxWeight,
+      );
+    }
+  }
+
+  if (typeof font.fontWeight === "string") {
+    const parsedWeight = Number.parseInt(font.fontWeight, 10);
+    if (!Number.isNaN(parsedWeight)) {
+      return [parsedWeight];
+    }
+  }
+
+  return [400];
+}
+
+function getAvailableWeightOptions(
+  fontFamily: string | undefined,
+  customFonts: CustomFont[],
+) {
+  // Resolve weight options from the selected font family (custom first, then Google metadata).
+  if (!fontFamily) return FONT_WEIGHT_OPTIONS;
+
+  const normalizedFamily = fontFamily.toLowerCase();
+  const customWeights = new Set<number>();
+
+  for (const font of customFonts) {
+    if (font.fontFamily.toLowerCase() === normalizedFamily) {
+      for (const weight of collectWeightsFromCustomFont(font)) {
+        customWeights.add(weight);
+      }
+    }
+  }
+
+  if (customWeights.size > 0) {
+    return Array.from(customWeights)
+      .sort((a, b) => a - b)
+      .map(toWeightOption);
+  }
+
+  const googleFont = GOOGLE_FONT_BY_FAMILY.get(normalizedFamily);
+  if (!googleFont) return FONT_WEIGHT_OPTIONS;
+
+  const googleWeights = new Set<number>();
+
+  if (googleFont.isVariable) {
+    const weightAxis = googleFont.axes.find((axis) => axis.tag === "wght");
+    if (!weightAxis) {
+      return [toWeightOption(400)];
+    }
+
+    for (const weight of FONT_WEIGHT_VALUES) {
+      if (weight >= weightAxis.start && weight <= weightAxis.end) {
+        googleWeights.add(weight);
+      }
+    }
+
+    if (googleWeights.size === 0) {
+      googleWeights.add(getFallbackAxisWeight(weightAxis.start, weightAxis.end));
+    }
+  } else if (googleFont.variants?.length) {
+    for (const variant of googleFont.variants) {
+      const variantWeight = parseVariantWeight(variant);
+      if (variantWeight) {
+        googleWeights.add(variantWeight);
+      }
+    }
+  } else {
+    googleWeights.add(400);
+  }
+
+  const sortedGoogleWeights = Array.from(googleWeights).sort((a, b) => a - b);
+  return sortedGoogleWeights.length > 0
+    ? sortedGoogleWeights.map(toWeightOption)
+    : [toWeightOption(400)];
+}
 
 // ============================================================================
 // Internal Select Component
@@ -174,12 +329,34 @@ function TypographyScaleForm({
   customFonts,
   onManageCustomFonts,
 }: TypographyScaleFormProps) {
+  // Update one typography property while preserving the rest of the scale config.
   const handleChange = <K extends keyof TypographyScale>(
     key: K,
     newValue: TypographyScale[K],
   ) => {
     onChange({ ...value, [key]: newValue });
   };
+
+  const weightOptions = React.useMemo(
+    () => getAvailableWeightOptions(value.fontFamily, customFonts),
+    [value.fontFamily, customFonts],
+  );
+
+  React.useEffect(() => {
+    // Keep font weight valid when the selected font family has limited variants.
+    const currentWeight = Number.parseInt(String(value.fontWeight ?? 400), 10);
+    const hasCurrentWeight = weightOptions.some(
+      (option) => Number.parseInt(option.value, 10) === currentWeight,
+    );
+
+    if (!hasCurrentWeight) {
+      const fallbackWeight = Number.parseInt(
+        weightOptions[0]?.value ?? "400",
+        10,
+      );
+      onChange({ ...value, fontWeight: fallbackWeight });
+    }
+  }, [weightOptions, value, onChange]);
 
   const fontSizeValue =
     typeof value.fontSize === "number"
@@ -216,7 +393,7 @@ function TypographyScaleForm({
             onValueChange={(v) =>
               handleChange("fontWeight", Number.parseInt(v, 10))
             }
-            options={FONT_WEIGHT_OPTIONS}
+            options={weightOptions}
             placeholder="Select weight..."
             className="h-8 text-sm"
           />

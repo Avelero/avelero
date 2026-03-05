@@ -1,6 +1,10 @@
+/**
+ * Materials frame for composition and certification rendering.
+ */
 import type { ThemeConfig } from "@v1/dpp-components";
 import { Icons } from "@v1/ui/icons";
 import { Fragment } from "react";
+import { toExternalHref } from "../../lib/url-utils";
 
 /**
  * Display-only material type for UI rendering.
@@ -20,6 +24,7 @@ interface Props {
 }
 
 export function MaterialsFrame({ materials, themeConfig }: Props) {
+  // Render material rows with optional certification badges and organization links.
   const showCheckIcon = themeConfig.materials.showCertificationCheckIcon;
 
   return (
@@ -27,50 +32,67 @@ export function MaterialsFrame({ materials, themeConfig }: Props) {
       <h6 className="materials-card__title">Materials</h6>
 
       <div className="materials-card border grid grid-cols-[max-content_1fr]">
-        {materials.map((material, index) => (
-          <Fragment key={`${material.type}-${material.percentage}-${index}`}>
-            <div className="flex items-start p-md">
-              <span className="materials-card__percentage">
-                {material.percentage}%
-              </span>
-            </div>
-            <div
-              className="py-md pr-md flex flex-col gap-xs"
-              style={
-                index !== materials.length - 1
-                  ? {
-                      borderBottom:
-                        "1px solid var(--materials-card-border-color, var(--border))",
-                    }
-                  : {}
-              }
-            >
-              <div className="flex items-start justify-between gap-xs">
-                <span className="materials-card__type">{material.type}</span>
+        {materials.map((material, index) => {
+          const certificationHref = toExternalHref(material.certificationUrl);
 
-                {material.certification && (
-                  <span className="inline-flex items-center gap-micro py-micro px-xs materials-card__certification">
-                    {showCheckIcon && (
-                      <Icons.Check className="materials-card__certification-icon" />
-                    )}
-                    <span className="!leading-[100%]">Certified</span>
-                  </span>
-                )}
+          return (
+            <Fragment key={`${material.type}-${material.percentage}-${index}`}>
+              <div className="flex items-start p-md">
+                <span className="materials-card__percentage">
+                  {material.percentage}%
+                </span>
               </div>
+              <div
+                className="py-md pr-md flex flex-col gap-xs"
+                style={
+                  index !== materials.length - 1
+                    ? {
+                        borderBottom:
+                          "1px solid var(--materials-card-border-color, var(--border))",
+                      }
+                    : {}
+                }
+              >
+                <div className="flex items-start justify-between gap-xs">
+                  <span className="materials-card__type">{material.type}</span>
 
-              <div className="materials-card__origin">{material.origin}</div>
+                  {material.certification && (
+                    <span className="inline-flex items-center gap-micro py-micro px-xs materials-card__certification">
+                      {showCheckIcon && (
+                        <Icons.Check className="materials-card__certification-icon" />
+                      )}
+                      <span className="!leading-[100%]">Certified</span>
+                    </span>
+                  )}
+                </div>
 
-              {material.certification && (
-                <a
-                  href={material.certificationUrl}
-                  className="materials-card__certification-text cursor-pointer"
-                >
-                  {material.certification}
-                </a>
-              )}
-            </div>
-          </Fragment>
-        ))}
+                <div className="materials-card__origin">{material.origin}</div>
+
+                {material.certification &&
+                  (certificationHref ? (
+                    <a
+                      href={certificationHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="materials-card__certification-text cursor-pointer"
+                    >
+                      {material.certification}
+                    </a>
+                  ) : (
+                    <span
+                      className="materials-card__certification-text"
+                      style={{
+                        color:
+                          "var(--materials-card-origin-color, var(--muted-foreground))",
+                      }}
+                    >
+                      {material.certification}
+                    </span>
+                  ))}
+              </div>
+            </Fragment>
+          );
+        })}
       </div>
     </div>
   );

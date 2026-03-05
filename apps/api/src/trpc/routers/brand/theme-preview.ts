@@ -248,6 +248,7 @@ function buildDppData(
     categoryId: string | null;
     categoryName: string | null;
     manufacturerName: string | null;
+    manufacturerWebsite: string | null;
     manufacturerCountryCode: string | null;
   },
   attributes: {
@@ -295,7 +296,16 @@ function buildDppData(
         recyclable: m.recyclable ?? undefined,
         countryOfOrigin: getCountryName(m.countryOfOrigin),
         certification: m.certificationTitle
-          ? { type: m.certificationTitle, code: "" }
+          ? {
+              type: m.certificationTitle,
+              code: "",
+              testingInstitute: m.certificationUrl
+                ? {
+                    legalName: "",
+                    website: m.certificationUrl,
+                  }
+                : undefined,
+            }
           : undefined,
       })),
     },
@@ -304,6 +314,7 @@ function buildDppData(
         ? {
             manufacturerId: 0,
             name: core.manufacturerName,
+            website: core.manufacturerWebsite ?? undefined,
             countryCode: core.manufacturerCountryCode ?? undefined,
           }
         : undefined,
@@ -355,6 +366,7 @@ export const themePreviewRouter = createTRPCRouter({
             categoryId: products.categoryId,
             categoryName: taxonomyCategories.name,
             manufacturerName: brandManufacturers.name,
+            manufacturerWebsite: brandManufacturers.website,
             manufacturerCountryCode: brandManufacturers.countryCode,
           })
           .from(products)

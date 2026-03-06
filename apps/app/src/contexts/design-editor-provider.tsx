@@ -4,10 +4,13 @@ import { saveThemeAction } from "@/actions/design/save-theme-action";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
+  ComponentType,
   DppData,
+  LayoutComponentInstance,
   ThemeConfig,
   ThemeStyles,
   TypographyScale,
+  ZoneId,
 } from "@v1/dpp-components";
 import {
   type ColorTokenKey,
@@ -15,6 +18,8 @@ import {
   getTokenName,
   isTokenReference,
 } from "@v1/dpp-components";
+import { COMPONENT_LIBRARY } from "@v1/dpp-components/lib/component-library";
+import { generateDefaultLayout } from "@v1/dpp-components/lib/layout-migration";
 import { toast } from "@v1/ui/sonner";
 import {
   createContext,
@@ -158,6 +163,46 @@ type DesignEditorContextValue = {
   ) => void;
   clearMenuItemEdit: () => void;
 
+  // Layout instance operations
+  addInstance: (
+    zoneId: ZoneId,
+    componentType: ComponentType,
+    position: number,
+  ) => string;
+  deleteInstance: (zoneId: ZoneId, instanceId: string) => void;
+  moveInstance: (
+    zoneId: ZoneId,
+    instanceId: string,
+    newPosition: number,
+  ) => void;
+  updateInstanceContent: (
+    zoneId: ZoneId,
+    instanceId: string,
+    path: string,
+    value: unknown,
+  ) => void;
+  updateInstanceStyle: (
+    zoneId: ZoneId,
+    instanceId: string,
+    cssVar: string,
+    value: unknown,
+  ) => void;
+  getInstanceContent: (
+    zoneId: ZoneId,
+    instanceId: string,
+    path: string,
+  ) => unknown;
+  getInstanceStyle: (
+    zoneId: ZoneId,
+    instanceId: string,
+    cssVar: string,
+  ) => unknown;
+
+  // Instance navigation
+  navigateToInstance: (zoneId: ZoneId, instanceId: string) => void;
+  activeInstanceId: string | null;
+  activeZoneId: ZoneId | null;
+
   // Layout tree expand/collapse state
   expandedItems: Set<string>;
   toggleExpanded: (componentId: string) => void;
@@ -181,6 +226,16 @@ type ProviderProps = {
   previewData: DppData;
   brandId?: string;
 };
+
+/**
+ * Ensure the ThemeConfig has a layout field. If missing (legacy data),
+ * run the one-time migration to generate it from section flags / menus / cta.
+ */
+function ensureLayout(config: ThemeConfig): ThemeConfig {
+  if (config.layout) return config;
+  const { layout: _, ...rest } = config as ThemeConfig & { layout?: unknown };
+  return { ...config, layout: generateDefaultLayout(rest as Omit<ThemeConfig, "layout">) };
+}
 
 export function DesignEditorProvider({
   children,
@@ -212,9 +267,9 @@ export function DesignEditorProvider({
   // Theme Config State
   // ---------------------------------------------------------------------------
   const [themeConfigDraft, setThemeConfigDraft] =
-    useState<ThemeConfig>(initialThemeConfig);
+    useState<ThemeConfig>(() => ensureLayout(initialThemeConfig));
   const [savedThemeConfig, setSavedThemeConfig] =
-    useState<ThemeConfig>(initialThemeConfig);
+    useState<ThemeConfig>(() => ensureLayout(initialThemeConfig));
 
   // ---------------------------------------------------------------------------
   // Saving State
@@ -235,8 +290,9 @@ export function DesignEditorProvider({
   }, [initialThemeStyles]);
 
   useEffect(() => {
-    setThemeConfigDraft(initialThemeConfig);
-    setSavedThemeConfig(initialThemeConfig);
+    const migrated = ensureLayout(initialThemeConfig);
+    setThemeConfigDraft(migrated);
+    setSavedThemeConfig(migrated);
   }, [initialThemeConfig]);
 
   const previewGoogleFontsUrl = useMemo(() => {
@@ -603,6 +659,8 @@ export function DesignEditorProvider({
       if (prev.level === "component") {
         // Go back to layout section and clear selection
         setSelectedComponentId(null);
+        setActiveInstanceId(null);
+        setActiveZoneId(null);
         return { level: "section", section: "layout" };
       }
       if (prev.level === "section") {
@@ -636,6 +694,200 @@ export function DesignEditorProvider({
   const clearMenuItemEdit = useCallback(() => {
     setMenuItemEdit(null);
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Layout Instance Operations
+  // ---------------------------------------------------------------------------
+  const [activeInstanceId, setActiveInstanceId] = useState<string | null>(null);
+  const [activeZoneId, setActiveZoneId] = useState<ZoneId | null>(null);
+
+  const addInstance = useCallback(
+    (zoneId: ZoneId, componentType: ComponentType, position: number) => {
+      const id = `inst_${crypto.randomUUID().slice(0, 8)}`;
+      const entry = COMPONENT_LIBRARY[componentType];
+      const defaultContent = entry?.defaultContent;
+
+      const newInstance: LayoutComponentInstance = {
+        id,
+        componentType,
+        ...(defaultContent && Object.keys(defaultContent).length > 0
+          ? { content: structuredClone(defaultContent) }
+          : {}),
+      };
+
+      setThemeConfigDraft((prev) => {
+        const next = JSON.parse(JSON.stringify(prev)) as ThemeConfig;
+        const zone = next.layout.zones[zoneId];
+        zone.splice(position, 0, newInstance);
+
+        // For banner, apply default content to themeConfig.cta if fields are empty
+        if (componentType === "banner" && defaultContent) {
+          if (!next.cta.bannerHeadline && defaultContent.headline) {
+            next.cta.bannerHeadline = defaultContent.headline as string;
+          }
+          if (!next.cta.bannerBackgroundImage && defaultContent.backgroundImage) {
+            next.cta.bannerBackgroundImage = defaultContent.backgroundImage as string;
+          }
+          if (!next.cta.bannerCTAText && defaultContent.ctaText) {
+            next.cta.bannerCTAText = defaultContent.ctaText as string;
+          }
+          if (!next.cta.bannerCTAUrl && defaultContent.ctaUrl) {
+            next.cta.bannerCTAUrl = defaultContent.ctaUrl as string;
+          }
+          if (next.cta.showHeadline === undefined) {
+            next.cta.showHeadline = (defaultContent.showHeadline as boolean) ?? true;
+          }
+          if (next.cta.showSubline === undefined) {
+            next.cta.showSubline = (defaultContent.showSubline as boolean) ?? true;
+          }
+          if (next.cta.showButton === undefined) {
+            next.cta.showButton = (defaultContent.showButton as boolean) ?? true;
+          }
+        }
+
+        return next;
+      });
+
+      return id;
+    },
+    [],
+  );
+
+  const deleteInstance = useCallback(
+    (zoneId: ZoneId, instanceId: string) => {
+      setThemeConfigDraft((prev) => {
+        const next = JSON.parse(JSON.stringify(prev)) as ThemeConfig;
+        next.layout.zones[zoneId] = next.layout.zones[zoneId].filter(
+          (inst) => inst.id !== instanceId,
+        );
+        return next;
+      });
+
+      // Clear active instance if it was deleted
+      if (activeInstanceId === instanceId) {
+        setActiveInstanceId(null);
+        setActiveZoneId(null);
+      }
+    },
+    [activeInstanceId],
+  );
+
+  const moveInstance = useCallback(
+    (zoneId: ZoneId, instanceId: string, newPosition: number) => {
+      setThemeConfigDraft((prev) => {
+        const next = JSON.parse(JSON.stringify(prev)) as ThemeConfig;
+        const zone = next.layout.zones[zoneId];
+        const currentIndex = zone.findIndex((inst) => inst.id === instanceId);
+        if (currentIndex === -1) return prev;
+
+        const [item] = zone.splice(currentIndex, 1);
+        if (item) {
+          zone.splice(newPosition, 0, item);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const updateInstanceContent = useCallback(
+    (zoneId: ZoneId, instanceId: string, path: string, value: unknown) => {
+      setThemeConfigDraft((prev) => {
+        const next = JSON.parse(JSON.stringify(prev)) as ThemeConfig;
+        const instance = next.layout.zones[zoneId].find(
+          (inst) => inst.id === instanceId,
+        );
+        if (!instance) return prev;
+
+        if (!instance.content) instance.content = {};
+        const parts = path.split(".");
+        let current: Record<string, unknown> = instance.content;
+        for (let i = 0; i < parts.length - 1; i++) {
+          const key = parts[i];
+          if (key) {
+            if (!current[key] || typeof current[key] !== "object") {
+              current[key] = {};
+            }
+            current = current[key] as Record<string, unknown>;
+          }
+        }
+        const lastKey = parts[parts.length - 1];
+        if (lastKey) current[lastKey] = value;
+
+        return next;
+      });
+    },
+    [],
+  );
+
+  const updateInstanceStyle = useCallback(
+    (zoneId: ZoneId, instanceId: string, cssVar: string, value: unknown) => {
+      setThemeConfigDraft((prev) => {
+        const next = JSON.parse(JSON.stringify(prev)) as ThemeConfig;
+        const instance = next.layout.zones[zoneId].find(
+          (inst) => inst.id === instanceId,
+        );
+        if (!instance) return prev;
+
+        if (!instance.styles) instance.styles = {};
+        instance.styles[cssVar] = value;
+
+        return next;
+      });
+    },
+    [],
+  );
+
+  const getInstanceContent = useCallback(
+    (zoneId: ZoneId, instanceId: string, path: string): unknown => {
+      const instance = themeConfigDraft.layout.zones[zoneId].find(
+        (inst) => inst.id === instanceId,
+      );
+      if (!instance?.content) return undefined;
+
+      const parts = path.split(".");
+      let current: unknown = instance.content;
+      for (const key of parts) {
+        if (current && typeof current === "object" && key in current) {
+          current = (current as Record<string, unknown>)[key];
+        } else {
+          return undefined;
+        }
+      }
+      return current;
+    },
+    [themeConfigDraft],
+  );
+
+  const getInstanceStyle = useCallback(
+    (zoneId: ZoneId, instanceId: string, cssVar: string): unknown => {
+      const instance = themeConfigDraft.layout.zones[zoneId].find(
+        (inst) => inst.id === instanceId,
+      );
+      return instance?.styles?.[cssVar];
+    },
+    [themeConfigDraft],
+  );
+
+  const navigateToInstance = useCallback(
+    (zoneId: ZoneId, instanceId: string) => {
+      setActiveInstanceId(instanceId);
+      setActiveZoneId(zoneId);
+      // Find the instance to get its component type for navigation
+      const instance = themeConfigDraft.layout.zones[zoneId].find(
+        (inst) => inst.id === instanceId,
+      );
+      if (instance) {
+        // Navigate to component level using the instance ID
+        setNavigation({
+          level: "component",
+          section: "layout",
+          componentId: instanceId,
+        });
+      }
+    },
+    [themeConfigDraft],
+  );
 
   // ---------------------------------------------------------------------------
   // Layout Tree Expand/Collapse State
@@ -704,6 +956,17 @@ export function DesignEditorProvider({
       menuItemEdit,
       navigateToMenuItemEdit,
       clearMenuItemEdit,
+      // Layout instance operations
+      addInstance,
+      deleteInstance,
+      moveInstance,
+      updateInstanceContent,
+      updateInstanceStyle,
+      getInstanceContent,
+      getInstanceStyle,
+      navigateToInstance,
+      activeInstanceId,
+      activeZoneId,
       // Expand/collapse
       expandedItems,
       toggleExpanded,
@@ -741,6 +1004,16 @@ export function DesignEditorProvider({
       menuItemEdit,
       navigateToMenuItemEdit,
       clearMenuItemEdit,
+      addInstance,
+      deleteInstance,
+      moveInstance,
+      updateInstanceContent,
+      updateInstanceStyle,
+      getInstanceContent,
+      getInstanceStyle,
+      navigateToInstance,
+      activeInstanceId,
+      activeZoneId,
       expandedItems,
       toggleExpanded,
       selectedComponentId,

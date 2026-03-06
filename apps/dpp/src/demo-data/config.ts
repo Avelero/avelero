@@ -5,6 +5,59 @@ import type { ThemeConfig } from "@v1/dpp-components";
  * Uses default styling (no theme-styles override)
  */
 export const demoThemeConfig: ThemeConfig = {
+  layout: {
+    version: 1,
+    zones: {
+      "column-left": [
+        { id: "inst_img_1", componentType: "image" },
+      ],
+      "column-right": [
+        { id: "inst_hero_1", componentType: "hero" },
+        { id: "inst_det_1", componentType: "details" },
+        {
+          id: "inst_btn_1",
+          componentType: "buttons",
+          content: {
+            items: [
+              { label: "Care Instructions", url: "https://avelero.com" },
+              { label: "Recycling & Repair", url: "https://avelero.com" },
+              { label: "Warranty", url: "https://avelero.com" },
+            ],
+            variant: "primary",
+          },
+        },
+        { id: "inst_imp_1", componentType: "impact" },
+        { id: "inst_mat_1", componentType: "materials" },
+        { id: "inst_jrn_1", componentType: "journey" },
+        {
+          id: "inst_btn_2",
+          componentType: "buttons",
+          content: {
+            items: [{ label: "Compliance", url: "https://avelero.com" }],
+            variant: "secondary",
+          },
+        },
+      ],
+      content: [
+        {
+          id: "inst_ban_1",
+          componentType: "banner",
+          content: {
+            backgroundImage:
+              "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745934275/cta-banner-background_o3vjjw.jpg",
+            headline: "Avelero Apparel",
+            subline: "",
+            ctaText: "DISCOVER MORE",
+            ctaUrl: "https://avelero.com",
+            showHeadline: true,
+            showSubline: true,
+            showButton: true,
+          },
+        },
+      ],
+    },
+  },
+
   branding: {
     headerLogoUrl:
       "https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746526939/aveleroApparelLogoBlack_iuhow7.png",

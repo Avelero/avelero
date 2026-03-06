@@ -7,3 +7,6 @@ export * from "./dpp-content";
 // Theme configuration and styling
 export * from "./theme-config";
 export * from "./theme-styles";
+
+// Layout configuration
+export * from "./layout-config";

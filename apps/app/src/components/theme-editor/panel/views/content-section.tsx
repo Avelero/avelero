@@ -1,7 +1,10 @@
 "use client";
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { type ContentField, findComponentById } from "../../registry";
+import {
+  type ContentField,
+  resolveComponentForEditor,
+} from "../../registry";
 import {
   CarouselInput,
   EditorSection,
@@ -159,8 +162,8 @@ interface ContentSectionProps {
 }
 
 export function ContentSection({ componentId }: ContentSectionProps) {
-  const { brandId } = useDesignEditor();
-  const component = findComponentById(componentId);
+  const { brandId, themeConfigDraft } = useDesignEditor();
+  const component = resolveComponentForEditor(componentId, themeConfigDraft);
 
   if (!component) {
     return (

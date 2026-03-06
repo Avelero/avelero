@@ -20,7 +20,7 @@ interface Props {
 
 export function JourneyFrame({ journey, themeConfig }: Props) {
   return (
-    <div className="mx-sm @3xl:mx-0 mt-2x flex flex-col gap-sm">
+    <div className="mx-sm @3xl:mx-0 flex flex-col gap-sm">
       <h6 className="journey-card__title">Journey</h6>
 
       <div className="flex flex-col py-md pl-md journey-card border">

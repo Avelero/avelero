@@ -30,7 +30,7 @@ export function MenuFrame({
     variant === "secondary" ? "menu-secondary" : "menu-primary";
 
   return (
-    <div className="w-full mt-2x @3xl:mx-0">
+    <div className="w-full @3xl:mx-0">
       <div className={`${containerClass} border-t`}>
         {menuItems.map((item, index) => (
           <MenuButton

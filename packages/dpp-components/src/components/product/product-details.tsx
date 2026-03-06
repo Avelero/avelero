@@ -96,7 +96,7 @@ export function ProductDetails({
   if (rows.length === 0) return null;
 
   return (
-    <div className="w-full px-sm @3xl:px-0 mt-2x">
+    <div className="w-full px-sm @3xl:px-0">
       <div className="product-details w-full border">
         {rows.map((row, index) => (
           <div

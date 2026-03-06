@@ -30,4 +30,5 @@ export {
   isSelectableComponent,
   hasConfigContent,
   hasVisibilityToggle,
+  resolveComponentForEditor,
 } from "./utils";

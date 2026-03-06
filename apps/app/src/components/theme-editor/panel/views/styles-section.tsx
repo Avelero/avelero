@@ -16,7 +16,7 @@ import * as React from "react";
 import {
   type StyleField,
   TYPESCALE_OPTIONS,
-  findComponentById,
+  resolveComponentForEditor,
 } from "../../registry";
 import {
   BorderInput,
@@ -397,7 +397,8 @@ interface StylesSectionProps {
 }
 
 export function StylesSection({ componentId }: StylesSectionProps) {
-  const component = findComponentById(componentId);
+  const { themeConfigDraft } = useDesignEditor();
+  const component = resolveComponentForEditor(componentId, themeConfigDraft);
 
   if (!component) {
     return (

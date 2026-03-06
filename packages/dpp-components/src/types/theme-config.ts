@@ -4,7 +4,12 @@
  * (logos, menus, CTAs, social links, section visibility, etc.)
  */
 
+import type { LayoutConfig } from "./layout-config";
+
 export interface ThemeConfig {
+  // Zone-based layout configuration
+  layout: LayoutConfig;
+
   // Branding assets
   branding: {
     headerLogoUrl: string;

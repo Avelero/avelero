@@ -407,6 +407,23 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
  * Default ThemeConfig for new brands.
  */
 export const DEFAULT_THEME_CONFIG: ThemeConfig = {
+  layout: {
+    version: 1,
+    zones: {
+      "column-left": [
+        { id: "inst_img_1", componentType: "image" },
+      ],
+      "column-right": [
+        { id: "inst_hero_1", componentType: "hero" },
+        { id: "inst_det_1", componentType: "details" },
+        { id: "inst_imp_1", componentType: "impact" },
+        { id: "inst_mat_1", componentType: "materials" },
+        { id: "inst_jrn_1", componentType: "journey" },
+      ],
+      content: [],
+    },
+  },
+
   branding: {
     headerLogoUrl: "",
   },

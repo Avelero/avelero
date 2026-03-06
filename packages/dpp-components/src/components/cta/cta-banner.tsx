@@ -26,9 +26,9 @@ export function CTABanner({ themeConfig }: Props) {
     bannerImage?.includes("localhost/");
 
   return (
-    <div className="mt-3x mb-xl @3xl:mb-2x">
+    <div className="my-3x @3xl:my-2x">
       <div className="banner relative w-full flex flex-col items-center justify-center py-3x px-lg @3xl:px-3x overflow-hidden">
-        {/* Background image using Next.js Image */}
+        {/* Background image using Next.js Image, falls back to --accent via CSS */}
         {bannerImage && (
           <Image
             src={bannerImage}

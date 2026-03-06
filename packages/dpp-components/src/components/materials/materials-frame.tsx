@@ -28,7 +28,7 @@ export function MaterialsFrame({ materials, themeConfig }: Props) {
   const showCheckIcon = themeConfig.materials.showCertificationCheckIcon;
 
   return (
-    <div className="mx-sm @3xl:mx-0 mt-2x flex flex-col gap-sm">
+    <div className="mx-sm @3xl:mx-0 flex flex-col gap-sm">
       <h6 className="materials-card__title">Materials</h6>
 
       <div className="materials-card border grid grid-cols-[max-content_1fr]">

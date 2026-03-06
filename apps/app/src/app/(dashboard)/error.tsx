@@ -3,7 +3,7 @@
 import { Button } from "@v1/ui/button";
 import { useEffect } from "react";
 
-const SUPPORT_EMAIL = "support@avelero.com";
+const SUPPORT_EMAIL = "raf@avelero.com";
 
 /**
  * Dashboard segment error boundary.
@@ -26,20 +26,22 @@ export default function DashboardError({
           We are looking into it. If this keeps happening, contact support.
         </p>
 
-        <a
-          href={`mailto:${SUPPORT_EMAIL}`}
-          className="text-sm underline underline-offset-4 text-primary"
-        >
-          {SUPPORT_EMAIL}
-        </a>
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            className="text-sm underline underline-offset-4 text-primary"
+          >
+            {SUPPORT_EMAIL}
+          </a>
+
+          <Button onClick={() => reset()} variant="outline">
+            Try again
+          </Button>
+        </div>
 
         {error.digest ? (
           <p className="text-xs text-secondary mt-4">Error ID: {error.digest}</p>
         ) : null}
-
-        <Button onClick={() => reset()} variant="outline" className="mt-6">
-          Try again
-        </Button>
       </div>
     </div>
   );

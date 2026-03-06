@@ -12,7 +12,7 @@ export default function BillingPage() {
 
         <div className="mt-5">
           <Button asChild size="sm">
-            <a href="mailto:support@avelero.com">Contact support</a>
+            <a href="mailto:raf@avelero.com">Contact support</a>
           </Button>
         </div>
       </div>

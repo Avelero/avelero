@@ -90,19 +90,22 @@ async function setProductsPublished(
   db: BrandContext["db"],
   brandId: string,
   productIds: string[],
-): Promise<void> {
+): Promise<string[]> {
   // Skip empty batches so callers can forward filtered product lists directly.
   if (productIds.length === 0) {
-    return;
+    return [];
   }
 
-  await db
+  const updated = await db
     .update(products)
     .set({
       status: "published",
       updatedAt: new Date().toISOString(),
     })
-    .where(and(eq(products.brandId, brandId), inArray(products.id, productIds)));
+    .where(and(eq(products.brandId, brandId), inArray(products.id, productIds)))
+    .returning({ id: products.id });
+
+  return updated.map((row) => row.id);
 }
 
 /**
@@ -267,19 +270,23 @@ export const publishRouter = createTRPCRouter({
       const { db, brandId } = ctx as BrandContext;
 
       try {
-        await setProductsPublished(db, brandId, input.productIds);
-        const dirtyResult = await markPassportsDirtyByProductIds(
+        const updatedProductIds = await setProductsPublished(
           db,
           brandId,
           input.productIds,
         );
+        const dirtyResult = await markPassportsDirtyByProductIds(
+          db,
+          brandId,
+          updatedProductIds,
+        );
 
         return {
           success: true,
-          totalProductsPublished: input.productIds.length,
+          totalProductsPublished: updatedProductIds.length,
           totalVariantsPublished: dirtyResult.marked,
-          totalFailed: 0,
-          productsMarkedDirty: dirtyResult.marked,
+          totalFailed: input.productIds.length - updatedProductIds.length,
+          productsMarkedDirty: updatedProductIds.length,
         };
       } catch (error) {
         throw wrapError(error, "Failed to bulk publish products");

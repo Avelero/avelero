@@ -168,9 +168,7 @@ function hasBulkProductSnapshotChanges(
   return (
     fields.status !== undefined ||
     fields.category_id !== undefined ||
-    fields.season_id !== undefined ||
-    fields.categoryId !== undefined ||
-    fields.seasonId !== undefined
+    fields.season_id !== undefined
   );
 }
 

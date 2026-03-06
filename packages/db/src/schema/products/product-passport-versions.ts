@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  check,
   customType,
   index,
   integer,
@@ -126,6 +127,11 @@ export const productPassportVersions = pgTable(
     uniqueIndex("idx_product_passport_versions_passport_version").on(
       table.passportId,
       table.versionNumber,
+    ),
+    // Require every version row to keep either live JSON or compressed bytes.
+    check(
+      "product_passport_versions_snapshot_presence_check",
+      sql`num_nonnulls(${table.dataSnapshot}, ${table.compressedSnapshot}) = 1`,
     ),
     // Index for fetching all versions of a passport (for audit UI)
     index("idx_product_passport_versions_passport_id").using(

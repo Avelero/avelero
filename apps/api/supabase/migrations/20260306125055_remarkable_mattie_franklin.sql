@@ -1,0 +1,1 @@
+ALTER TABLE "product_passport_versions" ADD CONSTRAINT "product_passport_versions_snapshot_presence_check" CHECK (num_nonnulls("product_passport_versions"."data_snapshot", "product_passport_versions"."compressed_snapshot") = 1);

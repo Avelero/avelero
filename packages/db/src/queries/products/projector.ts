@@ -211,6 +211,35 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
 }
 
 /**
+ * Reuse an already-materialized version and clear the dirty flag.
+ */
+async function reuseProjectedVersion(
+  db: Database,
+  passport: PassportProjectionRow,
+  version: PassportVersionRow,
+  snapshot: DppSnapshot,
+): Promise<ProjectSinglePassportResult> {
+  // Point the passport at the winner version and clear dirty after reused projection.
+  await finalizeProjectedPassport(
+    db,
+    passport,
+    version.id,
+    !passport.firstPublishedAt ? version.publishedAt : undefined,
+  );
+
+  const refreshedPassport = await getPassportProjectionRow(db, passport.id);
+
+  return {
+    found: true,
+    versionCreated: false,
+    dirtyCleared: passport.dirty,
+    passport: refreshedPassport,
+    snapshot,
+    version: mapProjectedVersion(version),
+  };
+}
+
+/**
  * Fetch the current version row by ID.
  */
 async function getVersionById(
@@ -529,35 +558,43 @@ export async function projectSinglePassport(
         calculateContentOnlyHash(existingSnapshot)
     ) {
       // Reuse the current version when the materialized content is unchanged.
-      await finalizeProjectedPassport(
-        db,
-        passport,
-        latestVersion.id,
-        !passport.firstPublishedAt ? latestVersion.publishedAt : undefined,
-      );
-
-      const refreshedPassport = await getPassportProjectionRow(db, passport.id);
-      return {
-        found: true,
-      versionCreated: false,
-      dirtyCleared: passport.dirty,
-      passport: refreshedPassport,
-      snapshot: existingSnapshot,
-      version: mapProjectedVersion(latestVersion),
-    };
-  }
+      return reuseProjectedVersion(db, passport, latestVersion, existingSnapshot);
+    }
   }
 
   // Write a new immutable version when the snapshot content changed.
   const version = await createDppVersion(db, passport.id, snapshot, "1.0");
   if (!version) {
+    const concurrentVersion = await getLatestVersion(db, passport.id);
+    const concurrentSnapshot = concurrentVersion
+      ? getVersionSnapshot(concurrentVersion)
+      : null;
+
+    if (
+      concurrentVersion &&
+      concurrentSnapshot &&
+      calculateContentOnlyHash(snapshot) ===
+        calculateContentOnlyHash(concurrentSnapshot)
+    ) {
+      // Another projector won the race with equivalent content, so reuse it.
+      return reuseProjectedVersion(
+        db,
+        passport,
+        concurrentVersion,
+        concurrentSnapshot,
+      );
+    }
+
     return {
       found: true,
       versionCreated: false,
       dirtyCleared: false,
       passport,
-      snapshot: currentVersion ? getVersionSnapshot(currentVersion) : null,
-      version: mapProjectedVersion(currentVersion),
+      snapshot:
+        concurrentSnapshot ?? (currentVersion ? getVersionSnapshot(currentVersion) : null),
+      version: mapProjectedVersion(
+        (concurrentVersion as PassportVersionRow | null) ?? currentVersion,
+      ),
       error: "Failed to create version record",
     };
   }

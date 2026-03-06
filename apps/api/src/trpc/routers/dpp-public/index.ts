@@ -22,6 +22,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { resolveThemeConfigImageUrls } from "../../../utils/theme-config-images.js";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
+import { internalServerError } from "../../../utils/errors.js";
 import {
   createTRPCRouter,
   publicProcedure,
@@ -177,7 +178,16 @@ async function resolvePublicPassportResponse(
     result.passport.workingVariantId &&
     result.productStatus === "published"
   ) {
-    await projectSinglePassport(ctx.db, result.passport.id);
+    const projection = await projectSinglePassport(ctx.db, result.passport.id);
+
+    if (projection.error) {
+      console.error("[resolvePublicPassportResponse] inline projection failed", {
+        passportId: result.passport.id,
+        upid,
+        error: projection.error,
+      });
+    }
+
     result = await getPublicDppByUpid(ctx.db, upid);
 
     if (!result.found || !result.passport) {
@@ -185,6 +195,10 @@ async function resolvePublicPassportResponse(
     }
     if (result.passport.workingVariantId && result.productStatus !== "published") {
       return null;
+    }
+
+    if (projection.error && !result.snapshot) {
+      throw internalServerError("Failed to materialize passport");
     }
   }
 

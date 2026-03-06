@@ -6,8 +6,18 @@
  */
 
 import { createHash } from "node:crypto";
-import { zstdCompressSync, zstdDecompressSync } from "node:zlib";
-import { and, asc, desc, eq, isNotNull, isNull, max, ne } from "drizzle-orm";
+import * as zlib from "node:zlib";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  max,
+  ne,
+  or,
+} from "drizzle-orm";
 import type { Database } from "../../client";
 import { productPassportVersions, productPassports } from "../../schema";
 
@@ -135,6 +145,11 @@ export interface BatchCompressSupersededVersionsResult {
   versionIds: string[];
 }
 
+const ZSTD_SNAPSHOT_PREFIX = Buffer.from("dpp.zstd.v1:");
+const BROTLI_SNAPSHOT_PREFIX = Buffer.from("dpp.brotli.v1:");
+
+type SnapshotCompressionCodec = "zstd" | "brotli" | "legacy-zstd";
+
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
@@ -172,23 +187,103 @@ function calculateContentHash(data: unknown): string {
 }
 
 /**
- * Convert a JSON snapshot into zstd-compressed binary form.
+ * Detect whether the active runtime supports zstd through node:zlib.
  */
-function compressSnapshotPayload(snapshot: DppSnapshot): Buffer {
-  // Serialize to UTF-8 JSON before handing the payload to zstd.
-  return Buffer.from(
-    zstdCompressSync(Buffer.from(JSON.stringify(snapshot), "utf8")),
+function supportsZstdCompression(): boolean {
+  // Gate zstd usage behind runtime feature detection to keep Node 21 imports working.
+  return (
+    typeof zlib.zstdCompressSync === "function" &&
+    typeof zlib.zstdDecompressSync === "function"
   );
 }
 
 /**
- * Inflate a zstd-compressed historical snapshot.
+ * Add a codec marker ahead of the compressed snapshot bytes.
+ */
+function encodeCompressedSnapshot(
+  codec: Exclude<SnapshotCompressionCodec, "legacy-zstd">,
+  payload: Buffer,
+): Buffer {
+  // Prefix the payload so mixed-codec environments can decode rows safely.
+  return Buffer.concat([
+    codec === "zstd" ? ZSTD_SNAPSHOT_PREFIX : BROTLI_SNAPSHOT_PREFIX,
+    payload,
+  ]);
+}
+
+/**
+ * Split a stored compressed snapshot into its codec marker and payload bytes.
+ */
+function decodeCompressedSnapshot(
+  compressedSnapshot: Buffer,
+): { codec: SnapshotCompressionCodec; payload: Buffer } {
+  // Preserve support for early rows that were written as raw zstd without a prefix.
+  if (
+    compressedSnapshot.subarray(0, ZSTD_SNAPSHOT_PREFIX.length).equals(
+      ZSTD_SNAPSHOT_PREFIX,
+    )
+  ) {
+    return {
+      codec: "zstd",
+      payload: compressedSnapshot.subarray(ZSTD_SNAPSHOT_PREFIX.length),
+    };
+  }
+
+  if (
+    compressedSnapshot.subarray(0, BROTLI_SNAPSHOT_PREFIX.length).equals(
+      BROTLI_SNAPSHOT_PREFIX,
+    )
+  ) {
+    return {
+      codec: "brotli",
+      payload: compressedSnapshot.subarray(BROTLI_SNAPSHOT_PREFIX.length),
+    };
+  }
+
+  return {
+    codec: "legacy-zstd",
+    payload: compressedSnapshot,
+  };
+}
+
+/**
+ * Convert a JSON snapshot into a compressed binary form supported by the runtime.
+ */
+function compressSnapshotPayload(snapshot: DppSnapshot): Buffer {
+  // Prefer zstd where available and fall back to brotli on older Node runtimes.
+  const payload = Buffer.from(JSON.stringify(snapshot), "utf8");
+
+  if (supportsZstdCompression()) {
+    return encodeCompressedSnapshot(
+      "zstd",
+      Buffer.from(zlib.zstdCompressSync(payload)),
+    );
+  }
+
+  return encodeCompressedSnapshot(
+    "brotli",
+    Buffer.from(zlib.brotliCompressSync(payload)),
+  );
+}
+
+/**
+ * Inflate a historical snapshot from whichever codec it was stored with.
  */
 function decompressSnapshotPayload(compressedSnapshot: Buffer): DppSnapshot {
-  // Decode UTF-8 JSON after inflating the zstd payload.
-  return JSON.parse(
-    zstdDecompressSync(compressedSnapshot).toString("utf8"),
-  ) as DppSnapshot;
+  // Read the prefixed codec so cross-runtime deployments can decode older rows.
+  const { codec, payload } = decodeCompressedSnapshot(compressedSnapshot);
+
+  if (codec === "brotli") {
+    return JSON.parse(zlib.brotliDecompressSync(payload).toString("utf8")) as DppSnapshot;
+  }
+
+  if (!supportsZstdCompression()) {
+    throw new Error(
+      "Encountered a zstd-compressed passport version on a runtime without zstd support",
+    );
+  }
+
+  return JSON.parse(zlib.zstdDecompressSync(payload).toString("utf8")) as DppSnapshot;
 }
 
 /**
@@ -274,6 +369,12 @@ export async function createDppVersion(
       dataSnapshot: snapshotWithMetadata,
       contentHash,
       schemaVersion,
+    })
+    .onConflictDoNothing({
+      target: [
+        productPassportVersions.passportId,
+        productPassportVersions.versionNumber,
+      ],
     })
     .returning(versionSelection());
 
@@ -387,7 +488,10 @@ export async function batchCompressSupersededVersions(
       and(
         isNotNull(productPassportVersions.dataSnapshot),
         isNull(productPassportVersions.compressedSnapshot),
-        ne(productPassportVersions.id, productPassports.currentVersionId),
+        or(
+          isNull(productPassports.currentVersionId),
+          ne(productPassportVersions.id, productPassports.currentVersionId),
+        ),
       ),
     )
     .orderBy(asc(productPassportVersions.publishedAt))

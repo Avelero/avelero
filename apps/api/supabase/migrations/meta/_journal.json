@@ -225,6 +225,20 @@
       "when": 1772619565718,
       "tag": "20260304101925_sticky_lady_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1772791856105,
+      "tag": "20260306101056_bouncy_cyclops",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1772795721386,
+      "tag": "20260306111521_white_iron_lad",
+      "breakpoints": true
     }
   ]
 }

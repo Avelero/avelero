@@ -19,6 +19,7 @@ import {
   updateBrandIntegration,
   updateSyncJob,
 } from "@v1/db/queries/integrations";
+import { markPassportsDirtyByProductIds } from "@v1/db/queries/products";
 import { decryptCredentials } from "@v1/db/utils";
 import {
   type FieldConfig,
@@ -232,6 +233,19 @@ export const syncIntegration = task({
         entitiesCreated: result.entitiesCreated,
         errorCount: result.errors.length,
       });
+
+      if ((result.affectedProductIds?.length ?? 0) > 0) {
+        // Mark published passports dirty for any products touched by the sync run.
+        await markPassportsDirtyByProductIds(
+          db,
+          brandId,
+          result.affectedProductIds ?? [],
+        );
+
+        logger.info("Marked synced passports dirty", {
+          productCount: result.affectedProductIds?.length ?? 0,
+        });
+      }
 
       // Update sync job with results
       await updateSyncJob(db, syncJobId, {

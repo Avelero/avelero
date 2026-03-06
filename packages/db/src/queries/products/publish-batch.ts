@@ -35,7 +35,7 @@ import {
   buildProductImageUrl,
   getSupabaseUrlFromEnv,
 } from "../../utils/storage-url";
-import type { DppSnapshot } from "./dpp-versions";
+import { getVersionSnapshot, type DppSnapshot } from "./dpp-versions";
 import { batchCreatePassportsForVariants } from "./passports";
 
 // =============================================================================
@@ -966,6 +966,7 @@ async function publishVariantChunk(
             passportId: productPassportVersions.passportId,
             versionNumber: productPassportVersions.versionNumber,
             dataSnapshot: productPassportVersions.dataSnapshot,
+            compressedSnapshot: productPassportVersions.compressedSnapshot,
           })
           .from(productPassportVersions)
           .where(inArray(productPassportVersions.id, currentVersionIds))
@@ -993,10 +994,15 @@ async function publishVariantChunk(
 
     const currentVersion = currentVersionByPassportId.get(target.passportId);
     if (currentVersion) {
-      const existingSnapshot = currentVersion.dataSnapshot as DppSnapshot;
+      const existingSnapshot = getVersionSnapshot({
+        dataSnapshot: currentVersion.dataSnapshot as DppSnapshot | null,
+        compressedSnapshot: currentVersion.compressedSnapshot,
+      });
       const newContentHash = calculateContentOnlyHash(snapshot);
-      const existingContentHash = calculateContentOnlyHash(existingSnapshot);
-      if (newContentHash === existingContentHash) {
+      const existingContentHash = existingSnapshot
+        ? calculateContentOnlyHash(existingSnapshot)
+        : null;
+      if (existingContentHash !== null && newContentHash === existingContentHash) {
         versionsSkippedUnchanged++;
         continue;
       }

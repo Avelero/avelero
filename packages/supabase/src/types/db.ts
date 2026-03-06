@@ -1996,8 +1996,10 @@ export type Database = {
       };
       product_passport_versions: {
         Row: {
+          compressed_at: string | null;
+          compressed_snapshot: string | null;
           content_hash: string;
-          data_snapshot: Json;
+          data_snapshot: Json | null;
           id: string;
           passport_id: string;
           published_at: string;
@@ -2005,8 +2007,10 @@ export type Database = {
           version_number: number;
         };
         Insert: {
+          compressed_at?: string | null;
+          compressed_snapshot?: string | null;
           content_hash: string;
-          data_snapshot: Json;
+          data_snapshot?: Json | null;
           id?: string;
           passport_id: string;
           published_at?: string;
@@ -2014,8 +2018,10 @@ export type Database = {
           version_number: number;
         };
         Update: {
+          compressed_at?: string | null;
+          compressed_snapshot?: string | null;
           content_hash?: string;
-          data_snapshot?: Json;
+          data_snapshot?: Json | null;
           id?: string;
           passport_id?: string;
           published_at?: string;
@@ -2038,7 +2044,8 @@ export type Database = {
           brand_id: string | null;
           created_at: string;
           current_version_id: string | null;
-          first_published_at: string;
+          dirty: boolean;
+          first_published_at: string | null;
           id: string;
           orphaned_at: string | null;
           sku: string | null;
@@ -2052,7 +2059,8 @@ export type Database = {
           brand_id?: string | null;
           created_at?: string;
           current_version_id?: string | null;
-          first_published_at: string;
+          dirty?: boolean;
+          first_published_at?: string | null;
           id?: string;
           orphaned_at?: string | null;
           sku?: string | null;
@@ -2066,7 +2074,8 @@ export type Database = {
           brand_id?: string | null;
           created_at?: string;
           current_version_id?: string | null;
-          first_published_at?: string;
+          dirty?: boolean;
+          first_published_at?: string | null;
           id?: string;
           orphaned_at?: string | null;
           sku?: string | null;

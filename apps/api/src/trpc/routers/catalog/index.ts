@@ -14,7 +14,6 @@
  * All endpoints follow a consistent CRUD pattern using shared helper
  * functions to minimize code duplication and ensure uniform error handling.
  */
-import { tasks } from "@trigger.dev/sdk/v3";
 import type { Database } from "@v1/db/client";
 import {
   batchCreateBrandAttributeValues,
@@ -57,6 +56,9 @@ import {
 import {
   findPublishedProductIdsByCertification,
   findPublishedProductIdsByManufacturer,
+  findPublishedProductIdsByMaterial,
+  findPublishedProductIdsByOperator,
+  markPassportsDirtyByProductIds,
 } from "@v1/db/queries/products";
 import {
   batchCreateBrandAttributeValuesSchema,
@@ -122,21 +124,15 @@ import {
 /** tRPC context with guaranteed brand ID from middleware */
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
-type CatalogFanOutEntityType =
-  | "manufacturer"
-  | "material"
-  | "certification"
-  | "operator";
-
-type CatalogDeleteProductIdsResolver = (
+type CatalogDirtyProductIdsResolver = (
   db: Database,
   brandId: string,
   entityId: string,
 ) => Promise<string[]>;
 
-type CatalogFanOutConfig = {
-  entityType: CatalogFanOutEntityType;
-  resolveDeleteProductIds?: CatalogDeleteProductIdsResolver;
+type CatalogDirtyConfig = {
+  resolveProductIds: CatalogDirtyProductIdsResolver;
+  resolveDeleteProductIds?: CatalogDirtyProductIdsResolver;
 };
 
 type CreateProcedureOptions<TInput> = {
@@ -167,6 +163,25 @@ type DeleteProcedureOptions<TInput extends { id: string }, TBeforeDelete = undef
     beforeDeleteData: TBeforeDelete | undefined;
   }) => Promise<void> | void;
 };
+
+/**
+ * Mark published passports dirty for a catalog mutation result.
+ */
+async function markCatalogProductsDirty(
+  brandCtx: BrandContext,
+  productIds: string[] | undefined,
+): Promise<void> {
+  // Skip empty result sets so unrelated catalog edits stay cheap.
+  if (!productIds || productIds.length === 0) {
+    return;
+  }
+
+  await markPassportsDirtyByProductIds(
+    brandCtx.db,
+    brandCtx.brandId,
+    productIds,
+  );
+}
 
 /**
  * Creates a standardized list procedure for brand catalog resources.
@@ -360,45 +375,6 @@ function createDeleteProcedure<
 }
 
 /**
- * Enqueue a catalog fan-out job for the given entity.
- *
- * Fire-and-forget: trigger failures are logged but do not propagate,
- * since fan-out is a background concern and should never fail a catalog write.
- *
- * Uses a 45-second delay so that rapid consecutive edits within the same window
- * arrive at the task with the latest data. Multiple triggers within the window
- * will each schedule a run, but publish is content-hash-deduplicated so only
- * genuine content changes produce new versions (redundant runs are no-ops).
- */
-function enqueueCatalogFanOut(
-  brandId: string,
-  entityType: CatalogFanOutEntityType,
-  entityId: string,
-  options?: {
-    productIds?: string[];
-  },
-): void {
-  // Schedule the fan-out on a per-brand queue so related writes serialize.
-  tasks
-    .trigger(
-      "catalog-fan-out",
-      {
-        brandId,
-        entityType,
-        entityId,
-        productIds: options?.productIds,
-      },
-      { delay: "45s", concurrencyKey: brandId },
-    )
-    .catch((err) => {
-      console.error(
-        `[CatalogFanOut] Failed to enqueue fan-out for ${entityType} ${entityId}:`,
-        err,
-      );
-    });
-}
-
-/**
  * Factory function creating a complete CRUD router for catalog resources.
  *
  * Eliminates boilerplate by generating four standard endpoints (list, create,
@@ -447,10 +423,12 @@ function createCatalogResourceRouter<T>(
     delete: (db: Database, brandId: string, id: string) => Promise<T>;
   },
   transformInput?: (input: any) => any,
-  fanOutConfig?: CatalogFanOutConfig,
+  dirtyConfig?: CatalogDirtyConfig,
 ) {
-  // Compose the shared CRUD helpers with optional catalog fan-out hooks.
-  const resolveDeleteProductIds = fanOutConfig?.resolveDeleteProductIds;
+  // Compose the shared CRUD helpers with optional inline dirty-marking hooks.
+  const resolveDirtyProductIds = dirtyConfig?.resolveProductIds;
+  const resolveDeleteProductIds =
+    dirtyConfig?.resolveDeleteProductIds ?? resolveDirtyProductIds;
 
   return createTRPCRouter({
     list: createListProcedure(
@@ -464,14 +442,15 @@ function createCatalogResourceRouter<T>(
       operations.create,
       resourceName,
       transformInput,
-      fanOutConfig
+      dirtyConfig
         ? {
-            afterSuccess: ({ brandCtx, result }) => {
-              enqueueCatalogFanOut(
+            afterSuccess: async ({ brandCtx, result }) => {
+              const productIds = await resolveDirtyProductIds!(
+                brandCtx.db,
                 brandCtx.brandId,
-                fanOutConfig.entityType,
                 (result as { id: string }).id,
               );
+              await markCatalogProductsDirty(brandCtx, productIds);
             },
           }
         : undefined,
@@ -481,14 +460,15 @@ function createCatalogResourceRouter<T>(
       operations.update,
       resourceName,
       transformInput,
-      fanOutConfig
+      dirtyConfig
         ? {
-            afterSuccess: ({ brandCtx, input }) => {
-              enqueueCatalogFanOut(
+            afterSuccess: async ({ brandCtx, input }) => {
+              const productIds = await resolveDirtyProductIds!(
+                brandCtx.db,
                 brandCtx.brandId,
-                fanOutConfig.entityType,
                 input.id,
               );
+              await markCatalogProductsDirty(brandCtx, productIds);
             },
           }
         : undefined,
@@ -497,19 +477,14 @@ function createCatalogResourceRouter<T>(
       schemas.delete,
       operations.delete,
       resourceName,
-      fanOutConfig
+      dirtyConfig
         ? {
             beforeDelete: resolveDeleteProductIds
               ? ({ brandCtx, input }) =>
                   resolveDeleteProductIds(brandCtx.db, brandCtx.brandId, input.id)
               : undefined,
-            afterSuccess: ({ brandCtx, input, beforeDeleteData }) => {
-              enqueueCatalogFanOut(
-                brandCtx.brandId,
-                fanOutConfig.entityType,
-                input.id,
-                { productIds: beforeDeleteData },
-              );
+            afterSuccess: async ({ brandCtx, beforeDeleteData }) => {
+              await markCatalogProductsDirty(brandCtx, beforeDeleteData);
             },
           }
         : undefined,
@@ -735,7 +710,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteMaterial,
     },
     transformMaterialInput,
-    { entityType: "material" },
+    { resolveProductIds: findPublishedProductIdsByMaterial },
   ),
 
   /**
@@ -780,7 +755,7 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteOperator,
     },
     transformOperatorInput,
-    { entityType: "operator" },
+    { resolveProductIds: findPublishedProductIdsByOperator },
   ),
 
   /**
@@ -805,7 +780,7 @@ export const catalogRouter = createTRPCRouter({
     },
     transformManufacturerInput,
     {
-      entityType: "manufacturer",
+      resolveProductIds: findPublishedProductIdsByManufacturer,
       resolveDeleteProductIds: findPublishedProductIdsByManufacturer,
     },
   ),
@@ -831,7 +806,7 @@ export const catalogRouter = createTRPCRouter({
     },
     transformCertificationInput,
     {
-      entityType: "certification",
+      resolveProductIds: findPublishedProductIdsByCertification,
       resolveDeleteProductIds: findPublishedProductIdsByCertification,
     },
   ),

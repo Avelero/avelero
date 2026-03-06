@@ -20,8 +20,10 @@ import {
   brands,
   productPassportVersions,
   productPassports,
+  productVariants,
+  products,
 } from "../../schema";
-import type { DppSnapshot } from "../products/dpp-versions";
+import { getVersionSnapshot, type DppSnapshot } from "../products/dpp-versions";
 
 // =============================================================================
 // TYPES
@@ -62,8 +64,11 @@ export interface PublicDppResult {
     id: string;
     brandId: string | null;
     workingVariantId: string | null;
-    firstPublishedAt: string;
+    firstPublishedAt: string | null;
+    dirty: boolean;
   } | null;
+  /** Working product publication state when the passport is still linked */
+  productStatus: "published" | "unpublished" | "scheduled" | null;
   /** The current version's snapshot data */
   snapshot: DppSnapshot | null;
   /** Version metadata */
@@ -108,7 +113,7 @@ export async function getPublicDppByUpid(
   db: Database,
   upid: string,
 ): Promise<PublicDppResult> {
-  // Step 1: Fetch passport by UPID
+  // Step 1: Fetch passport by UPID, including the working product status for gating.
   const [passport] = await db
     .select({
       id: productPassports.id,
@@ -117,8 +122,15 @@ export async function getPublicDppByUpid(
       workingVariantId: productPassports.workingVariantId,
       currentVersionId: productPassports.currentVersionId,
       firstPublishedAt: productPassports.firstPublishedAt,
+      dirty: productPassports.dirty,
+      productStatus: products.status,
     })
     .from(productPassports)
+    .leftJoin(
+      productVariants,
+      eq(productVariants.id, productPassports.workingVariantId),
+    )
+    .leftJoin(products, eq(products.id, productVariants.productId))
     .where(eq(productPassports.upid, upid))
     .limit(1);
 
@@ -128,6 +140,7 @@ export async function getPublicDppByUpid(
       isInactive: false,
       upid,
       passport: null,
+      productStatus: null,
       snapshot: null,
       version: null,
       theme: null,
@@ -135,62 +148,37 @@ export async function getPublicDppByUpid(
     };
   }
 
-  // Check if the passport has been published
-  if (!passport.currentVersionId) {
-    return {
-      found: false,
-      isInactive: false,
-      upid,
-      passport: {
-        id: passport.id,
-        brandId: passport.brandId,
-        workingVariantId: passport.workingVariantId,
-        firstPublishedAt: passport.firstPublishedAt,
-      },
-      snapshot: null,
-      version: null,
-      theme: null,
-      error: "Passport has not been published yet",
-    };
-  }
-
-  // Step 2: Fetch the current version's snapshot
-  const [version] = await db
-    .select({
-      id: productPassportVersions.id,
-      versionNumber: productPassportVersions.versionNumber,
-      dataSnapshot: productPassportVersions.dataSnapshot,
-      contentHash: productPassportVersions.contentHash,
-      schemaVersion: productPassportVersions.schemaVersion,
-      publishedAt: productPassportVersions.publishedAt,
-    })
-    .from(productPassportVersions)
-    .where(eq(productPassportVersions.id, passport.currentVersionId))
-    .limit(1);
-
-  if (!version) {
-    return {
-      found: false,
-      isInactive: false,
-      upid,
-      passport: {
-        id: passport.id,
-        brandId: passport.brandId,
-        workingVariantId: passport.workingVariantId,
-        firstPublishedAt: passport.firstPublishedAt,
-      },
-      snapshot: null,
-      version: null,
-      theme: null,
-      error: "Version not found",
-    };
-  }
+  // Step 2: Fetch the current version's snapshot when one exists.
+  const version = passport.currentVersionId
+    ? (
+        await db
+          .select({
+            id: productPassportVersions.id,
+            versionNumber: productPassportVersions.versionNumber,
+            dataSnapshot: productPassportVersions.dataSnapshot,
+            compressedSnapshot: productPassportVersions.compressedSnapshot,
+            compressedAt: productPassportVersions.compressedAt,
+            contentHash: productPassportVersions.contentHash,
+            schemaVersion: productPassportVersions.schemaVersion,
+            publishedAt: productPassportVersions.publishedAt,
+          })
+          .from(productPassportVersions)
+          .where(eq(productPassportVersions.id, passport.currentVersionId))
+          .limit(1)
+      )[0] ?? null
+    : null;
 
   // Step 3: Fetch brand theme data
   const theme = await fetchBrandTheme(db, passport.brandId);
 
   // Check if working variant has been deleted (passport is inactive)
   const isInactive = passport.workingVariantId === null;
+  const snapshot = version
+    ? getVersionSnapshot({
+        dataSnapshot: version.dataSnapshot as DppSnapshot | null,
+        compressedSnapshot: version.compressedSnapshot,
+      })
+    : null;
 
   return {
     found: true,
@@ -201,16 +189,23 @@ export async function getPublicDppByUpid(
       brandId: passport.brandId,
       workingVariantId: passport.workingVariantId,
       firstPublishedAt: passport.firstPublishedAt,
+      dirty: passport.dirty,
     },
-    snapshot: version.dataSnapshot as DppSnapshot,
-    version: {
-      id: version.id,
-      versionNumber: version.versionNumber,
-      schemaVersion: version.schemaVersion,
-      publishedAt: version.publishedAt,
-      contentHash: version.contentHash,
-    },
+    productStatus:
+      (passport.productStatus as "published" | "unpublished" | "scheduled" | null) ??
+      null,
+    snapshot,
+    version: version
+      ? {
+          id: version.id,
+          versionNumber: version.versionNumber,
+          schemaVersion: version.schemaVersion,
+          publishedAt: version.publishedAt,
+          contentHash: version.contentHash,
+        }
+      : null,
     theme,
+    error: version ? undefined : "Passport has not been materialized yet",
   };
 }
 
@@ -302,6 +297,7 @@ export async function getPublicDppVersion(
       isInactive: false,
       upid,
       passport: null,
+      productStatus: null,
       snapshot: null,
       version: null,
       theme: null,
@@ -315,6 +311,8 @@ export async function getPublicDppVersion(
       id: productPassportVersions.id,
       versionNumber: productPassportVersions.versionNumber,
       dataSnapshot: productPassportVersions.dataSnapshot,
+      compressedSnapshot: productPassportVersions.compressedSnapshot,
+      compressedAt: productPassportVersions.compressedAt,
       contentHash: productPassportVersions.contentHash,
       schemaVersion: productPassportVersions.schemaVersion,
       publishedAt: productPassportVersions.publishedAt,
@@ -338,7 +336,9 @@ export async function getPublicDppVersion(
         brandId: passport.brandId,
         workingVariantId: passport.workingVariantId,
         firstPublishedAt: passport.firstPublishedAt,
+        dirty: false,
       },
+      productStatus: null,
       snapshot: null,
       version: null,
       theme: null,
@@ -349,6 +349,10 @@ export async function getPublicDppVersion(
   // Fetch brand theme data
   const theme = await fetchBrandTheme(db, passport.brandId);
   const isInactive = passport.workingVariantId === null;
+  const snapshot = getVersionSnapshot({
+    dataSnapshot: version.dataSnapshot as DppSnapshot | null,
+    compressedSnapshot: version.compressedSnapshot,
+  });
 
   return {
     found: true,
@@ -359,8 +363,10 @@ export async function getPublicDppVersion(
       brandId: passport.brandId,
       workingVariantId: passport.workingVariantId,
       firstPublishedAt: passport.firstPublishedAt,
+      dirty: false,
     },
-    snapshot: version.dataSnapshot as DppSnapshot,
+    productStatus: null,
+    snapshot,
     version: {
       id: version.id,
       versionNumber: version.versionNumber,
@@ -387,10 +393,25 @@ export async function isPassportPublished(
   const [passport] = await db
     .select({
       currentVersionId: productPassports.currentVersionId,
+      workingVariantId: productPassports.workingVariantId,
+      productStatus: products.status,
     })
     .from(productPassports)
+    .leftJoin(
+      productVariants,
+      eq(productVariants.id, productPassports.workingVariantId),
+    )
+    .leftJoin(products, eq(products.id, productVariants.productId))
     .where(eq(productPassports.upid, upid))
     .limit(1);
 
-  return passport?.currentVersionId != null;
+  if (!passport?.currentVersionId) {
+    return false;
+  }
+
+  if (!passport.workingVariantId) {
+    return true;
+  }
+
+  return passport.productStatus === "published";
 }

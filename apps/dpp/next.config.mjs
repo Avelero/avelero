@@ -1,7 +1,11 @@
+/**
+ * Next.js configuration for the DPP frontend.
+ */
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
   images: {
+    qualities: [75, 90],
     remotePatterns: [
       {
         protocol: "https",

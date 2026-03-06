@@ -32,7 +32,7 @@ import {
 import { publishNotificationEvent } from "@v1/db/queries/notifications";
 import {
   generateGloballyUniqueUpids,
-  publishProductsSetBased,
+  markPassportsDirtyByProductIds,
 } from "@v1/db/queries/products";
 import * as schema from "@v1/db/schema";
 import { sendBulkBroadcast } from "@v1/db/utils";
@@ -234,9 +234,6 @@ const IMAGE_CONCURRENCY = 15;
 /** Image upload timeout in ms */
 const IMAGE_TIMEOUT_MS = 60_000;
 
-/** Variant publish chunk size for set-based publishing */
-const PUBLISH_VARIANT_CHUNK_SIZE = 500;
-
 /** Email from address */
 const EMAIL_FROM = "Avelero <noreply@welcome.avelero.com>";
 
@@ -370,15 +367,12 @@ export const commitToProduction = task({
         try {
           await batchExecuteProductionOps(db, ops);
 
-          // PHASE 6.1: Publish immutable snapshots for products in published state.
-          // Uses set-based operations (no per-product publish loop).
-          await publishProductsSetBased(db, {
+          // PHASE 6.1: Mark published passports dirty instead of materializing snapshots here.
+          await markPassportsDirtyByProductIds(
+            db,
             brandId,
-            productIds: batchData.map(
-              (product) => product.existingProductId ?? product.id,
-            ),
-            variantChunkSize: PUBLISH_VARIANT_CHUNK_SIZE,
-          });
+            batchData.map((product) => product.existingProductId ?? product.id),
+          );
 
           // Accumulate stats
           totalStats.productsCreated += batchStats.productsCreated;

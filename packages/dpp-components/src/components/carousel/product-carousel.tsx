@@ -120,7 +120,7 @@ export function ProductCarousel({ products, themeConfig }: Props) {
   const showNavButtons = displayProducts.length > 3;
 
   return (
-    <div className="carousel pt-2x @3xl:pt-2x @3xl:pb-0 w-full">
+    <div className="carousel my-3x w-full">
       {/* Header container - keeps the title aligned with the page content */}
       <div className="max-w-container mx-auto px-sm @3xl:px-lg">
         <h6 className="carousel__title">Similar Items</h6>

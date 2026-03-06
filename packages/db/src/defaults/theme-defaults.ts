@@ -371,7 +371,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // Fallbacks: backgroundColor → background, borderColor → border
   // ===========================================================================
   banner: {
-    backgroundColor: "$background",
+    backgroundColor: "$accent",
     borderColor: "$border",
     borderWidth: { top: 0, right: 0, bottom: 0, left: 0 },
     borderRadius: 0,
@@ -381,13 +381,13 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
     justifyContent: "center",
   },
   banner__headline: {
-    color: "$primaryForeground",
+    color: "$foreground",
     typescale: "h3",
     textTransform: "none",
     textAlign: "center",
   },
   banner__subline: {
-    color: "$primaryForeground",
+    color: "$foreground",
     typescale: "h5",
     textTransform: "none",
     textAlign: "center",

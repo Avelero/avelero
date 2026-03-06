@@ -158,10 +158,12 @@ export function LayoutRenderer({ data, content, themeConfig }: Props) {
 
             {/* Right column */}
             <div className="@3xl:flex @3xl:justify-end @3xl:w-full">
-              <div className="flex flex-col gap-2x overflow-x-hidden relative @3xl:ml-auto @3xl:w-full @3xl:w-5/6">
-                {zones["column-right"].map((instance) =>
-                  renderInstance(instance),
-                )}
+              <div className="@3xl:w-5/6">
+                <div className="flex flex-col gap-2x overflow-x-hidden relative @3xl:ml-auto @3xl:w-full">
+                  {zones["column-right"].map((instance) =>
+                    renderInstance(instance),
+                  )}
+                </div>
               </div>
             </div>
           </div>

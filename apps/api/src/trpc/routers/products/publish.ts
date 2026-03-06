@@ -270,10 +270,11 @@ export const publishRouter = createTRPCRouter({
       const { db, brandId } = ctx as BrandContext;
 
       try {
+        const uniqueProductIds = Array.from(new Set(input.productIds));
         const updatedProductIds = await setProductsPublished(
           db,
           brandId,
-          input.productIds,
+          uniqueProductIds,
         );
         const dirtyResult = await markPassportsDirtyByProductIds(
           db,
@@ -285,7 +286,7 @@ export const publishRouter = createTRPCRouter({
           success: true,
           totalProductsPublished: updatedProductIds.length,
           totalVariantsPublished: dirtyResult.marked,
-          totalFailed: input.productIds.length - updatedProductIds.length,
+          totalFailed: uniqueProductIds.length - updatedProductIds.length,
           productsMarkedDirty: updatedProductIds.length,
         };
       } catch (error) {

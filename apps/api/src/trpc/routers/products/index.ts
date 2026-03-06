@@ -13,7 +13,6 @@ import { and, eq, inArray } from "@v1/db/queries";
 import {
   bulkDeleteProductsByFilter,
   bulkDeleteProductsByIds,
-  bulkPublishProducts,
   bulkUpdateProductsByFilter,
   bulkUpdateProductsByIds,
   createProduct,
@@ -21,8 +20,8 @@ import {
   getProductWithIncludes,
   getProductSelectionCounts,
   listProductsWithIncludes,
+  markPassportsDirtyByProductIds,
   resolveSelectedProductIds,
-  publishProduct,
   setProductJourneySteps,
   setProductTags,
   updateProduct,
@@ -37,6 +36,7 @@ import {
   qrExportJobs,
 } from "@v1/db/schema";
 import {
+  revalidateBarcodes,
   revalidatePassports,
   revalidateProduct,
 } from "../../../lib/dpp-revalidation.js";
@@ -78,6 +78,106 @@ function ensureBrandScope(
 
 function normalizeBrandId(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+/**
+ * Collect public passport identifiers for a set of products.
+ */
+async function collectPublicProductVariantIdentifiers(
+  ctx: BrandContext,
+  brandId: string,
+  productIds: string[],
+): Promise<{ upids: string[]; barcodes: string[] }> {
+  // Load current variant identifiers so unpublish operations can invalidate DPP caches.
+  if (productIds.length === 0) {
+    return { upids: [], barcodes: [] };
+  }
+
+  const rows = await ctx.db
+    .select({
+      upid: productVariants.upid,
+      barcode: productVariants.barcode,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(productVariants.productId, products.id))
+    .where(
+      and(
+        eq(products.brandId, brandId),
+        inArray(productVariants.productId, productIds),
+      ),
+    );
+
+  return {
+    upids: Array.from(
+      new Set(
+        rows
+          .map((row) => row.upid?.trim() ?? null)
+          .filter((upid): upid is string => Boolean(upid)),
+      ),
+    ),
+    barcodes: Array.from(
+      new Set(
+        rows
+          .map((row) => row.barcode?.trim() ?? null)
+          .filter((barcode): barcode is string => Boolean(barcode)),
+      ),
+    ),
+  };
+}
+
+/**
+ * Determine whether a single-product update touched snapshot-backed fields.
+ */
+function hasSingleProductSnapshotChanges(
+  input: unknown,
+): boolean {
+  // Treat any working-data change that feeds the passport snapshot as dirtying.
+  const fields =
+    input && typeof input === "object"
+      ? (input as Record<string, unknown>)
+      : {};
+
+  return (
+    fields.name !== undefined ||
+    fields.description !== undefined ||
+    fields.category_id !== undefined ||
+    fields.season_id !== undefined ||
+    fields.manufacturer_id !== undefined ||
+    fields.image_path !== undefined ||
+    fields.status !== undefined ||
+    fields.materials !== undefined ||
+    fields.journey_steps !== undefined ||
+    fields.environment !== undefined ||
+    fields.weight !== undefined ||
+    fields.tag_ids !== undefined
+  );
+}
+
+/**
+ * Determine whether a bulk product update touched snapshot-backed fields.
+ */
+function hasBulkProductSnapshotChanges(
+  input: unknown,
+): boolean {
+  // Bulk updates only expose these three snapshot-relevant fields today.
+  const fields =
+    input && typeof input === "object"
+      ? (input as Record<string, unknown>)
+      : {};
+
+  return (
+    fields.status !== undefined ||
+    fields.category_id !== undefined ||
+    fields.season_id !== undefined
+  );
+}
+
+/**
+ * Determine whether a status change should immediately hide public pages.
+ */
+function shouldInvalidatePublicProductCaches(status: unknown): boolean {
+  // Scheduled behaves like unpublished on the public read path.
+  return status === "unpublished" || status === "scheduled";
 }
 
 type CreateProductInput = Parameters<typeof createProduct>[2];
@@ -418,19 +518,27 @@ export const productsRouter = createTRPCRouter({
             );
           }
 
-          // If status changed to "published", trigger publish flow to create passport versions
-          // This ensures QR codes become resolvable when status is set to published
-          if (
-            input.status === "published" &&
-            result.productIds &&
-            result.productIds.length > 0
-          ) {
-            // Trigger bulk publish (fire-and-forget, errors logged but not thrown)
-            bulkPublishProducts(brandCtx.db, result.productIds, brandId).catch(
-              (err) => {
-                console.error("Bulk publish failed after status change:", err);
-              },
-            );
+          if (result.productIds && result.productIds.length > 0) {
+            // Mark published passports dirty inline instead of materializing snapshots here.
+            if (hasBulkProductSnapshotChanges(input)) {
+              await markPassportsDirtyByProductIds(
+                brandCtx.db,
+                brandId,
+                result.productIds,
+              );
+            }
+
+            // Invalidate public caches right away when the status hides the passport.
+            if (shouldInvalidatePublicProductCaches(input.status)) {
+              const identifiers = await collectPublicProductVariantIdentifiers(
+                brandCtx,
+                brandId,
+                result.productIds,
+              );
+
+              revalidatePassports(identifiers.upids).catch(() => {});
+              revalidateBarcodes(brandId, identifiers.barcodes).catch(() => {});
+            }
           }
 
           return {
@@ -471,35 +579,23 @@ export const productsRouter = createTRPCRouter({
           tag_ids: input.tag_ids,
         });
 
-        // Trigger publish when status is explicitly changed to "published"
-        // This handles the case when user toggles status from the passports table
-        // (The form handles publish explicitly after all mutations complete)
-        if (input.status === "published" && product?.id) {
-          try {
-            const publishResult = await publishProduct(
-              brandCtx.db,
-              product.id,
-              brandId,
-            );
-            if (!publishResult.success) {
-              console.error(
-                "Publish failed after status change:",
-                publishResult.error,
-              );
-            } else {
-              const upids = publishResult.variants
-                .map((v) => v.passport?.upid)
-                .filter((u): u is string => Boolean(u));
-              if (upids.length > 0) {
-                revalidatePassports(upids).catch(() => {});
-              }
-            }
-          } catch (err) {
-            console.error(
-              "Publish threw an exception after status change:",
-              err,
-            );
-          }
+        if (product?.id && hasSingleProductSnapshotChanges(input)) {
+          // Defer materialization by marking any published passports dirty.
+          await markPassportsDirtyByProductIds(brandCtx.db, brandId, [
+            product.id,
+          ]);
+        }
+
+        if (product?.id && shouldInvalidatePublicProductCaches(input.status)) {
+          // Hide existing public pages as soon as the product leaves the published state.
+          const identifiers = await collectPublicProductVariantIdentifiers(
+            brandCtx,
+            brandId,
+            [product.id],
+          );
+
+          revalidatePassports(identifiers.upids).catch(() => {});
+          revalidateBarcodes(brandId, identifiers.barcodes).catch(() => {});
         }
 
         // Revalidate DPP cache for this product (fire-and-forget)

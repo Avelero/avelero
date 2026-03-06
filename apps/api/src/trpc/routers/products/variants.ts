@@ -2,6 +2,7 @@ import { and, eq, inArray } from "@v1/db/queries";
 import {
   batchCreatePassportsForVariants,
   batchOrphanPassportsByVariantIds,
+  markPassportsDirtyByVariantIds,
   batchSyncPassportMetadata,
   clearAllVariantOverrides,
   createPassportForVariant,
@@ -684,6 +685,9 @@ export const productVariantsRouter = createTRPCRouter({
           await applyVariantOverrides(db, variant.id, input.overrides);
         }
 
+        // Mark the new passport dirty if the parent product is already published.
+        await markPassportsDirtyByVariantIds(db, [variant.id]);
+
         // Revalidate product cache
         revalidateProduct(input.productHandle).catch(() => {});
 
@@ -796,6 +800,9 @@ export const productVariantsRouter = createTRPCRouter({
         if (input.overrides) {
           await applyVariantOverrides(db, variantId, input.overrides);
         }
+
+        // Mark the affected passport dirty when the parent product is published.
+        await markPassportsDirtyByVariantIds(db, [variantId]);
 
         // Revalidate product cache
         revalidateProduct(input.productHandle).catch(() => {});
@@ -1001,6 +1008,14 @@ export const productVariantsRouter = createTRPCRouter({
           await applyVariantOverrides(db, variantId, overrides);
         }
 
+        if (createdVariants.length > 0) {
+          // Mark new passports dirty so published products can be re-materialized later.
+          await markPassportsDirtyByVariantIds(
+            db,
+            createdVariants.map((variant) => variant.id),
+          );
+        }
+
         // Revalidate product cache
         revalidateProduct(input.productHandle).catch(() => {});
 
@@ -1112,6 +1127,7 @@ export const productVariantsRouter = createTRPCRouter({
         // ───────────────────────────────────────────────────────────────────────
 
         let updated = 0;
+        const updatedVariantIds: string[] = [];
 
         // Track variant overrides to apply after transaction
         const variantOverridesToApply: Array<{
@@ -1197,6 +1213,7 @@ export const productVariantsRouter = createTRPCRouter({
             }
 
             updated++;
+            updatedVariantIds.push(variant.id);
           }
         });
 
@@ -1208,6 +1225,11 @@ export const productVariantsRouter = createTRPCRouter({
         // Apply overrides outside transaction (existing pattern from single update)
         for (const { variantId, overrides } of variantOverridesToApply) {
           await applyVariantOverrides(db, variantId, overrides);
+        }
+
+        if (updatedVariantIds.length > 0) {
+          // Mark updated passports dirty so published products serve fresh data later.
+          await markPassportsDirtyByVariantIds(db, updatedVariantIds);
         }
 
         // Revalidate product cache
@@ -1549,9 +1571,17 @@ export const productVariantsRouter = createTRPCRouter({
           }
         });
 
-        // NOTE: Publishing is handled explicitly by the form after all mutations complete.
-        // This keeps publish logic in ONE place and avoids complex conditional publish triggers.
-        // The form calls publish.product at the end of the save flow if the product is published.
+        // Dirty marking now happens here so published products can be projected later.
+        // The form may still call publish.product explicitly, but that path is now idempotent.
+        const affectedVariantIds = [
+          ...createdVariants.map((variant) => variant.id),
+          ...toUpdate.map((variant) => variant.variantId),
+        ];
+
+        if (affectedVariantIds.length > 0) {
+          // Mark all changed passports dirty now that sync has committed its writes.
+          await markPassportsDirtyByVariantIds(db, affectedVariantIds);
+        }
 
         // Revalidate product cache
         revalidateProduct(input.productHandle).catch(() => {});
@@ -1601,6 +1631,9 @@ export const productVariantsRouter = createTRPCRouter({
         );
 
         await clearAllVariantOverrides(db, variantId);
+
+        // Clearing overrides changes the published snapshot input for this variant.
+        await markPassportsDirtyByVariantIds(db, [variantId]);
 
         // Revalidate product cache
         revalidateProduct(input.productHandle).catch(() => {});

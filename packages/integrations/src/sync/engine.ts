@@ -80,6 +80,7 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
     entitiesCreated: 0,
     productsSkippedNoMatch: 0,
     variantsSkippedNoMatch: 0,
+    affectedProductIds: [],
     errors: [],
   };
 
@@ -167,6 +168,12 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
       result.entitiesCreated += batchResult.entitiesCreated;
       result.productsSkippedNoMatch += batchResult.productsSkippedNoMatch;
       result.variantsSkippedNoMatch += batchResult.variantsSkippedNoMatch;
+      result.affectedProductIds = Array.from(
+        new Set([
+          ...(result.affectedProductIds ?? []),
+          ...batchResult.affectedProductIds,
+        ]),
+      );
       result.errors.push(...batchResult.errors);
     }
 
@@ -251,6 +258,8 @@ interface BatchResult {
   productsSkippedNoMatch: number;
   /** Variants skipped because no match found (secondary integrations only) */
   variantsSkippedNoMatch: number;
+  /** Product IDs whose passport inputs changed in this batch */
+  affectedProductIds: string[];
   errors: Array<{ externalId: string; message: string }>;
   timing: {
     entityExtraction: number;
@@ -293,6 +302,7 @@ async function processBatch(
     entitiesCreated: 0,
     productsSkippedNoMatch: 0,
     variantsSkippedNoMatch: 0,
+    affectedProductIds: [],
     errors: [],
     timing: {
       entityExtraction: 0,
@@ -459,6 +469,7 @@ async function processBatch(
 
   // Track handles used within this batch to avoid collisions
   const usedHandlesInBatch = new Set<string>();
+  const affectedProductIds = new Set<string>();
 
   // Track products that have been assigned a canonical link within THIS batch
   // This prevents multiple products in the same batch from all being marked as canonical
@@ -483,6 +494,16 @@ async function processBatch(
         result.variantsSkipped += processed.variantsSkipped;
         if (processed.productCreated) result.productsCreated++;
         else if (processed.productUpdated) result.productsUpdated++;
+
+        if (
+          processed.productId &&
+          (processed.productCreated ||
+            processed.productUpdated ||
+            processed.variantsCreated > 0 ||
+            processed.variantsUpdated > 0)
+        ) {
+          affectedProductIds.add(processed.productId);
+        }
 
         // Track secondary integration skips
         if (processed.productSkippedNoMatch) result.productsSkippedNoMatch++;
@@ -542,6 +563,7 @@ async function processBatch(
     }
   }
   result.timing.compute = Date.now() - computeStart;
+  result.affectedProductIds = Array.from(affectedProductIds);
 
   // PHASE 4: Execute all batch operations (PARALLELIZED where possible)
   // Note: Database-level throttling in realtime.broadcast_domain_changes() ensures

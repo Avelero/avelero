@@ -1,14 +1,25 @@
 /**
- * DPP Version operations.
+ * DPP version operations.
  *
- * Manages product_passport_versions records - the immutable version history.
- * Each publish action creates a new version; versions are NEVER updated or deleted.
+ * Manages immutable product_passport_versions records, including historical
+ * snapshot compression for superseded versions.
  */
 
 import { createHash } from "node:crypto";
-import { desc, eq, max } from "drizzle-orm";
+import * as zlib from "node:zlib";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  max,
+  ne,
+  or,
+} from "drizzle-orm";
 import type { Database } from "../../client";
-import { productPassportVersions } from "../../schema";
+import { productPassportVersions, productPassports } from "../../schema";
 
 // =============================================================================
 // TYPES
@@ -102,6 +113,43 @@ export interface DppSnapshot {
   };
 }
 
+/**
+ * Stored passport version row shape used by query helpers.
+ */
+export interface StoredDppVersion {
+  id: string;
+  passportId: string;
+  versionNumber: number;
+  dataSnapshot: DppSnapshot | null;
+  compressedSnapshot: Buffer | null;
+  compressedAt: string | null;
+  contentHash: string;
+  schemaVersion: string;
+  publishedAt: string;
+}
+
+/**
+ * Options for batch historical version compression.
+ */
+export interface BatchCompressSupersededVersionsOptions {
+  limit?: number;
+}
+
+/**
+ * Result summary for batch historical version compression.
+ */
+export interface BatchCompressSupersededVersionsResult {
+  scanned: number;
+  compressed: number;
+  skipped: number;
+  versionIds: string[];
+}
+
+const ZSTD_SNAPSHOT_PREFIX = Buffer.from("dpp.zstd.v1:");
+const BROTLI_SNAPSHOT_PREFIX = Buffer.from("dpp.brotli.v1:");
+
+type SnapshotCompressionCodec = "zstd" | "brotli" | "legacy-zstd";
+
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
@@ -130,7 +178,6 @@ function sortObjectKeys(obj: unknown): unknown {
 
 /**
  * Calculate SHA-256 hash of the canonical JSON representation.
- * Used for integrity verification.
  */
 function calculateContentHash(data: unknown): string {
   // Canonicalize nested objects before hashing to keep snapshots stable.
@@ -139,18 +186,149 @@ function calculateContentHash(data: unknown): string {
   return createHash("sha256").update(canonicalJson, "utf8").digest("hex");
 }
 
+/**
+ * Detect whether the active runtime supports zstd through node:zlib.
+ */
+function supportsZstdCompression(): boolean {
+  // Gate zstd usage behind runtime feature detection to keep Node 21 imports working.
+  return (
+    typeof zlib.zstdCompressSync === "function" &&
+    typeof zlib.zstdDecompressSync === "function"
+  );
+}
+
+/**
+ * Add a codec marker ahead of the compressed snapshot bytes.
+ */
+function encodeCompressedSnapshot(
+  codec: Exclude<SnapshotCompressionCodec, "legacy-zstd">,
+  payload: Buffer,
+): Buffer {
+  // Prefix the payload so mixed-codec environments can decode rows safely.
+  return Buffer.concat([
+    codec === "zstd" ? ZSTD_SNAPSHOT_PREFIX : BROTLI_SNAPSHOT_PREFIX,
+    payload,
+  ]);
+}
+
+/**
+ * Split a stored compressed snapshot into its codec marker and payload bytes.
+ */
+function decodeCompressedSnapshot(
+  compressedSnapshot: Buffer,
+): { codec: SnapshotCompressionCodec; payload: Buffer } {
+  // Preserve support for early rows that were written as raw zstd without a prefix.
+  if (
+    compressedSnapshot.subarray(0, ZSTD_SNAPSHOT_PREFIX.length).equals(
+      ZSTD_SNAPSHOT_PREFIX,
+    )
+  ) {
+    return {
+      codec: "zstd",
+      payload: compressedSnapshot.subarray(ZSTD_SNAPSHOT_PREFIX.length),
+    };
+  }
+
+  if (
+    compressedSnapshot.subarray(0, BROTLI_SNAPSHOT_PREFIX.length).equals(
+      BROTLI_SNAPSHOT_PREFIX,
+    )
+  ) {
+    return {
+      codec: "brotli",
+      payload: compressedSnapshot.subarray(BROTLI_SNAPSHOT_PREFIX.length),
+    };
+  }
+
+  return {
+    codec: "legacy-zstd",
+    payload: compressedSnapshot,
+  };
+}
+
+/**
+ * Convert a JSON snapshot into a compressed binary form supported by the runtime.
+ */
+function compressSnapshotPayload(snapshot: DppSnapshot): Buffer {
+  // Prefer zstd where available and fall back to brotli on older Node runtimes.
+  const payload = Buffer.from(JSON.stringify(snapshot), "utf8");
+
+  if (supportsZstdCompression()) {
+    return encodeCompressedSnapshot(
+      "zstd",
+      Buffer.from(zlib.zstdCompressSync(payload)),
+    );
+  }
+
+  return encodeCompressedSnapshot(
+    "brotli",
+    Buffer.from(zlib.brotliCompressSync(payload)),
+  );
+}
+
+/**
+ * Inflate a historical snapshot from whichever codec it was stored with.
+ */
+function decompressSnapshotPayload(compressedSnapshot: Buffer): DppSnapshot {
+  // Read the prefixed codec so cross-runtime deployments can decode older rows.
+  const { codec, payload } = decodeCompressedSnapshot(compressedSnapshot);
+
+  if (codec === "brotli") {
+    return JSON.parse(zlib.brotliDecompressSync(payload).toString("utf8")) as DppSnapshot;
+  }
+
+  if (!supportsZstdCompression()) {
+    throw new Error(
+      "Encountered a zstd-compressed passport version on a runtime without zstd support",
+    );
+  }
+
+  return JSON.parse(zlib.zstdDecompressSync(payload).toString("utf8")) as DppSnapshot;
+}
+
+/**
+ * Shared select shape for stored version rows.
+ */
+function versionSelection() {
+  // Reuse the same selection fields across create/read/compression helpers.
+  return {
+    id: productPassportVersions.id,
+    passportId: productPassportVersions.passportId,
+    versionNumber: productPassportVersions.versionNumber,
+    dataSnapshot: productPassportVersions.dataSnapshot,
+    compressedSnapshot: productPassportVersions.compressedSnapshot,
+    compressedAt: productPassportVersions.compressedAt,
+    contentHash: productPassportVersions.contentHash,
+    schemaVersion: productPassportVersions.schemaVersion,
+    publishedAt: productPassportVersions.publishedAt,
+  };
+}
+
+/**
+ * Extract a JSON snapshot from either jsonb or compressed bytea storage.
+ */
+export function getVersionSnapshot(
+  version: {
+    dataSnapshot: unknown | null;
+    compressedSnapshot: Buffer | null;
+  },
+): DppSnapshot | null {
+  // Prefer the active jsonb payload and fall back to decompression for history.
+  if (version.dataSnapshot !== null) {
+    return version.dataSnapshot as DppSnapshot;
+  }
+  if (version.compressedSnapshot !== null) {
+    return decompressSnapshotPayload(version.compressedSnapshot);
+  }
+  return null;
+}
+
 // =============================================================================
 // CREATE OPERATIONS
 // =============================================================================
 
 /**
  * Create a new DPP version record.
- *
- * @param db - Database instance
- * @param passportId - The passport this version belongs to
- * @param dataSnapshot - The complete JSON-LD snapshot
- * @param schemaVersion - The schema version (e.g., "1.0")
- * @returns The created version record
  */
 export async function createDppVersion(
   db: Database,
@@ -158,7 +336,7 @@ export async function createDppVersion(
   dataSnapshot: DppSnapshot,
   schemaVersion = "1.0",
 ) {
-  // Get the next version number for this passport
+  // Get the next version number for this passport.
   const [result] = await db
     .select({
       maxVersion: max(productPassportVersions.versionNumber),
@@ -168,7 +346,7 @@ export async function createDppVersion(
 
   const nextVersionNumber = (result?.maxVersion ?? 0) + 1;
 
-  // Update the snapshot metadata with the actual version number
+  // Update the snapshot metadata with the actual version number.
   const snapshotWithMetadata: DppSnapshot = {
     ...dataSnapshot,
     metadata: {
@@ -179,10 +357,10 @@ export async function createDppVersion(
     },
   };
 
-  // Calculate content hash
+  // Calculate content hash.
   const contentHash = calculateContentHash(snapshotWithMetadata);
 
-  // Insert the version record
+  // Insert the version record with an uncompressed active snapshot.
   const [version] = await db
     .insert(productPassportVersions)
     .values({
@@ -192,17 +370,15 @@ export async function createDppVersion(
       contentHash,
       schemaVersion,
     })
-    .returning({
-      id: productPassportVersions.id,
-      passportId: productPassportVersions.passportId,
-      versionNumber: productPassportVersions.versionNumber,
-      dataSnapshot: productPassportVersions.dataSnapshot,
-      contentHash: productPassportVersions.contentHash,
-      schemaVersion: productPassportVersions.schemaVersion,
-      publishedAt: productPassportVersions.publishedAt,
-    });
+    .onConflictDoNothing({
+      target: [
+        productPassportVersions.passportId,
+        productPassportVersions.versionNumber,
+      ],
+    })
+    .returning(versionSelection());
 
-  return version;
+  return (version as StoredDppVersion | undefined) ?? null;
 }
 
 // =============================================================================
@@ -211,26 +387,130 @@ export async function createDppVersion(
 
 /**
  * Get the latest (current) version for a passport.
- *
- * @param db - Database instance
- * @param passportId - The passport ID
- * @returns The latest version, or null if none exist
  */
-export async function getLatestVersion(db: Database, passportId: string) {
+export async function getLatestVersion(
+  db: Database,
+  passportId: string,
+): Promise<StoredDppVersion | null> {
+  // Fetch the newest immutable version row for the passport.
   const [version] = await db
-    .select({
-      id: productPassportVersions.id,
-      passportId: productPassportVersions.passportId,
-      versionNumber: productPassportVersions.versionNumber,
-      dataSnapshot: productPassportVersions.dataSnapshot,
-      contentHash: productPassportVersions.contentHash,
-      schemaVersion: productPassportVersions.schemaVersion,
-      publishedAt: productPassportVersions.publishedAt,
-    })
+    .select(versionSelection())
     .from(productPassportVersions)
     .where(eq(productPassportVersions.passportId, passportId))
     .orderBy(desc(productPassportVersions.versionNumber))
     .limit(1);
 
-  return version ?? null;
+  return (version as StoredDppVersion | undefined) ?? null;
+}
+
+/**
+ * Compress a superseded version's JSON snapshot into bytea storage.
+ */
+export async function compressVersion(
+  db: Database,
+  versionId: string,
+): Promise<StoredDppVersion | null> {
+  // Load the target version so we can skip already-compressed rows.
+  const [version] = await db
+    .select(versionSelection())
+    .from(productPassportVersions)
+    .where(eq(productPassportVersions.id, versionId))
+    .limit(1);
+
+  if (!version) {
+    return null;
+  }
+  if (version.compressedSnapshot !== null || version.dataSnapshot === null) {
+    return version as StoredDppVersion;
+  }
+
+  const now = new Date().toISOString();
+  const [updated] = await db
+    .update(productPassportVersions)
+    .set({
+      compressedSnapshot: compressSnapshotPayload(
+        version.dataSnapshot as DppSnapshot,
+      ),
+      compressedAt: now,
+      dataSnapshot: null,
+    })
+    .where(
+      and(
+        eq(productPassportVersions.id, versionId),
+        isNotNull(productPassportVersions.dataSnapshot),
+        isNull(productPassportVersions.compressedSnapshot),
+      ),
+    )
+    .returning(versionSelection());
+
+  return (updated as StoredDppVersion | undefined) ?? (version as StoredDppVersion);
+}
+
+/**
+ * Decompress and return a version's JSON snapshot.
+ */
+export async function decompressVersion(
+  db: Database,
+  versionId: string,
+): Promise<DppSnapshot | null> {
+  // Fetch the stored version payload and normalize it to JSON.
+  const [version] = await db
+    .select(versionSelection())
+    .from(productPassportVersions)
+    .where(eq(productPassportVersions.id, versionId))
+    .limit(1);
+
+  if (!version) {
+    return null;
+  }
+
+  return getVersionSnapshot(version as StoredDppVersion);
+}
+
+/**
+ * Compress superseded historical versions in small batches.
+ */
+export async function batchCompressSupersededVersions(
+  db: Database,
+  options: BatchCompressSupersededVersionsOptions = {},
+): Promise<BatchCompressSupersededVersionsResult> {
+  // Bound the batch size so the job can iterate safely over large histories.
+  const limit = Math.max(1, options.limit ?? 500);
+
+  const versions = (await db
+    .select(versionSelection())
+    .from(productPassportVersions)
+    .innerJoin(
+      productPassports,
+      eq(productPassports.id, productPassportVersions.passportId),
+    )
+    .where(
+      and(
+        isNotNull(productPassportVersions.dataSnapshot),
+        isNull(productPassportVersions.compressedSnapshot),
+        or(
+          isNull(productPassports.currentVersionId),
+          ne(productPassportVersions.id, productPassports.currentVersionId),
+        ),
+      ),
+    )
+    .orderBy(asc(productPassportVersions.publishedAt))
+    .limit(limit)) as StoredDppVersion[];
+
+  let compressed = 0;
+
+  for (const version of versions) {
+    // Compress one superseded version at a time to keep memory bounded.
+    const updated = await compressVersion(db, version.id);
+    if (updated?.compressedSnapshot !== null) {
+      compressed++;
+    }
+  }
+
+  return {
+    scanned: versions.length,
+    compressed,
+    skipped: versions.length - compressed,
+    versionIds: versions.map((version) => version.id),
+  };
 }

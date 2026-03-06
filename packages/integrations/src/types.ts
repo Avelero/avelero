@@ -183,6 +183,11 @@ export interface SyncResult {
    * Primary integrations create new variants instead of skipping.
    */
   variantsSkippedNoMatch: number;
+  /**
+   * Product IDs whose passport inputs changed during this sync run.
+   * Used by downstream jobs to mark published passports dirty.
+   */
+  affectedProductIds?: string[];
   // Errors
   errors: SyncError[];
 }

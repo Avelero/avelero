@@ -25,6 +25,7 @@ const nextConfig = {
   serverExternalPackages: ["pino", "thread-stream"],
   images: {
     unoptimized: isLocal,
+    qualities: [75, 90],
     remotePatterns: [
       {
         protocol: storageUrl.protocol.replace(":", ""),

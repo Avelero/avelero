@@ -43,6 +43,6 @@
     "./trigger/integrations": "./src/trigger/integrations/index.ts",
     "./trigger/integrations/sync": "./src/trigger/integrations/sync.ts",
     "./trigger/integrations/scheduler": "./src/trigger/integrations/scheduler.ts",
-    "./trigger/catalog": "./src/trigger/catalog/index.ts"
+    "./trigger/passports": "./src/trigger/passports/index.ts"
   }
 }

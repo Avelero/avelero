@@ -9,6 +9,7 @@ import type { TriggerConfig } from "@trigger.dev/sdk/v3";
 
 export const config: TriggerConfig = {
   project: "proj_mqxiyipljbptdmfeivig",
+  runtime: "node-22",
   logLevel: "log",
   maxDuration: 60,
   retries: {

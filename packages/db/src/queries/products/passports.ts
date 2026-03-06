@@ -6,7 +6,7 @@
  * QR codes remain resolvable indefinitely.
  */
 
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Database, DatabaseOrTransaction } from "../../client";
 import {
   productPassportVersions,
@@ -35,6 +35,7 @@ export async function createProductPassport(
   variantId: string,
   brandId: string,
 ) {
+  // Load the variant identifiers that are copied onto the passport record.
   // Get the variant's data - UPID must exist, also get sku/barcode
   const [variant] = await db
     .select({
@@ -56,7 +57,6 @@ export async function createProductPassport(
     );
   }
 
-  const now = new Date().toISOString();
   const [passport] = await db
     .insert(productPassports)
     .values({
@@ -66,7 +66,7 @@ export async function createProductPassport(
       status: "active",
       sku: variant.sku,
       barcode: variant.barcode,
-      firstPublishedAt: now,
+      firstPublishedAt: null,
     })
     .returning({
       id: productPassports.id,
@@ -237,6 +237,7 @@ export async function updatePassportCurrentVersion(
   passportId: string,
   versionId: string,
 ) {
+  // Promote the supplied version to be the passport's active snapshot.
   const now = new Date().toISOString();
 
   const [updated] = await db
@@ -265,6 +266,82 @@ export async function updatePassportCurrentVersion(
 }
 
 /**
+ * Clear the dirty flag for a single passport after successful projection.
+ *
+ * @param db - Database instance or transaction
+ * @param passportId - The passport ID to clear
+ * @returns The updated passport, or null if the passport was already clean or missing
+ */
+export async function clearDirtyFlag(
+  db: DatabaseOrTransaction,
+  passportId: string,
+) {
+  // Only touch passports that are currently dirty so repeated clears stay idempotent.
+  const now = new Date().toISOString();
+
+  const [updated] = await db
+    .update(productPassports)
+    .set({
+      dirty: false,
+      updatedAt: now,
+    })
+    .where(
+      and(eq(productPassports.id, passportId), eq(productPassports.dirty, true)),
+    )
+    .returning({
+      id: productPassports.id,
+      upid: productPassports.upid,
+      brandId: productPassports.brandId,
+      workingVariantId: productPassports.workingVariantId,
+      currentVersionId: productPassports.currentVersionId,
+      status: productPassports.status,
+      orphanedAt: productPassports.orphanedAt,
+      sku: productPassports.sku,
+      barcode: productPassports.barcode,
+      firstPublishedAt: productPassports.firstPublishedAt,
+      createdAt: productPassports.createdAt,
+      updatedAt: productPassports.updatedAt,
+    });
+
+  return updated ?? null;
+}
+
+/**
+ * Clear the dirty flag for multiple passports after batch projection.
+ *
+ * @param db - Database instance or transaction
+ * @param passportIds - The passport IDs to clear
+ * @returns Count of passports cleared
+ */
+export async function batchClearDirtyFlags(
+  db: DatabaseOrTransaction,
+  passportIds: string[],
+) {
+  // Skip empty batches so callers can forward chunk results directly.
+  if (passportIds.length === 0) {
+    return { cleared: 0 };
+  }
+
+  const now = new Date().toISOString();
+
+  const result = await db
+    .update(productPassports)
+    .set({
+      dirty: false,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        inArray(productPassports.id, passportIds),
+        eq(productPassports.dirty, true),
+      ),
+    )
+    .returning({ id: productPassports.id });
+
+  return { cleared: result.length };
+}
+
+/**
  * Sync passport SKU and barcode fields when variant data is updated.
  *
  * This keeps the passport's identifier fields in sync with the working variant.
@@ -283,6 +360,7 @@ export async function syncPassportMetadata(
     barcode?: string | null;
   },
 ) {
+  // Skip writes when the caller did not supply any identifier changes.
   // Only proceed if there are fields to update
   const hasSkuUpdate = updates.sku !== undefined;
   const hasBarcodeUpdate = updates.barcode !== undefined;
@@ -340,6 +418,7 @@ export async function batchSyncPassportMetadata(
   db: DatabaseOrTransaction,
   updates: Map<string, { sku?: string | null; barcode?: string | null }>,
 ) {
+  // Skip empty batches to keep bulk callers cheap.
   if (updates.size === 0) {
     return { updated: 0 };
   }
@@ -394,6 +473,7 @@ export async function getOrCreatePassport(
   variantId: string,
   brandId: string,
 ) {
+  // Reuse the existing passport when present to keep the UPID stable.
   // First, check if a passport already exists
   const existing = await getPassportByVariantId(db, variantId);
   if (existing) {
@@ -421,6 +501,7 @@ export async function getOrCreatePassport(
  * @returns The updated passport, or null if not found
  */
 export async function orphanPassport(db: Database, passportId: string) {
+  // Sever the working-layer link while keeping the immutable passport history.
   const now = new Date().toISOString();
 
   const [updated] = await db
@@ -466,6 +547,7 @@ export async function batchOrphanPassportsByVariantIds(
   db: DatabaseOrTransaction,
   variantIds: string[],
 ) {
+  // Skip empty batches so delete flows can pass through raw variant lists.
   if (variantIds.length === 0) {
     return { orphaned: 0 };
   }
@@ -511,8 +593,7 @@ export async function createPassportForVariant(
     barcode?: string | null;
   },
 ) {
-  const now = new Date().toISOString();
-
+  // Persist the durable passport identity alongside the new working variant.
   const [passport] = await db
     .insert(productPassports)
     .values({
@@ -522,7 +603,7 @@ export async function createPassportForVariant(
       status: "active",
       sku: variantData.sku ?? null,
       barcode: variantData.barcode ?? null,
-      firstPublishedAt: now,
+      firstPublishedAt: null,
     })
     .returning({
       id: productPassports.id,
@@ -562,12 +643,12 @@ export async function batchCreatePassportsForVariants(
     barcode?: string | null;
   }>,
 ) {
+  // Skip empty batches so import flows can pass through filtered variant lists.
   if (variants.length === 0) {
     return [];
   }
 
-  const now = new Date().toISOString();
-
+  // Insert one clean passport per variant and defer firstPublishedAt until projection.
   const passports = await db
     .insert(productPassports)
     .values(
@@ -578,7 +659,7 @@ export async function batchCreatePassportsForVariants(
         status: "active",
         sku: v.sku ?? null,
         barcode: v.barcode ?? null,
-        firstPublishedAt: now,
+        firstPublishedAt: null,
       })),
     )
     .returning({

@@ -1,12 +1,13 @@
 import { getBrandBySlug, getBrandTheme } from "@v1/db/queries";
 import { getPublicDppByUpid } from "@v1/db/queries/dpp";
+import { projectSinglePassport } from "@v1/db/queries/products";
 import {
   brandCustomDomains,
   brands,
   productPassports,
 } from "@v1/db/schema";
 import { getPublicUrl } from "@v1/supabase/storage";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 /**
  * Public DPP (Digital Product Passport) router.
  *
@@ -21,7 +22,12 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { resolveThemeConfigImageUrls } from "../../../utils/theme-config-images.js";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
-import { createTRPCRouter, publicProcedure } from "../../init.js";
+import { internalServerError } from "../../../utils/errors.js";
+import {
+  createTRPCRouter,
+  publicProcedure,
+  type TRPCContext,
+} from "../../init.js";
 
 const PRODUCTS_BUCKET = "products";
 
@@ -104,6 +110,101 @@ function resolveSnapshotProductImageUrl(
   );
 }
 
+/**
+ * Format a public passport query result into the router response shape.
+ */
+function buildPublicPassportResponse(
+  storageClient: TRPCContext["supabase"],
+  result: Awaited<ReturnType<typeof getPublicDppByUpid>>,
+) {
+  // The router only calls this helper once a materialized snapshot exists.
+  if (!result.snapshot) {
+    return null;
+  }
+
+  const stylesheetUrl = result.theme?.stylesheetPath
+    ? getPublicUrl(storageClient, "dpp-themes", result.theme.stylesheetPath)
+    : null;
+  const productImageUrl = resolveSnapshotProductImageUrl(
+    storageClient,
+    result.snapshot.productAttributes?.image,
+  );
+  const resolvedThemeConfig = resolveThemeConfigImageUrls(
+    storageClient,
+    (result.theme?.config as Record<string, unknown>) ?? null,
+  );
+
+  return {
+    dppData: {
+      ...result.snapshot,
+      productAttributes: {
+        ...result.snapshot.productAttributes,
+        image: productImageUrl ?? "",
+      },
+    },
+    themeConfig: resolvedThemeConfig,
+    themeStyles: result.theme?.styles ?? null,
+    stylesheetUrl,
+    googleFontsUrl: result.theme?.googleFontsUrl ?? null,
+    passport: {
+      upid: result.upid,
+      isInactive: result.isInactive,
+      version: result.version,
+    },
+  };
+}
+
+/**
+ * Load a public passport, projecting inline when the working snapshot is dirty.
+ */
+async function resolvePublicPassportResponse(
+  ctx: Pick<TRPCContext, "db" | "supabase">,
+  upid: string,
+) {
+  // Start from the publishing-layer read model so both public endpoints share the same logic.
+  let result = await getPublicDppByUpid(ctx.db, upid);
+
+  if (!result.found || !result.passport) {
+    return null;
+  }
+
+  const isWorkingPassport = result.passport.workingVariantId !== null;
+  if (isWorkingPassport && result.productStatus !== "published") {
+    return null;
+  }
+
+  if (
+    result.passport.dirty &&
+    result.passport.workingVariantId &&
+    result.productStatus === "published"
+  ) {
+    const projection = await projectSinglePassport(ctx.db, result.passport.id);
+
+    if (projection.error) {
+      console.error("[resolvePublicPassportResponse] inline projection failed", {
+        passportId: result.passport.id,
+        upid,
+        error: projection.error,
+      });
+    }
+
+    result = await getPublicDppByUpid(ctx.db, upid);
+
+    if (!result.found || !result.passport) {
+      return null;
+    }
+    if (result.passport.workingVariantId && result.productStatus !== "published") {
+      return null;
+    }
+
+    if (projection.error && !result.snapshot) {
+      throw internalServerError("Failed to materialize passport");
+    }
+  }
+
+  return buildPublicPassportResponse(ctx.supabase, result);
+}
+
 export const dppPublicRouter = createTRPCRouter({
   /**
    * Fetch theme data for screenshot preview.
@@ -167,51 +268,8 @@ export const dppPublicRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const { upid } = input;
-
-      // Fetch from the immutable publishing layer
-      const result = await getPublicDppByUpid(ctx.db, upid);
-
-      if (!result.found || !result.snapshot) {
-        return null;
-      }
-
-      // Resolve stylesheet URL if present
-      const stylesheetUrl = result.theme?.stylesheetPath
-        ? getPublicUrl(ctx.supabase, "dpp-themes", result.theme.stylesheetPath)
-        : null;
-
-      // Resolve product image in the snapshot to a current public URL.
-      const productImageUrl = resolveSnapshotProductImageUrl(
-        ctx.supabase,
-        result.snapshot.productAttributes?.image,
-      );
-
-      // Resolve image paths in themeConfig to full URLs
-      const resolvedThemeConfig = resolveThemeConfigImageUrls(
-        ctx.supabase,
-        (result.theme?.config as Record<string, unknown>) ?? null,
-      );
-
-      // Return the snapshot data with theme information
-      return {
-        dppData: {
-          ...result.snapshot,
-          productAttributes: {
-            ...result.snapshot.productAttributes,
-            image: productImageUrl ?? "",
-          },
-        },
-        themeConfig: resolvedThemeConfig,
-        themeStyles: result.theme?.styles ?? null,
-        stylesheetUrl,
-        googleFontsUrl: result.theme?.googleFontsUrl ?? null,
-        passport: {
-          upid: result.upid,
-          isInactive: result.isInactive,
-          version: result.version,
-        },
-      };
+      // Serve the public passport, projecting inline if the snapshot is stale.
+      return resolvePublicPassportResponse(ctx, input.upid);
     }),
 
   /**
@@ -298,7 +356,6 @@ export const dppPublicRouter = createTRPCRouter({
           and(
             eq(productPassports.brandId, input.brandId),
             inArray(productPassports.barcode, barcodes),
-            isNotNull(productPassports.currentVersionId),
           ),
         )
         .limit(1);
@@ -307,49 +364,8 @@ export const dppPublicRouter = createTRPCRouter({
         return null;
       }
 
-      // Delegate to existing getPublicDppByUpid for full data retrieval
-      const result = await getPublicDppByUpid(ctx.db, passport.upid);
-
-      if (!result.found || !result.snapshot) {
-        return null;
-      }
-
-      // Resolve stylesheet URL if present
-      const stylesheetUrl = result.theme?.stylesheetPath
-        ? getPublicUrl(ctx.supabase, "dpp-themes", result.theme.stylesheetPath)
-        : null;
-
-      // Resolve product image in the snapshot to a current public URL.
-      const productImageUrl = resolveSnapshotProductImageUrl(
-        ctx.supabase,
-        result.snapshot.productAttributes?.image,
-      );
-
-      // Resolve image paths in themeConfig to full URLs
-      const resolvedThemeConfig = resolveThemeConfigImageUrls(
-        ctx.supabase,
-        (result.theme?.config as Record<string, unknown>) ?? null,
-      );
-
-      // Return same structure as getByPassportUpid
-      return {
-        dppData: {
-          ...result.snapshot,
-          productAttributes: {
-            ...result.snapshot.productAttributes,
-            image: productImageUrl ?? "",
-          },
-        },
-        themeConfig: resolvedThemeConfig,
-        themeStyles: result.theme?.styles ?? null,
-        stylesheetUrl,
-        googleFontsUrl: result.theme?.googleFontsUrl ?? null,
-        passport: {
-          upid: result.upid,
-          isInactive: result.isInactive,
-          version: result.version,
-        },
-      };
+      // Delegate to the same dirty-aware public resolver as the UPID route.
+      return resolvePublicPassportResponse(ctx, passport.upid);
     }),
 });
 

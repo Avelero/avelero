@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
+  check,
+  customType,
   index,
   integer,
   jsonb,
@@ -11,6 +13,38 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { productPassports } from "./product-passports";
+
+/**
+ * Postgres bytea column mapped to a Node Buffer.
+ */
+const bytea = customType<{
+  data: Buffer;
+  driverData: Buffer | Uint8Array | string;
+}>({
+  dataType() {
+    return "bytea";
+  },
+  toDriver(value) {
+    // Forward binary data directly to postgres.js.
+    return value;
+  },
+  fromDriver(value) {
+    // Normalize driver bytea values into a Buffer for compression helpers.
+    if (Buffer.isBuffer(value)) {
+      return value;
+    }
+    if (value instanceof Uint8Array) {
+      return Buffer.from(value);
+    }
+    if (typeof value === "string") {
+      if (value.startsWith("\\x")) {
+        return Buffer.from(value.slice(2), "hex");
+      }
+      return Buffer.from(value, "base64");
+    }
+    return Buffer.from([]);
+  },
+});
 
 /**
  * Product Passport Versions Table
@@ -51,8 +85,21 @@ export const productPassportVersions = pgTable(
      * Complete DPP content as a self-contained JSON-LD object.
      * Contains all product data, materials, supply chain, environmental info, etc.
      * This snapshot can render the passport without any additional queries.
+     * Nullable once the snapshot has been compressed into compressed_snapshot.
      */
-    dataSnapshot: jsonb("data_snapshot").notNull(),
+    dataSnapshot: jsonb("data_snapshot"),
+    /**
+     * Zstd-compressed historical snapshot payload.
+     * Populated only for superseded versions after the compression job runs.
+     */
+    compressedSnapshot: bytea("compressed_snapshot"),
+    /**
+     * Timestamp when the JSON snapshot was compressed into bytea storage.
+     */
+    compressedAt: timestamp("compressed_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
     /**
      * SHA-256 hash of the canonical JSON representation of data_snapshot.
      * Used for integrity verification and to detect content changes.
@@ -80,6 +127,11 @@ export const productPassportVersions = pgTable(
     uniqueIndex("idx_product_passport_versions_passport_version").on(
       table.passportId,
       table.versionNumber,
+    ),
+    // Require every version row to keep either live JSON or compressed bytes.
+    check(
+      "product_passport_versions_snapshot_presence_check",
+      sql`num_nonnulls(${table.dataSnapshot}, ${table.compressedSnapshot}) = 1`,
     ),
     // Index for fetching all versions of a passport (for audit UI)
     index("idx_product_passport_versions_passport_id").using(

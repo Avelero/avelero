@@ -1,5 +1,13 @@
+/**
+ * Product Passports schema.
+ *
+ * Defines the durable passport identity layer that sits between working product
+ * data and immutable published passport versions.
+ */
+
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   pgPolicy,
   pgTable,
@@ -69,6 +77,11 @@ export const productPassports = pgTable(
      */
     status: text("status").default("active").notNull(),
     /**
+     * Dirty flag indicating the working data has diverged from the published snapshot.
+     * The projector clears this after it materializes a fresh version.
+     */
+    dirty: boolean("dirty").default(false).notNull(),
+    /**
      * Timestamp when the passport became orphaned.
      * Set when working_variant_id becomes NULL due to variant deletion.
      * NULL for active passports.
@@ -89,12 +102,12 @@ export const productPassports = pgTable(
     barcode: text("barcode"),
     /**
      * Timestamp when the passport was first published.
-     * Set once and never modified.
+     * NULL until the first immutable version is actually materialized.
      */
     firstPublishedAt: timestamp("first_published_at", {
       withTimezone: true,
       mode: "string",
-    }).notNull(),
+    }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -110,6 +123,14 @@ export const productPassports = pgTable(
       "btree",
       table.brandId.asc().nullsLast().op("uuid_ops"),
     ),
+    // Index for efficiently scanning dirty passports by brand during projection.
+    index("idx_product_passports_brand_dirty")
+      .using(
+        "btree",
+        table.brandId.asc().nullsLast().op("uuid_ops"),
+        table.dirty.asc().nullsLast().op("bool_ops"),
+      )
+      .where(sql`dirty = true`),
     // Index for finding passport by working variant (used during publish)
     index("idx_product_passports_working_variant_id")
       .using("btree", table.workingVariantId.asc().nullsLast().op("uuid_ops"))

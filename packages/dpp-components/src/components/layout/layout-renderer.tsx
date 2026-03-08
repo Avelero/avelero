@@ -19,17 +19,18 @@ interface Props {
 }
 
 export function LayoutRenderer({ passport, data, content }: Props) {
+  // Render the fixed left media column and the dynamic right-hand section stack.
   const { tokens, sidebar, canvas } = passport;
 
   return (
-    <main className="flex-grow flex flex-col pb-xl @3xl:py-lg w-full">
+    <main className="flex-grow flex flex-col pb-xl w-full">
       <div className="flex flex-col">
         {/* Two-column grid: product image + sidebar sections */}
         <div className="max-w-container mx-auto w-full @3xl:px-lg">
           <div className="grid grid-cols-1 @3xl:grid-cols-2 @3xl:gap-lg w-full">
             {/* Left column — product image (hardcoded) */}
             <div className="w-full">
-              <div className="@3xl:sticky @3xl:top-[96px] flex flex-col gap-2x">
+              <div className="@3xl:sticky @3xl:top-[65px] flex flex-col gap-2x">
                 <ProductImage
                   image={data.productIdentifiers.productImage}
                   alt={`${data.productAttributes.brand} ${data.productIdentifiers.productName}`}

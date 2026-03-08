@@ -16,11 +16,8 @@
     color: var(--foreground);
     font-family: var(--font-primary);
 
-    /* Header height calculation: 
-       Section 1: py-sm (0.75rem * 2) + logo (18px) + border (1px)
-       Section 2: py-xs (0.5rem * 2) + logo (12px) + border (1px)
-       Total: 1.5rem + 18px + 1rem + 12px + 2px = 2.5rem + 32px */
-    --header-height: calc(2.5rem + 32px);
+    /* Header height calculation: padding (20px * 2) + logo (24px) + border (1px) */
+    --header-height: calc(40px + 24px + 1px);
 
     /* Design Token Defaults - These can be overridden by theme system */
     --background: #FFFFFF;

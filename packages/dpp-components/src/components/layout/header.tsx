@@ -1,8 +1,7 @@
 /**
- * DPP header with optional brand logo image and powered-by line.
+ * DPP header with optional brand logo image.
  */
 import type { ThemeConfig } from "@v1/dpp-components";
-import { AveleroLogo } from "@v1/ui/avelero-logo";
 import Image from "next/image";
 
 interface Props {
@@ -12,9 +11,8 @@ interface Props {
 }
 
 export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
-  // Render a crisp logo while keeping local development image handling intact.
   const { branding } = themeConfig;
-  const logoHeight = 18;
+  const logoHeight = 24;
 
   // Next.js blocks image optimization for private IPs (security feature)
   // Use unoptimized for local development URLs
@@ -22,7 +20,6 @@ export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
   const isLocalDev =
     logoUrl?.includes("127.0.0.1") || logoUrl?.includes("localhost:");
 
-  // Determine positioning classes and styles
   const getPositionProps = () => {
     switch (position) {
       case "fixed":
@@ -45,8 +42,10 @@ export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
       className={`header ${positionProps.className}`}
       style={positionProps.style}
     >
-      {/* Brand section */}
-      <div className="header__section flex items-center justify-center w-full py-sm border-b">
+      <div
+        className="header__section flex items-center justify-center w-full border-b"
+        style={{ padding: "20px 0" }}
+      >
         {logoUrl ? (
           <Image
             src={logoUrl}
@@ -66,17 +65,6 @@ export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
             {brandName}
           </span>
         )}
-      </div>
-
-      {/* Powered by Avelero section */}
-      <div className="header__section flex items-center justify-center w-full gap-micro py-xs border-b">
-        <span
-          className="text-geist text-[12px] leading-[100%]"
-          style={{ color: "var(--foreground)" }}
-        >
-          Powered by
-        </span>
-        <AveleroLogo height={12} color="var(--foreground)" />
       </div>
     </div>
   );

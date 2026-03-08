@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * Layout tree for the passport theme editor.
+ *
+ * Renders fixed items alongside sortable section zones and keeps hover/selection
+ * state in sync with the preview pane.
+ */
+
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import {
   type DragEndEvent,
@@ -15,18 +22,42 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Section, SectionType, ZoneId } from "@v1/dpp-components";
-import { SECTION_REGISTRY, type ComponentDefinition } from "@v1/dpp-components";
+import {
+  SECTION_REGISTRY,
+  buildDppSelectableNodeId,
+  type ComponentDefinition,
+  type Section,
+  type SectionType,
+  type ZoneId,
+} from "@v1/dpp-components";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   COMPONENT_TREE,
-  findComponentById,
   hasConfigContent,
   hasEditableContent,
 } from "../../registry";
 import { AddComponentPopover } from "./add-component-popover";
+
+/**
+ * Build the preview node id for a fixed component target.
+ */
+function getFixedNodeId(editorId: string): string {
+  return buildDppSelectableNodeId({ kind: "fixed", editorId });
+}
+
+/**
+ * Build the preview node id for a section target inside a specific section instance.
+ */
+function getSectionNodeId(
+  zoneId: ZoneId,
+  sectionId: string,
+  editorId: string,
+  kind: "section-root" | "section-child",
+): string {
+  return buildDppSelectableNodeId({ kind, editorId, sectionId, zoneId });
+}
 
 // =============================================================================
 // INSERT LINE
@@ -109,15 +140,17 @@ function InsertLine({ zoneId, position }: InsertLineProps) {
 interface ChildTreeItemProps {
   item: ComponentDefinition;
   level: number;
+  getNodeId: (editorId: string) => string | null;
   expandedItems: Set<string>;
   onToggleExpand: (id: string) => void;
-  onItemClick: (id: string) => void;
-  onItemHover: (id: string | null) => void;
+  onItemClick: (id: string, nodeId: string | null) => void;
+  onItemHover: (nodeId: string | null) => void;
 }
 
 function ChildTreeItem({
   item,
   level,
+  getNodeId,
   expandedItems,
   onToggleExpand,
   onItemClick,
@@ -126,12 +159,13 @@ function ChildTreeItem({
   const hasChildren = item.children && item.children.length > 0;
   const isExpanded = expandedItems.has(item.id);
   const isEditable = hasEditableContent(item) || hasConfigContent(item);
+  const nodeId = getNodeId(item.id);
 
   const indentPx = level * 24;
 
   const handleClick = () => {
     if (isEditable) {
-      onItemClick(item.id);
+      onItemClick(item.id, nodeId);
     } else if (hasChildren) {
       onToggleExpand(item.id);
     }
@@ -146,7 +180,7 @@ function ChildTreeItem({
         )}
         style={{ paddingLeft: `${indentPx}px` }}
         onClick={handleClick}
-        onMouseEnter={() => onItemHover(item.id)}
+        onMouseEnter={() => onItemHover(isEditable ? nodeId : null)}
         onMouseLeave={() => onItemHover(null)}
       >
         {hasChildren ? (
@@ -188,6 +222,7 @@ function ChildTreeItem({
               key={child.id}
               item={child}
               level={level + 1}
+              getNodeId={getNodeId}
               expandedItems={expandedItems}
               onToggleExpand={onToggleExpand}
               onItemClick={onItemClick}
@@ -201,29 +236,34 @@ function ChildTreeItem({
 }
 
 // =============================================================================
-// FIXED ITEM (Header / Footer)
+// FIXED ITEM (Header / Product Image / Footer)
 // =============================================================================
 
 interface FixedItemProps {
   componentDef: ComponentDefinition;
-  onItemHover: (id: string | null) => void;
+  onItemHover: (nodeId: string | null) => void;
 }
 
 function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
-  const { navigateToComponent, expandedItems, toggleExpanded } =
+  const { navigateToComponent, expandedItems, setSelectedNodeId, toggleExpanded } =
     useDesignEditor();
   const hasChildren = componentDef.children && componentDef.children.length > 0;
   const isExpanded = expandedItems.has(componentDef.id);
   const isEditable =
     hasEditableContent(componentDef) || hasConfigContent(componentDef);
+  const rootNodeId = isEditable ? getFixedNodeId(componentDef.id) : null;
 
   const handleClick = () => {
-    if (isEditable) {
+    if (isEditable && rootNodeId) {
+      setSelectedNodeId(rootNodeId);
       navigateToComponent(componentDef.id);
     }
   };
 
-  const handleChildClick = (childId: string) => {
+  const handleChildClick = (childId: string, nodeId: string | null) => {
+    if (nodeId) {
+      setSelectedNodeId(nodeId);
+    }
     navigateToComponent(childId);
   };
 
@@ -235,7 +275,7 @@ function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
           isEditable ? "cursor-pointer" : "cursor-default",
         )}
         onClick={handleClick}
-        onMouseEnter={() => onItemHover(componentDef.id)}
+        onMouseEnter={() => onItemHover(rootNodeId)}
         onMouseLeave={() => onItemHover(null)}
       >
         {hasChildren ? (
@@ -277,6 +317,7 @@ function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
               key={child.id}
               item={child}
               level={1}
+              getNodeId={getFixedNodeId}
               expandedItems={expandedItems}
               onToggleExpand={toggleExpanded}
               onItemClick={handleChildClick}
@@ -296,7 +337,7 @@ function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
 interface SortableSectionItemProps {
   section: Section;
   zoneId: ZoneId;
-  onItemHover: (id: string | null) => void;
+  onItemHover: (nodeId: string | null) => void;
 }
 
 function SortableSectionItem({
@@ -309,6 +350,7 @@ function SortableSectionItem({
     deleteSection,
     activeSectionId,
     expandedItems,
+    setSelectedNodeId,
     toggleExpanded,
     navigateToComponent,
   } = useDesignEditor();
@@ -325,6 +367,10 @@ function SortableSectionItem({
     ? hasEditableContent(editorTree) || hasConfigContent(editorTree)
     : false;
   const isNavigable = rootIsEditable || hasChildren;
+  const rootNodeId =
+    rootIsEditable && editorTree
+      ? getSectionNodeId(zoneId, section.id, editorTree.id, "section-root")
+      : null;
 
   const {
     attributes,
@@ -341,15 +387,19 @@ function SortableSectionItem({
   };
 
   const handleMainClick = () => {
-    if (rootIsEditable) {
+    if (rootIsEditable && rootNodeId) {
+      setSelectedNodeId(rootNodeId);
       navigateToSectionInstance(zoneId, section.id);
     } else if (hasChildren) {
       toggleExpanded(section.id);
     }
   };
 
-  const handleChildClick = (childId: string) => {
+  const handleChildClick = (childId: string, nodeId: string | null) => {
     // Set the section as active target first, then navigate to child
+    if (nodeId) {
+      setSelectedNodeId(nodeId);
+    }
     navigateToSectionInstance(zoneId, section.id);
     navigateToComponent(childId);
   };
@@ -367,7 +417,7 @@ function SortableSectionItem({
           isNavigable ? "cursor-pointer" : "cursor-default",
         )}
         onClick={handleMainClick}
-        onMouseEnter={() => onItemHover(editorTree?.id ?? null)}
+        onMouseEnter={() => onItemHover(rootNodeId)}
         onMouseLeave={() => onItemHover(null)}
       >
         {hasChildren ? (
@@ -429,6 +479,14 @@ function SortableSectionItem({
               key={child.id}
               item={child}
               level={1}
+              getNodeId={(editorId) =>
+                getSectionNodeId(
+                  zoneId,
+                  section.id,
+                  editorId,
+                  "section-child",
+                )
+              }
               expandedItems={expandedItems}
               onToggleExpand={toggleExpanded}
               onItemClick={handleChildClick}
@@ -453,10 +511,16 @@ const ZONE_LABELS: Record<ZoneId, string> = {
 interface ZoneSectionProps {
   zoneId: ZoneId;
   sections: Section[];
-  onItemHover: (id: string | null) => void;
+  onItemHover: (nodeId: string | null) => void;
+  showLabel?: boolean;
 }
 
-function ZoneSection({ zoneId, sections, onItemHover }: ZoneSectionProps) {
+function ZoneSection({
+  zoneId,
+  sections,
+  onItemHover,
+  showLabel = true,
+}: ZoneSectionProps) {
   const { moveSection } = useDesignEditor();
   const dndId = useMemo(() => `dnd-zone-${zoneId}`, [zoneId]);
 
@@ -479,11 +543,13 @@ function ZoneSection({ zoneId, sections, onItemHover }: ZoneSectionProps) {
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center h-8 px-1">
-        <span className="type-small font-medium text-secondary">
-          {ZONE_LABELS[zoneId]}
-        </span>
-      </div>
+      {showLabel && (
+        <div className="flex items-center h-8 px-1">
+          <span className="type-small font-medium text-secondary">
+            {ZONE_LABELS[zoneId]}
+          </span>
+        </div>
+      )}
 
       <DndContext
         id={dndId}
@@ -566,30 +632,17 @@ function AddSectionButton({ zoneId, sectionCount }: AddSectionButtonProps) {
 // =============================================================================
 
 export function LayoutTree() {
-  const { passportDraft, setHoveredComponentId } = useDesignEditor();
+  const { passportDraft, setHoveredNodeId } = useDesignEditor();
 
   const headerDef = COMPONENT_TREE.find((c) => c.id === "header");
+  const productImageDef = COMPONENT_TREE.find((c) => c.id === "productImage");
   const footerDef = COMPONENT_TREE.find((c) => c.id === "footer");
 
   const handleItemHover = useCallback(
-    (id: string | null) => {
-      if (id === null) {
-        setHoveredComponentId(null);
-        return;
-      }
-
-      const component = findComponentById(id);
-      if (
-        !component ||
-        (!hasEditableContent(component) && !hasConfigContent(component))
-      ) {
-        setHoveredComponentId(null);
-        return;
-      }
-
-      setHoveredComponentId(id);
+    (nodeId: string | null) => {
+      setHoveredNodeId(nodeId);
     },
-    [setHoveredComponentId],
+    [setHoveredNodeId],
   );
 
   return (
@@ -608,10 +661,20 @@ export function LayoutTree() {
       <div className="border-t my-1" />
 
       {/* Sidebar zone */}
+      <div className="flex items-center h-8 px-1">
+        <span className="type-small font-medium text-secondary">Sidebar</span>
+      </div>
+      {productImageDef && (
+        <FixedItem
+          componentDef={productImageDef}
+          onItemHover={handleItemHover}
+        />
+      )}
       <ZoneSection
         zoneId="sidebar"
         sections={passportDraft.sidebar}
         onItemHover={handleItemHover}
+        showLabel={false}
       />
 
       <div className="border-t my-1" />

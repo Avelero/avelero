@@ -197,35 +197,24 @@ input:-webkit-autofill:focus-visible {
   outline-offset: -2px;
 }
 
-/* 
- * Components with overflow-hidden or internal absolute-positioned content need 
- * pseudo-element borders instead of outline, so the border renders correctly
- * without being clipped.
+/*
+ * Nodes with clipped or layered content use an overlay border instead of outline
+ * so the highlight stays visible above absolutely positioned children.
  */
-.product__image[data-hover-selection="true"],
-.product__image[data-selected-selection="true"],
-.product__description[data-hover-selection="true"],
-.product__description[data-selected-selection="true"],
-.carousel__product-image[data-hover-selection="true"],
-.carousel__product-image[data-selected-selection="true"],
-.banner[data-hover-selection="true"],
-.banner[data-selected-selection="true"] {
+[data-dpp-highlight-mode="overlay"][data-hover-selection="true"],
+[data-dpp-highlight-mode="overlay"][data-selected-selection="true"] {
   outline: none;
   position: relative;
 }
 
-.product__image[data-hover-selection="true"]::after,
-.product__image[data-selected-selection="true"]::after,
-.product__description[data-hover-selection="true"]::after,
-.product__description[data-selected-selection="true"]::after,
-.carousel__product-image[data-hover-selection="true"]::after,
-.carousel__product-image[data-selected-selection="true"]::after,
-.banner[data-hover-selection="true"]::after,
-.banner[data-selected-selection="true"]::after {
+[data-dpp-highlight-mode="overlay"][data-hover-selection="true"]::after,
+[data-dpp-highlight-mode="overlay"][data-selected-selection="true"]::after {
   content: '';
   position: absolute;
   inset: 0;
   border: 2px solid var(--brand);
+  border-radius: inherit;
+  box-sizing: border-box;
   pointer-events: none;
   z-index: 10;
 }

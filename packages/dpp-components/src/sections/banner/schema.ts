@@ -1,3 +1,10 @@
+/**
+ * Banner section schema.
+ *
+ * Defines the editor defaults and style controls for the CTA banner and button.
+ */
+
+import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
 import type { SectionSchema } from "../registry";
 
 export const BANNER_SCHEMA: SectionSchema = {
@@ -17,11 +24,13 @@ export const BANNER_SCHEMA: SectionSchema = {
       typescale: "h2",
       color: "$primaryForeground",
       textAlign: "center",
+      textTransform: "none",
     },
     subline: {
       typescale: "body",
       color: "$primaryForeground",
       textAlign: "center",
+      textTransform: "none",
     },
     button: {
       typescale: "body-sm",
@@ -29,6 +38,7 @@ export const BANNER_SCHEMA: SectionSchema = {
       borderColor: "$primaryForeground",
       borderRadius: 0,
       borderWidth: 1,
+      textTransform: "none",
     },
   },
   editorTree: {
@@ -74,6 +84,12 @@ export const BANNER_SCHEMA: SectionSchema = {
               { value: "right", label: "Right" },
             ],
           },
+          {
+            type: "select",
+            path: "headline.textTransform",
+            label: "Capitalization",
+            options: [...CAPITALIZATION_STYLE_OPTIONS],
+          },
         ],
         configFields: [
           { type: "text", path: "headline", label: "Headline Text" },
@@ -95,6 +111,12 @@ export const BANNER_SCHEMA: SectionSchema = {
               { value: "right", label: "Right" },
             ],
           },
+          {
+            type: "select",
+            path: "subline.textTransform",
+            label: "Capitalization",
+            options: [...CAPITALIZATION_STYLE_OPTIONS],
+          },
         ],
         configFields: [
           { type: "text", path: "subline", label: "Subline Text" },
@@ -113,6 +135,12 @@ export const BANNER_SCHEMA: SectionSchema = {
             label: "Border Radius",
           },
           { type: "border", path: "button.borderWidth", label: "Border Width" },
+          {
+            type: "select",
+            path: "button.textTransform",
+            label: "Capitalization",
+            options: [...CAPITALIZATION_STYLE_OPTIONS],
+          },
         ],
         configFields: [
           { type: "text", path: "ctaText", label: "Button Text" },

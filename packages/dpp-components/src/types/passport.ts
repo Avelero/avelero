@@ -13,16 +13,14 @@
 export interface ColorTokens {
   background: string;
   foreground: string;
-  muted: string;
-  mutedForeground: string;
+  mutedLight: string;
+  mutedLightForeground: string;
+  mutedDark: string;
+  mutedDarkForeground: string;
   card: string;
   cardForeground: string;
   primary: string;
   primaryForeground: string;
-  success: string;
-  successForeground: string;
-  destructive: string;
-  destructiveForeground: string;
   border: string;
   link: string;
 }
@@ -71,8 +69,14 @@ export interface CustomFont {
 export interface StyleOverride {
   color?: string;
   backgroundColor?: string;
+  boxShadow?: string;
   borderColor?: string;
   typescale?: TypeScale;
+  typographyDetached?: boolean;
+  fontSize?: number;
+  fontWeight?: number;
+  lineHeight?: number;
+  letterSpacing?: number;
   textTransform?: "none" | "uppercase" | "lowercase" | "capitalize";
   textAlign?: "left" | "center" | "right";
   borderRadius?:
@@ -102,6 +106,7 @@ export type SectionType =
   | "impact"
   | "details"
   | "hero"
+  | "description"
   | "materials"
   | "journey"
   | "buttons"
@@ -145,6 +150,9 @@ export interface Passport {
   };
   header: {
     logoUrl: string;
+    styles: Styles;
+  };
+  productImage?: {
     styles: Styles;
   };
   footer: {

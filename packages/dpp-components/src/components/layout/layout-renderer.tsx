@@ -1,7 +1,7 @@
 /**
  * Registry-based layout renderer.
  *
- * Product image is hardcoded in the left column.
+ * Product image is fixed in the left column.
  * Sidebar sections render in the right column.
  * Canvas sections render full-width below the columns.
  */
@@ -18,6 +18,20 @@ interface Props {
   content?: DppContent;
 }
 
+/** Builds the sidebar section shell classes for selectable spacing. */
+function getSidebarSectionWrapperClassName(
+  index: number,
+  sidebarLength: number,
+): string {
+  // Give each sidebar section its own 16px shell while collapsing the outer edges.
+  return [
+    "w-full",
+    "px-md",
+    index === 0 ? "pt-0" : "pt-md",
+    index === sidebarLength - 1 ? "pb-0" : "pb-md",
+  ].join(" ");
+}
+
 export function LayoutRenderer({ passport, data, content }: Props) {
   // Render the fixed left media column and the dynamic right-hand section stack.
   const { tokens, sidebar, canvas } = passport;
@@ -30,8 +44,10 @@ export function LayoutRenderer({ passport, data, content }: Props) {
           <div className="grid grid-cols-1 @3xl:grid-cols-2 @3xl:gap-lg w-full">
             {/* Left column — product image (hardcoded) */}
             <div className="w-full">
-              <div className="@3xl:sticky @3xl:top-[65px] flex flex-col gap-2x">
+              <div className="@3xl:sticky @3xl:top-[var(--header-height)] flex flex-col gap-2x">
                 <ProductImage
+                  productImage={passport.productImage}
+                  tokens={tokens}
                   image={data.productIdentifiers.productImage}
                   alt={`${data.productAttributes.brand} ${data.productIdentifiers.productName}`}
                 />
@@ -40,9 +56,9 @@ export function LayoutRenderer({ passport, data, content }: Props) {
 
             {/* Right column — sidebar sections */}
             <div className="@3xl:flex @3xl:justify-end @3xl:w-full">
-              <div className="@3xl:w-5/6">
-                <div className="flex flex-col gap-2x overflow-x-hidden relative @3xl:ml-auto @3xl:w-full">
-                  {sidebar.map((section) => {
+              <div className="@3xl:max-w-[428px]">
+                <div className="flex flex-col overflow-x-hidden relative @3xl:ml-auto @3xl:w-full @3xl:py-12">
+                  {sidebar.map((section, index) => {
                     const entry = SECTION_REGISTRY[section.type];
                     if (!entry) return null;
                     const Component = entry.component;
@@ -52,7 +68,12 @@ export function LayoutRenderer({ passport, data, content }: Props) {
                         section={section}
                         tokens={tokens}
                         data={data}
+                        zoneId="sidebar"
                         content={content}
+                        wrapperClassName={getSidebarSectionWrapperClassName(
+                          index,
+                          sidebar.length,
+                        )}
                       />
                     );
                   })}
@@ -75,6 +96,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
                   section={section}
                   tokens={tokens}
                   data={data}
+                  zoneId="canvas"
                   content={content}
                 />
               );

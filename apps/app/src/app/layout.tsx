@@ -1,11 +1,20 @@
+/**
+ * Root layout for the dashboard app shell.
+ */
+
 import "@v1/ui/globals.css";
 import { TRPCReactProvider } from "@/trpc/client";
-import { cn } from "@v1/ui/cn";
 import { Toaster } from "@v1/ui/sonner";
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
+import type { CSSProperties } from "react";
 import { ThemeProvider } from "next-themes";
+
+const APP_SHELL_FONT_VARS = {
+  "--font-geist-sans":
+    'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  "--font-geist-mono":
+    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+} as CSSProperties;
 
 export const metadata: Metadata = {
   title: "Avelero",
@@ -86,16 +95,17 @@ export const viewport: Viewport = {
   ],
 };
 
+/**
+ * Provides the dashboard shell with a stable system font stack.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={cn(
-          `${GeistSans.variable} ${GeistMono.variable}`,
-          "font-sans antialiased",
-        )}
+        className="font-sans antialiased"
+        style={APP_SHELL_FONT_VARS}
         suppressHydrationWarning
       >
         <ThemeProvider

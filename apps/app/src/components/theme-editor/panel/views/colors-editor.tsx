@@ -10,19 +10,16 @@ const COLOR_TOKENS = [
   { key: "background", label: "Background" },
   { key: "foreground", label: "Foreground" },
   // Muted colors
-  { key: "muted", label: "Muted" },
-  { key: "mutedForeground", label: "Muted Foreground" },
+  { key: "mutedLight", label: "Muted Light" },
+  { key: "mutedLightForeground", label: "Muted Light Foreground" },
+  { key: "mutedDark", label: "Muted Dark" },
+  { key: "mutedDarkForeground", label: "Muted Dark Foreground" },
   // Card colors
   { key: "card", label: "Card" },
   { key: "cardForeground", label: "Card Foreground" },
   // Primary colors
   { key: "primary", label: "Primary" },
   { key: "primaryForeground", label: "Primary Foreground" },
-  // Status colors
-  { key: "destructive", label: "Destructive" },
-  { key: "destructiveForeground", label: "Destructive Foreground" },
-  { key: "success", label: "Success" },
-  { key: "successForeground", label: "Success Foreground" },
   // Utility colors
   { key: "border", label: "Border" },
   { key: "link", label: "Link" },

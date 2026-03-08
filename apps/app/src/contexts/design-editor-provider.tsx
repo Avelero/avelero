@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Design editor provider for the passport theme editor.
+ *
+ * Owns the draft passport state, active editor target, and preview selection state.
+ */
+
 import { saveThemeAction } from "@/actions/design/save-theme-action";
 import { useTRPC } from "@/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,6 +22,7 @@ import type {
 } from "@v1/dpp-components";
 import {
   SECTION_REGISTRY,
+  createDefaultProductImage,
   type ColorTokenKey,
   generateGoogleFontsUrlFromTypography,
   getTokenName,
@@ -35,7 +42,7 @@ import {
 // TYPES
 // =============================================================================
 
-type StyleValue = string | number | Record<string, number>;
+type StyleValue = string | number | boolean | Record<string, number>;
 
 export type NavigationSection = "layout" | "typography" | "colors";
 
@@ -56,6 +63,7 @@ export type MenuItemEditState = {
  */
 type ActiveTarget =
   | { type: "header" }
+  | { type: "productImage" }
   | { type: "footer" }
   | { type: "section"; zoneId: ZoneId; sectionId: string }
   | null;
@@ -76,8 +84,8 @@ type DesignEditorContextValue = {
   updateColor: (colorKey: string, value: string) => void;
   updateCustomFonts: (fonts: CustomFont[]) => void;
 
-  // Style helpers (operate on active target: header/footer/section)
-  updateComponentStyle: (path: string, value: StyleValue) => void;
+  // Style helpers (operate on active target: header/productImage/footer/section)
+  updateComponentStyle: (path: string, value: StyleValue | undefined) => void;
   getComponentStyleValue: (path: string) => StyleValue | undefined;
   getRawComponentStyleValue: (path: string) => StyleValue | undefined;
   getComponentStyleTokenRef: (path: string) => string | null;
@@ -125,10 +133,10 @@ type DesignEditorContextValue = {
   toggleExpanded: (componentId: string) => void;
 
   // Selection state (for preview hover/click)
-  selectedComponentId: string | null;
-  hoveredComponentId: string | null;
-  setSelectedComponentId: (id: string | null) => void;
-  setHoveredComponentId: (id: string | null) => void;
+  selectedNodeId: string | null;
+  hoveredNodeId: string | null;
+  setSelectedNodeId: (id: string | null) => void;
+  setHoveredNodeId: (id: string | null) => void;
 };
 
 const DesignEditorContext = createContext<DesignEditorContextValue | null>(
@@ -182,6 +190,38 @@ function generateSectionId(): string {
   return `sec_${crypto.randomUUID().slice(0, 8)}`;
 }
 
+function ensurePassportHasProductImage(passport: Passport): Passport {
+  // Hydrate the fixed product image config for passports saved before this field existed.
+  if (passport.productImage) {
+    return passport;
+  }
+
+  return {
+    ...passport,
+    productImage: createDefaultProductImage(),
+  };
+}
+
+/**
+ * Split a style path into the style key and final property segment.
+ *
+ * Style keys can contain dots (for example "card.certification"), so we split
+ * on the final dot rather than the first one.
+ */
+function splitStylePath(
+  path: string,
+): { styleKey: string; property: string } | null {
+  const separatorIndex = path.lastIndexOf(".");
+  if (separatorIndex <= 0 || separatorIndex >= path.length - 1) {
+    return null;
+  }
+
+  return {
+    styleKey: path.slice(0, separatorIndex),
+    property: path.slice(separatorIndex + 1),
+  };
+}
+
 // =============================================================================
 // PROVIDER
 // =============================================================================
@@ -205,10 +245,12 @@ export function DesignEditorProvider({
   // ---------------------------------------------------------------------------
   // Passport State
   // ---------------------------------------------------------------------------
-  const [passportDraft, setPassportDraft] =
-    useState<Passport>(initialPassport);
-  const [savedPassport, setSavedPassport] =
-    useState<Passport>(initialPassport);
+  const [passportDraft, setPassportDraft] = useState<Passport>(() =>
+    ensurePassportHasProductImage(initialPassport),
+  );
+  const [savedPassport, setSavedPassport] = useState<Passport>(() =>
+    ensurePassportHasProductImage(initialPassport),
+  );
 
   // ---------------------------------------------------------------------------
   // Saving State
@@ -220,17 +262,23 @@ export function DesignEditorProvider({
 
   // Reset when initial values change (e.g., brand switch)
   useEffect(() => {
-    setPassportDraft(initialPassport);
-    setSavedPassport(initialPassport);
+    const nextPassport = ensurePassportHasProductImage(initialPassport);
+    setPassportDraft(nextPassport);
+    setSavedPassport(nextPassport);
   }, [initialPassport]);
 
   // Google Fonts for preview
   const previewGoogleFontsUrl = useMemo(() => {
     const generatedUrl = generateGoogleFontsUrlFromTypography(
       passportDraft?.tokens?.typography as Record<string, unknown> | undefined,
+      passportDraft?.tokens?.fonts,
     );
     return generatedUrl || initialGoogleFontsUrl || "";
-  }, [passportDraft?.tokens?.typography, initialGoogleFontsUrl]);
+  }, [
+    passportDraft?.tokens?.fonts,
+    passportDraft?.tokens?.typography,
+    initialGoogleFontsUrl,
+  ]);
 
   useEffect(() => {
     if (!previewGoogleFontsUrl) return;
@@ -381,6 +429,9 @@ export function DesignEditorProvider({
   const getActiveStyles = useCallback((): Styles | undefined => {
     if (!activeTarget) return undefined;
     if (activeTarget.type === "header") return passportDraft.header.styles;
+    if (activeTarget.type === "productImage") {
+      return passportDraft.productImage?.styles;
+    }
     if (activeTarget.type === "footer") return passportDraft.footer.styles;
 
     const zone = passportDraft[activeTarget.zoneId];
@@ -395,11 +446,10 @@ export function DesignEditorProvider({
   // ---------------------------------------------------------------------------
 
   const updateComponentStyle = useCallback(
-    (path: string, value: StyleValue) => {
+    (path: string, value: StyleValue | undefined) => {
       if (!activeTarget) return;
-      const [element, ...rest] = path.split(".");
-      const property = rest.join(".");
-      if (!element || !property) return;
+      const parts = splitStylePath(path);
+      if (!parts) return;
 
       setPassportDraft((prev) => {
         const next = structuredClone(prev);
@@ -407,6 +457,9 @@ export function DesignEditorProvider({
         let styles: Styles;
         if (activeTarget.type === "header") {
           styles = next.header.styles;
+        } else if (activeTarget.type === "productImage") {
+          next.productImage ??= createDefaultProductImage();
+          styles = next.productImage.styles;
         } else if (activeTarget.type === "footer") {
           styles = next.footer.styles;
         } else {
@@ -418,10 +471,16 @@ export function DesignEditorProvider({
           styles = section.styles;
         }
 
-        if (!styles[element]) {
-          styles[element] = {};
+        if (!styles[parts.styleKey]) {
+          styles[parts.styleKey] = {};
         }
-        (styles[element] as Record<string, unknown>)[property] = value;
+
+        const styleObject = styles[parts.styleKey] as Record<string, unknown>;
+        if (value === undefined) {
+          delete styleObject[parts.property];
+        } else {
+          styleObject[parts.property] = value;
+        }
 
         return next;
       });
@@ -433,11 +492,10 @@ export function DesignEditorProvider({
     (path: string): StyleValue | undefined => {
       const styles = getActiveStyles();
       if (!styles) return undefined;
-      const [element, ...rest] = path.split(".");
-      const property = rest.join(".");
-      if (!element || !property) return undefined;
-      return (styles[element] as Record<string, unknown> | undefined)?.[
-        property
+      const parts = splitStylePath(path);
+      if (!parts) return undefined;
+      return (styles[parts.styleKey] as Record<string, unknown> | undefined)?.[
+        parts.property
       ] as StyleValue | undefined;
     },
     [getActiveStyles],
@@ -483,6 +541,13 @@ export function DesignEditorProvider({
             path,
             value,
           );
+        } else if (activeTarget.type === "productImage") {
+          next.productImage ??= createDefaultProductImage();
+          deepSet(
+            next.productImage as unknown as Record<string, unknown>,
+            path,
+            value,
+          );
         } else if (activeTarget.type === "footer") {
           deepSet(
             next.footer as unknown as Record<string, unknown>,
@@ -511,6 +576,9 @@ export function DesignEditorProvider({
       if (activeTarget.type === "header") {
         return deepGet(passportDraft.header, path);
       }
+      if (activeTarget.type === "productImage") {
+        return deepGet(passportDraft.productImage, path);
+      }
       if (activeTarget.type === "footer") {
         return deepGet(passportDraft.footer, path);
       }
@@ -534,20 +602,30 @@ export function DesignEditorProvider({
 
   const navigateToSection = useCallback((section: NavigationSection) => {
     setNavigation({ level: "section", section });
-    setSelectedComponentId(null);
+    setSelectedNodeId(null);
   }, []);
 
   const navigateToComponent = useCallback((componentId: string) => {
     setNavigation({ level: "component", section: "layout", componentId });
-    setSelectedComponentId(componentId);
 
-    // Set active target for header/footer child components
+    // Set active target for fixed component child components.
     if (componentId === "header" || componentId.startsWith("header.")) {
+      setActiveSectionId(null);
+      setActiveZoneId(null);
       setActiveTarget({ type: "header" });
+    } else if (
+      componentId === "productImage" ||
+      componentId.startsWith("productImage.")
+    ) {
+      setActiveSectionId(null);
+      setActiveZoneId(null);
+      setActiveTarget({ type: "productImage" });
     } else if (
       componentId === "footer" ||
       componentId.startsWith("footer.")
     ) {
+      setActiveSectionId(null);
+      setActiveZoneId(null);
       setActiveTarget({ type: "footer" });
     }
   }, []);
@@ -555,7 +633,7 @@ export function DesignEditorProvider({
   const navigateBack = useCallback(() => {
     setNavigation((prev) => {
       if (prev.level === "component") {
-        setSelectedComponentId(null);
+        setSelectedNodeId(null);
         setActiveSectionId(null);
         setActiveZoneId(null);
         setActiveTarget(null);
@@ -640,7 +718,7 @@ export function DesignEditorProvider({
         setActiveZoneId(null);
         setActiveTarget(null);
         setNavigation({ level: "section", section: "layout" });
-        setSelectedComponentId(null);
+        setSelectedNodeId(null);
       }
     },
     [activeSectionId],
@@ -698,12 +776,8 @@ export function DesignEditorProvider({
   // ---------------------------------------------------------------------------
   // Selection State
   // ---------------------------------------------------------------------------
-  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(
-    null,
-  );
-  const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(
-    null,
-  );
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------------
   // Context Value
@@ -743,10 +817,10 @@ export function DesignEditorProvider({
       activeZoneId,
       expandedItems,
       toggleExpanded,
-      selectedComponentId,
-      hoveredComponentId,
-      setSelectedComponentId,
-      setHoveredComponentId,
+      selectedNodeId,
+      hoveredNodeId,
+      setSelectedNodeId,
+      setHoveredNodeId,
     }),
     [
       passportDraft,
@@ -781,8 +855,8 @@ export function DesignEditorProvider({
       activeZoneId,
       expandedItems,
       toggleExpanded,
-      selectedComponentId,
-      hoveredComponentId,
+      selectedNodeId,
+      hoveredNodeId,
     ],
   );
 

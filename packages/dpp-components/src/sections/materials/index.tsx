@@ -1,72 +1,132 @@
+/**
+ * Materials sidebar section.
+ *
+ * Renders the transformed material composition as shadowed cards with badges and certification links.
+ */
+import { MapPinIcon } from "@phosphor-icons/react/dist/ssr/MapPin";
 import { Icons } from "@v1/ui/icons";
 import { Fragment } from "react";
+import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { resolveStyles } from "../../lib/resolve-styles";
-import { toExternalHref } from "../../lib/url-utils";
 import { transformMaterials } from "../_transforms";
 import type { SectionProps } from "../registry";
 
-export function MaterialsSection({ section, tokens, data }: SectionProps) {
+export function MaterialsSection({
+  section,
+  tokens,
+  data,
+  zoneId,
+  wrapperClassName,
+}: SectionProps) {
+  // Resolve styles and shape the materials data for the sidebar card.
   const s = resolveStyles(section.styles, tokens);
   const materials = transformMaterials(data);
   const showCheckIcon = section.content.showCertificationCheckIcon !== false;
+  const select = createSectionSelectionAttributes(section.id, zoneId);
+  const titleSelection = select("materials.title");
+  const cardSelection = select("materials.card");
+  const percentageSelection = select("materials.card.percentage");
+  const typeSelection = select("materials.card.type");
+  const originSelection = select("materials.card.origin");
+  const locationIconSelection = select("materials.card.locationIcon");
+  const certificationSelection = select("materials.card.certification");
+  const certIconSelection = select("materials.card.certIcon");
+  const certTextSelection = select("materials.card.certText");
+  const cardStyle: React.CSSProperties = {
+    ...s.card,
+    border: "none",
+  };
+  const dividerColor = s.card?.borderColor ?? "var(--border)";
 
   if (materials.length === 0) return null;
 
   return (
-    <div className="mx-sm @3xl:mx-0 flex flex-col gap-sm">
-      <h6 style={s.title}>Materials</h6>
+    <div
+      className={["flex flex-col gap-xs w-full", wrapperClassName]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <h6 {...titleSelection} style={s.title}>
+        Materials
+      </h6>
 
-      <div className="border grid grid-cols-[max-content_1fr]" style={s.card}>
+      <div
+        {...cardSelection}
+        className="grid grid-cols-[max-content_minmax(0,1fr)] overflow-hidden"
+        style={cardStyle}
+      >
         {materials.map((material, index) => {
-          const certHref = toExternalHref(material.certificationUrl);
           return (
             <Fragment key={`${material.type}-${material.percentage}-${index}`}>
               <div className="flex items-start p-md">
-                <span style={s["card.percentage"]}>{material.percentage}%</span>
+                <span
+                  {...percentageSelection}
+                  className="block"
+                  style={s["card.percentage"]}
+                >
+                  {material.percentage}%
+                </span>
               </div>
               <div
-                className="py-md pr-md flex flex-col gap-xs"
+                className="min-w-0 flex flex-col gap-xs pt-md pr-md pb-md"
                 style={
                   index !== materials.length - 1
                     ? {
-                        borderBottom: `1px solid ${s.card?.borderColor ?? "var(--border)"}`,
+                        borderBottom: `1px solid ${dividerColor}`,
                       }
                     : undefined
                 }
               >
-                <div className="flex items-start justify-between gap-xs">
-                  <span style={s["card.type"]}>{material.type}</span>
+                <div className="grid grid-cols-[minmax(0,1fr)_max-content] items-start gap-xs">
+                  <span
+                    {...typeSelection}
+                    className="block min-w-0"
+                    style={s["card.type"]}
+                  >
+                    {material.type}
+                  </span>
                   {material.certification && (
                     <span
-                      className="inline-flex items-center gap-micro py-micro px-xs"
+                      {...certificationSelection}
+                      className="inline-flex items-center gap-micro px-xs"
                       style={s["card.certification"]}
                     >
                       {showCheckIcon && (
-                        <Icons.Check style={s["card.certIcon"]} />
+                        <Icons.Check
+                          {...certIconSelection}
+                          style={s["card.certIcon"]}
+                        />
                       )}
-                      <span className="!leading-[100%]">Certified</span>
+                      <span>Certified</span>
                     </span>
                   )}
                 </div>
 
-                <div style={s["card.origin"]}>{material.origin}</div>
-
-                {material.certification &&
-                  (certHref ? (
-                    <a
-                      href={certHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="cursor-pointer"
-                      style={s["card.certText"]}
-                    >
-                      {material.certification}
-                    </a>
-                  ) : (
-                    <span style={s["card.certText"]}>
-                      {material.certification}
+                {material.origin && (
+                  <div className="flex items-center gap-xs">
+                    <div className="flex h-[21px] shrink-0 items-center">
+                      <MapPinIcon
+                        {...locationIconSelection}
+                        style={s["card.locationIcon"]}
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <span {...originSelection} style={s["card.origin"]}>
+                      {material.origin}
                     </span>
-                  ))}
+                  </div>
+                )}
+
+                {material.certification && (
+                  <button
+                    {...certTextSelection}
+                    type="button"
+                    className="w-fit cursor-pointer text-left underline underline-offset-4"
+                    style={s["card.certText"]}
+                  >
+                    {material.certification}
+                  </button>
+                )}
               </div>
             </Fragment>
           );

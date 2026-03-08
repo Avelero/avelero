@@ -1,4 +1,16 @@
+/**
+ * Buttons section schema.
+ *
+ * Defines the editor defaults and style controls for stacked sidebar action cards.
+ */
+import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
 import type { SectionSchema } from "../registry";
+
+const DEFAULT_MENU_ITEMS = [
+  { label: "Care instructions", url: "https://avelero.com/" },
+  { label: "Recycling & Repair", url: "https://avelero.com/" },
+  { label: "Warranty", url: "https://avelero.com/" },
+];
 
 export const BUTTONS_SCHEMA: SectionSchema = {
   type: "buttons",
@@ -6,16 +18,20 @@ export const BUTTONS_SCHEMA: SectionSchema = {
   allowedZones: ["sidebar"],
   defaultContent: {
     variant: "primary",
-    menuItems: [],
+    menuItems: DEFAULT_MENU_ITEMS,
   },
   defaultStyles: {
     button: {
-      typescale: "body-sm",
-      color: "$foreground",
-      backgroundColor: "$background",
-      borderColor: "$border",
+      typescale: "h6",
+      color: "$cardForeground",
+      backgroundColor: "$card",
+      boxShadow:
+        "0px 0px 2px rgba(0, 0, 0, 0.15), 0px 2px 5px rgba(0, 0, 0, 0.05), 0px 8px 40px rgba(0, 0, 0, 0.04)",
+      borderRadius: 12,
+      borderWidth: 0,
+      textTransform: "none",
     },
-    "button.icon": { color: "$foreground", size: 16 },
+    "button.icon": { color: "$cardForeground", size: 20 },
   },
   editorTree: {
     id: "buttons",
@@ -31,7 +47,6 @@ export const BUTTONS_SCHEMA: SectionSchema = {
             path: "button.backgroundColor",
             label: "Background",
           },
-          { type: "color", path: "button.borderColor", label: "Border Color" },
           { type: "typescale", path: "button.typescale", label: "Typography" },
           {
             type: "radius",
@@ -41,13 +56,8 @@ export const BUTTONS_SCHEMA: SectionSchema = {
           {
             type: "select",
             path: "button.textTransform",
-            label: "Case",
-            options: [
-              { value: "none", label: "None" },
-              { value: "uppercase", label: "Uppercase" },
-              { value: "lowercase", label: "Lowercase" },
-              { value: "capitalize", label: "Capitalize" },
-            ],
+            label: "Capitalization",
+            options: [...CAPITALIZATION_STYLE_OPTIONS],
           },
         ],
         configFields: [

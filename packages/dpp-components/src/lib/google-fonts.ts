@@ -3,6 +3,7 @@
  * This intentionally avoids any browser or React dependencies so it can be used in server actions.
  */
 import { findFont } from "@v1/selections/fonts";
+import type { CustomFont } from "../types/passport";
 
 const LOCAL_FONTS = [
   "system-ui",
@@ -16,18 +17,42 @@ const LOCAL_FONTS = [
 ];
 const PRESET_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
+/** Normalize a font family value to its primary family name. */
+function getPrimaryFamilyName(fontFamily: string): string {
+  return fontFamily.split(",")[0]?.replace(/['"]/g, "")?.trim() || "";
+}
+
+/** Build a lowercase family-name set for uploaded custom fonts. */
+function getCustomFontFamilySet(customFonts?: CustomFont[]): Set<string> {
+  return new Set(
+    (customFonts ?? [])
+      .map((font) => getPrimaryFamilyName(font.fontFamily).toLowerCase())
+      .filter(Boolean),
+  );
+}
+
 /**
  * Checks if a font is a Google Font (not a local/system font).
  */
-export function isGoogleFont(fontFamily: string): boolean {
-  const primaryFamily =
-    fontFamily.split(",")[0]?.replace(/['"]/g, "")?.trim()?.toLowerCase() || "";
+export function isGoogleFont(
+  fontFamily: string,
+  customFonts?: CustomFont[],
+): boolean {
+  const primaryFamily = getPrimaryFamilyName(fontFamily).toLowerCase();
 
   if (!primaryFamily) {
     return false;
   }
 
-  return !LOCAL_FONTS.includes(primaryFamily);
+  if (LOCAL_FONTS.includes(primaryFamily)) {
+    return false;
+  }
+
+  if (getCustomFontFamilySet(customFonts).has(primaryFamily)) {
+    return false;
+  }
+
+  return findFont(primaryFamily) !== undefined;
 }
 
 /**
@@ -35,8 +60,10 @@ export function isGoogleFont(fontFamily: string): boolean {
  */
 export function extractGoogleFontsFromTypography(
   typography?: Record<string, any>,
+  customFonts?: CustomFont[],
 ): string[] {
   const fontSet = new Set<string>();
+  const customFontFamilies = getCustomFontFamilySet(customFonts);
 
   if (!typography) {
     return [];
@@ -57,11 +84,14 @@ export function extractGoogleFontsFromTypography(
   for (const scale of typescales) {
     const scaleConfig = typography[scale];
     if (scaleConfig?.fontFamily) {
-      const primaryFont =
-        scaleConfig.fontFamily.split(",")[0]?.replace(/['"]/g, "")?.trim() ||
-        "";
+      const primaryFont = getPrimaryFamilyName(scaleConfig.fontFamily);
+      const normalizedPrimaryFont = primaryFont.toLowerCase();
 
-      if (primaryFont && isGoogleFont(primaryFont)) {
+      if (
+        primaryFont &&
+        !customFontFamilies.has(normalizedPrimaryFont) &&
+        isGoogleFont(primaryFont)
+      ) {
         fontSet.add(primaryFont);
       }
     }
@@ -147,8 +177,9 @@ export function generateGoogleFontsUrl(fonts: string[]): string {
  */
 export function generateGoogleFontsUrlFromTypography(
   typography?: Record<string, any>,
+  customFonts?: CustomFont[],
 ): string {
-  const googleFonts = extractGoogleFontsFromTypography(typography);
+  const googleFonts = extractGoogleFontsFromTypography(typography, customFonts);
   return generateGoogleFontsUrl(googleFonts);
 }
 

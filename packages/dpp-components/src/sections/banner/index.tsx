@@ -1,8 +1,9 @@
 import Image from "next/image";
+import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { SectionProps } from "../registry";
 
-export function BannerSection({ section, tokens }: SectionProps) {
+export function BannerSection({ section, tokens, zoneId }: SectionProps) {
   const s = resolveStyles(section.styles, tokens);
   const { headline, subline, ctaText, ctaUrl, backgroundImage } =
     section.content as {
@@ -12,6 +13,11 @@ export function BannerSection({ section, tokens }: SectionProps) {
       ctaUrl?: string;
       backgroundImage?: string;
     };
+  const select = createSectionSelectionAttributes(section.id, zoneId);
+  const containerSelection = select("banner.container", "overlay");
+  const headlineSelection = select("banner.headline");
+  const sublineSelection = select("banner.subline");
+  const buttonSelection = select("banner.button");
 
   const isLocalDev =
     backgroundImage?.includes("127.0.0.1") ||
@@ -21,6 +27,7 @@ export function BannerSection({ section, tokens }: SectionProps) {
   return (
     <div className="my-3x @3xl:my-2x">
       <div
+        {...containerSelection}
         className="relative w-full flex flex-col items-center justify-center py-3x px-lg @3xl:px-3x overflow-hidden"
         style={s.container}
       >
@@ -40,12 +47,20 @@ export function BannerSection({ section, tokens }: SectionProps) {
         <div className="relative z-10 flex flex-col gap-xl w-full items-center">
           <div className="flex flex-col gap-lg">
             {headline && (
-              <h2 className="max-w-[600px]" style={s.headline}>
+              <h2
+                {...headlineSelection}
+                className="max-w-[600px]"
+                style={s.headline}
+              >
                 {headline}
               </h2>
             )}
             {subline && (
-              <p className="max-w-[600px]" style={s.subline}>
+              <p
+                {...sublineSelection}
+                className="max-w-[600px]"
+                style={s.subline}
+              >
                 {subline}
               </p>
             )}
@@ -53,6 +68,7 @@ export function BannerSection({ section, tokens }: SectionProps) {
 
           {ctaUrl && ctaText && (
             <a
+              {...buttonSelection}
               href={ctaUrl}
               target="_blank"
               rel="noopener noreferrer"

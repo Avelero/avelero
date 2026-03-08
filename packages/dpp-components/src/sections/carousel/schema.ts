@@ -1,3 +1,10 @@
+/**
+ * Carousel section schema.
+ *
+ * Defines the editor defaults and style controls for the similar products carousel.
+ */
+
+import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
 import type { SectionSchema } from "../registry";
 
 export const CAROUSEL_SCHEMA: SectionSchema = {
@@ -11,7 +18,7 @@ export const CAROUSEL_SCHEMA: SectionSchema = {
     productCount: 6,
   },
   defaultStyles: {
-    title: { typescale: "h6", color: "$foreground" },
+    title: { typescale: "h6", color: "$foreground", textTransform: "none" },
     navButton: {
       color: "$foreground",
       backgroundColor: "$background",
@@ -19,8 +26,16 @@ export const CAROUSEL_SCHEMA: SectionSchema = {
     },
     productImage: { borderColor: "$border", borderRadius: 0 },
     productDetails: {},
-    productName: { typescale: "body-sm", color: "$foreground" },
-    productPrice: { typescale: "body-sm", color: "$foreground" },
+    productName: {
+      typescale: "body-sm",
+      color: "$foreground",
+      textTransform: "none",
+    },
+    productPrice: {
+      typescale: "body-sm",
+      color: "$foreground",
+      textTransform: "none",
+    },
   },
   editorTree: {
     id: "carousel",
@@ -32,6 +47,12 @@ export const CAROUSEL_SCHEMA: SectionSchema = {
         styleFields: [
           { type: "color", path: "title.color", label: "Color" },
           { type: "typescale", path: "title.typescale", label: "Typography" },
+          {
+            type: "select",
+            path: "title.textTransform",
+            label: "Capitalization",
+            options: [...CAPITALIZATION_STYLE_OPTIONS],
+          },
         ],
       },
       {
@@ -77,6 +98,12 @@ export const CAROUSEL_SCHEMA: SectionSchema = {
             path: "productName.typescale",
             label: "Typography",
           },
+          {
+            type: "select",
+            path: "productName.textTransform",
+            label: "Capitalization",
+            options: [...CAPITALIZATION_STYLE_OPTIONS],
+          },
         ],
         configFields: [
           { type: "toggle", path: "showTitle", label: "Show Title" },
@@ -91,6 +118,12 @@ export const CAROUSEL_SCHEMA: SectionSchema = {
             type: "typescale",
             path: "productPrice.typescale",
             label: "Typography",
+          },
+          {
+            type: "select",
+            path: "productPrice.textTransform",
+            label: "Capitalization",
+            options: [...CAPITALIZATION_STYLE_OPTIONS],
           },
         ],
         configFields: [

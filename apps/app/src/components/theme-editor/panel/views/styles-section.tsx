@@ -15,7 +15,6 @@ import {
 import * as React from "react";
 import {
   type StyleField,
-  TYPESCALE_OPTIONS,
   resolveComponentForEditor,
 } from "../../registry";
 import {
@@ -28,6 +27,7 @@ import {
   combineHexWithAlpha,
   parseHexWithAlpha,
 } from "../inputs";
+import { TypographyStyleField } from "./typography-style-field";
 
 // =============================================================================
 // INTERNAL SELECT COMPONENT
@@ -240,17 +240,7 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
     }
 
     case "typescale": {
-      return (
-        <FieldWrapper label={field.label}>
-          <StyleSelect
-            value={typeof value === "string" ? value : null}
-            onValueChange={(val) => updateComponentStyle(field.path, val)}
-            options={TYPESCALE_OPTIONS}
-            placeholder="Select..."
-            className="h-8 text-sm"
-          />
-        </FieldWrapper>
-      );
+      return <TypographyStyleField field={field} />;
     }
 
     case "select": {

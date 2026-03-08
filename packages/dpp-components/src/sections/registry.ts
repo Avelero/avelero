@@ -20,6 +20,8 @@ import { ButtonsSection } from "./buttons";
 import { BUTTONS_SCHEMA } from "./buttons/schema";
 import { CarouselSection } from "./carousel";
 import { CAROUSEL_SCHEMA } from "./carousel/schema";
+import { DescriptionSection } from "./description";
+import { DESCRIPTION_SCHEMA } from "./description/schema";
 import { DetailsSection } from "./details";
 import { DETAILS_SCHEMA } from "./details/schema";
 import { HeroSection } from "./hero";
@@ -87,7 +89,9 @@ export interface SectionProps {
   section: Section;
   tokens: Passport["tokens"];
   data: DppData;
+  zoneId: ZoneId;
   content?: DppContent;
+  wrapperClassName?: string;
 }
 
 // ─── Section Schema ──────────────────────────────────────────────────────────
@@ -111,6 +115,7 @@ export interface SectionRegistryEntry {
 
 export const SECTION_REGISTRY: Record<SectionType, SectionRegistryEntry> = {
   hero: { schema: HERO_SCHEMA, component: HeroSection },
+  description: { schema: DESCRIPTION_SCHEMA, component: DescriptionSection },
   details: { schema: DETAILS_SCHEMA, component: DetailsSection },
   buttons: { schema: BUTTONS_SCHEMA, component: ButtonsSection },
   impact: { schema: IMPACT_SCHEMA, component: ImpactSection },

@@ -1,28 +1,42 @@
+/**
+ * Hero section schema.
+ *
+ * Defines the editor defaults and style controls for the title and brand block.
+ */
+import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
 import type { SectionSchema } from "../registry";
 
 export const HERO_SCHEMA: SectionSchema = {
   type: "hero",
-  displayName: "Product Description",
+  displayName: "Hero",
   allowedZones: ["sidebar"],
   defaultContent: {},
   defaultStyles: {
+    title: { typescale: "h1", color: "$foreground", textTransform: "none" },
     brand: {
-      typescale: "body-sm",
-      color: "$mutedForeground",
-      textTransform: "uppercase",
-    },
-    title: { typescale: "h3" },
-    description: { typescale: "body", color: "$foreground" },
-    showMore: {
-      typescale: "body-xs",
-      color: "$mutedForeground",
-      textTransform: "uppercase",
+      typescale: "h5",
+      color: "$mutedLightForeground",
+      textTransform: "none",
     },
   },
   editorTree: {
     id: "hero",
-    displayName: "Product Description",
+    displayName: "Hero",
     children: [
+      {
+        id: "hero.title",
+        displayName: "Title",
+        styleFields: [
+          { type: "color", path: "title.color", label: "Color" },
+          { type: "typescale", path: "title.typescale", label: "Typography" },
+          {
+            type: "select",
+            path: "title.textTransform",
+            label: "Capitalization",
+            options: [...CAPITALIZATION_STYLE_OPTIONS],
+          },
+        ],
+      },
       {
         id: "hero.brand",
         displayName: "Brand",
@@ -32,56 +46,8 @@ export const HERO_SCHEMA: SectionSchema = {
           {
             type: "select",
             path: "brand.textTransform",
-            label: "Case",
-            options: [
-              { value: "none", label: "None" },
-              { value: "uppercase", label: "Uppercase" },
-              { value: "lowercase", label: "Lowercase" },
-              { value: "capitalize", label: "Capitalize" },
-            ],
-          },
-        ],
-      },
-      {
-        id: "hero.title",
-        displayName: "Title",
-        styleFields: [
-          { type: "color", path: "title.color", label: "Color" },
-          { type: "typescale", path: "title.typescale", label: "Typography" },
-        ],
-      },
-      {
-        id: "hero.description",
-        displayName: "Description",
-        styleFields: [
-          { type: "color", path: "description.color", label: "Color" },
-          {
-            type: "typescale",
-            path: "description.typescale",
-            label: "Typography",
-          },
-        ],
-      },
-      {
-        id: "hero.showMore",
-        displayName: "Show More",
-        styleFields: [
-          { type: "color", path: "showMore.color", label: "Color" },
-          {
-            type: "typescale",
-            path: "showMore.typescale",
-            label: "Typography",
-          },
-          {
-            type: "select",
-            path: "showMore.textTransform",
-            label: "Case",
-            options: [
-              { value: "none", label: "None" },
-              { value: "uppercase", label: "Uppercase" },
-              { value: "lowercase", label: "Lowercase" },
-              { value: "capitalize", label: "Capitalize" },
-            ],
+            label: "Capitalization",
+            options: [...CAPITALIZATION_STYLE_OPTIONS],
           },
         ],
       },

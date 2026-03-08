@@ -2,6 +2,7 @@
  * DPP header with optional brand logo image.
  */
 import Image from "next/image";
+import { createFixedSelectionAttributes } from "../../lib/editor-selection";
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { Passport } from "../../types/passport";
 
@@ -18,9 +19,13 @@ export function Header({
   brandName,
   position = "fixed",
 }: Props) {
+  // Resolve the fixed header styles once so the border and text logo stay theme-driven.
   const s = resolveStyles(header.styles, tokens);
   const logoUrl = header.logoUrl;
   const logoHeight = 24;
+  const select = createFixedSelectionAttributes();
+  const headerSelection = select("header");
+  const textLogoSelection = select("header.textLogo");
 
   const isLocalDev =
     logoUrl?.includes("127.0.0.1") || logoUrl?.includes("localhost:");
@@ -36,10 +41,14 @@ export function Header({
       : undefined;
 
   return (
-    <div className={positionClass} style={{ ...s.container, ...positionStyle }}>
+    <div
+      {...headerSelection}
+      className={positionClass}
+      style={{ ...s.container, ...positionStyle }}
+    >
       <div
         className="flex items-center justify-center w-full border-b"
-        style={{ padding: "20px 0" }}
+        style={{ padding: "20px 0", borderColor: s.container?.borderColor }}
       >
         {logoUrl ? (
           <Image
@@ -54,6 +63,7 @@ export function Header({
           />
         ) : (
           <span
+            {...textLogoSelection}
             style={{ fontSize: logoHeight, lineHeight: "100%", ...s.textLogo }}
           >
             {brandName}

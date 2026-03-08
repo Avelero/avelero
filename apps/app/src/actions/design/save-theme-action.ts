@@ -26,6 +26,7 @@ export const saveThemeAction = authActionClient
     // Generate Google Fonts URL from typography settings
     const googleFontsUrl = generateGoogleFontsUrlFromTypography(
       passport?.tokens?.typography as Record<string, unknown> | undefined,
+      passport?.tokens?.fonts,
     );
 
     // Build CSS stylesheet from passport tokens

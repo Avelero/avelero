@@ -1,3 +1,7 @@
+/**
+ * Public UPID-based passport page.
+ */
+
 import { demoPassport } from "@/demo-data/config";
 import { fetchPassportDpp } from "@/lib/api";
 import { isValidUpid } from "@/lib/validation";
@@ -6,7 +10,8 @@ import {
   Footer,
   Header,
   type Passport,
-  generateFontFaceCSS,
+  buildPassportStylesheet,
+  generateGoogleFontsUrlFromTypography,
 } from "@v1/dpp-components";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -17,6 +22,9 @@ interface PageProps {
   }>;
 }
 
+/**
+ * Builds the metadata for a passport page.
+ */
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -61,6 +69,9 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * Renders a passport page using the persisted theme or the demo fallback theme.
+ */
 export default async function PassportDPPPage({ params }: PageProps) {
   const { upid } = await params;
 
@@ -80,14 +91,17 @@ export default async function PassportDPPPage({ params }: PageProps) {
   // Use brand passport from API, fall back to demo passport
   const passport: Passport = data.brandPassport ?? demoPassport;
 
-  // Google Fonts URL from stored theme
-  const googleFontsUrl = data.googleFontsUrl ?? "";
-
-  // Generate @font-face CSS from custom fonts when present
-  const fontFaceCSS = generateFontFaceCSS(passport.tokens.fonts);
-
-  // Stylesheet URL is already resolved by the API
+  // Resolve theme assets even when the page falls back to the in-repo demo theme.
+  const googleFontsUrl =
+    data.googleFontsUrl ??
+    generateGoogleFontsUrlFromTypography(
+      passport.tokens.typography,
+      passport.tokens.fonts,
+    );
   const stylesheetUrl = data.stylesheetUrl ?? undefined;
+  const inlineStylesheet = stylesheetUrl
+    ? ""
+    : buildPassportStylesheet(passport.tokens);
 
   // Transform snapshot data to DppData format for components
   const productData = transformSnapshotToDppData(data.dppData);
@@ -106,9 +120,9 @@ export default async function PassportDPPPage({ params }: PageProps) {
         </>
       )}
 
-      {fontFaceCSS && (
+      {inlineStylesheet && (
         // biome-ignore lint/security/noDangerouslySetInnerHtml: CSS is generated server-side from trusted theme configuration
-        <style dangerouslySetInnerHTML={{ __html: fontFaceCSS }} />
+        <style dangerouslySetInnerHTML={{ __html: inlineStylesheet }} />
       )}
 
       {stylesheetUrl && <link rel="stylesheet" href={stylesheetUrl} />}

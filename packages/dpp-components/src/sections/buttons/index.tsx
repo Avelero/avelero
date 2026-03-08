@@ -1,4 +1,10 @@
+/**
+ * Sidebar button-link section.
+ *
+ * Renders the configured menu items as a stacked list of shadowed action cards.
+ */
 import { Icons } from "@v1/ui/icons";
+import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { SectionProps } from "../registry";
 
@@ -8,27 +14,46 @@ interface MenuItem {
   url: string;
 }
 
-export function ButtonsSection({ section, tokens }: SectionProps) {
+export function ButtonsSection({
+  section,
+  tokens,
+  zoneId,
+  wrapperClassName,
+}: SectionProps) {
+  // Resolve button styles and normalize the new card treatment for every item.
   const s = resolveStyles(section.styles, tokens);
   const menuItems = (section.content.menuItems as MenuItem[] | undefined) ?? [];
+  const select = createSectionSelectionAttributes(section.id, zoneId);
+  const buttonSelection = select("buttons.button");
+  const iconSelection = select("buttons.button.icon");
+  const buttonStyle: React.CSSProperties = {
+    ...s.button,
+    border: "none",
+  };
 
   if (menuItems.length === 0) return null;
 
   return (
-    <div className="w-full @3xl:mx-0">
-      <div className="border-t">
+    <div
+      className={["flex flex-col gap-md w-full", wrapperClassName]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div className="flex flex-col gap-md">
         {menuItems.map((item, index) => (
           <a
             key={item.id || `menu-${index}`}
+            {...buttonSelection}
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between p-sm border-b cursor-pointer"
-            style={s.button}
+            className="flex items-center justify-between gap-md p-md cursor-pointer"
+            style={buttonStyle}
           >
             <span>{item.label}</span>
             <Icons.ChevronRight
-              className="flex-shrink-0"
+              {...iconSelection}
+              className="shrink-0"
               style={s["button.icon"]}
             />
           </a>

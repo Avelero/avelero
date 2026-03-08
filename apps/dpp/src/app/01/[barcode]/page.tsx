@@ -18,7 +18,8 @@ import {
   Footer,
   Header,
   type Passport,
-  generateFontFaceCSS,
+  buildPassportStylesheet,
+  generateGoogleFontsUrlFromTypography,
 } from "@v1/dpp-components";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -36,6 +37,9 @@ interface PageProps {
 // Metadata
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Builds the metadata for a barcode-based passport page.
+ */
 export async function generateMetadata({
   params,
   searchParams,
@@ -94,6 +98,9 @@ export async function generateMetadata({
 // Page Component
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Renders a barcode-based passport page using the persisted theme or demo fallback.
+ */
 export default async function BarcodeDPPPage({
   params,
   searchParams,
@@ -130,9 +137,16 @@ export default async function BarcodeDPPPage({
   // Use brand passport from API, fall back to demo passport
   const passport: Passport = data.brandPassport ?? demoPassport;
 
-  const googleFontsUrl = data.googleFontsUrl ?? "";
-  const fontFaceCSS = generateFontFaceCSS(passport.tokens.fonts);
+  const googleFontsUrl =
+    data.googleFontsUrl ??
+    generateGoogleFontsUrlFromTypography(
+      passport.tokens.typography,
+      passport.tokens.fonts,
+    );
   const stylesheetUrl = data.stylesheetUrl ?? undefined;
+  const inlineStylesheet = stylesheetUrl
+    ? ""
+    : buildPassportStylesheet(passport.tokens);
 
   const productData = transformSnapshotToDppData(data.dppData);
 
@@ -150,9 +164,9 @@ export default async function BarcodeDPPPage({
         </>
       )}
 
-      {fontFaceCSS && (
+      {inlineStylesheet && (
         // biome-ignore lint/security/noDangerouslySetInnerHtml: CSS is generated server-side from trusted theme configuration
-        <style dangerouslySetInnerHTML={{ __html: fontFaceCSS }} />
+        <style dangerouslySetInnerHTML={{ __html: inlineStylesheet }} />
       )}
 
       {stylesheetUrl && <link rel="stylesheet" href={stylesheetUrl} />}

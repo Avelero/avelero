@@ -4,6 +4,7 @@
  * Pure function — SSR-safe, no hooks. Call directly in server component bodies.
  */
 
+import { getFontFallback } from "@v1/selections/fonts";
 import type {
   ColorTokens,
   Passport,
@@ -34,13 +35,32 @@ function resolveTypescale(
   "fontFamily" | "fontSize" | "fontWeight" | "lineHeight" | "letterSpacing"
 > {
   return {
-    fontFamily: scale.fontFamily,
+    fontFamily: `"${scale.fontFamily}", ${getFontFallback(scale.fontFamily)}`,
     fontSize: `${scale.fontSize / 16}rem`,
     fontWeight: scale.fontWeight,
     lineHeight: scale.lineHeight,
     letterSpacing:
       scale.letterSpacing === 0 ? undefined : `${scale.letterSpacing}px`,
   };
+}
+
+/** Resolve detached typography overrides on top of an attached typescale. */
+function applyTypographyOverrides(
+  css: React.CSSProperties,
+  override: StyleOverride,
+): void {
+  if (override.fontSize !== undefined) {
+    css.fontSize = `${override.fontSize / 16}rem`;
+  }
+  if (override.fontWeight !== undefined) {
+    css.fontWeight = override.fontWeight;
+  }
+  if (override.lineHeight !== undefined) {
+    css.lineHeight = override.lineHeight;
+  }
+  if (override.letterSpacing !== undefined) {
+    css.letterSpacing = `${override.letterSpacing}px`;
+  }
 }
 
 /** Resolve a single StyleOverride into CSSProperties. */
@@ -57,6 +77,8 @@ function resolveOverride(
   const bg = resolveColor(override.backgroundColor, tokens.colors);
   if (bg) css.backgroundColor = bg;
 
+  if (override.boxShadow) css.boxShadow = override.boxShadow;
+
   const bc = resolveColor(override.borderColor, tokens.colors);
   if (bc) css.borderColor = bc;
 
@@ -65,6 +87,7 @@ function resolveOverride(
     const scale = tokens.typography[override.typescale];
     if (scale) Object.assign(css, resolveTypescale(scale));
   }
+  applyTypographyOverrides(css, override);
 
   // Text
   if (override.textTransform) css.textTransform = override.textTransform;

@@ -1,11 +1,11 @@
 /**
  * Component Registry - Fixed Component Tree
  *
- * Contains only the fixed structural components (Header, Footer) that are
+ * Contains only the fixed structural components (Header, Product Image, Footer) that are
  * always rendered and not part of the layout zone system.
  *
- * Style paths are relative to passport.header.styles / passport.footer.styles.
- * Content paths are relative to passport.header / passport.footer.
+ * Style paths are relative to passport.header.styles / passport.productImage.styles /
+ * passport.footer.styles. Content paths are relative to passport.header / passport.footer.
  */
 
 import { CAPITALIZATION_OPTIONS } from "./constants";
@@ -23,6 +23,11 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         type: "color",
         path: "container.backgroundColor",
         label: "Background",
+      },
+      {
+        type: "color",
+        path: "container.borderColor",
+        label: "Border Color",
       },
     ],
     configFields: [
@@ -42,7 +47,43 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
             path: "textLogo.color",
             label: "Color",
           },
+          {
+            type: "typescale",
+            path: "textLogo.typescale",
+            label: "Typescale",
+          },
+          {
+            type: "select",
+            path: "textLogo.textTransform",
+            label: "Capitalization",
+            options: CAPITALIZATION_OPTIONS,
+          },
         ],
+      },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // PRODUCT IMAGE
+  // -------------------------------------------------------------------------
+  {
+    id: "productImage",
+    displayName: "Product Image",
+    styleFields: [
+      {
+        type: "color",
+        path: "frame.borderColor",
+        label: "Border Color",
+      },
+      {
+        type: "border",
+        path: "frame.borderWidth",
+        label: "Border Width",
+      },
+      {
+        type: "radius",
+        path: "frame.borderRadius",
+        label: "Border Radius",
       },
     ],
   },
@@ -58,6 +99,11 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         type: "color",
         path: "container.backgroundColor",
         label: "Background",
+      },
+      {
+        type: "color",
+        path: "container.borderColor",
+        label: "Border Color",
       },
     ],
     configFields: [
@@ -147,6 +193,12 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
             type: "typescale",
             path: "socialIcon.typescale",
             label: "Typescale",
+          },
+          {
+            type: "select",
+            path: "socialIcon.textTransform",
+            label: "Capitalization",
+            options: CAPITALIZATION_OPTIONS,
           },
         ],
       },

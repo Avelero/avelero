@@ -3,11 +3,17 @@
 import { Icons } from "@v1/ui/icons";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { resolveStyles } from "../../lib/resolve-styles";
 import { formatPrice } from "../../utils/formatting";
 import type { SectionProps } from "../registry";
 
-export function CarouselSection({ section, tokens, content }: SectionProps) {
+export function CarouselSection({
+  section,
+  tokens,
+  zoneId,
+  content,
+}: SectionProps) {
   const s = resolveStyles(section.styles, tokens);
   const products = content?.similarProducts ?? [];
 
@@ -25,6 +31,12 @@ export function CarouselSection({ section, tokens, content }: SectionProps) {
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef<number | undefined>(undefined);
+  const select = createSectionSelectionAttributes(section.id, zoneId);
+  const titleSelection = select("carousel.title");
+  const navButtonSelection = select("carousel.navButton");
+  const productImageSelection = select("carousel.productImage", "overlay");
+  const productNameSelection = select("carousel.productName");
+  const productPriceSelection = select("carousel.productPrice");
 
   const updateEndSpacer = useCallback(() => {
     if (!contentRef.current || !endSpacerRef.current) return;
@@ -99,7 +111,9 @@ export function CarouselSection({ section, tokens, content }: SectionProps) {
   return (
     <div className="my-3x w-full">
       <div className="max-w-container mx-auto px-sm @3xl:px-lg">
-        <h6 style={s.title}>Similar Items</h6>
+        <h6 {...titleSelection} style={s.title}>
+          Similar Items
+        </h6>
       </div>
 
       <div className="relative pt-sm">
@@ -119,6 +133,7 @@ export function CarouselSection({ section, tokens, content }: SectionProps) {
                     rel="noopener noreferrer"
                   >
                     <div
+                      {...productImageSelection}
                       className="relative w-full overflow-hidden border"
                       style={{ aspectRatio: "3/4", ...s.productImage }}
                     >
@@ -135,6 +150,7 @@ export function CarouselSection({ section, tokens, content }: SectionProps) {
                       <div className="flex gap-xs" style={s.productDetails}>
                         {showTitle && (
                           <div
+                            {...productNameSelection}
                             className="line-clamp-2 min-w-0"
                             style={s.productName}
                           >
@@ -142,7 +158,11 @@ export function CarouselSection({ section, tokens, content }: SectionProps) {
                           </div>
                         )}
                         {showPrice && (
-                          <div className="flex-shrink-0" style={s.productPrice}>
+                          <div
+                            {...productPriceSelection}
+                            className="flex-shrink-0"
+                            style={s.productPrice}
+                          >
                             {formatPrice(
                               product.price,
                               product.currency,
@@ -163,6 +183,7 @@ export function CarouselSection({ section, tokens, content }: SectionProps) {
         {showNavButtons && (
           <>
             <button
+              {...navButtonSelection}
               type="button"
               onClick={() => scroll("left")}
               className={`nav-button-fade border hidden @3xl:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollLeft ? "@3xl:hidden" : ""} ${isScrolling ? "fading" : ""}`}
@@ -172,6 +193,7 @@ export function CarouselSection({ section, tokens, content }: SectionProps) {
               <Icons.ChevronLeft className="w-4 h-4" />
             </button>
             <button
+              {...navButtonSelection}
               type="button"
               onClick={() => scroll("right")}
               className={`nav-button-fade border hidden @3xl:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollRight ? "@3xl:hidden" : ""} ${isScrolling ? "fading" : ""}`}

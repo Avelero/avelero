@@ -1,5 +1,17 @@
 "use client";
 
+import {
+  type CSSProperties,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { DEFAULT_PRODUCT_IMAGE_STYLES } from "../../lib/default-product-image";
+import { getDppSelectableAttributes } from "../../lib/editor-selection";
+import { resolveStyles } from "../../lib/resolve-styles";
+import type { Passport } from "../../types/passport";
+
 /**
  * Product image renderer for the DPP content layout.
  *
@@ -24,13 +36,6 @@
  *   </NftMediaContainer>
  * </MediaContainer>
  */
-import {
-  type CSSProperties,
-  type RefObject,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
 
 // --- Types (from Foundation.app) ---
 
@@ -47,6 +52,10 @@ interface AssetSummary extends Dimensions {
 interface LoadedImageDetails extends AssetSummary {
   src: string;
 }
+
+type CssVariableProperties = CSSProperties & {
+  [key: `--${string}`]: string | number | undefined;
+};
 
 const BASE_IMAGE_STYLE: CSSProperties = {
   backgroundColor: "var(--background)",
@@ -345,6 +354,63 @@ function useMediaContainerSize(ref: RefObject<HTMLDivElement | null>): {
   return size;
 }
 
+function findNearestScrollContainer(
+  element: HTMLElement | null,
+): HTMLElement | null {
+  // Walk ancestors until we find the scrolling box that sticky positioning uses.
+  let currentElement = element?.parentElement ?? null;
+
+  while (currentElement) {
+    const { overflowY } = window.getComputedStyle(currentElement);
+    const isScrollContainer = ["auto", "overlay", "scroll"].includes(overflowY);
+
+    if (isScrollContainer) {
+      return currentElement;
+    }
+
+    currentElement = currentElement.parentElement;
+  }
+
+  return null;
+}
+
+function useAvailableViewportHeight(
+  ref: RefObject<HTMLElement | null>,
+): number | null {
+  // Resolve the local scrolling viewport so embedded previews size like the live page.
+  const [height, setHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Prefer the nearest scroll container height and fall back to the window viewport.
+    const element = ref.current;
+    if (!element) return;
+
+    const scrollContainer = findNearestScrollContainer(element);
+    const updateHeight = () => {
+      const nextHeight = scrollContainer?.clientHeight ?? window.innerHeight;
+      setHeight((previous) =>
+        previous === nextHeight ? previous : nextHeight,
+      );
+    };
+
+    updateHeight();
+
+    if (scrollContainer) {
+      const observer = new ResizeObserver(() => {
+        updateHeight();
+      });
+
+      observer.observe(scrollContainer);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, [ref]);
+
+  return height;
+}
+
 function useBalancedMedia(options: {
   asset: AssetSummary | null;
   containerRef: RefObject<HTMLDivElement | null>;
@@ -427,20 +493,27 @@ function useBalancedMedia(options: {
 // --- Component ---
 
 interface Props {
+  productImage: Passport["productImage"] | undefined;
+  tokens: Passport["tokens"];
   image: string;
   alt: string;
 }
 
-export function ProductImage({ image, alt }: Props) {
+export function ProductImage({ productImage, tokens, image, alt }: Props) {
   // Mirror Foundation's media pipeline: outer measurement, gated preload, then inner balancing.
   const mediaContainerRef = useRef<HTMLDivElement>(null);
   const nftMediaRef = useRef<HTMLDivElement>(null);
+  const availableViewportHeight = useAvailableViewportHeight(mediaContainerRef);
   const hasIntersected = useHasIntersected(mediaContainerRef, {
     threshold: 0.3,
   });
   const loadedMedia = useLoadedPreviewMedia(image || null, {
     enabled: hasIntersected,
   });
+  const s = resolveStyles(
+    productImage?.styles ?? DEFAULT_PRODUCT_IMAGE_STYLES,
+    tokens,
+  );
   const mediaContainerSize = useMediaContainerSize(mediaContainerRef);
   const balancer = useBalancedMedia({
     asset: loadedMedia,
@@ -473,13 +546,30 @@ export function ProductImage({ image, alt }: Props) {
     mediaShape === "wider"
       ? { ...BASE_IMAGE_STYLE, height: "auto" }
       : BASE_IMAGE_STYLE;
+  const imageFrameStyle: CSSProperties = {
+    boxSizing: "border-box",
+    display: "block",
+    overflow: "hidden",
+    ...s.frame,
+  };
 
   const transform = isMediaLoaded
     ? `scale(${balancer.mediaTransformScale}) translateY(0%)`
     : `scale(${balancer.mediaTransformScale - 0.02}) translateY(2%)`;
+  const mediaContainerStyle: CssVariableProperties = {
+    flexGrow: 1,
+    "--dpp-available-viewport-height":
+      availableViewportHeight !== null
+        ? `${availableViewportHeight}px`
+        : undefined,
+  };
+  const productImageSelection = getDppSelectableAttributes({
+    kind: "fixed",
+    editorId: "productImage",
+  });
 
   return (
-    <div className="product__image w-full">
+    <div className="w-full px-4 @3xl:px-0">
       {image ? (
         /**
          * MediaContainer (from MintLayout.MediaContainer)
@@ -487,13 +577,13 @@ export function ProductImage({ image, alt }: Props) {
          * Foundation.app styles:
          *   mobile:  padding: 5%, height: 50vh
          *   desktop: paddingTop/Bottom: 5%, paddingLeft: 0, paddingRight: $8,
-         *            height: calc(100vh - navHeight)
+         *            height: calc(viewportHeight - navHeight)
          *   large:   NftMedia maxHeight: 75vh
          */
         <div
           ref={mediaContainerRef}
-          className="flex items-center justify-center p-[5%] h-[50vh] @3xl:h-[calc(100vh-65px)] @3xl:py-[5%] @3xl:px-0"
-          style={{ flexGrow: 1 }}
+          className="flex items-center justify-center p-[5%] h-[50vh] @3xl:h-[calc(var(--dpp-available-viewport-height,_100vh)-var(--header-height))] @3xl:py-[5%] @3xl:px-0"
+          style={mediaContainerStyle}
         >
           {/**
            * NftMediaContainer (from NftMedia)
@@ -504,7 +594,7 @@ export function ProductImage({ image, alt }: Props) {
            */}
           <div
             ref={nftMediaRef}
-            className="nft-media relative flex items-center justify-center"
+            className="relative flex items-center justify-center"
             style={{
               flexGrow: 1,
               aspectRatio: mediaContainerSize.aspectRatio ?? undefined,
@@ -525,7 +615,11 @@ export function ProductImage({ image, alt }: Props) {
               }}
             >
               {/** Media.Tint — visual wrapper */}
-              <div>
+              <div
+                {...productImageSelection}
+                className="product__image"
+                style={imageFrameStyle}
+              >
                 {loadedMedia ? (
                   <img
                     src={loadedMedia.src}
@@ -542,12 +636,13 @@ export function ProductImage({ image, alt }: Props) {
         </div>
       ) : (
         <div
-          className="flex min-h-[240px] w-full items-center justify-center"
-          style={{ backgroundColor: "var(--accent)" }}
+          {...productImageSelection}
+          className="product__image flex min-h-[240px] w-full items-center justify-center"
+          style={{ ...imageFrameStyle, backgroundColor: "var(--accent)" }}
         >
           <span
             className="type-body-sm"
-            style={{ color: "var(--muted-foreground)" }}
+            style={{ color: "var(--muted-light-foreground)" }}
           >
             No product image available
           </span>

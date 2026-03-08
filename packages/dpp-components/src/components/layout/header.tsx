@@ -1,49 +1,44 @@
 /**
  * DPP header with optional brand logo image.
  */
-import type { ThemeConfig } from "@v1/dpp-components";
 import Image from "next/image";
+import { resolveStyles } from "../../lib/resolve-styles";
+import type { Passport } from "../../types/passport";
 
 interface Props {
-  themeConfig: ThemeConfig;
+  header: Passport["header"];
+  tokens: Passport["tokens"];
   brandName: string;
   position?: "fixed" | "sticky";
 }
 
-export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
-  const { branding } = themeConfig;
+export function Header({
+  header,
+  tokens,
+  brandName,
+  position = "fixed",
+}: Props) {
+  const s = resolveStyles(header.styles, tokens);
+  const logoUrl = header.logoUrl;
   const logoHeight = 24;
 
-  // Next.js blocks image optimization for private IPs (security feature)
-  // Use unoptimized for local development URLs
-  const logoUrl = branding.headerLogoUrl;
   const isLocalDev =
     logoUrl?.includes("127.0.0.1") || logoUrl?.includes("localhost:");
 
-  const getPositionProps = () => {
-    switch (position) {
-      case "fixed":
-        return {
-          className: "fixed top-0 left-0 right-0 w-full z-50",
-          style: undefined,
-        };
-      case "sticky":
-        return {
-          className: "sticky top-0 w-full z-50",
-          style: { backgroundColor: "var(--background)" },
-        };
-    }
-  };
+  const positionClass =
+    position === "fixed"
+      ? "fixed top-0 left-0 right-0 w-full z-50"
+      : "sticky top-0 w-full z-50";
 
-  const positionProps = getPositionProps();
+  const positionStyle =
+    position === "sticky"
+      ? { backgroundColor: "var(--background)" }
+      : undefined;
 
   return (
-    <div
-      className={`header ${positionProps.className}`}
-      style={positionProps.style}
-    >
+    <div className={positionClass} style={{ ...s.container, ...positionStyle }}>
       <div
-        className="header__section flex items-center justify-center w-full border-b"
+        className="flex items-center justify-center w-full border-b"
         style={{ padding: "20px 0" }}
       >
         {logoUrl ? (
@@ -59,8 +54,7 @@ export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
           />
         ) : (
           <span
-            className="header__text-logo leading-[100%]"
-            style={{ fontSize: logoHeight }}
+            style={{ fontSize: logoHeight, lineHeight: "100%", ...s.textLogo }}
           >
             {brandName}
           </span>

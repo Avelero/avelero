@@ -46,7 +46,10 @@ export const brandBilling = pgTable(
       "brand_billing_mode_check",
       sql`billing_mode IS NULL OR billing_mode = ANY (ARRAY['stripe_checkout'::text, 'stripe_invoice'::text])`,
     ),
-    check("brand_billing_plan_currency_check", sql`char_length(plan_currency) = 3`),
+    check(
+      "brand_billing_plan_currency_check",
+      sql`char_length(plan_currency) = 3`,
+    ),
     check(
       "brand_billing_custom_monthly_price_check",
       sql`custom_monthly_price_cents IS NULL OR custom_monthly_price_cents >= 0`,
@@ -62,7 +65,9 @@ export const brandBilling = pgTable(
     uniqueIndex("brand_billing_stripe_subscription_id_unq")
       .on(table.stripeSubscriptionId)
       .where(sql`(stripe_subscription_id IS NOT NULL)`),
-    index("idx_brand_billing_override_expires").on(table.billingOverrideExpiresAt),
+    index("idx_brand_billing_override_expires").on(
+      table.billingOverrideExpiresAt,
+    ),
     pgPolicy("brand_billing_select_for_brand_members", {
       as: "permissive",
       for: "select",

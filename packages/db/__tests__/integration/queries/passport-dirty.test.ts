@@ -122,20 +122,24 @@ describe("Passport dirty infrastructure", () => {
       }),
       "Failed to create passport B",
     );
-    const passportsCAndD = await batchCreatePassportsForVariants(testDb, brandId, [
-      {
-        variantId: variantC.id,
-        upid: variantC.upid!,
-        sku: variantC.sku,
-        barcode: variantC.barcode,
-      },
-      {
-        variantId: variantD.id,
-        upid: variantD.upid!,
-        sku: variantD.sku,
-        barcode: variantD.barcode,
-      },
-    ]);
+    const passportsCAndD = await batchCreatePassportsForVariants(
+      testDb,
+      brandId,
+      [
+        {
+          variantId: variantC.id,
+          upid: variantC.upid!,
+          sku: variantC.sku,
+          barcode: variantC.barcode,
+        },
+        {
+          variantId: variantD.id,
+          upid: variantD.upid!,
+          sku: variantD.sku,
+          barcode: variantD.barcode,
+        },
+      ],
+    );
 
     const createdPassportIds = [
       passportA.id,
@@ -188,9 +192,9 @@ describe("Passport dirty infrastructure", () => {
 
     expect(result.marked).toBe(1);
     expect(result.passportIds).toEqual([publishedFixture.passport.id]);
-    expect(rows.find((row) => row.id === publishedFixture.passport.id)?.dirty).toBe(
-      true,
-    );
+    expect(
+      rows.find((row) => row.id === publishedFixture.passport.id)?.dirty,
+    ).toBe(true);
     expect(
       rows.find((row) => row.id === unpublishedFixture.passport.id)?.dirty,
     ).toBe(false);
@@ -305,14 +309,14 @@ describe("Passport dirty infrastructure", () => {
 
     expect(marked.marked).toBe(1);
     expect(marked.passportIds).toEqual([brandAPublished.passport.id]);
-    expect(rows.find((row) => row.id === brandAPublished.passport.id)?.dirty).toBe(
-      true,
-    );
+    expect(
+      rows.find((row) => row.id === brandAPublished.passport.id)?.dirty,
+    ).toBe(true);
     expect(
       rows.find((row) => row.id === brandAUnpublished.passport.id)?.dirty,
     ).toBe(false);
-    expect(rows.find((row) => row.id === brandBPublished.passport.id)?.dirty).toBe(
-      false,
-    );
+    expect(
+      rows.find((row) => row.id === brandBPublished.passport.id)?.dirty,
+    ).toBe(false);
   });
 });

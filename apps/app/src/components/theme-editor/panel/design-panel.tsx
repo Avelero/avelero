@@ -48,7 +48,7 @@ export function DesignPanel() {
     menuItemEdit,
     clearMenuItemEdit,
     getConfigValue,
-    themeConfigDraft,
+    passportDraft,
   } = useDesignEditor();
 
   const [activeTab, setActiveTab] = useState<TabType>("styles");
@@ -58,7 +58,7 @@ export function DesignPanel() {
   // Menu item editing sub-view
   if (menuItemEdit) {
     const items =
-      (getConfigValue(menuItemEdit.configPath) as
+      (getConfigValue(menuItemEdit.contentPath) as
         | Array<{ label: string; url: string }>
         | undefined) ?? [];
     const item = items[menuItemEdit.itemIndex];
@@ -74,7 +74,7 @@ export function DesignPanel() {
         <div className="flex-1 flex flex-col min-h-0">
           <MenuItemEditor
             menuType={menuItemEdit.menuType}
-            configPath={menuItemEdit.configPath}
+            configPath={menuItemEdit.contentPath}
             itemIndex={menuItemEdit.itemIndex}
             onBack={clearMenuItemEdit}
           />
@@ -85,7 +85,7 @@ export function DesignPanel() {
 
   // Resolve component for title and content rendering
   const resolved = navigation.componentId
-    ? resolveComponentForEditor(navigation.componentId, themeConfigDraft)
+    ? resolveComponentForEditor(navigation.componentId, passportDraft)
     : null;
 
   const title = getNavigationTitle(

@@ -7,7 +7,9 @@ import type {
 
 type LifecyclePhase = NonNullable<BrandAccessSnapshot["lifecycle"]>["phase"];
 
-function buildSnapshot(overrides: Partial<BrandAccessSnapshot> = {}): BrandAccessSnapshot {
+function buildSnapshot(
+  overrides: Partial<BrandAccessSnapshot> = {},
+): BrandAccessSnapshot {
   return {
     brandId: "brand-1",
     lifecycle: {

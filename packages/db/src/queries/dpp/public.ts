@@ -30,22 +30,9 @@ import { getVersionSnapshot, type DppSnapshot } from "../products/dpp-versions";
 // =============================================================================
 
 /**
- * Theme configuration structure (brand-level).
+ * Brand passport structure (brand-level theme/layout).
  */
-export interface ThemeConfig {
-  primaryColor?: string;
-  secondaryColor?: string;
-  accentColor?: string;
-  backgroundColor?: string;
-  textColor?: string;
-  fontFamily?: string;
-  [key: string]: unknown;
-}
-
-/**
- * Theme styles structure (brand-level).
- */
-export interface ThemeStyles {
+export interface BrandPassport {
   [key: string]: unknown;
 }
 
@@ -82,8 +69,7 @@ export interface PublicDppResult {
   /** Brand theme configuration */
   theme: {
     brandSlug: string | null;
-    config: ThemeConfig | null;
-    styles: ThemeStyles | null;
+    passport: BrandPassport | null;
     stylesheetPath: string | null;
     googleFontsUrl: string | null;
   } | null;
@@ -192,8 +178,11 @@ export async function getPublicDppByUpid(
       dirty: passport.dirty,
     },
     productStatus:
-      (passport.productStatus as "published" | "unpublished" | "scheduled" | null) ??
-      null,
+      (passport.productStatus as
+        | "published"
+        | "unpublished"
+        | "scheduled"
+        | null) ?? null,
     snapshot,
     version: version
       ? {
@@ -225,8 +214,7 @@ async function fetchBrandTheme(db: Database, brandId: string | null) {
   if (!brandId) {
     return {
       brandSlug: null,
-      config: null,
-      styles: null,
+      passport: null,
       stylesheetPath: null,
       googleFontsUrl: null,
     };
@@ -235,8 +223,7 @@ async function fetchBrandTheme(db: Database, brandId: string | null) {
   const [result] = await db
     .select({
       slug: brands.slug,
-      themeConfig: brandTheme.themeConfig,
-      themeStyles: brandTheme.themeStyles,
+      passport: brandTheme.passport,
       stylesheetPath: brandTheme.stylesheetPath,
       googleFontsUrl: brandTheme.googleFontsUrl,
     })
@@ -248,8 +235,7 @@ async function fetchBrandTheme(db: Database, brandId: string | null) {
   if (!result) {
     return {
       brandSlug: null,
-      config: null,
-      styles: null,
+      passport: null,
       stylesheetPath: null,
       googleFontsUrl: null,
     };
@@ -257,8 +243,7 @@ async function fetchBrandTheme(db: Database, brandId: string | null) {
 
   return {
     brandSlug: result.slug,
-    config: result.themeConfig as ThemeConfig | null,
-    styles: result.themeStyles as ThemeStyles | null,
+    passport: result.passport as BrandPassport | null,
     stylesheetPath: result.stylesheetPath,
     googleFontsUrl: result.googleFontsUrl,
   };

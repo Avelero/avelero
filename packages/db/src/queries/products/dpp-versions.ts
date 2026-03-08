@@ -214,14 +214,15 @@ function encodeCompressedSnapshot(
 /**
  * Split a stored compressed snapshot into its codec marker and payload bytes.
  */
-function decodeCompressedSnapshot(
-  compressedSnapshot: Buffer,
-): { codec: SnapshotCompressionCodec; payload: Buffer } {
+function decodeCompressedSnapshot(compressedSnapshot: Buffer): {
+  codec: SnapshotCompressionCodec;
+  payload: Buffer;
+} {
   // Preserve support for early rows that were written as raw zstd without a prefix.
   if (
-    compressedSnapshot.subarray(0, ZSTD_SNAPSHOT_PREFIX.length).equals(
-      ZSTD_SNAPSHOT_PREFIX,
-    )
+    compressedSnapshot
+      .subarray(0, ZSTD_SNAPSHOT_PREFIX.length)
+      .equals(ZSTD_SNAPSHOT_PREFIX)
   ) {
     return {
       codec: "zstd",
@@ -230,9 +231,9 @@ function decodeCompressedSnapshot(
   }
 
   if (
-    compressedSnapshot.subarray(0, BROTLI_SNAPSHOT_PREFIX.length).equals(
-      BROTLI_SNAPSHOT_PREFIX,
-    )
+    compressedSnapshot
+      .subarray(0, BROTLI_SNAPSHOT_PREFIX.length)
+      .equals(BROTLI_SNAPSHOT_PREFIX)
   ) {
     return {
       codec: "brotli",
@@ -274,7 +275,9 @@ function decompressSnapshotPayload(compressedSnapshot: Buffer): DppSnapshot {
   const { codec, payload } = decodeCompressedSnapshot(compressedSnapshot);
 
   if (codec === "brotli") {
-    return JSON.parse(zlib.brotliDecompressSync(payload).toString("utf8")) as DppSnapshot;
+    return JSON.parse(
+      zlib.brotliDecompressSync(payload).toString("utf8"),
+    ) as DppSnapshot;
   }
 
   if (!supportsZstdCompression()) {
@@ -283,7 +286,9 @@ function decompressSnapshotPayload(compressedSnapshot: Buffer): DppSnapshot {
     );
   }
 
-  return JSON.parse(zlib.zstdDecompressSync(payload).toString("utf8")) as DppSnapshot;
+  return JSON.parse(
+    zlib.zstdDecompressSync(payload).toString("utf8"),
+  ) as DppSnapshot;
 }
 
 /**
@@ -307,12 +312,10 @@ function versionSelection() {
 /**
  * Extract a JSON snapshot from either jsonb or compressed bytea storage.
  */
-export function getVersionSnapshot(
-  version: {
-    dataSnapshot: unknown | null;
-    compressedSnapshot: Buffer | null;
-  },
-): DppSnapshot | null {
+export function getVersionSnapshot(version: {
+  dataSnapshot: unknown | null;
+  compressedSnapshot: Buffer | null;
+}): DppSnapshot | null {
   // Prefer the active jsonb payload and fall back to decompression for history.
   if (version.dataSnapshot !== null) {
     return version.dataSnapshot as DppSnapshot;
@@ -443,7 +446,9 @@ export async function compressVersion(
     )
     .returning(versionSelection());
 
-  return (updated as StoredDppVersion | undefined) ?? (version as StoredDppVersion);
+  return (
+    (updated as StoredDppVersion | undefined) ?? (version as StoredDppVersion)
+  );
 }
 
 /**

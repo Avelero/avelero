@@ -12,7 +12,8 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const GENERIC_ERROR = "Unable to sign in. Please contact your administrator.";
 const AUTH_FAILED_ERROR = "Authentication failed. Please try again.";
-const RATE_LIMITED_ERROR = "Too many attempts. Please wait a moment and try again.";
+const RATE_LIMITED_ERROR =
+  "Too many attempts. Please wait a moment and try again.";
 
 function getQueryErrorMessage(errorCode: string | null): string | null {
   if (errorCode === "auth-denied") return GENERIC_ERROR;
@@ -29,7 +30,9 @@ export function GoogleSignin() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(queryErrorMessage);
+  const [errorMessage, setErrorMessage] = useState<string | null>(
+    queryErrorMessage,
+  );
 
   const hiddenGoogleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -62,7 +65,10 @@ export function GoogleSignin() {
           return;
         }
 
-        const redirectTo = new URL("/api/auth/callback", window.location.origin);
+        const redirectTo = new URL(
+          "/api/auth/callback",
+          window.location.origin,
+        );
         window.location.assign(redirectTo.toString());
       } catch {
         setErrorMessage(GENERIC_ERROR);
@@ -147,7 +153,9 @@ export function GoogleSignin() {
           aria-hidden
           className={cn(
             "absolute inset-0 z-10 overflow-hidden opacity-0",
-            !isReady || isSubmitting ? "pointer-events-none" : "pointer-events-auto",
+            !isReady || isSubmitting
+              ? "pointer-events-none"
+              : "pointer-events-auto",
           )}
         />
       </div>

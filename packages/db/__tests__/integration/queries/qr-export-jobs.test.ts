@@ -78,9 +78,9 @@ describe("QR Export Job CRUD", () => {
     expect(updated.totalVariants).toBe(18);
     expect(updated.eligibleVariants).toBe(10);
     expect(updated.variantsProcessed).toBe(6);
-    expect((updated.variantsProcessed ?? 0) <= (updated.eligibleVariants ?? 0)).toBe(
-      true,
-    );
+    expect(
+      (updated.variantsProcessed ?? 0) <= (updated.eligibleVariants ?? 0),
+    ).toBe(true);
   });
 
   it("persists completion fields and summary", async () => {
@@ -98,7 +98,9 @@ describe("QR Export Job CRUD", () => {
     });
 
     const finishedAt = new Date().toISOString();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000,
+    ).toISOString();
 
     const updated = await updateQrExportJobStatus(testDb, {
       jobId: created.id,
@@ -121,8 +123,12 @@ describe("QR Export Job CRUD", () => {
 
     expect(updated.status).toBe("COMPLETED");
     expect(updated.filePath).toContain(`${brandId}/${created.id}/`);
-    expect(updated.downloadUrl).toBe("https://storage.example.com/qr-export.csv");
-    expect(new Date(updated.expiresAt!).getTime()).toBe(new Date(expiresAt).getTime());
+    expect(updated.downloadUrl).toBe(
+      "https://storage.example.com/qr-export.csv",
+    );
+    expect(new Date(updated.expiresAt!).getTime()).toBe(
+      new Date(expiresAt).getTime(),
+    );
     expect(new Date(updated.finishedAt!).getTime()).toBe(
       new Date(finishedAt).getTime(),
     );

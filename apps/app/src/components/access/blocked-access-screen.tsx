@@ -20,7 +20,9 @@ const CONTENT: Record<
   },
 };
 
-export function BlockedAccessScreen({ reason }: { reason: BlockedAccessReason }) {
+export function BlockedAccessScreen({
+  reason,
+}: { reason: BlockedAccessReason }) {
   const content = CONTENT[reason];
 
   return (

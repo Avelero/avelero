@@ -46,11 +46,10 @@ export const productPassports = pgTable(
      * Reference to the brand that owns this passport.
      * Nullable after brand deletion to preserve passports and their QR URLs.
      */
-    brandId: uuid("brand_id")
-      .references(() => brands.id, {
-        onDelete: "set null",
-        onUpdate: "cascade",
-      }),
+    brandId: uuid("brand_id").references(() => brands.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
     /**
      * Reference to the working variant in the editable layer.
      * Becomes NULL if the variant is deleted (ON DELETE SET NULL).

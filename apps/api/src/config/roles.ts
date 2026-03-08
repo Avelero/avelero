@@ -27,10 +27,7 @@ export function isRole(value: unknown): value is Role {
 /**
  * Owner-equivalent roles with full brand administration permissions.
  */
-export const OWNER_EQUIVALENT_ROLES = [
-  ROLES.OWNER,
-  ROLES.AVELERO,
-] as const;
+export const OWNER_EQUIVALENT_ROLES = [ROLES.OWNER, ROLES.AVELERO] as const;
 
 /**
  * Type guard for owner-equivalent roles.

@@ -51,9 +51,7 @@ function formatPercentageForDisplay(value: number): string {
   // Show up to two decimals and strip trailing zeros.
   const rounded = roundPercentage(value);
   if (Object.is(rounded, -0)) return "0";
-  return rounded
-    .toFixed(MAX_PERCENTAGE_DECIMALS)
-    .replace(/\.?0+$/, "");
+  return rounded.toFixed(MAX_PERCENTAGE_DECIMALS).replace(/\.?0+$/, "");
 }
 
 function parsePercentageFromInput(value: string): number {
@@ -409,7 +407,8 @@ export function MaterialsSection({
     // Use functional update to read current displayMaterials
     setDisplayMaterials((prev) => {
       const prevById = new Map(prev.map((item) => [item.id, item]));
-      const editingPercentageMaterialId = editingPercentageMaterialIdRef.current;
+      const editingPercentageMaterialId =
+        editingPercentageMaterialIdRef.current;
       const enriched: Material[] = parentMaterials
         .map((pm) => {
           const materialInfo = materialOptions.find(
@@ -480,11 +479,7 @@ export function MaterialsSection({
 
       return [...enriched, ...pendingMaterials];
     });
-  }, [
-    parentMaterials,
-    materialOptions,
-    justCreatedMaterial,
-  ]);
+  }, [parentMaterials, materialOptions, justCreatedMaterial]);
 
   // Helper to sync display materials back to parent
   const syncToParent = React.useCallback(
@@ -759,7 +754,9 @@ export function MaterialsSection({
                       editingPercentageMaterialIdRef.current = material.id;
                       return;
                     }
-                    if (editingPercentageMaterialIdRef.current === material.id) {
+                    if (
+                      editingPercentageMaterialIdRef.current === material.id
+                    ) {
                       editingPercentageMaterialIdRef.current = null;
                     }
                   }}
@@ -778,7 +775,9 @@ export function MaterialsSection({
           <div className="bg-background px-4 py-2" />
           <div className="bg-background px-4 py-2 type-small font-medium flex justify-end items-center gap-[6px]">
             <span
-              className={cn(isTotalOverLimit ? "text-destructive" : "text-primary")}
+              className={cn(
+                isTotalOverLimit ? "text-destructive" : "text-primary",
+              )}
             >
               {totalPercentageLabel}
             </span>

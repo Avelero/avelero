@@ -49,7 +49,11 @@ function assertSafeTestDatabase(connectionString: string): void {
   const runningInCi = isTruthyEnv(process.env.CI);
   const allowDevDbTests = isTruthyEnv(process.env.ALLOW_DEV_DB_TESTS);
 
-  if (!runningInCi && !allowDevDbTests && isLocalDevDatabaseUrl(connectionString)) {
+  if (
+    !runningInCi &&
+    !allowDevDbTests &&
+    isLocalDevDatabaseUrl(connectionString)
+  ) {
     throw new Error(
       "Refusing to run tests against local development DB (127.0.0.1:54322/postgres). Run `bun run test` or `bun run test:isolated` for an isolated disposable DB. Set ALLOW_DEV_DB_TESTS=true only if you intentionally want to target dev DB.",
     );

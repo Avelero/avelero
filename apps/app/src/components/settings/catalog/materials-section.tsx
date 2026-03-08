@@ -17,7 +17,11 @@ import {
 } from "@/components/tables/settings/materials";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
@@ -28,7 +32,9 @@ function toTimestamp(value?: string | Date | null) {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
-function mapMaterialToSheetData(material: MaterialListItem | null): MaterialData | undefined {
+function mapMaterialToSheetData(
+  material: MaterialListItem | null,
+): MaterialData | undefined {
   if (!material) return undefined;
 
   return {
@@ -53,14 +59,23 @@ export function MaterialsSection() {
   const [searchValue, setSearchValue] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
-  const [editingMaterial, setEditingMaterial] = React.useState<MaterialListItem | null>(null);
-  const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
+  const [editingMaterial, setEditingMaterial] =
+    React.useState<MaterialListItem | null>(null);
+  const [deleteDialog, setDeleteDialog] =
+    React.useState<DeleteDialogState>(null);
 
-  const materialsQuery = useSuspenseQuery(trpc.catalog.materials.list.queryOptions(undefined));
-  const deleteMaterialMutation = useMutation(trpc.catalog.materials.delete.mutationOptions());
+  const materialsQuery = useSuspenseQuery(
+    trpc.catalog.materials.list.queryOptions(undefined),
+  );
+  const deleteMaterialMutation = useMutation(
+    trpc.catalog.materials.delete.mutationOptions(),
+  );
 
   const certificationsById = React.useMemo(() => {
-    const map = new Map<string, { title?: string | null; certification_code?: string | null }>();
+    const map = new Map<
+      string,
+      { title?: string | null; certification_code?: string | null }
+    >();
     for (const cert of certifications) {
       map.set(cert.id, {
         title: cert.title ?? null,
@@ -73,7 +88,9 @@ export function MaterialsSection() {
   const allRows = React.useMemo<MaterialTableRow[]>(() => {
     return [...(materialsQuery.data?.data ?? [])]
       .map((row) => {
-        const cert = row.certification_id ? certificationsById.get(row.certification_id) : undefined;
+        const cert = row.certification_id
+          ? certificationsById.get(row.certification_id)
+          : undefined;
         return {
           ...row,
           certification_title: cert?.title ?? null,
@@ -81,10 +98,12 @@ export function MaterialsSection() {
         };
       })
       .sort((a, b) => {
-        const updatedDiff = toTimestamp(b.updated_at) - toTimestamp(a.updated_at);
+        const updatedDiff =
+          toTimestamp(b.updated_at) - toTimestamp(a.updated_at);
         if (updatedDiff !== 0) return updatedDiff;
 
-        const createdDiff = toTimestamp(b.created_at) - toTimestamp(a.created_at);
+        const createdDiff =
+          toTimestamp(b.created_at) - toTimestamp(a.created_at);
         if (createdDiff !== 0) return createdDiff;
 
         return a.name.localeCompare(b.name);
@@ -112,7 +131,10 @@ export function MaterialsSection() {
     const allowed = new Set(allRows.map((row) => row.id));
     setSelectedIds((prev) => {
       const next = prev.filter((id) => allowed.has(id));
-      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+      if (
+        next.length === prev.length &&
+        next.every((id, index) => id === prev[index])
+      ) {
         return prev;
       }
       return next;
@@ -141,54 +163,65 @@ export function MaterialsSection() {
         await invalidateLists();
         toast.success("Material deleted");
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to delete material";
+        const message =
+          error instanceof Error ? error.message : "Failed to delete material";
         toast.error(message);
       }
     },
     [deleteMaterialMutation, invalidateLists],
   );
 
-  const deleteSelectedNow = React.useCallback(async (ids: string[]) => {
-    if (ids.length === 0) return;
+  const deleteSelectedNow = React.useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
 
-    const currentIds = [...ids];
-    const results = await Promise.allSettled(
-      currentIds.map((id) => deleteMaterialMutation.mutateAsync({ id })),
-    );
+      const currentIds = [...ids];
+      const results = await Promise.allSettled(
+        currentIds.map((id) => deleteMaterialMutation.mutateAsync({ id })),
+      );
 
-    const failures = results.filter((result) => result.status === "rejected");
-    const failedIds = results.flatMap((result, index) =>
-      result.status === "rejected" ? [currentIds[index]!] : [],
-    );
-    const successes = results.length - failures.length;
+      const failures = results.filter((result) => result.status === "rejected");
+      const failedIds = results.flatMap((result, index) =>
+        result.status === "rejected" ? [currentIds[index]!] : [],
+      );
+      const successes = results.length - failures.length;
 
-    if (successes > 0) {
-      setSelectedIds(failedIds);
-      await invalidateLists();
-    }
+      if (successes > 0) {
+        setSelectedIds(failedIds);
+        await invalidateLists();
+      }
 
-    if (failures.length === 0) {
-      setSelectedIds([]);
-      toast.success(`${successes} material${successes === 1 ? "" : "s"} deleted`);
-      return;
-    }
+      if (failures.length === 0) {
+        setSelectedIds([]);
+        toast.success(
+          `${successes} material${successes === 1 ? "" : "s"} deleted`,
+        );
+        return;
+      }
 
-    if (successes > 0) {
-      toast.error(`${failures.length} delete${failures.length === 1 ? "" : "s"} failed`);
-      return;
-    }
+      if (successes > 0) {
+        toast.error(
+          `${failures.length} delete${failures.length === 1 ? "" : "s"} failed`,
+        );
+        return;
+      }
 
-    const reason = failures[0];
-    toast.error(
-      reason && reason.status === "rejected" && reason.reason instanceof Error
-        ? reason.reason.message
-        : "Failed to delete selected materials",
-    );
-  }, [deleteMaterialMutation, invalidateLists]);
+      const reason = failures[0];
+      toast.error(
+        reason && reason.status === "rejected" && reason.reason instanceof Error
+          ? reason.reason.message
+          : "Failed to delete selected materials",
+      );
+    },
+    [deleteMaterialMutation, invalidateLists],
+  );
 
-  const handleDeleteMaterial = React.useCallback((material: MaterialListItem) => {
-    setDeleteDialog({ mode: "single", material });
-  }, []);
+  const handleDeleteMaterial = React.useCallback(
+    (material: MaterialListItem) => {
+      setDeleteDialog({ mode: "single", material });
+    },
+    [],
+  );
 
   const handleDeleteSelected = React.useCallback(() => {
     if (selectedIds.length === 0) return;

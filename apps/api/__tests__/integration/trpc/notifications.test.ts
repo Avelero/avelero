@@ -4,11 +4,7 @@ import "../../setup";
 import { beforeEach, describe, expect, it } from "bun:test";
 import { createNotification } from "@v1/db/queries/notifications";
 import * as schema from "@v1/db/schema";
-import {
-  createTestBrand,
-  createTestUser,
-  testDb,
-} from "@v1/db/testing";
+import { createTestBrand, createTestUser, testDb } from "@v1/db/testing";
 import type { AuthenticatedTRPCContext } from "../../../src/trpc/init";
 import { notificationsRouter } from "../../../src/trpc/routers/notifications";
 

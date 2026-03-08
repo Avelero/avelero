@@ -201,11 +201,7 @@ export function useBrandCatalog() {
         isDefault: v.sortOrder !== null || !!v.taxonomyValueId,
       }))
       .sort((a, b) => a.displayHint - b.displayHint);
-  }, [
-    taxonomyAttributes,
-    brandAttributes,
-    brandAttributeValuesByAttribute,
-  ]);
+  }, [taxonomyAttributes, brandAttributes, brandAttributeValuesByAttribute]);
 
   // Legacy: derive colors from "Color" attribute values (for filter components)
   const colors = React.useMemo(() => {
@@ -224,11 +220,7 @@ export function useBrandCatalog() {
       name: v.name,
       hex: extractHex(v.metadata),
     }));
-  }, [
-    taxonomyAttributes,
-    brandAttributes,
-    brandAttributeValuesByAttribute,
-  ]);
+  }, [taxonomyAttributes, brandAttributes, brandAttributeValuesByAttribute]);
 
   return {
     // System-level

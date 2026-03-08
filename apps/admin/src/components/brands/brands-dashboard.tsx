@@ -26,7 +26,13 @@ import {
   TableRow,
 } from "@v1/ui/table";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 
 const PHASES = [
   "demo",
@@ -80,7 +86,8 @@ function formatDate(value: string | null | undefined) {
 }
 
 function phaseBadgeClass(phase: string) {
-  if (phase === "active") return "bg-success-brand text-success-brand-foreground";
+  if (phase === "active")
+    return "bg-success-brand text-success-brand-foreground";
   if (phase === "trial") return "bg-accent-blue text-primary";
   if (phase === "past_due" || phase === "expired") {
     return "bg-accent-red text-destructive";
@@ -108,7 +115,9 @@ function EmptyPanel({
 }: {
   title: string;
   description: string;
-  action?: { label: string; onClick: () => void } | { label: string; href: string };
+  action?:
+    | { label: string; onClick: () => void }
+    | { label: string; href: string };
 }) {
   return (
     <div className="flex w-full h-[280px] items-center justify-center border border-border">
@@ -280,7 +289,9 @@ function PhaseFilterPopover({
             className="group-hover:bg-accent transition-none data-[state=open]:bg-accent"
           >
             <Icons.Filter className="h-[14px] w-[14px]" />
-            <span className="px-1">{hasActive ? selected?.label : "Filter"}</span>
+            <span className="px-1">
+              {hasActive ? selected?.label : "Filter"}
+            </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[220px]">
@@ -468,7 +479,9 @@ export function BrandsDashboard() {
                 ) : (
                   items.map((brand) => (
                     <TableRow key={brand.id}>
-                      <TableCell className="font-medium">{brand.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {brand.name}
+                      </TableCell>
                       <TableCell>
                         <span
                           className={`inline-flex items-center px-2 py-1 text-xs ${phaseBadgeClass(brand.phase)}`}

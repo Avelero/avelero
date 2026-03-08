@@ -45,7 +45,7 @@ interface CarouselProductsModalProps {
    */
   onOpenChange: (open: boolean) => void;
   /**
-   * Initial selection state from ThemeConfig
+   * Initial selection state from passport section content
    * Note: excludeIds being undefined vs empty array is significant:
    * - undefined = explicit mode (use includeIds)
    * - [] or [...] = all mode (all products minus excludeIds)

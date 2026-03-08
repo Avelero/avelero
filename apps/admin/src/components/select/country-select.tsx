@@ -99,7 +99,10 @@ export function CountrySelect({
             className="w-full justify-between data-[state=open]:bg-accent"
           >
             <span
-              className={cn("truncate px-1", isPlaceholder ? "text-tertiary" : "")}
+              className={cn(
+                "truncate px-1",
+                isPlaceholder ? "text-tertiary" : "",
+              )}
             >
               {displayValue}
             </span>

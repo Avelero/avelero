@@ -141,7 +141,9 @@ describe("DPP Version Compression", () => {
     const versions = await getVersionsForPassport(passport!.id);
     expect(versions).toHaveLength(2);
 
-    const currentVersion = versions.find((version) => version.versionNumber === 2);
+    const currentVersion = versions.find(
+      (version) => version.versionNumber === 2,
+    );
     const historicalVersion = versions.find(
       (version) => version.versionNumber === 1,
     );

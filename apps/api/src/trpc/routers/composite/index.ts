@@ -377,31 +377,33 @@ export const compositeRouter = createTRPCRouter({
     );
     const activeBrandRole = activeMembership?.role ?? null;
 
-    const [brands, invites, verifiedDomain, accessSnapshot] = await Promise.all([
-      mapWorkflowBrands(db, memberships),
-      (async () => {
-        if (!email) {
-          throw unauthorized("Email address required to list invites");
-        }
-        const inviteRows = await listPendingInvitesForEmail(db, email);
-        return inviteRows.map(mapInvite);
-      })(),
-      (async () => {
-        if (!activeBrandId) return null;
-        const [domain] = await db
-          .select({ id: brandCustomDomains.id })
-          .from(brandCustomDomains)
-          .where(
-            and(
-              eq(brandCustomDomains.brandId, activeBrandId),
-              eq(brandCustomDomains.status, "verified"),
-            ),
-          )
-          .limit(1);
-        return domain ?? null;
-      })(),
-      activeBrandId ? getBrandAccessSnapshot(db, activeBrandId) : null,
-    ]);
+    const [brands, invites, verifiedDomain, accessSnapshot] = await Promise.all(
+      [
+        mapWorkflowBrands(db, memberships),
+        (async () => {
+          if (!email) {
+            throw unauthorized("Email address required to list invites");
+          }
+          const inviteRows = await listPendingInvitesForEmail(db, email);
+          return inviteRows.map(mapInvite);
+        })(),
+        (async () => {
+          if (!activeBrandId) return null;
+          const [domain] = await db
+            .select({ id: brandCustomDomains.id })
+            .from(brandCustomDomains)
+            .where(
+              and(
+                eq(brandCustomDomains.brandId, activeBrandId),
+                eq(brandCustomDomains.status, "verified"),
+              ),
+            )
+            .limit(1);
+          return domain ?? null;
+        })(),
+        activeBrandId ? getBrandAccessSnapshot(db, activeBrandId) : null,
+      ],
+    );
 
     const resolvedAccess = accessSnapshot
       ? resolveBrandAccessDecision({
@@ -464,10 +466,11 @@ export const compositeRouter = createTRPCRouter({
         throw badRequest("Active brand does not match the requested workflow");
       }
 
-      const invitesPromise: Promise<WorkflowInviteList> =
-        isOwnerEquivalentRole(role)
-          ? fetchWorkflowInvites(db, brandId)
-          : Promise.resolve<WorkflowInviteList>([]);
+      const invitesPromise: Promise<WorkflowInviteList> = isOwnerEquivalentRole(
+        role,
+      )
+        ? fetchWorkflowInvites(db, brandId)
+        : Promise.resolve<WorkflowInviteList>([]);
 
       const [members, invites] = await Promise.all([
         fetchWorkflowMembers(db, brandId),

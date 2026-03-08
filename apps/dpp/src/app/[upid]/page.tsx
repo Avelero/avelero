@@ -1,22 +1,13 @@
-import { demoThemeConfig } from "@/demo-data/config";
+import { demoPassport } from "@/demo-data/config";
 import { fetchPassportDpp } from "@/lib/api";
 import { isValidUpid } from "@/lib/validation";
 import {
   ContentFrame,
   Footer,
   Header,
-  type ThemeConfig,
-  type ThemeStyles,
+  type Passport,
   generateFontFaceCSS,
 } from "@v1/dpp-components";
-/**
- * Passport DPP Route - UPID-based URL structure.
- * URL: /{upid}
- *
- * This route fetches DPP data from the immutable publishing layer (snapshots)
- * rather than the normalized working layer. The UPID is a 16-character
- * alphanumeric identifier that uniquely identifies a published passport.
- */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -31,7 +22,6 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { upid } = await params;
 
-  // Validate UPID format before querying
   if (!isValidUpid(upid)) {
     return {
       title: "Digital Product Passport",
@@ -55,7 +45,6 @@ export async function generateMetadata({
   const description = data.dppData.productAttributes.description;
   const attributes = data.dppData.productAttributes.attributes ?? [];
 
-  // Build title with variant info if available
   const variantInfo = attributes
     .map((attr) => attr.value)
     .filter(Boolean)
@@ -75,34 +64,27 @@ export async function generateMetadata({
 export default async function PassportDPPPage({ params }: PageProps) {
   const { upid } = await params;
 
-  // Validate UPID format before querying
   if (!isValidUpid(upid)) {
     notFound();
   }
 
-  // Fetch DPP data from API (using immutable publishing layer)
   const data = await fetchPassportDpp(upid);
 
   if (!data) {
     notFound();
   }
 
-  // Check if the passport is inactive (variant was deleted)
-  // Still show the last published version with an indicator
   const isInactive = data.passport?.isInactive ?? false;
-
-  // Extract brand name from manufacturer
   const brandName = data.dppData.productAttributes.manufacturer?.name ?? "";
 
-  // Extract theme configuration
-  const themeConfig: ThemeConfig = data.themeConfig ?? demoThemeConfig;
-  const themeStyles: ThemeStyles | undefined = data.themeStyles ?? undefined;
+  // Use brand passport from API, fall back to demo passport
+  const passport: Passport = data.brandPassport ?? demoPassport;
 
   // Google Fonts URL from stored theme
   const googleFontsUrl = data.googleFontsUrl ?? "";
 
   // Generate @font-face CSS from custom fonts when present
-  const fontFaceCSS = generateFontFaceCSS(themeStyles?.customFonts);
+  const fontFaceCSS = generateFontFaceCSS(passport.tokens.fonts);
 
   // Stylesheet URL is already resolved by the API
   const stylesheetUrl = data.stylesheetUrl ?? undefined;
@@ -112,7 +94,6 @@ export default async function PassportDPPPage({ params }: PageProps) {
 
   return (
     <>
-      {/* Server-side font preloading - eliminates FOUT (Flash of Unstyled Text) */}
       {googleFontsUrl && (
         <>
           <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -125,21 +106,21 @@ export default async function PassportDPPPage({ params }: PageProps) {
         </>
       )}
 
-      {/* Custom @font-face CSS for CDN-hosted fonts */}
       {fontFaceCSS && (
         // biome-ignore lint/security/noDangerouslySetInnerHtml: CSS is generated server-side from trusted theme configuration
         <style dangerouslySetInnerHTML={{ __html: fontFaceCSS }} />
       )}
 
-      {/* Supabase-hosted stylesheet overrides (if available) */}
       {stylesheetUrl && <link rel="stylesheet" href={stylesheetUrl} />}
 
       <div className="dpp-root min-h-screen flex flex-col @container">
-        {/* Header with spacer for fixed positioning */}
         <div style={{ height: "var(--header-height)" }} />
-        <Header themeConfig={themeConfig} brandName={brandName} />
+        <Header
+          header={passport.header}
+          tokens={passport.tokens}
+          brandName={brandName}
+        />
 
-        {/* Inactive passport indicator */}
         {isInactive && (
           <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mx-4 mt-4">
             <p className="font-medium">This passport is no longer active</p>
@@ -150,15 +131,17 @@ export default async function PassportDPPPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Main content */}
         <ContentFrame
+          passport={passport}
           data={productData}
           content={{ similarProducts: [] }}
-          themeConfig={themeConfig}
         />
 
-        {/* Footer */}
-        <Footer themeConfig={themeConfig} brandName={brandName} />
+        <Footer
+          footer={passport.footer}
+          tokens={passport.tokens}
+          brandName={brandName}
+        />
       </div>
     </>
   );
@@ -166,20 +149,15 @@ export default async function PassportDPPPage({ params }: PageProps) {
 
 /**
  * Transform the JSON-LD snapshot structure to the DppData format expected by components.
- *
- * The snapshot structure is optimized for storage and immutability, while DppData
- * is optimized for component rendering. This function bridges the gap.
  */
 function transformSnapshotToDppData(snapshot: PassportDppResponse["dppData"]) {
   return {
-    // JSON-LD context (pass through)
     "@context": snapshot["@context"],
     "@type": snapshot["@type"],
     "@id": snapshot["@id"],
 
-    // Product identifiers - map from snapshot format to DppData format
     productIdentifiers: {
-      productId: 0, // Not available in snapshot (internal ID)
+      productId: 0,
       productName: snapshot.productAttributes.name,
       productImage: snapshot.productAttributes.image ?? "",
       articleNumber:
@@ -187,16 +165,15 @@ function transformSnapshotToDppData(snapshot: PassportDppResponse["dppData"]) {
         snapshot.productIdentifiers.sku ??
         "",
       ean: snapshot.productIdentifiers.barcode ?? undefined,
-      gtin: undefined, // Not stored separately in snapshot
+      gtin: undefined,
     },
 
-    // Product attributes
     productAttributes: {
       description: snapshot.productAttributes.description ?? undefined,
       brand: snapshot.productAttributes.manufacturer?.name ?? "",
       category: snapshot.productAttributes.category
         ? {
-            categoryId: 0, // Not available in snapshot
+            categoryId: 0,
             category: snapshot.productAttributes.category,
           }
         : undefined,
@@ -207,7 +184,6 @@ function transformSnapshotToDppData(snapshot: PassportDppResponse["dppData"]) {
       weight: snapshot.productAttributes.weight ?? undefined,
     },
 
-    // Environmental data
     environmental: snapshot.environmental
       ? {
           waterUsage: snapshot.environmental.waterLiters ?? undefined,
@@ -215,11 +191,10 @@ function transformSnapshotToDppData(snapshot: PassportDppResponse["dppData"]) {
         }
       : undefined,
 
-    // Materials
     materials: snapshot.materials
       ? {
           composition: snapshot.materials.composition.map((mat) => ({
-            materialId: 0, // Not available in snapshot
+            materialId: 0,
             material: mat.material,
             percentage: mat.percentage ?? 0,
             recyclable: mat.recyclable ?? undefined,
@@ -231,8 +206,7 @@ function transformSnapshotToDppData(snapshot: PassportDppResponse["dppData"]) {
                   testingInstitute: mat.certification.testingInstitute
                     ? {
                         legalName:
-                          mat.certification.testingInstitute.instituteName ??
-                          "",
+                          mat.certification.testingInstitute.instituteName ?? "",
                         email:
                           mat.certification.testingInstitute.instituteEmail ??
                           undefined,
@@ -265,11 +239,10 @@ function transformSnapshotToDppData(snapshot: PassportDppResponse["dppData"]) {
         }
       : undefined,
 
-    // Manufacturing / Supply chain
     manufacturing: {
       manufacturer: snapshot.productAttributes.manufacturer
         ? {
-            manufacturerId: 0, // Not available in snapshot
+            manufacturerId: 0,
             name: snapshot.productAttributes.manufacturer.name,
             legalName:
               snapshot.productAttributes.manufacturer.legalName ?? undefined,
@@ -292,7 +265,7 @@ function transformSnapshotToDppData(snapshot: PassportDppResponse["dppData"]) {
         step.operators.map((op) => ({
           processStep: step.stepType,
           operator: {
-            operatorId: 0, // Not available in snapshot
+            operatorId: 0,
             name: op.displayName ?? undefined,
             legalName: op.legalName ?? "",
             email: op.email ?? undefined,
@@ -311,9 +284,6 @@ function transformSnapshotToDppData(snapshot: PassportDppResponse["dppData"]) {
   };
 }
 
-/**
- * Response type from fetchPassportDpp
- */
 interface PassportDppResponse {
   dppData: {
     "@context": {
@@ -398,20 +368,5 @@ interface PassportDppResponse {
       publishedAt: string;
       versionNumber: number;
     };
-  };
-  themeConfig: ThemeConfig | null;
-  themeStyles: ThemeStyles | null;
-  stylesheetUrl: string | null;
-  googleFontsUrl: string | null;
-  passport: {
-    upid: string;
-    isInactive: boolean;
-    version: {
-      id: string;
-      versionNumber: number;
-      schemaVersion: string;
-      publishedAt: string;
-      contentHash: string;
-    } | null;
   };
 }

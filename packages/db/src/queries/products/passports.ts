@@ -286,7 +286,10 @@ export async function clearDirtyFlag(
       updatedAt: now,
     })
     .where(
-      and(eq(productPassports.id, passportId), eq(productPassports.dirty, true)),
+      and(
+        eq(productPassports.id, passportId),
+        eq(productPassports.dirty, true),
+      ),
     )
     .returning({
       id: productPassports.id,

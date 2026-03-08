@@ -97,7 +97,10 @@ export async function addDomainToVercel(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error(`[Vercel] Failed to add domain ${domain}:`, message);
-    return { success: false, error: `Failed to connect to Vercel API: ${message}` };
+    return {
+      success: false,
+      error: `Failed to connect to Vercel API: ${message}`,
+    };
   }
 }
 
@@ -149,6 +152,9 @@ export async function removeDomainFromVercel(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error(`[Vercel] Failed to remove domain ${domain}:`, message);
-    return { success: false, error: `Failed to connect to Vercel API: ${message}` };
+    return {
+      success: false,
+      error: `Failed to connect to Vercel API: ${message}`,
+    };
   }
 }

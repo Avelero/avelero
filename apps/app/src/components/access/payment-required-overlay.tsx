@@ -15,8 +15,8 @@ export function PaymentRequiredOverlay() {
               Payment Required
             </h2>
             <p className="type-small text-secondary">
-              Your trial has ended. You can continue reviewing brand data, but write
-              actions are blocked until billing is updated.
+              Your trial has ended. You can continue reviewing brand data, but
+              write actions are blocked until billing is updated.
             </p>
           </div>
         </div>

@@ -151,7 +151,10 @@ type UpdateProcedureOptions<TInput extends { id: string }> = {
   }) => Promise<void> | void;
 };
 
-type DeleteProcedureOptions<TInput extends { id: string }, TBeforeDelete = undefined> = {
+type DeleteProcedureOptions<
+  TInput extends { id: string },
+  TBeforeDelete = undefined,
+> = {
   beforeDelete?: (args: {
     brandCtx: BrandContext;
     input: TInput;
@@ -239,28 +242,26 @@ function createCreateProcedure<TInput>(
   transformInput?: (input: any) => any,
   options?: CreateProcedureOptions<TInput>,
 ) {
-  return brandWriteProcedure
-    .input(schema)
-    .mutation(async ({ ctx, input }) => {
-      // Execute the create mutation and run any configured success hooks.
-      const brandCtx = ctx as BrandContext;
-      try {
-        const transformedInput = transformInput ? transformInput(input) : input;
-        const result = await createFn(
-          brandCtx.db,
-          brandCtx.brandId,
-          transformedInput,
-        );
-        await options?.afterSuccess?.({
-          brandCtx,
-          input: input as TInput,
-          result,
-        });
-        return createEntityResponse(result);
-      } catch (error) {
-        throw wrapError(error, `Failed to create ${resourceName}`);
-      }
-    });
+  return brandWriteProcedure.input(schema).mutation(async ({ ctx, input }) => {
+    // Execute the create mutation and run any configured success hooks.
+    const brandCtx = ctx as BrandContext;
+    try {
+      const transformedInput = transformInput ? transformInput(input) : input;
+      const result = await createFn(
+        brandCtx.db,
+        brandCtx.brandId,
+        transformedInput,
+      );
+      await options?.afterSuccess?.({
+        brandCtx,
+        input: input as TInput,
+        result,
+      });
+      return createEntityResponse(result);
+    } catch (error) {
+      throw wrapError(error, `Failed to create ${resourceName}`);
+    }
+  });
 }
 
 /**
@@ -289,35 +290,33 @@ function createUpdateProcedure<TInput extends { id: string }>(
   transformInput?: (input: any) => any,
   options?: UpdateProcedureOptions<TInput>,
 ) {
-  return brandWriteProcedure
-    .input(schema)
-    .mutation(async ({ ctx, input }) => {
-      // Execute the update mutation and run any configured success hooks.
-      const brandCtx = ctx as BrandContext;
-      const typedInput = input as TInput;
-      try {
-        const transformedInput = transformInput
-          ? transformInput(typedInput)
-          : typedInput;
-        const result = await updateFn(
-          brandCtx.db,
-          brandCtx.brandId,
-          typedInput.id,
-          transformedInput,
-        );
-        if (!result) {
-          throw notFound(resourceName, typedInput.id);
-        }
-        await options?.afterSuccess?.({
-          brandCtx,
-          input: typedInput,
-          result,
-        });
-        return createEntityResponse(result);
-      } catch (error) {
-        throw wrapError(error, `Failed to update ${resourceName}`);
+  return brandWriteProcedure.input(schema).mutation(async ({ ctx, input }) => {
+    // Execute the update mutation and run any configured success hooks.
+    const brandCtx = ctx as BrandContext;
+    const typedInput = input as TInput;
+    try {
+      const transformedInput = transformInput
+        ? transformInput(typedInput)
+        : typedInput;
+      const result = await updateFn(
+        brandCtx.db,
+        brandCtx.brandId,
+        typedInput.id,
+        transformedInput,
+      );
+      if (!result) {
+        throw notFound(resourceName, typedInput.id);
       }
-    });
+      await options?.afterSuccess?.({
+        brandCtx,
+        input: typedInput,
+        result,
+      });
+      return createEntityResponse(result);
+    } catch (error) {
+      throw wrapError(error, `Failed to update ${resourceName}`);
+    }
+  });
 }
 
 /**
@@ -342,36 +341,34 @@ function createDeleteProcedure<
   resourceName: string,
   options?: DeleteProcedureOptions<TInput, TBeforeDelete>,
 ) {
-  return brandWriteProcedure
-    .input(schema)
-    .mutation(async ({ ctx, input }) => {
-      // Resolve any pre-delete state before removing the resource.
-      const brandCtx = ctx as BrandContext;
-      const typedInput = input as TInput;
-      try {
-        const beforeDeleteData = await options?.beforeDelete?.({
-          brandCtx,
-          input: typedInput,
-        });
-        const result = await deleteFn(
-          brandCtx.db,
-          brandCtx.brandId,
-          typedInput.id,
-        );
-        if (!result) {
-          throw notFound(resourceName, typedInput.id);
-        }
-        await options?.afterSuccess?.({
-          brandCtx,
-          input: typedInput,
-          result,
-          beforeDeleteData,
-        });
-        return createEntityResponse(result);
-      } catch (error) {
-        throw wrapError(error, `Failed to delete ${resourceName}`);
+  return brandWriteProcedure.input(schema).mutation(async ({ ctx, input }) => {
+    // Resolve any pre-delete state before removing the resource.
+    const brandCtx = ctx as BrandContext;
+    const typedInput = input as TInput;
+    try {
+      const beforeDeleteData = await options?.beforeDelete?.({
+        brandCtx,
+        input: typedInput,
+      });
+      const result = await deleteFn(
+        brandCtx.db,
+        brandCtx.brandId,
+        typedInput.id,
+      );
+      if (!result) {
+        throw notFound(resourceName, typedInput.id);
       }
-    });
+      await options?.afterSuccess?.({
+        brandCtx,
+        input: typedInput,
+        result,
+        beforeDeleteData,
+      });
+      return createEntityResponse(result);
+    } catch (error) {
+      throw wrapError(error, `Failed to delete ${resourceName}`);
+    }
+  });
 }
 
 /**
@@ -481,7 +478,11 @@ function createCatalogResourceRouter<T>(
         ? {
             beforeDelete: resolveDeleteProductIds
               ? ({ brandCtx, input }) =>
-                  resolveDeleteProductIds(brandCtx.db, brandCtx.brandId, input.id)
+                  resolveDeleteProductIds(
+                    brandCtx.db,
+                    brandCtx.brandId,
+                    input.id,
+                  )
               : undefined,
             afterSuccess: async ({ brandCtx, beforeDeleteData }) => {
               await markCatalogProductsDirty(brandCtx, beforeDeleteData);
@@ -545,11 +546,12 @@ export const catalogRouter = createTRPCRouter({
       .mutation(async ({ ctx, input }) => {
         const brandCtx = ctx as BrandContext;
         try {
-          const variantReferenceCount = await countBrandAttributeVariantReferences(
-            brandCtx.db,
-            brandCtx.brandId,
-            input.id,
-          );
+          const variantReferenceCount =
+            await countBrandAttributeVariantReferences(
+              brandCtx.db,
+              brandCtx.brandId,
+              input.id,
+            );
           if (variantReferenceCount > 0) {
             throw businessRuleViolation(
               "This attribute can't be deleted because it is referenced on your variants",

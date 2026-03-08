@@ -510,7 +510,8 @@ export async function loadPassportDataForProducts(
   for (const row of variantRows) {
     variantIsGhostById.set(row.id, row.isGhost);
 
-    const productVariantIds = orderedVariantIdsByProduct.get(row.productId) ?? [];
+    const productVariantIds =
+      orderedVariantIdsByProduct.get(row.productId) ?? [];
     productVariantIds.push(row.id);
     orderedVariantIdsByProduct.set(row.productId, productVariantIds);
 

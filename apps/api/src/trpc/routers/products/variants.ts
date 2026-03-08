@@ -762,7 +762,8 @@ export const productVariantsRouter = createTRPCRouter({
           updatedAt: new Date().toISOString(),
         };
         if (input.sku !== undefined) updatePayload.sku = input.sku;
-        if (barcodeToStore !== undefined) updatePayload.barcode = barcodeToStore;
+        if (barcodeToStore !== undefined)
+          updatePayload.barcode = barcodeToStore;
 
         if (Object.keys(updatePayload).length > 1) {
           await db
@@ -1094,7 +1095,10 @@ export const productVariantsRouter = createTRPCRouter({
               }
             }
           } else {
-            normalizedBarcodes.push({ normalized: undefined, toStore: undefined });
+            normalizedBarcodes.push({
+              normalized: undefined,
+              toStore: undefined,
+            });
           }
         }
 
@@ -1511,11 +1515,16 @@ export const productVariantsRouter = createTRPCRouter({
           }
 
           // Update existing variants
-          for (const { variantId, input: variantInput, originalIndex } of toUpdate) {
+          for (const {
+            variantId,
+            input: variantInput,
+            originalIndex,
+          } of toUpdate) {
             const barcodeInfo = barcodeMap.get(originalIndex);
-            const barcodeToStore = variantInput.barcode !== undefined
-              ? (barcodeInfo?.toStore ?? null)
-              : undefined;
+            const barcodeToStore =
+              variantInput.barcode !== undefined
+                ? barcodeInfo?.toStore ?? null
+                : undefined;
 
             const updatePayload: Record<string, unknown> = {
               updatedAt: new Date().toISOString(),
@@ -1535,7 +1544,10 @@ export const productVariantsRouter = createTRPCRouter({
             }
 
             // Track metadata updates for passport sync
-            if (variantInput.sku !== undefined || barcodeToStore !== undefined) {
+            if (
+              variantInput.sku !== undefined ||
+              barcodeToStore !== undefined
+            ) {
               passportMetadataUpdates.set(variantId, {
                 sku: variantInput.sku,
                 barcode: barcodeToStore,
@@ -1567,7 +1579,11 @@ export const productVariantsRouter = createTRPCRouter({
 
           // Create passports for newly created variants within the same transaction.
           if (passportsToCreate.length > 0) {
-            await batchCreatePassportsForVariants(tx, brandId, passportsToCreate);
+            await batchCreatePassportsForVariants(
+              tx,
+              brandId,
+              passportsToCreate,
+            );
           }
         });
 

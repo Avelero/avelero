@@ -379,7 +379,10 @@ async function resolveRoleForBrand(
   const membership = await ctx.db.query.brandMembers.findFirst({
     columns: { role: true },
     where: (brandMembers, { and, eq }) =>
-      and(eq(brandMembers.brandId, brandId), eq(brandMembers.userId, ctx.user.id)),
+      and(
+        eq(brandMembers.brandId, brandId),
+        eq(brandMembers.userId, ctx.user.id),
+      ),
   });
 
   if (!membership || !isRole(membership.role)) {
@@ -460,7 +463,9 @@ export const platformAdminProcedure = protectedProcedure.use(
         userId: platformAdminAllowlist.userId,
       })
       .from(platformAdminAllowlist)
-      .where(sql`LOWER(TRIM(BOTH FROM ${platformAdminAllowlist.email})) = ${email}`)
+      .where(
+        sql`LOWER(TRIM(BOTH FROM ${platformAdminAllowlist.email})) = ${email}`,
+      )
       .limit(1);
 
     if (!allowlistRecord) {

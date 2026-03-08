@@ -72,7 +72,9 @@ export interface ResolvedNotificationEvent {
 
 interface NotificationEventDefinition<K extends NotificationEventKey> {
   audience: NotificationAudience;
-  resolve: (payload: NotificationEventPayloadMap[K]) => ResolvedNotificationEvent;
+  resolve: (
+    payload: NotificationEventPayloadMap[K],
+  ) => ResolvedNotificationEvent;
 }
 
 type NotificationEventDefinitions = {
@@ -166,9 +168,7 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
     resolve: (payload) => ({
       type: "invite_accepted",
       title: `${
-        payload.acceptedUserName ||
-        payload.acceptedUserEmail ||
-        "A new member"
+        payload.acceptedUserName || payload.acceptedUserEmail || "A new member"
       } joined ${payload.brandName ?? "your brand"}`,
       message: `Your team has a new member. ${ACTION_PLACEHOLDER}`,
       resourceType: "brand_invite",
@@ -191,4 +191,7 @@ export type PublishNotificationInput<K extends NotificationEventKey> = {
   actorUserId?: string | null;
 };
 
-export type NotificationInsertFromEvent = Omit<CreateNotificationParams, "userId">;
+export type NotificationInsertFromEvent = Omit<
+  CreateNotificationParams,
+  "userId"
+>;

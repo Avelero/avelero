@@ -3,7 +3,8 @@ import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
-export type TagListItem = RouterOutputs["catalog"]["tags"]["list"]["data"][number];
+export type TagListItem =
+  RouterOutputs["catalog"]["tags"]["list"]["data"][number];
 
 export interface DraftTagListItem {
   id: string;

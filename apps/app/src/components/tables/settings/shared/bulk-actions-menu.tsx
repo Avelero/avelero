@@ -23,7 +23,11 @@ export function BulkActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="brand" size="default" disabled={disabled || !hasSelection}>
+        <Button
+          variant="brand"
+          size="default"
+          disabled={disabled || !hasSelection}
+        >
           <Icons.Globe className="h-[14px] w-[14px]" />
           <span className="px-1">Actions</span>
           {hasSelection && (

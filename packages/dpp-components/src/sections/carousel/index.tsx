@@ -1,16 +1,23 @@
 "use client";
 
-import type { SimilarProduct, ThemeConfig } from "@v1/dpp-components";
 import { Icons } from "@v1/ui/icons";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ProductCard } from "./product-card";
+import { resolveStyles } from "../../lib/resolve-styles";
+import { formatPrice } from "../../utils/formatting";
+import type { SectionProps } from "../registry";
 
-interface Props {
-  products: SimilarProduct[];
-  themeConfig: ThemeConfig;
-}
+export function CarouselSection({ section, tokens, content }: SectionProps) {
+  const s = resolveStyles(section.styles, tokens);
+  const products = content?.similarProducts ?? [];
 
-export function ProductCarousel({ products, themeConfig }: Props) {
+  const showTitle = section.content.showTitle !== false;
+  const showPrice = section.content.showPrice !== false;
+  const roundPrice = section.content.roundPrice !== false;
+  const productCount = (section.content.productCount as number) ?? 6;
+
+  const displayProducts = products.slice(0, productCount);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const endSpacerRef = useRef<HTMLDivElement>(null);
@@ -19,20 +26,8 @@ export function ProductCarousel({ products, themeConfig }: Props) {
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef<number | undefined>(undefined);
 
-  // Get carousel config values with defaults
-  const showTitle = themeConfig.carousel?.showTitle ?? true;
-  const showPrice = themeConfig.carousel?.showPrice ?? true;
-  const roundPrice = themeConfig.carousel?.roundPrice ?? true;
-  const productCount = themeConfig.carousel?.productCount ?? 6;
-
-  // Limit products to the configured count
-  const displayProducts = products.slice(0, productCount);
-
-  // Update end spacer width based on content padding
   const updateEndSpacer = useCallback(() => {
     if (!contentRef.current || !endSpacerRef.current) return;
-
-    // Get the computed padding-inline and gap values from the content element
     const computedStyle = window.getComputedStyle(contentRef.current);
     const paddingInline =
       computedStyle.paddingInlineStart ||
@@ -40,72 +35,54 @@ export function ProductCarousel({ products, themeConfig }: Props) {
       computedStyle.paddingLeft;
     const paddingValue = Number.parseFloat(paddingInline);
     const gapValue = Number.parseFloat(computedStyle.gap) || 0;
-
-    // Set end spacer width to padding minus gap
     const spacerWidth = Math.max(paddingValue - gapValue, 1);
     endSpacerRef.current.style.width = `${spacerWidth}px`;
   }, []);
 
-  // Update button visibility based on scroll position
   const updateButtonVisibility = useCallback(() => {
     if (!scrollRef.current) return;
-
     const { scrollLeft, clientWidth, scrollWidth } = scrollRef.current;
-
     setCanScrollLeft(scrollLeft > 1);
     setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 5);
   }, []);
 
-  // Scroll handler - travels 2 cards + 2 gaps
   const scroll = useCallback((direction: "left" | "right") => {
     if (!scrollRef.current || !contentRef.current) return;
-
     const card = scrollRef.current.querySelector(
       ".product-item",
     ) as HTMLElement;
     if (!card) return;
-
-    // Get the computed gap value from the content element
     const computedStyle = window.getComputedStyle(contentRef.current);
     const gapValue = Number.parseFloat(computedStyle.gap) || 0;
-
-    // Calculate distance: 2 cards + 2 gaps
     const scrollDistance = (card.getBoundingClientRect().width + gapValue) * 2;
     const current = scrollRef.current.scrollLeft;
     const maxScroll =
       scrollRef.current.scrollWidth - scrollRef.current.clientWidth;
-
     const target =
       direction === "left"
         ? Math.max(current - scrollDistance, 0)
         : Math.min(current + scrollDistance, maxScroll);
-
     scrollRef.current.scrollTo({ left: target, behavior: "smooth" });
   }, []);
 
-  // Handle scroll events with debounced fade effect
   const handleScroll = useCallback(() => {
     updateButtonVisibility();
     setIsScrolling(true);
-
     if (scrollTimeoutRef.current) window.clearTimeout(scrollTimeoutRef.current);
-
-    scrollTimeoutRef.current = window.setTimeout(() => {
-      setIsScrolling(false);
-    }, 200);
+    scrollTimeoutRef.current = window.setTimeout(
+      () => setIsScrolling(false),
+      200,
+    );
   }, [updateButtonVisibility]);
 
-  // Setup event listeners
   useEffect(() => {
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
-
     updateEndSpacer();
     updateButtonVisibility();
     scrollContainer.addEventListener("scroll", handleScroll);
     window.addEventListener("resize", updateEndSpacer);
     window.addEventListener("resize", updateButtonVisibility);
-
     return () => {
       scrollContainer.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", updateEndSpacer);
@@ -115,63 +92,90 @@ export function ProductCarousel({ products, themeConfig }: Props) {
     };
   }, [handleScroll, updateButtonVisibility, updateEndSpacer]);
 
-  if (!displayProducts || displayProducts.length === 0) return null;
+  if (displayProducts.length === 0) return null;
 
   const showNavButtons = displayProducts.length > 3;
 
   return (
-    <div className="carousel my-3x w-full">
-      {/* Header container - keeps the title aligned with the page content */}
+    <div className="my-3x w-full">
       <div className="max-w-container mx-auto px-sm @3xl:px-lg">
-        <h6 className="carousel__title">Similar Items</h6>
+        <h6 style={s.title}>Similar Items</h6>
       </div>
 
-      {/* Carousel container */}
       <div className="relative pt-sm">
         <div className="w-full overflow-hidden">
           <div
             ref={scrollRef}
             className="overflow-x-auto scrollbar-none"
-            style={{
-              scrollBehavior: "smooth",
-            }}
+            style={{ scrollBehavior: "smooth" }}
           >
             <div ref={contentRef} className="carousel__content flex gap-sm">
               {displayProducts.map((product, index) => (
                 <div key={`${product.name}-${index}`} className="product-item">
-                  <ProductCard
-                    product={product}
-                    showTitle={showTitle}
-                    showPrice={showPrice}
-                    roundPrice={roundPrice}
-                  />
+                  <a
+                    href={product.url}
+                    className="flex flex-col gap-sm cursor-pointer w-full h-full"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <div
+                      className="relative w-full overflow-hidden border"
+                      style={{ aspectRatio: "3/4", ...s.productImage }}
+                    >
+                      <Image
+                        src={product.image}
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 280px"
+                        quality={90}
+                      />
+                    </div>
+                    {(showTitle || showPrice) && (
+                      <div className="flex gap-xs" style={s.productDetails}>
+                        {showTitle && (
+                          <div
+                            className="line-clamp-2 min-w-0"
+                            style={s.productName}
+                          >
+                            {product.name}
+                          </div>
+                        )}
+                        {showPrice && (
+                          <div className="flex-shrink-0" style={s.productPrice}>
+                            {formatPrice(
+                              product.price,
+                              product.currency,
+                              roundPrice,
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </a>
                 </div>
               ))}
-              {/* End spacer to ensure the last card can be fully scrolled */}
-              <div
-                ref={endSpacerRef}
-                className="carousel__end-spacer flex-shrink-0"
-              />
+              <div ref={endSpacerRef} className="flex-shrink-0" />
             </div>
           </div>
         </div>
 
-        {/* Navigation buttons */}
         {showNavButtons && (
           <>
             <button
               type="button"
               onClick={() => scroll("left")}
-              className={`nav-button-fade border carousel__nav-button carousel__nav-button--prev hidden @3xl:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollLeft ? "@3xl:hidden" : ""} ${isScrolling ? "fading" : ""}`}
+              className={`nav-button-fade border hidden @3xl:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollLeft ? "@3xl:hidden" : ""} ${isScrolling ? "fading" : ""}`}
+              style={{ ...s.navButton, left: "1rem" }}
               aria-label="Previous items"
             >
               <Icons.ChevronLeft className="w-4 h-4" />
             </button>
-
             <button
               type="button"
               onClick={() => scroll("right")}
-              className={`nav-button-fade border carousel__nav-button carousel__nav-button--next hidden @3xl:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollRight ? "@3xl:hidden" : ""} ${isScrolling ? "fading" : ""}`}
+              className={`nav-button-fade border hidden @3xl:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollRight ? "@3xl:hidden" : ""} ${isScrolling ? "fading" : ""}`}
+              style={{ ...s.navButton, right: "1rem" }}
               aria-label="Next items"
             >
               <Icons.ChevronRight className="w-4 h-4" />

@@ -53,9 +53,9 @@ describe("Notifications Publish", () => {
       [ownerUserId, memberUserId, newMemberUserId].sort(),
     );
 
-    expect(
-      await getUnreadNotificationCount(testDb, ownerUserId, brandId),
-    ).toBe(1);
+    expect(await getUnreadNotificationCount(testDb, ownerUserId, brandId)).toBe(
+      1,
+    );
     expect(
       await getUnreadNotificationCount(testDb, memberUserId, brandId),
     ).toBe(1);
@@ -127,9 +127,7 @@ describe("Notifications Publish", () => {
     const rows = await testDb
       .select({ id: schema.userNotifications.id })
       .from(schema.userNotifications)
-      .where(
-        eq(schema.userNotifications.resourceId, jobId),
-      );
+      .where(eq(schema.userNotifications.resourceId, jobId));
 
     expect(rows).toHaveLength(1);
   });

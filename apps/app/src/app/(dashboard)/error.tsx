@@ -40,7 +40,9 @@ export default function DashboardError({
         </div>
 
         {error.digest ? (
-          <p className="text-xs text-secondary mt-4">Error ID: {error.digest}</p>
+          <p className="text-xs text-secondary mt-4">
+            Error ID: {error.digest}
+          </p>
         ) : null}
       </div>
     </div>

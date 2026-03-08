@@ -5,7 +5,14 @@ import { brandBilling, brandLifecycle, brandPlan, brands } from "../../schema";
 export interface BrandAccessSnapshotRow {
   brandId: string;
   lifecycle: {
-    phase: "demo" | "trial" | "expired" | "active" | "past_due" | "suspended" | "cancelled";
+    phase:
+      | "demo"
+      | "trial"
+      | "expired"
+      | "active"
+      | "past_due"
+      | "suspended"
+      | "cancelled";
     trialEndsAt: string | null;
   } | null;
   billing: {
@@ -22,8 +29,9 @@ export interface BrandAccessSnapshotRow {
 }
 
 type LifecyclePhase = NonNullable<BrandAccessSnapshotRow["lifecycle"]>["phase"];
-type BillingOverride =
-  NonNullable<BrandAccessSnapshotRow["billing"]>["billingAccessOverride"];
+type BillingOverride = NonNullable<
+  BrandAccessSnapshotRow["billing"]
+>["billingAccessOverride"];
 
 export async function getBrandAccessSnapshot(
   db: Database,

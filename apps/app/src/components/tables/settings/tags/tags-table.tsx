@@ -65,7 +65,8 @@ export function TagsTable({
   React.useEffect(() => {
     if (!editingTagId) return;
     const exists =
-      (draftRow?.id === editingTagId) || rows.some((row) => row.id === editingTagId);
+      draftRow?.id === editingTagId ||
+      rows.some((row) => row.id === editingTagId);
     if (!exists) {
       setEditingTagId(null);
     }
@@ -73,19 +74,23 @@ export function TagsTable({
 
   React.useEffect(() => {
     if (!createDraftRequestNonce) return;
-    setDraftRow((prev) =>
-      prev ?? {
-        id: DRAFT_TAG_ROW_ID,
-        __draft: true,
-        name: "",
-        hex: "000000",
-        createdAt: null,
-        updatedAt: null,
-        products_count: 0,
-      },
+    setDraftRow(
+      (prev) =>
+        prev ?? {
+          id: DRAFT_TAG_ROW_ID,
+          __draft: true,
+          name: "",
+          hex: "000000",
+          createdAt: null,
+          updatedAt: null,
+          products_count: 0,
+        },
     );
     setEditingTagId(DRAFT_TAG_ROW_ID);
-    setFocusRequest({ tagId: DRAFT_TAG_ROW_ID, nonce: createDraftRequestNonce });
+    setFocusRequest({
+      tagId: DRAFT_TAG_ROW_ID,
+      nonce: createDraftRequestNonce,
+    });
   }, [createDraftRequestNonce]);
 
   const tableRows = React.useMemo<TagsTableRow[]>(
@@ -165,7 +170,13 @@ export function TagsTable({
           toast.error("Tag name is required");
         },
       }),
-    [editingTagId, focusRequest, handleChangeTagColor, handleCommitTagName, spawnDraftRow],
+    [
+      editingTagId,
+      focusRequest,
+      handleChangeTagColor,
+      handleCommitTagName,
+      spawnDraftRow,
+    ],
   );
 
   return (

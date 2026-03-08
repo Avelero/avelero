@@ -1,6 +1,10 @@
 "use client";
 
-import { AttributesTable, type AttributeGroupListItem, type AttributeValueListItem } from "@/components/tables/settings/attributes";
+import {
+  AttributesTable,
+  type AttributeGroupListItem,
+  type AttributeValueListItem,
+} from "@/components/tables/settings/attributes";
 import {
   DeleteConfirmationDialog,
   EntityTableShell,
@@ -8,7 +12,11 @@ import {
 } from "@/components/tables/settings/shared";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
@@ -16,7 +24,11 @@ import * as React from "react";
 
 type DeleteDialogState =
   | { mode: "single-group"; group: AttributeGroupListItem }
-  | { mode: "single-value"; group: AttributeGroupListItem; value: AttributeValueListItem }
+  | {
+      mode: "single-value";
+      group: AttributeGroupListItem;
+      value: AttributeValueListItem;
+    }
   | { mode: "bulk"; groupIds: string[]; valueIds: string[] }
   | null;
 
@@ -38,22 +50,40 @@ export function AttributesSection() {
   const [searchValue, setSearchValue] = React.useState("");
   const [selectedGroupIds, setSelectedGroupIds] = React.useState<string[]>([]);
   const [selectedValueIds, setSelectedValueIds] = React.useState<string[]>([]);
-  const [createGroupDraftRequestNonce, setCreateGroupDraftRequestNonce] = React.useState<number | null>(null);
-  const [collapsedGroupIds, setCollapsedGroupIds] = React.useState<Set<string>>(new Set());
+  const [createGroupDraftRequestNonce, setCreateGroupDraftRequestNonce] =
+    React.useState<number | null>(null);
+  const [collapsedGroupIds, setCollapsedGroupIds] = React.useState<Set<string>>(
+    new Set(),
+  );
   const hasInitializedCollapsedGroups = React.useRef(false);
   const seenGroupIds = React.useRef<Set<string>>(new Set());
   const lastDeleteDialogRef = React.useRef<DeleteDialogState>(null);
-  const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
+  const [deleteDialog, setDeleteDialog] =
+    React.useState<DeleteDialogState>(null);
 
-  const attributesQuery = useSuspenseQuery(trpc.catalog.attributes.listGrouped.queryOptions(undefined));
+  const attributesQuery = useSuspenseQuery(
+    trpc.catalog.attributes.listGrouped.queryOptions(undefined),
+  );
 
-  const createAttributeMutation = useMutation(trpc.catalog.attributes.create.mutationOptions());
-  const updateAttributeMutation = useMutation(trpc.catalog.attributes.update.mutationOptions());
-  const deleteAttributeMutation = useMutation(trpc.catalog.attributes.delete.mutationOptions());
+  const createAttributeMutation = useMutation(
+    trpc.catalog.attributes.create.mutationOptions(),
+  );
+  const updateAttributeMutation = useMutation(
+    trpc.catalog.attributes.update.mutationOptions(),
+  );
+  const deleteAttributeMutation = useMutation(
+    trpc.catalog.attributes.delete.mutationOptions(),
+  );
 
-  const createValueMutation = useMutation(trpc.catalog.attributeValues.create.mutationOptions());
-  const updateValueMutation = useMutation(trpc.catalog.attributeValues.update.mutationOptions());
-  const deleteValueMutation = useMutation(trpc.catalog.attributeValues.delete.mutationOptions());
+  const createValueMutation = useMutation(
+    trpc.catalog.attributeValues.create.mutationOptions(),
+  );
+  const updateValueMutation = useMutation(
+    trpc.catalog.attributeValues.update.mutationOptions(),
+  );
+  const deleteValueMutation = useMutation(
+    trpc.catalog.attributeValues.delete.mutationOptions(),
+  );
 
   const allGroups = React.useMemo(() => {
     const groups = attributesQuery.data?.data ?? [];
@@ -79,7 +109,10 @@ export function AttributesSection() {
   }, [attributesQuery.data]);
 
   const groupById = React.useMemo(
-    () => new Map<string, AttributeGroupListItem>(allGroups.map((group) => [group.id, group])),
+    () =>
+      new Map<string, AttributeGroupListItem>(
+        allGroups.map((group) => [group.id, group]),
+      ),
     [allGroups],
   );
 
@@ -87,7 +120,9 @@ export function AttributesSection() {
     () =>
       new Map<string, AttributeValueListItem>(
         allGroups.flatMap((group) =>
-          group.values.map((value: AttributeValueListItem) => [value.id, value] as const),
+          group.values.map(
+            (value: AttributeValueListItem) => [value.id, value] as const,
+          ),
         ),
       ),
     [allGroups],
@@ -102,8 +137,7 @@ export function AttributesSection() {
       const groupMatch = matchesTerm(group.name, term);
 
       const matchingValues = group.values.filter(
-        (value: AttributeValueListItem) =>
-          matchesTerm(value.name, term),
+        (value: AttributeValueListItem) => matchesTerm(value.name, term),
       );
 
       if (!groupMatch && matchingValues.length === 0) continue;
@@ -126,7 +160,10 @@ export function AttributesSection() {
     const allowed = new Set(allGroups.map((group) => group.id));
     setSelectedGroupIds((prev) => {
       const next = prev.filter((id) => allowed.has(id));
-      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+      if (
+        next.length === prev.length &&
+        next.every((id, index) => id === prev[index])
+      ) {
         return prev;
       }
       return next;
@@ -147,7 +184,10 @@ export function AttributesSection() {
     );
     setSelectedValueIds((prev) => {
       const next = prev.filter((id) => allowed.has(id));
-      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+      if (
+        next.length === prev.length &&
+        next.every((id, index) => id === prev[index])
+      ) {
         return prev;
       }
       return next;
@@ -194,7 +234,8 @@ export function AttributesSection() {
   const invalidateLists = React.useCallback(async () => {
     await invalidateSettingsEntityCaches({
       queryClient,
-      entityListQueryKey: trpc.catalog.attributes.listGrouped.queryKey(undefined),
+      entityListQueryKey:
+        trpc.catalog.attributes.listGrouped.queryKey(undefined),
       compositeCatalogQueryKey: trpc.composite.catalogContent.queryKey(),
     });
     await queryClient.invalidateQueries({
@@ -204,9 +245,7 @@ export function AttributesSection() {
 
   const patchAttributesGroupedCache = React.useCallback(
     (
-      updater: (
-        groups: AttributeGroupListItem[],
-      ) => AttributeGroupListItem[],
+      updater: (groups: AttributeGroupListItem[]) => AttributeGroupListItem[],
     ) => {
       const queryKey = trpc.catalog.attributes.listGrouped.queryKey(undefined);
       const previous = queryClient.getQueryData(queryKey);
@@ -239,7 +278,9 @@ export function AttributesSection() {
         await deleteAttributeMutation.mutateAsync({ id: group.id });
         await invalidateLists();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to delete attribute");
+        toast.error(
+          error instanceof Error ? error.message : "Failed to delete attribute",
+        );
       }
     },
     [deleteAttributeMutation, invalidateLists],
@@ -252,67 +293,77 @@ export function AttributesSection() {
         setSelectedValueIds((prev) => prev.filter((id) => id !== value.id));
         await invalidateLists();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to delete value");
+        toast.error(
+          error instanceof Error ? error.message : "Failed to delete value",
+        );
       }
     },
     [deleteValueMutation, invalidateLists],
   );
 
-  const deleteSelectedNow = React.useCallback(async (groupIds: string[], valueIds: string[]) => {
-    if (valueIds.length === 0 && groupIds.length === 0) return;
+  const deleteSelectedNow = React.useCallback(
+    async (groupIds: string[], valueIds: string[]) => {
+      if (valueIds.length === 0 && groupIds.length === 0) return;
 
-    const valueResults = await Promise.allSettled(
-      valueIds.map((id) => deleteValueMutation.mutateAsync({ id })),
-    );
-    const groupResults = await Promise.allSettled(
-      groupIds.map((id) => deleteAttributeMutation.mutateAsync({ id })),
-    );
+      const valueResults = await Promise.allSettled(
+        valueIds.map((id) => deleteValueMutation.mutateAsync({ id })),
+      );
+      const groupResults = await Promise.allSettled(
+        groupIds.map((id) => deleteAttributeMutation.mutateAsync({ id })),
+      );
 
-    const failedValueIds = valueResults.flatMap((result, index) =>
-      result.status === "rejected" ? [valueIds[index]!] : [],
-    );
-    const failedGroupIds = groupResults.flatMap((result, index) =>
-      result.status === "rejected" ? [groupIds[index]!] : [],
-    );
+      const failedValueIds = valueResults.flatMap((result, index) =>
+        result.status === "rejected" ? [valueIds[index]!] : [],
+      );
+      const failedGroupIds = groupResults.flatMap((result, index) =>
+        result.status === "rejected" ? [groupIds[index]!] : [],
+      );
 
-    const valueSuccesses = valueResults.length - failedValueIds.length;
-    const groupSuccesses = groupResults.length - failedGroupIds.length;
-    const totalSuccesses = valueSuccesses + groupSuccesses;
-    const totalFailures = failedValueIds.length + failedGroupIds.length;
+      const valueSuccesses = valueResults.length - failedValueIds.length;
+      const groupSuccesses = groupResults.length - failedGroupIds.length;
+      const totalSuccesses = valueSuccesses + groupSuccesses;
+      const totalFailures = failedValueIds.length + failedGroupIds.length;
 
-    if (totalSuccesses > 0) {
-      setSelectedValueIds(failedValueIds);
-      setSelectedGroupIds(failedGroupIds);
-      await invalidateLists();
-    }
+      if (totalSuccesses > 0) {
+        setSelectedValueIds(failedValueIds);
+        setSelectedGroupIds(failedGroupIds);
+        await invalidateLists();
+      }
 
-    if (totalFailures === 0) {
-      setSelectedValueIds([]);
-      setSelectedGroupIds([]);
-      return;
-    }
+      if (totalFailures === 0) {
+        setSelectedValueIds([]);
+        setSelectedGroupIds([]);
+        return;
+      }
 
-    if (totalSuccesses > 0) {
-      toast.error(`${totalFailures} delete${totalFailures === 1 ? "" : "s"} failed`);
-      return;
-    }
+      if (totalSuccesses > 0) {
+        toast.error(
+          `${totalFailures} delete${totalFailures === 1 ? "" : "s"} failed`,
+        );
+        return;
+      }
 
-    const firstFailure =
-      valueResults.find((result) => result.status === "rejected") ??
-      groupResults.find((result) => result.status === "rejected");
+      const firstFailure =
+        valueResults.find((result) => result.status === "rejected") ??
+        groupResults.find((result) => result.status === "rejected");
 
-    toast.error(
-      firstFailure &&
-        firstFailure.status === "rejected" &&
-        firstFailure.reason instanceof Error
-        ? firstFailure.reason.message
-        : "Failed to delete selected items",
-    );
-  }, [deleteAttributeMutation, deleteValueMutation, invalidateLists]);
+      toast.error(
+        firstFailure &&
+          firstFailure.status === "rejected" &&
+          firstFailure.reason instanceof Error
+          ? firstFailure.reason.message
+          : "Failed to delete selected items",
+      );
+    },
+    [deleteAttributeMutation, deleteValueMutation, invalidateLists],
+  );
 
-  const handleDeleteGroup = React.useCallback((group: AttributeGroupListItem) => {
-    setDeleteDialog({ mode: "single-group", group });
-  }, []);
+  const handleDeleteGroup = React.useCallback(
+    (group: AttributeGroupListItem) => {
+      setDeleteDialog({ mode: "single-group", group });
+    },
+    [],
+  );
 
   const handleDeleteValue = React.useCallback(
     (group: AttributeGroupListItem, value: AttributeValueListItem) => {
@@ -335,7 +386,10 @@ export function AttributesSection() {
 
     const currentDialog = deleteDialog;
 
-    if (currentDialog.mode === "single-group" && (currentDialog.group.variants_count ?? 0) > 0) {
+    if (
+      currentDialog.mode === "single-group" &&
+      (currentDialog.group.variants_count ?? 0) > 0
+    ) {
       setDeleteDialog(null);
       return;
     }
@@ -372,10 +426,18 @@ export function AttributesSection() {
     }
 
     setDeleteDialog(null);
-  }, [deleteDialog, deleteGroupNow, deleteSelectedNow, deleteValueNow, groupById, valueById]);
+  }, [
+    deleteDialog,
+    deleteGroupNow,
+    deleteSelectedNow,
+    deleteValueNow,
+    groupById,
+    valueById,
+  ]);
 
   const selectedItemCount = selectedGroupIds.length + selectedValueIds.length;
-  const isDeletePending = deleteValueMutation.isPending || deleteAttributeMutation.isPending;
+  const isDeletePending =
+    deleteValueMutation.isPending || deleteAttributeMutation.isPending;
 
   const handleCreateGroupInline = React.useCallback(
     async (input: { name: string }) => {
@@ -386,7 +448,8 @@ export function AttributesSection() {
       }
 
       const duplicate = allGroups.some(
-        (group) => group.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+        (group) =>
+          group.name.trim().toLowerCase() === trimmedName.toLowerCase(),
       );
       if (duplicate) {
         toast.error("An attribute with this name already exists");
@@ -400,7 +463,8 @@ export function AttributesSection() {
         await invalidateLists();
         return result.data?.id ?? null;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to create attribute";
+        const message =
+          error instanceof Error ? error.message : "Failed to create attribute";
         toast.error(message);
         throw error;
       }
@@ -409,10 +473,7 @@ export function AttributesSection() {
   );
 
   const handleCreateValueInline = React.useCallback(
-    async (
-      group: AttributeGroupListItem,
-      input: { name: string },
-    ) => {
+    async (group: AttributeGroupListItem, input: { name: string }) => {
       const trimmedName = input.name.trim();
       if (!trimmedName) {
         toast.error("Attribute value name is required");
@@ -425,7 +486,9 @@ export function AttributesSection() {
       );
       if (duplicate) {
         toast.error("A value with this name already exists in this attribute");
-        throw new Error("A value with this name already exists in this attribute");
+        throw new Error(
+          "A value with this name already exists in this attribute",
+        );
       }
 
       try {
@@ -436,7 +499,8 @@ export function AttributesSection() {
         await invalidateLists();
         return result.data?.id ?? null;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to create value";
+        const message =
+          error instanceof Error ? error.message : "Failed to create value";
         toast.error(message);
         throw error;
       }
@@ -463,7 +527,9 @@ export function AttributesSection() {
         });
       } catch (error) {
         queryClient.setQueryData(optimistic.queryKey, optimistic.previous);
-        toast.error(error instanceof Error ? error.message : "Failed to rename attribute");
+        toast.error(
+          error instanceof Error ? error.message : "Failed to rename attribute",
+        );
         throw error;
       }
       try {
@@ -472,11 +538,20 @@ export function AttributesSection() {
         // Keep optimistic state if server mutation succeeded but refetch failed.
       }
     },
-    [invalidateLists, patchAttributesGroupedCache, queryClient, updateAttributeMutation],
+    [
+      invalidateLists,
+      patchAttributesGroupedCache,
+      queryClient,
+      updateAttributeMutation,
+    ],
   );
 
   const handleRenameValue = React.useCallback(
-    async (_group: AttributeGroupListItem, value: AttributeValueListItem, nextName: string) => {
+    async (
+      _group: AttributeGroupListItem,
+      value: AttributeValueListItem,
+      nextName: string,
+    ) => {
       const optimistic = patchAttributesGroupedCache((groups) =>
         groups.map((item) => ({
           ...item,
@@ -497,7 +572,9 @@ export function AttributesSection() {
         });
       } catch (error) {
         queryClient.setQueryData(optimistic.queryKey, optimistic.previous);
-        toast.error(error instanceof Error ? error.message : "Failed to rename value");
+        toast.error(
+          error instanceof Error ? error.message : "Failed to rename value",
+        );
         throw error;
       }
       try {
@@ -506,7 +583,12 @@ export function AttributesSection() {
         // Keep optimistic state if server mutation succeeded but refetch failed.
       }
     },
-    [invalidateLists, patchAttributesGroupedCache, queryClient, updateValueMutation],
+    [
+      invalidateLists,
+      patchAttributesGroupedCache,
+      queryClient,
+      updateValueMutation,
+    ],
   );
 
   const displayDeleteDialog = deleteDialog ?? lastDeleteDialogRef.current;
@@ -523,7 +605,8 @@ export function AttributesSection() {
     if (displayDeleteDialog.mode === "single-group") {
       return {
         blocked: (displayDeleteDialog.group.variants_count ?? 0) > 0,
-        blockedGroupCount: (displayDeleteDialog.group.variants_count ?? 0) > 0 ? 1 : 0,
+        blockedGroupCount:
+          (displayDeleteDialog.group.variants_count ?? 0) > 0 ? 1 : 0,
         blockedValueCount: 0,
       };
     }
@@ -532,7 +615,8 @@ export function AttributesSection() {
       return {
         blocked: (displayDeleteDialog.value.variants_count ?? 0) > 0,
         blockedGroupCount: 0,
-        blockedValueCount: (displayDeleteDialog.value.variants_count ?? 0) > 0 ? 1 : 0,
+        blockedValueCount:
+          (displayDeleteDialog.value.variants_count ?? 0) > 0 ? 1 : 0,
       };
     }
 
@@ -676,7 +760,9 @@ export function AttributesSection() {
             }
             selectedCount={selectedItemCount}
             onDeleteSelected={handleDeleteSelected}
-            actionsDisabled={deleteValueMutation.isPending || deleteAttributeMutation.isPending}
+            actionsDisabled={
+              deleteValueMutation.isPending || deleteAttributeMutation.isPending
+            }
           />
         }
       >

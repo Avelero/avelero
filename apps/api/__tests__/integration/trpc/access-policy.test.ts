@@ -13,7 +13,14 @@ import type { AuthenticatedTRPCContext } from "../../../src/trpc/init";
 import { appRouter } from "../../../src/trpc/routers/_app";
 import { ACCESS_ERROR_TOKENS } from "../../../src/utils/errors";
 
-type BrandPhase = "demo" | "trial" | "expired" | "active" | "past_due" | "suspended" | "cancelled";
+type BrandPhase =
+  | "demo"
+  | "trial"
+  | "expired"
+  | "active"
+  | "past_due"
+  | "suspended"
+  | "cancelled";
 
 type BrandRole = "owner" | "member" | "avelero";
 

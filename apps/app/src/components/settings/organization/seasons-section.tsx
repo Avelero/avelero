@@ -6,10 +6,17 @@ import {
   EntityTableShell,
   EntityToolbar,
 } from "@/components/tables/settings/shared";
-import { SeasonsTable, type SeasonListItem } from "@/components/tables/settings/seasons";
+import {
+  SeasonsTable,
+  type SeasonListItem,
+} from "@/components/tables/settings/seasons";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
@@ -30,8 +37,10 @@ export function SeasonsSection() {
   const [searchValue, setSearchValue] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [editingSeason, setEditingSeason] = React.useState<SeasonListItem | null>(null);
-  const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
+  const [editingSeason, setEditingSeason] =
+    React.useState<SeasonListItem | null>(null);
+  const [deleteDialog, setDeleteDialog] =
+    React.useState<DeleteDialogState>(null);
 
   const seasonsQuery = useSuspenseQuery(
     trpc.catalog.seasons.list.queryOptions(undefined),
@@ -52,12 +61,23 @@ export function SeasonsSection() {
     return allRows.filter((row) => {
       const nameMatch = row.name.toLowerCase().includes(term);
       const startMatch = row.startDate
-        ? new Date(row.startDate).toLocaleDateString().toLowerCase().includes(term)
+        ? new Date(row.startDate)
+            .toLocaleDateString()
+            .toLowerCase()
+            .includes(term)
         : false;
       const endMatch = row.endDate
-        ? new Date(row.endDate).toLocaleDateString().toLowerCase().includes(term)
+        ? new Date(row.endDate)
+            .toLocaleDateString()
+            .toLowerCase()
+            .includes(term)
         : false;
-      return nameMatch || startMatch || endMatch || (row.ongoing && "ongoing".includes(term));
+      return (
+        nameMatch ||
+        startMatch ||
+        endMatch ||
+        (row.ongoing && "ongoing".includes(term))
+      );
     });
   }, [allRows, searchValue]);
 
@@ -65,7 +85,10 @@ export function SeasonsSection() {
     const allowed = new Set(allRows.map((row) => row.id));
     setSelectedIds((prev) => {
       const next = prev.filter((id) => allowed.has(id));
-      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+      if (
+        next.length === prev.length &&
+        next.every((id, index) => id === prev[index])
+      ) {
         return prev;
       }
       return next;
@@ -88,49 +111,59 @@ export function SeasonsSection() {
         setSelectedIds((prev) => prev.filter((id) => id !== season.id));
         await invalidateLists();
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to delete season";
+        const message =
+          error instanceof Error ? error.message : "Failed to delete season";
         toast.error(message);
       }
     },
     [deleteSeasonMutation, invalidateLists],
   );
 
-  const deleteSelectedNow = React.useCallback(async (ids: string[]) => {
-    if (ids.length === 0) return;
+  const deleteSelectedNow = React.useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
 
-    const currentIds = [...ids];
-    const results = await Promise.allSettled(
-      currentIds.map((id) => deleteSeasonMutation.mutateAsync({ id })),
-    );
-
-    const failures = results.filter((result) => result.status === "rejected");
-    const failedIds = results.flatMap((result, index) =>
-      result.status === "rejected" ? [currentIds[index]!] : [],
-    );
-    const successes = results.length - failures.length;
-
-    if (successes > 0) {
-      setSelectedIds(failedIds);
-      await invalidateLists();
-    }
-
-    if (failures.length === 0) {
-      setSelectedIds([]);
-      toast.success(`${successes} season${successes === 1 ? "" : "s"} deleted`);
-      return;
-    }
-
-    if (successes > 0) {
-      toast.error(`${failures.length} delete${failures.length === 1 ? "" : "s"} failed`);
-    } else {
-      const reason = failures[0];
-      toast.error(
-        reason && reason.status === "rejected" && reason.reason instanceof Error
-          ? reason.reason.message
-          : "Failed to delete selected seasons",
+      const currentIds = [...ids];
+      const results = await Promise.allSettled(
+        currentIds.map((id) => deleteSeasonMutation.mutateAsync({ id })),
       );
-    }
-  }, [deleteSeasonMutation, invalidateLists]);
+
+      const failures = results.filter((result) => result.status === "rejected");
+      const failedIds = results.flatMap((result, index) =>
+        result.status === "rejected" ? [currentIds[index]!] : [],
+      );
+      const successes = results.length - failures.length;
+
+      if (successes > 0) {
+        setSelectedIds(failedIds);
+        await invalidateLists();
+      }
+
+      if (failures.length === 0) {
+        setSelectedIds([]);
+        toast.success(
+          `${successes} season${successes === 1 ? "" : "s"} deleted`,
+        );
+        return;
+      }
+
+      if (successes > 0) {
+        toast.error(
+          `${failures.length} delete${failures.length === 1 ? "" : "s"} failed`,
+        );
+      } else {
+        const reason = failures[0];
+        toast.error(
+          reason &&
+            reason.status === "rejected" &&
+            reason.reason instanceof Error
+            ? reason.reason.message
+            : "Failed to delete selected seasons",
+        );
+      }
+    },
+    [deleteSeasonMutation, invalidateLists],
+  );
 
   const handleDeleteSeason = React.useCallback((season: SeasonListItem) => {
     setDeleteDialog({ mode: "single", season });

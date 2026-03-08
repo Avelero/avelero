@@ -68,7 +68,9 @@ export default async function MainLayout({
       {access.banner === "past_due" ? <PastDueBanner /> : null}
       <div className="relative h-full min-h-0">
         {children}
-        {access.overlay === "payment_required" ? <PaymentRequiredOverlay /> : null}
+        {access.overlay === "payment_required" ? (
+          <PaymentRequiredOverlay />
+        ) : null}
       </div>
     </div>
   );

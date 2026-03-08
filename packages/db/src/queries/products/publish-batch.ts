@@ -424,7 +424,9 @@ async function buildSnapshotsForVariantChunk(
   }
 
   const variantIds = targets.map((target) => target.variantId);
-  const targetByVariantId = new Map(targets.map((target) => [target.variantId, target]));
+  const targetByVariantId = new Map(
+    targets.map((target) => [target.variantId, target]),
+  );
   const storageBaseUrl = getSupabaseUrlFromEnv();
 
   // Load core variant/product rows for this chunk.
@@ -644,7 +646,10 @@ async function buildSnapshotsForVariantChunk(
           })
           .from(productMaterials)
           .where(inArray(productMaterials.productId, productIds))
-          .orderBy(asc(productMaterials.productId), asc(productMaterials.createdAt))
+          .orderBy(
+            asc(productMaterials.productId),
+            asc(productMaterials.createdAt),
+          )
       : [];
   const productMaterialsByProductId = new Map<string, MaterialLink[]>();
   for (const row of productMaterialRows) {
@@ -741,7 +746,10 @@ async function buildSnapshotsForVariantChunk(
     })
     .from(variantJourneySteps)
     .where(inArray(variantJourneySteps.variantId, variantIds))
-    .orderBy(asc(variantJourneySteps.variantId), asc(variantJourneySteps.sortIndex));
+    .orderBy(
+      asc(variantJourneySteps.variantId),
+      asc(variantJourneySteps.sortIndex),
+    );
   const variantJourneyByVariantId = new Map<string, JourneyRow[]>();
   for (const row of variantJourneyRows) {
     const steps = variantJourneyByVariantId.get(row.ownerId) ?? [];
@@ -989,7 +997,9 @@ async function publishVariantChunk(
   for (const target of targets) {
     const snapshot = snapshotsByVariantId.get(target.variantId);
     if (!snapshot) {
-      throw new Error(`Failed to build snapshot for variant ${target.variantId}`);
+      throw new Error(
+        `Failed to build snapshot for variant ${target.variantId}`,
+      );
     }
 
     const currentVersion = currentVersionByPassportId.get(target.passportId);
@@ -1002,7 +1012,10 @@ async function publishVariantChunk(
       const existingContentHash = existingSnapshot
         ? calculateContentOnlyHash(existingSnapshot)
         : null;
-      if (existingContentHash !== null && newContentHash === existingContentHash) {
+      if (
+        existingContentHash !== null &&
+        newContentHash === existingContentHash
+      ) {
         versionsSkippedUnchanged++;
         continue;
       }

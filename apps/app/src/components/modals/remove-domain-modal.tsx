@@ -62,8 +62,8 @@ export function RemoveDomainModal({
             <span className="text-foreground font-medium">{domainName}</span>?
           </DialogDescription>
           <p className="text-secondary type-p">
-            This will disable your custom domain URLs. Existing QR codes pointing
-            to this domain will{" "}
+            This will disable your custom domain URLs. Existing QR codes
+            pointing to this domain will{" "}
             <span className="text-foreground font-medium">stop working</span>.
           </p>
         </div>

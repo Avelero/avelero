@@ -90,7 +90,10 @@ function InlineNameField({
   focusRequest: FocusRequest;
   onFocusRequestConsumed: (id: string) => void;
   onEditingChange: (editing: boolean) => void;
-  onCommit: (nextName: string, meta: { trigger: CommitTrigger }) => Promise<void>;
+  onCommit: (
+    nextName: string,
+    meta: { trigger: CommitTrigger },
+  ) => Promise<void>;
   onEmptyCommit?: (meta: { trigger: CommitTrigger }) => "keep-open" | undefined;
   onCommitError?: () => void;
   keepEditingOnError?: boolean;
@@ -100,7 +103,8 @@ function InlineNameField({
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [draftName, setDraftName] = React.useState(value);
   const [hovered, setHovered] = React.useState(false);
-  const [suppressHoverUntilPointerMove, setSuppressHoverUntilPointerMove] = React.useState(false);
+  const [suppressHoverUntilPointerMove, setSuppressHoverUntilPointerMove] =
+    React.useState(false);
   const isCommittingRef = React.useRef(false);
   const submitTriggerRef = React.useRef<CommitTrigger | null>(null);
 
@@ -284,14 +288,32 @@ export function AttributesTable({
     input: { name: string },
   ) => Promise<string | null>;
   onDeleteGroup: (group: AttributeGroupListItem) => void | Promise<void>;
-  onDeleteValue: (group: AttributeGroupListItem, value: AttributeValueListItem) => void | Promise<void>;
-  onRenameGroup: (group: AttributeGroupListItem, nextName: string) => Promise<void>;
-  onRenameValue: (group: AttributeGroupListItem, value: AttributeValueListItem, nextName: string) => Promise<void>;
+  onDeleteValue: (
+    group: AttributeGroupListItem,
+    value: AttributeValueListItem,
+  ) => void | Promise<void>;
+  onRenameGroup: (
+    group: AttributeGroupListItem,
+    nextName: string,
+  ) => Promise<void>;
+  onRenameValue: (
+    group: AttributeGroupListItem,
+    value: AttributeValueListItem,
+    nextName: string,
+  ) => Promise<void>;
   hasSearch: boolean;
 }) {
-  const selectedGroupSet = React.useMemo(() => new Set(selectedGroupIds), [selectedGroupIds]);
-  const selectedSet = React.useMemo(() => new Set(selectedValueIds), [selectedValueIds]);
-  const [lastClickedChildIndex, setLastClickedChildIndex] = React.useState<number | null>(null);
+  const selectedGroupSet = React.useMemo(
+    () => new Set(selectedGroupIds),
+    [selectedGroupIds],
+  );
+  const selectedSet = React.useMemo(
+    () => new Set(selectedValueIds),
+    [selectedValueIds],
+  );
+  const [lastClickedChildIndex, setLastClickedChildIndex] = React.useState<
+    number | null
+  >(null);
   const [editingTarget, setEditingTarget] = React.useState<EditingTarget>(null);
   const [focusRequest, setFocusRequest] = React.useState<FocusRequest>(null);
   const [hasDraftGroup, setHasDraftGroup] = React.useState(false);
@@ -306,7 +328,10 @@ export function AttributesTable({
     setHasDraftGroup(true);
     setDraftGroupNonce(createGroupDraftRequestNonce);
     setEditingTarget({ kind: "draft-group" });
-    setFocusRequest({ id: DRAFT_GROUP_FOCUS_ID, nonce: createGroupDraftRequestNonce });
+    setFocusRequest({
+      id: DRAFT_GROUP_FOCUS_ID,
+      nonce: createGroupDraftRequestNonce,
+    });
   }, [createGroupDraftRequestNonce]);
 
   React.useEffect(() => {
@@ -315,7 +340,9 @@ export function AttributesTable({
     if (!exists) {
       setDraftValue(null);
       setEditingTarget((prev) =>
-        prev?.kind === "draft-value" && prev.groupId === draftValue.groupId ? null : prev,
+        prev?.kind === "draft-value" && prev.groupId === draftValue.groupId
+          ? null
+          : prev,
       );
     }
   }, [draftValue, groups]);
@@ -331,7 +358,10 @@ export function AttributesTable({
 
       if (options?.focus ?? true) {
         setEditingTarget({ kind: "draft-value", groupId: group.id });
-        setFocusRequest({ id: draftValueFocusId(group.id), nonce: nextState.nonce });
+        setFocusRequest({
+          id: draftValueFocusId(group.id),
+          nonce: nextState.nonce,
+        });
       }
     },
     [collapsedGroupIds, onToggleGroup],
@@ -340,14 +370,19 @@ export function AttributesTable({
   const flatRows = React.useMemo<FlatRow[]>(() => {
     const rows: FlatRow[] = [];
     if (hasDraftGroup) {
-      rows.push({ kind: "draft-group", id: DRAFT_GROUP_ID, nonce: draftGroupNonce });
+      rows.push({
+        kind: "draft-group",
+        id: DRAFT_GROUP_ID,
+        nonce: draftGroupNonce,
+      });
     }
     for (const group of groups) {
       rows.push({ kind: "group", group });
       if (draftValue && draftValue.groupId === group.id) {
         rows.push({ kind: "draft-value", group, nonce: draftValue.nonce });
       }
-      const isExpanded = !collapsedGroupIds.has(group.id) || draftValue?.groupId === group.id;
+      const isExpanded =
+        !collapsedGroupIds.has(group.id) || draftValue?.groupId === group.id;
       if (isExpanded) {
         const values = group.values;
         values.forEach((value: AttributeValueListItem, index: number) => {
@@ -365,15 +400,29 @@ export function AttributesTable({
   }, [collapsedGroupIds, draftGroupNonce, draftValue, groups, hasDraftGroup]);
 
   const visibleChildRows = React.useMemo(
-    () => flatRows.filter((row): row is Extract<FlatRow, { kind: "value" }> => row.kind === "value"),
+    () =>
+      flatRows.filter(
+        (row): row is Extract<FlatRow, { kind: "value" }> =>
+          row.kind === "value",
+      ),
     [flatRows],
   );
   const visibleGroupRows = React.useMemo(
-    () => flatRows.filter((row): row is Extract<FlatRow, { kind: "group" }> => row.kind === "group"),
+    () =>
+      flatRows.filter(
+        (row): row is Extract<FlatRow, { kind: "group" }> =>
+          row.kind === "group",
+      ),
     [flatRows],
   );
-  const visibleGroupIds = React.useMemo(() => visibleGroupRows.map((row) => row.group.id), [visibleGroupRows]);
-  const visibleChildIds = React.useMemo(() => visibleChildRows.map((row) => row.value.id), [visibleChildRows]);
+  const visibleGroupIds = React.useMemo(
+    () => visibleGroupRows.map((row) => row.group.id),
+    [visibleGroupRows],
+  );
+  const visibleChildIds = React.useMemo(
+    () => visibleChildRows.map((row) => row.value.id),
+    [visibleChildRows],
+  );
   const childIndexById = React.useMemo(() => {
     const map = new Map<string, number>();
     visibleChildRows.forEach((row, index) => map.set(row.value.id, index));
@@ -390,7 +439,8 @@ export function AttributesTable({
     return map;
   }, [groups]);
 
-  const selectableVisibleCount = visibleGroupIds.length + visibleChildIds.length;
+  const selectableVisibleCount =
+    visibleGroupIds.length + visibleChildIds.length;
   const allSelected =
     selectableVisibleCount > 0 &&
     visibleGroupIds.every((id) => selectedGroupSet.has(id)) &&
@@ -431,7 +481,12 @@ export function AttributesTable({
       onSelectedGroupIdsChange(Array.from(nextGroups));
       onSelectedValueIdsChange(Array.from(nextValues));
     },
-    [childIdsByGroupId, onSelectedGroupIdsChange, onSelectedValueIdsChange, selectedGroupSet],
+    [
+      childIdsByGroupId,
+      onSelectedGroupIdsChange,
+      onSelectedValueIdsChange,
+      selectedGroupSet,
+    ],
   );
 
   const toggleValue = React.useCallback(
@@ -460,7 +515,13 @@ export function AttributesTable({
       onSelectedGroupIdsChange(Array.from(next));
       onSelectedValueIdsChange(Array.from(nextValues));
     },
-    [childIdsByGroupId, onSelectedGroupIdsChange, onSelectedValueIdsChange, selectedGroupSet, selectedSet],
+    [
+      childIdsByGroupId,
+      onSelectedGroupIdsChange,
+      onSelectedValueIdsChange,
+      selectedGroupSet,
+      selectedSet,
+    ],
   );
 
   const handleValueSelectionChange = React.useCallback(
@@ -493,7 +554,14 @@ export function AttributesTable({
       }
       applyValueSelection(next);
     },
-    [applyValueSelection, childIndexById, lastClickedChildIndex, selectedSet, toggleValue, visibleChildIds],
+    [
+      applyValueSelection,
+      childIndexById,
+      lastClickedChildIndex,
+      selectedSet,
+      toggleValue,
+      visibleChildIds,
+    ],
   );
 
   const toggleAllVisible = React.useCallback(
@@ -512,7 +580,14 @@ export function AttributesTable({
       onSelectedGroupIdsChange(Array.from(nextGroups));
       onSelectedValueIdsChange(Array.from(next));
     },
-    [childIdsByGroupId, onSelectedGroupIdsChange, onSelectedValueIdsChange, selectedGroupSet, selectedSet, visibleGroupIds],
+    [
+      childIdsByGroupId,
+      onSelectedGroupIdsChange,
+      onSelectedValueIdsChange,
+      selectedGroupSet,
+      selectedSet,
+      visibleGroupIds,
+    ],
   );
 
   if (groups.length === 0 && !hasDraftGroup) {
@@ -539,80 +614,84 @@ export function AttributesTable({
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow className="h-14 border-b border-border">
-              {["Name", "Values", "Variants", "Created"].map((header, columnIndex) => {
-                const isFirstColumn = columnIndex === 0;
-                const stickyFirstColumnClass = isFirstColumn
-                  ? "sticky left-0 z-[12] bg-background border-r-0 before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-accent-dark"
-                  : undefined;
-                const widthClass =
-                  columnIndex === 0
-                    ? "min-w-[360px]"
-                    : columnIndex === 1
-                      ? "w-[120px] min-w-[120px] max-w-[120px]"
-                    : columnIndex === 2
-                      ? "w-[120px] min-w-[120px] max-w-[120px]"
-                      : "w-[240px] min-w-[240px] max-w-[240px]";
+              {["Name", "Values", "Variants", "Created"].map(
+                (header, columnIndex) => {
+                  const isFirstColumn = columnIndex === 0;
+                  const stickyFirstColumnClass = isFirstColumn
+                    ? "sticky left-0 z-[12] bg-background border-r-0 before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-accent-dark"
+                    : undefined;
+                  const widthClass =
+                    columnIndex === 0
+                      ? "min-w-[360px]"
+                      : columnIndex === 1
+                        ? "w-[120px] min-w-[120px] max-w-[120px]"
+                        : columnIndex === 2
+                          ? "w-[120px] min-w-[120px] max-w-[120px]"
+                          : "w-[240px] min-w-[240px] max-w-[240px]";
 
-                return (
-                  <TableHead
-                    key={header}
-                    className={cn(
-                      "relative h-14 px-4 align-middle text-secondary type-p bg-background",
-                      stickyFirstColumnClass,
-                      widthClass,
-                    )}
-                  >
-                    {isFirstColumn ? (
-                      <div className="flex items-center justify-between gap-4 min-w-0">
-                        <div className="flex items-center gap-4 min-w-0 flex-1">
-                          <div className="flex-shrink-0">
-                            <RowSelectionCheckbox
-                              checked={allSelected}
-                              indeterminate={someSelected && !allSelected}
-                              onChange={() => toggleAllVisible(!hasAnySelection)}
-                              ariaLabel="Select all attributes and values"
-                              hitArea="header"
-                            />
+                  return (
+                    <TableHead
+                      key={header}
+                      className={cn(
+                        "relative h-14 px-4 align-middle text-secondary type-p bg-background",
+                        stickyFirstColumnClass,
+                        widthClass,
+                      )}
+                    >
+                      {isFirstColumn ? (
+                        <div className="flex items-center justify-between gap-4 min-w-0">
+                          <div className="flex items-center gap-4 min-w-0 flex-1">
+                            <div className="flex-shrink-0">
+                              <RowSelectionCheckbox
+                                checked={allSelected}
+                                indeterminate={someSelected && !allSelected}
+                                onChange={() =>
+                                  toggleAllVisible(!hasAnySelection)
+                                }
+                                ariaLabel="Select all attributes and values"
+                                hitArea="header"
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">{header}</div>
                           </div>
-                          <div className="min-w-0 flex-1">{header}</div>
+                          {isScrollable ? (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                aria-label="Scroll left"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  scrollLeft();
+                                }}
+                                disabled={!canScrollLeft}
+                              >
+                                <Icons.ChevronLeft className="h-[14px] w-[14px]" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                aria-label="Scroll right"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  scrollRight();
+                                }}
+                                disabled={!canScrollRight}
+                              >
+                                <Icons.ChevronRight className="h-[14px] w-[14px]" />
+                              </Button>
+                            </div>
+                          ) : null}
                         </div>
-                        {isScrollable ? (
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              aria-label="Scroll left"
-                              onClick={(event) => {
-                                event.preventDefault();
-                                scrollLeft();
-                              }}
-                              disabled={!canScrollLeft}
-                            >
-                              <Icons.ChevronLeft className="h-[14px] w-[14px]" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              aria-label="Scroll right"
-                              onClick={(event) => {
-                                event.preventDefault();
-                                scrollRight();
-                              }}
-                              disabled={!canScrollRight}
-                            >
-                              <Icons.ChevronRight className="h-[14px] w-[14px]" />
-                            </Button>
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : (
-                      header
-                    )}
-                  </TableHead>
-                );
-              })}
+                      ) : (
+                        header
+                      )}
+                    </TableHead>
+                  );
+                },
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -621,14 +700,18 @@ export function AttributesTable({
                 const isDraftEditing = editingTarget?.kind === "draft-group";
 
                 return (
-                  <TableRow key={`${row.id}:${row.nonce}`} className="group h-14 bg-background hover:bg-accent-light">
-                    <TableCell
-                      className="relative h-14 px-4 py-0 align-middle sticky left-0 z-[8] border-r-0 before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-accent-dark bg-background group-hover:bg-accent-light min-w-[360px]"
-                    >
+                  <TableRow
+                    key={`${row.id}:${row.nonce}`}
+                    className="group h-14 bg-background hover:bg-accent-light"
+                  >
+                    <TableCell className="relative h-14 px-4 py-0 align-middle sticky left-0 z-[8] border-r-0 before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-accent-dark bg-background group-hover:bg-accent-light min-w-[360px]">
                       <div className="flex h-full items-center gap-3 min-w-0">
                         <div className="w-4 flex-shrink-0" aria-hidden="true" />
                         <div className="flex min-w-0 flex-1 items-center gap-2">
-                          <div className="h-[30px] w-[30px] flex-shrink-0" aria-hidden="true" />
+                          <div
+                            className="h-[30px] w-[30px] flex-shrink-0"
+                            aria-hidden="true"
+                          />
                           <div className="min-w-0 flex-1">
                             <InlineNameField
                               id={DRAFT_GROUP_FOCUS_ID}
@@ -637,11 +720,17 @@ export function AttributesTable({
                               focusRequest={focusRequest}
                               onFocusRequestConsumed={(id) => {
                                 if (id === DRAFT_GROUP_FOCUS_ID) {
-                                  setFocusRequest((prev) => (prev?.id === DRAFT_GROUP_FOCUS_ID ? null : prev));
+                                  setFocusRequest((prev) =>
+                                    prev?.id === DRAFT_GROUP_FOCUS_ID
+                                      ? null
+                                      : prev,
+                                  );
                                 }
                               }}
                               onEditingChange={(editing) =>
-                                setEditingTarget(editing ? { kind: "draft-group" } : null)
+                                setEditingTarget(
+                                  editing ? { kind: "draft-group" } : null,
+                                )
                               }
                               onEmptyCommit={({ trigger }) => {
                                 if (trigger === "enter") {
@@ -653,11 +742,15 @@ export function AttributesTable({
                               }}
                               onCommitError={() => {
                                 setEditingTarget({ kind: "draft-group" });
-                                setFocusRequest({ id: DRAFT_GROUP_FOCUS_ID, nonce: Date.now() });
+                                setFocusRequest({
+                                  id: DRAFT_GROUP_FOCUS_ID,
+                                  nonce: Date.now(),
+                                });
                               }}
                               keepEditingOnError
                               onCommit={async (nextName, meta) => {
-                                const createdGroupId = await onCreateGroupInline({ name: nextName });
+                                const createdGroupId =
+                                  await onCreateGroupInline({ name: nextName });
                                 requestAnimationFrame(() => {
                                   // Creating an attribute should chain into a value row only.
                                   // Do not auto-spawn another attribute draft row.
@@ -669,7 +762,10 @@ export function AttributesTable({
                                       nonce: Date.now(),
                                     };
                                     setDraftValue(nextDraftValue);
-                                    setEditingTarget({ kind: "draft-value", groupId: createdGroupId });
+                                    setEditingTarget({
+                                      kind: "draft-value",
+                                      groupId: createdGroupId,
+                                    });
                                     setFocusRequest({
                                       id: draftValueFocusId(createdGroupId),
                                       nonce: nextDraftValue.nonce,
@@ -694,7 +790,8 @@ export function AttributesTable({
               if (row.kind === "draft-value") {
                 const group = row.group;
                 const isDraftValueEditing =
-                  editingTarget?.kind === "draft-value" && editingTarget.groupId === group.id;
+                  editingTarget?.kind === "draft-value" &&
+                  editingTarget.groupId === group.id;
                 const draftValueIsLastInGroup = group.values.length === 0;
                 const isLastFlatRow = flatRowIndex === flatRows.length - 1;
 
@@ -703,9 +800,7 @@ export function AttributesTable({
                     key={`${DRAFT_VALUE_ROW_PREFIX}:${group.id}:${row.nonce}`}
                     className="group h-14 hover:bg-accent-light"
                   >
-                    <TableCell
-                      className="relative h-14 px-4 py-0 align-middle sticky left-0 z-[8] border-b-transparent border-r-0 before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-accent-dark bg-background group-hover:bg-accent-light min-w-[360px]"
-                    >
+                    <TableCell className="relative h-14 px-4 py-0 align-middle sticky left-0 z-[8] border-b-transparent border-r-0 before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-accent-dark bg-background group-hover:bg-accent-light min-w-[360px]">
                       <div
                         aria-hidden="true"
                         className="pointer-events-none absolute left-0 top-0 h-px w-[120px] bg-background group-hover:bg-accent-light"
@@ -721,9 +816,14 @@ export function AttributesTable({
                             <div
                               className={cn(
                                 "absolute left-1/2 w-px -translate-x-1/2",
-                                draftValueIsLastInGroup ? "top-0 bottom-[39px]" : "top-0 -bottom-px",
+                                draftValueIsLastInGroup
+                                  ? "top-0 bottom-[39px]"
+                                  : "top-0 -bottom-px",
                               )}
-                              style={{ backgroundColor: ATTRIBUTE_VALUE_CONNECTOR_COLOR }}
+                              style={{
+                                backgroundColor:
+                                  ATTRIBUTE_VALUE_CONNECTOR_COLOR,
+                              }}
                             />
                             <svg
                               className="absolute left-1/2 top-1/2 -translate-x-[0.5px] -translate-y-[11px]"
@@ -761,24 +861,40 @@ export function AttributesTable({
                               onFocusRequestConsumed={(id) => {
                                 if (id === draftValueFocusId(group.id)) {
                                   setFocusRequest((prev) =>
-                                    prev?.id === draftValueFocusId(group.id) ? null : prev,
+                                    prev?.id === draftValueFocusId(group.id)
+                                      ? null
+                                      : prev,
                                   );
                                 }
                               }}
                               onEditingChange={(editing) =>
-                                setEditingTarget(editing ? { kind: "draft-value", groupId: group.id } : null)
+                                setEditingTarget(
+                                  editing
+                                    ? { kind: "draft-value", groupId: group.id }
+                                    : null,
+                                )
                               }
                               onEmptyCommit={({ trigger }) => {
                                 if (trigger === "enter") {
-                                  toast.error("Attribute value name is required");
+                                  toast.error(
+                                    "Attribute value name is required",
+                                  );
                                   return "keep-open";
                                 }
-                                setDraftValue((prev) => (prev?.groupId === group.id ? null : prev));
+                                setDraftValue((prev) =>
+                                  prev?.groupId === group.id ? null : prev,
+                                );
                                 setEditingTarget(null);
                               }}
                               onCommitError={() => {
-                                setEditingTarget({ kind: "draft-value", groupId: group.id });
-                                setFocusRequest({ id: draftValueFocusId(group.id), nonce: Date.now() });
+                                setEditingTarget({
+                                  kind: "draft-value",
+                                  groupId: group.id,
+                                });
+                                setFocusRequest({
+                                  id: draftValueFocusId(group.id),
+                                  nonce: Date.now(),
+                                });
                               }}
                               keepEditingOnError
                               onCommit={async (nextName, meta) => {
@@ -792,7 +908,10 @@ export function AttributesTable({
                                       nonce: Date.now(),
                                     };
                                     setDraftValue(nextDraft);
-                                    setEditingTarget({ kind: "draft-value", groupId: group.id });
+                                    setEditingTarget({
+                                      kind: "draft-value",
+                                      groupId: group.id,
+                                    });
                                     setFocusRequest({
                                       id: draftValueFocusId(group.id),
                                       nonce: nextDraft.nonce,
@@ -837,7 +956,10 @@ export function AttributesTable({
                     icon: <Icons.Pencil className="h-[14px] w-[14px]" />,
                     onSelect: () => {
                       setEditingTarget({ kind: "group", id: group.id });
-                      setFocusRequest({ id: `group:${group.id}`, nonce: Date.now() });
+                      setFocusRequest({
+                        id: `group:${group.id}`,
+                        nonce: Date.now(),
+                      });
                     },
                   },
                   {
@@ -854,17 +976,24 @@ export function AttributesTable({
                   0,
                 );
                 const allChildValuesSelected =
-                  group.values.length > 0 && selectedChildCount === group.values.length;
+                  group.values.length > 0 &&
+                  selectedChildCount === group.values.length;
                 const isGroupSelected =
-                  group.values.length > 0 ? allChildValuesSelected : selectedGroupSet.has(group.id);
+                  group.values.length > 0
+                    ? allChildValuesSelected
+                    : selectedGroupSet.has(group.id);
                 const isGroupEditing =
-                  editingTarget?.kind === "group" && editingTarget.id === group.id;
+                  editingTarget?.kind === "group" &&
+                  editingTarget.id === group.id;
                 const hasDraftValueForGroup = draftValue?.groupId === group.id;
                 const isGroupExpanded =
-                  hasDraftValueForGroup || (group.values.length > 0 && !collapsedGroupIds.has(group.id));
+                  hasDraftValueForGroup ||
+                  (group.values.length > 0 && !collapsedGroupIds.has(group.id));
                 const hasVisibleChildren =
-                  (isGroupExpanded && group.values.length > 0) || hasDraftValueForGroup;
-                const canToggleGroup = group.values.length > 0 || hasDraftValueForGroup;
+                  (isGroupExpanded && group.values.length > 0) ||
+                  hasDraftValueForGroup;
+                const canToggleGroup =
+                  group.values.length > 0 || hasDraftValueForGroup;
                 const chevronButton = (
                   <button
                     type="button"
@@ -879,7 +1008,11 @@ export function AttributesTable({
                         ? "text-primary hover:text-primary hover:bg-accent"
                         : "text-tertiary opacity-40 cursor-default",
                     )}
-                    aria-label={isGroupExpanded ? `Collapse ${group.name}` : `Expand ${group.name}`}
+                    aria-label={
+                      isGroupExpanded
+                        ? `Collapse ${group.name}`
+                        : `Expand ${group.name}`
+                    }
                   >
                     <Icons.ChevronRight
                       className={cn(
@@ -906,7 +1039,9 @@ export function AttributesTable({
                         <div className="flex-shrink-0">
                           <RowSelectionCheckbox
                             checked={isGroupSelected}
-                            onChange={(checked) => toggleGroup(group.id, checked)}
+                            onChange={(checked) =>
+                              toggleGroup(group.id, checked)
+                            }
                             ariaLabel={`Select attribute ${group.name}`}
                             hitArea="row"
                           />
@@ -918,9 +1053,13 @@ export function AttributesTable({
                             <TooltipProvider delayDuration={120}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="flex-shrink-0">{chevronButton}</span>
+                                  <span className="flex-shrink-0">
+                                    {chevronButton}
+                                  </span>
                                 </TooltipTrigger>
-                                <TooltipContent side="top">Add attribute value first</TooltipContent>
+                                <TooltipContent side="top">
+                                  Add attribute value first
+                                </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                           )}
@@ -932,13 +1071,23 @@ export function AttributesTable({
                               focusRequest={focusRequest}
                               onFocusRequestConsumed={(id) => {
                                 if (id === `group:${group.id}`) {
-                                  setFocusRequest((prev) => (prev?.id === `group:${group.id}` ? null : prev));
+                                  setFocusRequest((prev) =>
+                                    prev?.id === `group:${group.id}`
+                                      ? null
+                                      : prev,
+                                  );
                                 }
                               }}
                               onEditingChange={(editing) =>
-                                setEditingTarget(editing ? { kind: "group", id: group.id } : null)
+                                setEditingTarget(
+                                  editing
+                                    ? { kind: "group", id: group.id }
+                                    : null,
+                                )
                               }
-                              onCommit={(nextName) => onRenameGroup(group, nextName)}
+                              onCommit={(nextName) =>
+                                onRenameGroup(group, nextName)
+                              }
                               textClassName="type-p text-primary"
                               placeholder="Attribute name"
                             />
@@ -947,16 +1096,25 @@ export function AttributesTable({
                       </div>
                     </TableCell>
                     <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]">
-                      <span className="whitespace-nowrap type-p text-primary">{group.values_count ?? group.values.length}</span>
+                      <span className="whitespace-nowrap type-p text-primary">
+                        {group.values_count ?? group.values.length}
+                      </span>
                     </TableCell>
                     <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]">
-                      <span className="whitespace-nowrap type-p text-primary">{group.variants_count ?? 0}</span>
+                      <span className="whitespace-nowrap type-p text-primary">
+                        {group.variants_count ?? 0}
+                      </span>
                     </TableCell>
                     <TableCell className="h-14 px-4 py-0 align-middle w-[240px] min-w-[240px] max-w-[240px]">
                       <div className="flex items-center justify-between gap-2 min-w-0">
-                        <span className="whitespace-nowrap type-p text-primary">{formatDate(group.createdAt)}</span>
+                        <span className="whitespace-nowrap type-p text-primary">
+                          {formatDate(group.createdAt)}
+                        </span>
                         <div className="w-[30px] flex-shrink-0 flex justify-end">
-                          <RowActionsMenu actions={groupActions} triggerClassName="opacity-0 group-hover:opacity-100" />
+                          <RowActionsMenu
+                            actions={groupActions}
+                            triggerClassName="opacity-0 group-hover:opacity-100"
+                          />
                         </div>
                       </div>
                     </TableCell>
@@ -967,14 +1125,18 @@ export function AttributesTable({
               const { group, value } = row;
               const isSelected = selectedSet.has(value.id);
               const isValueEditing =
-                editingTarget?.kind === "value" && editingTarget.id === value.id;
+                editingTarget?.kind === "value" &&
+                editingTarget.id === value.id;
               const valueActions: RowAction[] = [
                 {
                   label: "Edit",
                   icon: <Icons.Pencil className="h-[14px] w-[14px]" />,
                   onSelect: () => {
                     setEditingTarget({ kind: "value", id: value.id });
-                    setFocusRequest({ id: `value:${value.id}`, nonce: Date.now() });
+                    setFocusRequest({
+                      id: `value:${value.id}`,
+                      nonce: Date.now(),
+                    });
                   },
                 },
                 {
@@ -986,7 +1148,8 @@ export function AttributesTable({
               ];
               const swatch = extractHex(value.metadata);
               const isFirstValue = row.indexInGroup === 0;
-              const isLastValue = row.indexInGroup === row.visibleGroupValueCount - 1;
+              const isLastValue =
+                row.indexInGroup === row.visibleGroupValueCount - 1;
               const isLastFlatRow = flatRowIndex === flatRows.length - 1;
               const hasDraftValueAbove = draftValue?.groupId === group.id;
 
@@ -996,9 +1159,7 @@ export function AttributesTable({
                   data-state={isSelected ? "selected" : undefined}
                   className="group h-14 hover:bg-accent-light data-[state=selected]:bg-accent-blue"
                 >
-                  <TableCell
-                    className="relative h-14 px-4 py-0 align-middle sticky left-0 z-[8] border-b-transparent border-r-0 before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-accent-dark bg-background group-hover:bg-accent-light group-data-[state=selected]:bg-accent-blue min-w-[360px]"
-                  >
+                  <TableCell className="relative h-14 px-4 py-0 align-middle sticky left-0 z-[8] border-b-transparent border-r-0 before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-accent-dark bg-background group-hover:bg-accent-light group-data-[state=selected]:bg-accent-blue min-w-[360px]">
                     <div
                       aria-hidden="true"
                       className="pointer-events-none absolute left-0 top-0 h-px w-[120px] bg-background group-hover:bg-accent-light group-data-[state=selected]:bg-accent-blue"
@@ -1008,7 +1169,11 @@ export function AttributesTable({
                         <RowSelectionCheckbox
                           checked={isSelected}
                           onChange={(checked, meta) =>
-                            handleValueSelectionChange(value.id, checked, meta?.shiftKey ?? false)
+                            handleValueSelectionChange(
+                              value.id,
+                              checked,
+                              meta?.shiftKey ?? false,
+                            )
                           }
                           ariaLabel={`Select value ${value.name}`}
                           hitArea="row"
@@ -1023,9 +1188,13 @@ export function AttributesTable({
                           <div
                             className={cn(
                               "absolute left-1/2 w-px -translate-x-1/2",
-                              isLastValue ? "top-0 bottom-[39px]" : "top-0 -bottom-px",
+                              isLastValue
+                                ? "top-0 bottom-[39px]"
+                                : "top-0 -bottom-px",
                             )}
-                            style={{ backgroundColor: ATTRIBUTE_VALUE_CONNECTOR_COLOR }}
+                            style={{
+                              backgroundColor: ATTRIBUTE_VALUE_CONNECTOR_COLOR,
+                            }}
                           />
                           <svg
                             className="absolute left-1/2 top-1/2 -translate-x-[0.5px] -translate-y-[11px]"
@@ -1072,13 +1241,23 @@ export function AttributesTable({
                               focusRequest={focusRequest}
                               onFocusRequestConsumed={(id) => {
                                 if (id === `value:${value.id}`) {
-                                  setFocusRequest((prev) => (prev?.id === `value:${value.id}` ? null : prev));
+                                  setFocusRequest((prev) =>
+                                    prev?.id === `value:${value.id}`
+                                      ? null
+                                      : prev,
+                                  );
                                 }
                               }}
                               onEditingChange={(editing) =>
-                                setEditingTarget(editing ? { kind: "value", id: value.id } : null)
+                                setEditingTarget(
+                                  editing
+                                    ? { kind: "value", id: value.id }
+                                    : null,
+                                )
                               }
-                              onCommit={(nextName) => onRenameValue(group, value, nextName)}
+                              onCommit={(nextName) =>
+                                onRenameValue(group, value, nextName)
+                              }
                               placeholder="Value name"
                             />
                           </div>
@@ -1094,13 +1273,20 @@ export function AttributesTable({
                   </TableCell>
                   <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]" />
                   <TableCell className="h-14 px-4 py-0 align-middle w-[120px] min-w-[120px] max-w-[120px]">
-                    <span className="whitespace-nowrap type-p text-primary">{value.variants_count ?? 0}</span>
+                    <span className="whitespace-nowrap type-p text-primary">
+                      {value.variants_count ?? 0}
+                    </span>
                   </TableCell>
                   <TableCell className="h-14 px-4 py-0 align-middle w-[240px] min-w-[240px] max-w-[240px]">
                     <div className="flex items-center justify-between gap-2 min-w-0">
-                      <span className="whitespace-nowrap type-p text-primary">{formatDate(value.createdAt)}</span>
+                      <span className="whitespace-nowrap type-p text-primary">
+                        {formatDate(value.createdAt)}
+                      </span>
                       <div className="w-[30px] flex-shrink-0 flex justify-end">
-                        <RowActionsMenu actions={valueActions} triggerClassName="opacity-0 group-hover:opacity-100" />
+                        <RowActionsMenu
+                          actions={valueActions}
+                          triggerClassName="opacity-0 group-hover:opacity-100"
+                        />
                       </div>
                     </div>
                   </TableCell>

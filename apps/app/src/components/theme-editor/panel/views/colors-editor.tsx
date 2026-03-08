@@ -1,9 +1,10 @@
 "use client";
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
+import type { ColorTokenKey } from "@v1/dpp-components";
 import { ColorInput, combineHexWithAlpha, parseHexWithAlpha } from "../inputs";
 
-// Color tokens configuration - matches globals.css color system
+// Color tokens configuration - matches Passport color tokens
 const COLOR_TOKENS = [
   // Core colors
   { key: "background", label: "Background" },
@@ -11,9 +12,6 @@ const COLOR_TOKENS = [
   // Muted colors
   { key: "muted", label: "Muted" },
   { key: "mutedForeground", label: "Muted Foreground" },
-  // Accent colors
-  { key: "accent", label: "Accent" },
-  { key: "accentForeground", label: "Accent Foreground" },
   // Card colors
   { key: "card", label: "Card" },
   { key: "cardForeground", label: "Card Foreground" },
@@ -31,14 +29,10 @@ const COLOR_TOKENS = [
 ] as const;
 
 export function ColorsEditor() {
-  const { themeStylesDraft, updateColor } = useDesignEditor();
+  const { passportDraft, updateColor } = useDesignEditor();
 
-  // Get current color value with default
-  const getColorValue = (colorKey: string): string => {
-    const colors = themeStylesDraft.colors as
-      | Record<string, string | undefined>
-      | undefined;
-    return colors?.[colorKey] || "";
+  const getColorValue = (colorKey: ColorTokenKey): string => {
+    return passportDraft.tokens.colors[colorKey] ?? "";
   };
 
   return (

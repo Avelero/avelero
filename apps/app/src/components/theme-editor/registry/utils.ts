@@ -1,19 +1,14 @@
 /**
- * Utility functions for the component registry
+ * Utility functions for the component registry.
+ *
+ * In the Passport system, section components are resolved via SECTION_REGISTRY
+ * (from dpp-components), while fixed components (Header/Footer) use COMPONENT_TREE.
  */
 
-import type {
-  LayoutComponentInstance,
-  ThemeConfig,
-  ZoneId,
-} from "@v1/dpp-components";
-import { COMPONENT_LIBRARY } from "@v1/dpp-components/lib/component-library";
+import type { Passport, SectionType, ZoneId } from "@v1/dpp-components";
+import { SECTION_REGISTRY } from "@v1/dpp-components";
 import { COMPONENT_TREE } from "./component-tree";
 import type { ComponentDefinition } from "./types";
-
-// =============================================================================
-// UTILITY FUNCTIONS
-// =============================================================================
 
 /**
  * Recursively search a ComponentDefinition tree for a matching ID.
@@ -34,28 +29,28 @@ function findInTree(
 
 /**
  * Find a component definition by its ID.
- * Searches COMPONENT_TREE first, then COMPONENT_LIBRARY editorTrees.
+ * Searches COMPONENT_TREE first, then SECTION_REGISTRY editorTrees.
  */
 export function findComponentById(
   id: string,
   tree?: ComponentDefinition[],
 ): ComponentDefinition | null {
-  // Search provided tree (or COMPONENT_TREE by default)
   const searchTree = tree ?? COMPONENT_TREE;
   for (const component of searchTree) {
-    if (component.id === id) {
-      return component;
-    }
+    if (component.id === id) return component;
     if (component.children) {
       const found = findComponentById(id, component.children);
       if (found) return found;
     }
   }
 
-  // Only search COMPONENT_LIBRARY when using default tree (avoids recursion on subtrees)
+  // Only search SECTION_REGISTRY when using default tree
   if (!tree) {
-    for (const entry of Object.values(COMPONENT_LIBRARY)) {
-      const found = findInTree(id, entry.editorTree as ComponentDefinition);
+    for (const entry of Object.values(SECTION_REGISTRY)) {
+      const found = findInTree(
+        id,
+        entry.schema.editorTree as ComponentDefinition,
+      );
       if (found) return found;
     }
   }
@@ -64,59 +59,22 @@ export function findComponentById(
 }
 
 /**
- * Get the ancestry chain for a component (for breadcrumb)
- */
-export function getComponentAncestry(
-  id: string,
-  tree: ComponentDefinition[] = COMPONENT_TREE,
-  path: ComponentDefinition[] = [],
-): ComponentDefinition[] | null {
-  for (const component of tree) {
-    if (component.id === id) {
-      return [...path, component];
-    }
-    if (component.children) {
-      const result = getComponentAncestry(id, component.children, [
-        ...path,
-        component,
-      ]);
-      if (result) return result;
-    }
-  }
-  return null;
-}
-
-/**
- * Get all component IDs as a flat list
- */
-export function getAllComponentIds(
-  tree: ComponentDefinition[] = COMPONENT_TREE,
-): string[] {
-  const ids: string[] = [];
-  for (const component of tree) {
-    ids.push(component.id);
-    if (component.children) {
-      ids.push(...getAllComponentIds(component.children));
-    }
-  }
-  return ids;
-}
-
-/**
  * Check if a component has editable style fields.
- * Used to determine if clicking should navigate to editor or just expand.
  */
 export function hasEditableContent(component: ComponentDefinition): boolean {
-  // Grouping-only components are never directly editable
-  if (component.isGrouping) {
-    return false;
-  }
+  if (component.isGrouping) return false;
   return (component.styleFields?.length ?? 0) > 0;
 }
 
 /**
+ * Check if a component has editable config fields (for the Content tab).
+ */
+export function hasConfigContent(component: ComponentDefinition): boolean {
+  return (component.configFields?.length ?? 0) > 0;
+}
+
+/**
  * Check if a CSS class name is a selectable component in the preview.
- * Returns false for groupings (logical groupings that don't have a corresponding CSS class).
  */
 export function isSelectableComponent(className: string): boolean {
   const component = findComponentById(className);
@@ -125,43 +83,28 @@ export function isSelectableComponent(className: string): boolean {
 }
 
 /**
- * Check if a component has editable config fields (for the Content tab).
- * Used to determine if the Content tab should be shown.
- */
-export function hasConfigContent(component: ComponentDefinition): boolean {
-  return (component.configFields?.length ?? 0) > 0;
-}
-
-/**
- * Check if a component has a visibility toggle (for eye icon in layout tree).
- * Used to determine if an eye icon should be shown next to the component.
- */
-export function hasVisibilityToggle(component: ComponentDefinition): boolean {
-  return component.visibilityKey !== undefined;
-}
-
-/**
  * Resolve a component definition for the editor by ID.
- * Checks COMPONENT_TREE first (header, footer), then searches all
- * COMPONENT_LIBRARY editorTree nodes (instances and their children).
+ *
+ * Checks COMPONENT_TREE first (header, footer), then SECTION_REGISTRY
+ * editorTrees, then passport sections by instance ID.
  */
 export function resolveComponentForEditor(
   componentId: string,
-  themeConfig: ThemeConfig,
+  passport: Passport,
 ): ComponentDefinition | null {
-  // Try COMPONENT_TREE and COMPONENT_LIBRARY editorTrees
+  // Try COMPONENT_TREE and SECTION_REGISTRY editorTrees
   const component = findComponentById(componentId);
   if (component) return component;
 
-  // Try layout instances — match by instance ID and return root editorTree
-  const { zones } = themeConfig.layout;
-  for (const zoneId of Object.keys(zones) as ZoneId[]) {
-    const instance = zones[zoneId].find(
-      (inst: LayoutComponentInstance) => inst.id === componentId,
-    );
-    if (instance) {
-      const entry = COMPONENT_LIBRARY[instance.componentType];
-      if (entry) return entry.editorTree as ComponentDefinition;
+  // Try passport sections — match by instance ID and return section schema editorTree
+  for (const zoneKey of ["sidebar", "canvas"] as const) {
+    const zone = passport[zoneKey];
+    if (!zone) continue;
+    for (const section of zone) {
+      if (section.id === componentId) {
+        const entry = SECTION_REGISTRY[section.type as SectionType];
+        if (entry) return entry.schema.editorTree as ComponentDefinition;
+      }
     }
   }
 

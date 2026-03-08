@@ -78,9 +78,15 @@ function Section({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="type-p !font-medium text-primary">{title}</p>
-            {subtitle ? <p className="type-small text-secondary mt-0.5">{subtitle}</p> : null}
+            {subtitle ? (
+              <p className="type-small text-secondary mt-0.5">{subtitle}</p>
+            ) : null}
           </div>
-          {headerRight ? <div className="flex items-center gap-2 flex-shrink-0">{headerRight}</div> : null}
+          {headerRight ? (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {headerRight}
+            </div>
+          ) : null}
         </div>
         {children}
       </div>
@@ -116,7 +122,12 @@ function SimpleSelect<T extends string>({
             size="default"
             className="w-full justify-between data-[state=open]:bg-accent"
           >
-            <span className={cn("truncate px-1", isPlaceholder ? "text-tertiary" : "")}>
+            <span
+              className={cn(
+                "truncate px-1",
+                isPlaceholder ? "text-tertiary" : "",
+              )}
+            >
               {displayLabel}
             </span>
             <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
@@ -135,7 +146,9 @@ function SimpleSelect<T extends string>({
                   }}
                 >
                   <span className="px-1">{opt.label}</span>
-                  {value === opt.value ? <Icons.Check className="h-4 w-4" /> : null}
+                  {value === opt.value ? (
+                    <Icons.Check className="h-4 w-4" />
+                  ) : null}
                 </SelectItem>
               ))}
             </SelectGroup>
@@ -212,10 +225,15 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
   const [billingOverride, setBillingOverride] = useState<
     "none" | "temporary_allow" | "temporary_block"
   >("none");
-  const [billingOverrideExpiresAt, setBillingOverrideExpiresAt] = useState<Date | null>(null);
+  const [billingOverrideExpiresAt, setBillingOverrideExpiresAt] =
+    useState<Date | null>(null);
 
-  const [planType, setPlanType] = useState<"" | "starter" | "growth" | "scale" | "enterprise">("");
-  const [billingMode, setBillingMode] = useState<"" | "stripe_checkout" | "stripe_invoice">("");
+  const [planType, setPlanType] = useState<
+    "" | "starter" | "growth" | "scale" | "enterprise"
+  >("");
+  const [billingMode, setBillingMode] = useState<
+    "" | "stripe_checkout" | "stripe_invoice"
+  >("");
   const [skuAnnualLimit, setSkuAnnualLimit] = useState("");
   const [skuOnboardingLimit, setSkuOnboardingLimit] = useState("");
   const [skuLimitOverride, setSkuLimitOverride] = useState("");
@@ -263,10 +281,18 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
     );
 
     setPlanType(
-      (brandData.plan.plan_type as "" | "starter" | "growth" | "scale" | "enterprise") ?? "",
+      (brandData.plan.plan_type as
+        | ""
+        | "starter"
+        | "growth"
+        | "scale"
+        | "enterprise") ?? "",
     );
     setBillingMode(
-      (brandData.billing.billing_mode as "" | "stripe_checkout" | "stripe_invoice") ?? "",
+      (brandData.billing.billing_mode as
+        | ""
+        | "stripe_checkout"
+        | "stripe_invoice") ?? "",
     );
     setSkuAnnualLimit(
       brandData.plan.sku_annual_limit !== null
@@ -299,10 +325,14 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         queryKey: trpc.platformAdmin.brands.list.queryKey(),
       }),
       queryClient.invalidateQueries({
-        queryKey: trpc.platformAdmin.members.list.queryKey({ brand_id: brandId }),
+        queryKey: trpc.platformAdmin.members.list.queryKey({
+          brand_id: brandId,
+        }),
       }),
       queryClient.invalidateQueries({
-        queryKey: trpc.platformAdmin.invites.list.queryKey({ brand_id: brandId }),
+        queryKey: trpc.platformAdmin.invites.list.queryKey({
+          brand_id: brandId,
+        }),
       }),
       queryClient.invalidateQueries({
         queryKey: trpc.platformAdmin.audit.list.queryKey({
@@ -344,7 +374,8 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         toast.success("Brand suspended");
         await refreshAll();
       },
-      onError: (error) => toast.error(error.message || "Failed to suspend brand"),
+      onError: (error) =>
+        toast.error(error.message || "Failed to suspend brand"),
     }),
   );
 
@@ -354,7 +385,8 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         toast.success("Brand reactivated");
         await refreshAll();
       },
-      onError: (error) => toast.error(error.message || "Failed to reactivate brand"),
+      onError: (error) =>
+        toast.error(error.message || "Failed to reactivate brand"),
     }),
   );
 
@@ -364,7 +396,8 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         toast.success("Brand cancelled");
         await refreshAll();
       },
-      onError: (error) => toast.error(error.message || "Failed to cancel brand"),
+      onError: (error) =>
+        toast.error(error.message || "Failed to cancel brand"),
     }),
   );
 
@@ -374,7 +407,8 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         toast.success("Billing override updated");
         await refreshAll();
       },
-      onError: (error) => toast.error(error.message || "Failed to update override"),
+      onError: (error) =>
+        toast.error(error.message || "Failed to update override"),
     }),
   );
 
@@ -414,7 +448,8 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         toast.success("Member removed");
         await refreshAll();
       },
-      onError: (error) => toast.error(error.message || "Failed to remove member"),
+      onError: (error) =>
+        toast.error(error.message || "Failed to remove member"),
     }),
   );
 
@@ -435,7 +470,8 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         toast.success("Invite revoked");
         await refreshAll();
       },
-      onError: (error) => toast.error(error.message || "Failed to revoke invite"),
+      onError: (error) =>
+        toast.error(error.message || "Failed to revoke invite"),
     }),
   );
 
@@ -527,13 +563,25 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         }
       >
         <FieldRow label="Brand name">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Brand name" />
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Brand name"
+          />
         </FieldRow>
         <FieldRow label="Slug">
-          <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="brand-slug" />
+          <Input
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            placeholder="brand-slug"
+          />
         </FieldRow>
         <FieldRow label="Billing email">
-          <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="billing@example.com" />
+          <Input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="billing@example.com"
+          />
         </FieldRow>
         <CountrySelect
           id="country_code"
@@ -628,7 +676,9 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
               }
               disabled={updateBillingOverrideMutation.isPending}
             >
-              {updateBillingOverrideMutation.isPending ? "Saving…" : "Save Override"}
+              {updateBillingOverrideMutation.isPending
+                ? "Saving…"
+                : "Save Override"}
             </Button>
           </div>
         </div>
@@ -702,16 +752,19 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
             onClick={() =>
               updatePlanMutation.mutate({
                 brand_id: brandId,
-                plan_type:
-                  (planType || null) as
-                    | "starter"
-                    | "growth"
-                    | "scale"
-                    | "enterprise"
-                    | null,
-                billing_mode:
-                  (billingMode || null) as "stripe_checkout" | "stripe_invoice" | null,
-                custom_monthly_price_cents: parseIntOrNull(customMonthlyPriceCents),
+                plan_type: (planType || null) as
+                  | "starter"
+                  | "growth"
+                  | "scale"
+                  | "enterprise"
+                  | null,
+                billing_mode: (billingMode || null) as
+                  | "stripe_checkout"
+                  | "stripe_invoice"
+                  | null,
+                custom_monthly_price_cents: parseIntOrNull(
+                  customMonthlyPriceCents,
+                ),
                 sku_annual_limit: parseIntOrNull(skuAnnualLimit),
                 sku_onboarding_limit: parseIntOrNull(skuOnboardingLimit),
                 sku_limit_override: parseIntOrNull(skuLimitOverride),
@@ -734,7 +787,9 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
               {brandData.billing.stripe_customer_id ?? "Not linked"}
             </p>
             <p className="type-small text-secondary">
-              <span className="text-primary font-medium">Stripe subscription:</span>{" "}
+              <span className="text-primary font-medium">
+                Stripe subscription:
+              </span>{" "}
               {brandData.billing.stripe_subscription_id ?? "Not linked"}
             </p>
           </div>
@@ -758,9 +813,15 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
           </div>
         </div>
         <div className="grid grid-cols-[1fr_1fr_160px]">
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Event</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Stripe Event</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">Created</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Event
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Stripe Event
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">
+            Created
+          </div>
         </div>
         {brandData.billing.events.length === 0 ? (
           <div className="flex items-center justify-center h-[120px]">
@@ -771,9 +832,30 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
             const isLast = i === arr.length - 1;
             return (
               <div key={event.id} className="grid grid-cols-[1fr_1fr_160px]">
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{event.event_type}</div>
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{event.stripe_event_id ?? "-"}</div>
-                <div className={cn("border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{formatDate(event.created_at)}</div>
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {event.event_type}
+                </div>
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {event.stripe_event_id ?? "-"}
+                </div>
+                <div
+                  className={cn(
+                    "border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {formatDate(event.created_at)}
+                </div>
               </div>
             );
           })
@@ -786,11 +868,21 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
           <p className="type-p !font-medium text-primary">Members</p>
         </div>
         <div className="grid grid-cols-[1fr_1fr_100px_160px_100px]">
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Email</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Name</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Role</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Joined</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">Actions</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Email
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Name
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Role
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Joined
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">
+            Actions
+          </div>
         </div>
         {members.length === 0 ? (
           <div className="flex items-center justify-center h-[120px]">
@@ -800,18 +892,59 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
           members.map((member, i, arr) => {
             const isLast = i === arr.length - 1;
             return (
-              <div key={member.user_id} className="grid grid-cols-[1fr_1fr_100px_160px_100px]">
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary truncate", !isLast && "border-b")}>{member.email ?? "-"}</div>
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{member.full_name ?? "-"}</div>
-                <div className={cn("border-r border-border px-4 py-2.5", !isLast && "border-b")}>
-                  <span className="inline-flex border px-2 py-0.5 type-small bg-accent-light text-primary">{member.role}</span>
+              <div
+                key={member.user_id}
+                className="grid grid-cols-[1fr_1fr_100px_160px_100px]"
+              >
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary truncate",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {member.email ?? "-"}
                 </div>
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{formatDate(member.joined_at)}</div>
-                <div className={cn("border-border px-3 py-2 flex items-center", !isLast && "border-b")}>
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {member.full_name ?? "-"}
+                </div>
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5",
+                    !isLast && "border-b",
+                  )}
+                >
+                  <span className="inline-flex border px-2 py-0.5 type-small bg-accent-light text-primary">
+                    {member.role}
+                  </span>
+                </div>
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {formatDate(member.joined_at)}
+                </div>
+                <div
+                  className={cn(
+                    "border-border px-3 py-2 flex items-center",
+                    !isLast && "border-b",
+                  )}
+                >
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => removeMemberMutation.mutate({ brand_id: brandId, user_id: member.user_id })}
+                    onClick={() =>
+                      removeMemberMutation.mutate({
+                        brand_id: brandId,
+                        user_id: member.user_id,
+                      })
+                    }
                     disabled={removeMemberMutation.isPending}
                   >
                     Remove
@@ -856,11 +989,21 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
           </div>
         </div>
         <div className="grid grid-cols-[1fr_100px_160px_160px_100px]">
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Email</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Role</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Sent</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Expires</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">Actions</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Email
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Role
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Sent
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Expires
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">
+            Actions
+          </div>
         </div>
         {invites.length === 0 ? (
           <div className="flex items-center justify-center h-[120px]">
@@ -870,16 +1013,54 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
           invites.map((invite, i, arr) => {
             const isLast = i === arr.length - 1;
             return (
-              <div key={invite.id} className="grid grid-cols-[1fr_100px_160px_160px_100px]">
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary truncate", !isLast && "border-b")}>{invite.email}</div>
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{invite.role}</div>
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{formatDate(invite.created_at)}</div>
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{formatDate(invite.expires_at)}</div>
-                <div className={cn("border-border px-3 py-2 flex items-center", !isLast && "border-b")}>
+              <div
+                key={invite.id}
+                className="grid grid-cols-[1fr_100px_160px_160px_100px]"
+              >
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary truncate",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {invite.email}
+                </div>
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {invite.role}
+                </div>
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {formatDate(invite.created_at)}
+                </div>
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {formatDate(invite.expires_at)}
+                </div>
+                <div
+                  className={cn(
+                    "border-border px-3 py-2 flex items-center",
+                    !isLast && "border-b",
+                  )}
+                >
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => revokeInviteMutation.mutate({ invite_id: invite.id })}
+                    onClick={() =>
+                      revokeInviteMutation.mutate({ invite_id: invite.id })
+                    }
                     disabled={revokeInviteMutation.isPending}
                   >
                     Revoke
@@ -905,9 +1086,15 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
           </FieldRow>
         </div>
         <div className="grid grid-cols-[1fr_1fr_160px]">
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Action</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">Actor</div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">Created</div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Action
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+            Actor
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">
+            Created
+          </div>
         </div>
         {audits.length === 0 ? (
           <div className="flex items-center justify-center h-[120px]">
@@ -918,9 +1105,30 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
             const isLast = i === arr.length - 1;
             return (
               <div key={entry.id} className="grid grid-cols-[1fr_1fr_160px]">
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{entry.action}</div>
-                <div className={cn("border-r border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{entry.actor_full_name ?? entry.actor_email ?? "Unknown"}</div>
-                <div className={cn("border-border px-4 py-2.5 type-p text-primary", !isLast && "border-b")}>{formatDate(entry.created_at)}</div>
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {entry.action}
+                </div>
+                <div
+                  className={cn(
+                    "border-r border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {entry.actor_full_name ?? entry.actor_email ?? "Unknown"}
+                </div>
+                <div
+                  className={cn(
+                    "border-border px-4 py-2.5 type-p text-primary",
+                    !isLast && "border-b",
+                  )}
+                >
+                  {formatDate(entry.created_at)}
+                </div>
               </div>
             );
           })

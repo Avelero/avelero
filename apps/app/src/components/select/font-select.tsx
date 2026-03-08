@@ -128,8 +128,12 @@ export function FontSelect({
     if (!pendingCustomFontAutoSelect.current) return;
 
     const previousSources = customFontSourcesSnapshot.current;
-    const addedFonts = customFonts.filter((font) => !previousSources.has(font.src));
-    customFontSourcesSnapshot.current = new Set(customFonts.map((font) => font.src));
+    const addedFonts = customFonts.filter(
+      (font) => !previousSources.has(font.src),
+    );
+    customFontSourcesSnapshot.current = new Set(
+      customFonts.map((font) => font.src),
+    );
     pendingCustomFontAutoSelect.current = false;
 
     if (addedFonts.length === 0) return;
@@ -316,7 +320,6 @@ function FontList({
       return;
     }
     if (hasScrolledToSelected.current) return;
-
 
     let innerFrameId = 0;
     const frameId = requestAnimationFrame(() => {

@@ -1,10 +1,7 @@
 "use client";
 
-import type { ComponentType, ZoneId } from "@v1/dpp-components";
-import {
-  COMPONENT_LIBRARY,
-  type ComponentLibraryEntry,
-} from "@v1/dpp-components/lib/component-library";
+import type { SectionType, ZoneId } from "@v1/dpp-components";
+import { SECTION_REGISTRY } from "@v1/dpp-components";
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 
@@ -12,7 +9,7 @@ interface Props {
   zoneId: ZoneId;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (componentType: ComponentType) => void;
+  onSelect: (sectionType: SectionType) => void;
   children: React.ReactNode;
 }
 
@@ -23,9 +20,9 @@ export function AddComponentPopover({
   onSelect,
   children,
 }: Props) {
-  // Filter components that are allowed in this zone
-  const availableComponents = Object.values(COMPONENT_LIBRARY).filter(
-    (entry: ComponentLibraryEntry) => entry.allowedZones.includes(zoneId),
+  // Filter sections that are allowed in this zone
+  const availableSections = Object.entries(SECTION_REGISTRY).filter(
+    ([, entry]) => entry.schema.allowedZones.includes(zoneId),
   );
 
   return (
@@ -38,15 +35,15 @@ export function AddComponentPopover({
               Add section
             </span>
           </div>
-          {availableComponents.map((entry) => (
+          {availableSections.map(([type, entry]) => (
             <button
-              key={entry.type}
+              key={type}
               type="button"
-              onClick={() => onSelect(entry.type)}
+              onClick={() => onSelect(type as SectionType)}
               className="flex items-center gap-2 h-8 px-2 type-small text-primary hover:bg-accent cursor-pointer w-full text-left"
             >
               <Icons.GalleryVertical className="h-3 w-3 text-tertiary" />
-              <span>{entry.displayName}</span>
+              <span>{entry.schema.displayName}</span>
             </button>
           ))}
         </div>

@@ -360,10 +360,9 @@ export function VariantSection({
   // Track expanded/collapsed variant mappings when dimensions are added/removed locally
   // This maps new keys to the original ID/UPID/override info
   // Use external state if provided (for form submission), otherwise use local state
-  const [localExpandedMappings, setLocalExpandedMappings] =
-    React.useState<Map<string, { id: string; upid: string; hasOverrides: boolean }>>(
-      new Map(),
-    );
+  const [localExpandedMappings, setLocalExpandedMappings] = React.useState<
+    Map<string, { id: string; upid: string; hasOverrides: boolean }>
+  >(new Map());
 
   // Use external mappings if provided, otherwise fall back to local state
   const collapsedVariantMappings =
@@ -672,7 +671,10 @@ export function VariantSection({
 
       // Remap collapsed variant mappings
       setCollapsedVariantMappings((prev) => {
-        const next = new Map<string, { id: string; upid: string; hasOverrides: boolean }>();
+        const next = new Map<
+          string,
+          { id: string; upid: string; hasOverrides: boolean }
+        >();
         for (const [key, value] of prev) {
           let newKey = key;
           for (const [oldVal, newVal] of valueRemapping) {
@@ -768,7 +770,11 @@ export function VariantSection({
         const meta = variantMetadata[key];
         // Include if has metadata OR if we're changing dimension count
         if (meta?.sku || meta?.barcode || isDimensionCountChange) {
-          variantsToPreserve.set(key, { id: null, upid: null, hasOverrides: false });
+          variantsToPreserve.set(key, {
+            id: null,
+            upid: null,
+            hasOverrides: false,
+          });
         }
       }
     }
@@ -1212,7 +1218,11 @@ export function VariantSection({
     // Include ALL enabled variants for collapse (dimension count is changing)
     for (const key of enabledVariantKeys) {
       if (!variantsToPreserve.has(key)) {
-        variantsToPreserve.set(key, { id: null, upid: null, hasOverrides: false });
+        variantsToPreserve.set(key, {
+          id: null,
+          upid: null,
+          hasOverrides: false,
+        });
       }
     }
 

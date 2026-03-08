@@ -10,8 +10,8 @@ export function CreateBrandForm() {
       <div className="text-center space-y-2">
         <h6 className="text-foreground">Brand creation moved</h6>
         <p className="text-secondary">
-          Brand provisioning is now managed by Avelero admins. Ask your workspace
-          owner for an invitation.
+          Brand provisioning is now managed by Avelero admins. Ask your
+          workspace owner for an invitation.
         </p>
       </div>
 

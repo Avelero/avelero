@@ -668,7 +668,10 @@ export function MaterialSheet({
       >
         {/* Header */}
         <SheetBreadcrumbHeader
-          pages={[isEditMode ? "Edit material" : "Create material", "Create certification"]}
+          pages={[
+            isEditMode ? "Edit material" : "Create material",
+            "Create certification",
+          ]}
           currentPageIndex={currentPage === "material" ? 0 : 1}
           onClose={() => onOpenChange(false)}
           onPageClick={(pageIndex) => {

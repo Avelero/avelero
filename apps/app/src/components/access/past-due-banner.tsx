@@ -8,7 +8,8 @@ export function PastDueBanner() {
         <div className="flex items-center gap-2 type-small">
           <Icons.AlertTriangle className="h-4 w-4" />
           <span>
-            Billing is past due. Brand data is read-only until payment is resolved.
+            Billing is past due. Brand data is read-only until payment is
+            resolved.
           </span>
         </div>
         <Link

@@ -13,10 +13,22 @@
 // Load setup first (loads .env.test and configures cleanup)
 import "../../setup";
 
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "bun:test";
 import { eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
-import { cleanupTables, createTestBrand, createTestUser, testDb } from "@v1/db/testing";
+import {
+  cleanupTables,
+  createTestBrand,
+  createTestUser,
+  testDb,
+} from "@v1/db/testing";
 import type { AuthenticatedTRPCContext } from "../../../src/trpc/init";
 
 // ============================================================================
@@ -63,11 +75,16 @@ let mockTxtRecords: string[][] = [["avelero-verify-mock-token"]];
 let mockTxtError: Error | null = null;
 
 // Setup fetch mock for NS lookups (DoH)
-(globalThis as any).fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+(globalThis as any).fetch = async (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => {
   const url = typeof input === "string" ? input : input.toString();
   // Mock Google DoH NS requests - return fake nameservers
   if (url.includes("dns.google") && url.includes("type=NS")) {
-    return createMockResponse(createNsResponse(["ns1.mock.com", "ns2.mock.com"]));
+    return createMockResponse(
+      createNsResponse(["ns1.mock.com", "ns2.mock.com"]),
+    );
   }
   // Pass through other requests to original fetch
   return originalFetch(input, init);
@@ -161,7 +178,8 @@ async function createCustomDomain(options: {
       brandId: options.brandId,
       domain: options.domain,
       status: options.status ?? "pending",
-      verificationToken: options.verificationToken ?? "avelero-verify-test-token-1234567890",
+      verificationToken:
+        options.verificationToken ?? "avelero-verify-test-token-1234567890",
       verificationError: options.verificationError ?? null,
       verifiedAt: options.verifiedAt ?? null,
     })
@@ -287,7 +305,11 @@ describe("Custom Domains Router", () => {
       const memberId = await createTestUser(memberEmail);
       await createBrandMembership(memberId, brandId, "member");
 
-      const ctx = createMockContext({ brandId, userId: memberId, userEmail: memberEmail });
+      const ctx = createMockContext({
+        brandId,
+        userId: memberId,
+        userEmail: memberEmail,
+      });
 
       // Create a domain
       await createCustomDomain({
@@ -376,7 +398,9 @@ describe("Custom Domains Router", () => {
         const result = await callAdd(ctx, { domain: "passport.mybrand.com" });
 
         expect(result.verificationToken).toBeDefined();
-        expect(result.verificationToken).toMatch(/^avelero-verify-[a-f0-9]{64}$/);
+        expect(result.verificationToken).toMatch(
+          /^avelero-verify-[a-f0-9]{64}$/,
+        );
       });
 
       it("returns DNS instructions", async () => {
@@ -428,11 +452,15 @@ describe("Custom Domains Router", () => {
         const memberId = await createTestUser(memberEmail);
         await createBrandMembership(memberId, brandId, "member");
 
-        const ctx = createMockContext({ brandId, userId: memberId, userEmail: memberEmail });
+        const ctx = createMockContext({
+          brandId,
+          userId: memberId,
+          userEmail: memberEmail,
+        });
 
-        await expect(callAdd(ctx, { domain: "passport.mybrand.com" })).rejects.toThrow(
-          "You do not have the required role",
-        );
+        await expect(
+          callAdd(ctx, { domain: "passport.mybrand.com" }),
+        ).rejects.toThrow("You do not have the required role");
       });
     });
 
@@ -440,13 +468,17 @@ describe("Custom Domains Router", () => {
       it("rejects invalid domain format", async () => {
         const ctx = createMockContext({ brandId, userId, userEmail });
 
-        await expect(callAdd(ctx, { domain: "not-a-valid-domain" })).rejects.toThrow();
+        await expect(
+          callAdd(ctx, { domain: "not-a-valid-domain" }),
+        ).rejects.toThrow();
       });
 
       it("rejects domain with protocol", async () => {
         const ctx = createMockContext({ brandId, userId, userEmail });
 
-        await expect(callAdd(ctx, { domain: "https://passport.mybrand.com" })).rejects.toThrow();
+        await expect(
+          callAdd(ctx, { domain: "https://passport.mybrand.com" }),
+        ).rejects.toThrow();
       });
 
       it("rejects reserved domain (avelero.com)", async () => {
@@ -458,7 +490,9 @@ describe("Custom Domains Router", () => {
       it("rejects subdomain of reserved domain", async () => {
         const ctx = createMockContext({ brandId, userId, userEmail });
 
-        await expect(callAdd(ctx, { domain: "passport.avelero.com" })).rejects.toThrow();
+        await expect(
+          callAdd(ctx, { domain: "passport.avelero.com" }),
+        ).rejects.toThrow();
       });
 
       it("rejects localhost", async () => {
@@ -477,9 +511,9 @@ describe("Custom Domains Router", () => {
         await callAdd(ctx, { domain: "passport.mybrand.com" });
 
         // Second domain should fail
-        await expect(callAdd(ctx, { domain: "other.mybrand.com" })).rejects.toThrow(
-          "You already have a custom domain configured",
-        );
+        await expect(
+          callAdd(ctx, { domain: "other.mybrand.com" }),
+        ).rejects.toThrow("You already have a custom domain configured");
       });
 
       it("rejects if domain claimed by another brand", async () => {
@@ -497,9 +531,9 @@ describe("Custom Domains Router", () => {
         // Try to add same domain to our brand
         const ctx = createMockContext({ brandId, userId, userEmail });
 
-        await expect(callAdd(ctx, { domain: "claimed.domain.com" })).rejects.toThrow(
-          "This domain is already in use by another brand",
-        );
+        await expect(
+          callAdd(ctx, { domain: "claimed.domain.com" }),
+        ).rejects.toThrow("This domain is already in use by another brand");
       });
     });
   });
@@ -690,7 +724,9 @@ describe("Custom Domains Router", () => {
           verifiedAt: new Date().toISOString(),
         });
 
-        await expect(callVerify(ctx)).rejects.toThrow("Your domain is already verified");
+        await expect(callVerify(ctx)).rejects.toThrow(
+          "Your domain is already verified",
+        );
       });
 
       it("allows retry on pending domain with previous error", async () => {
@@ -739,7 +775,11 @@ describe("Custom Domains Router", () => {
         const memberId = await createTestUser(memberEmail);
         await createBrandMembership(memberId, brandId, "member");
 
-        const ctx = createMockContext({ brandId, userId: memberId, userEmail: memberEmail });
+        const ctx = createMockContext({
+          brandId,
+          userId: memberId,
+          userEmail: memberEmail,
+        });
 
         await createCustomDomain({
           brandId,
@@ -747,7 +787,9 @@ describe("Custom Domains Router", () => {
           status: "pending",
         });
 
-        await expect(callVerify(ctx)).rejects.toThrow("You do not have the required role");
+        await expect(callVerify(ctx)).rejects.toThrow(
+          "You do not have the required role",
+        );
       });
     });
   });
@@ -824,7 +866,11 @@ describe("Custom Domains Router", () => {
       const memberId = await createTestUser(memberEmail);
       await createBrandMembership(memberId, brandId, "member");
 
-      const ctx = createMockContext({ brandId, userId: memberId, userEmail: memberEmail });
+      const ctx = createMockContext({
+        brandId,
+        userId: memberId,
+        userEmail: memberEmail,
+      });
 
       await createCustomDomain({
         brandId,
@@ -832,7 +878,9 @@ describe("Custom Domains Router", () => {
         status: "pending",
       });
 
-      await expect(callRemove(ctx)).rejects.toThrow("You do not have the required role");
+      await expect(callRemove(ctx)).rejects.toThrow(
+        "You do not have the required role",
+      );
     });
 
     it("allows domain to be reclaimed after removal", async () => {

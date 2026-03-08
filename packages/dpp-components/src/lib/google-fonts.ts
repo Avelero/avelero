@@ -1,5 +1,5 @@
 /**
- * Minimal Google Fonts URL generation utilities for ThemeStyles typography.
+ * Minimal Google Fonts URL generation utilities for Passport typography tokens.
  * This intentionally avoids any browser or React dependencies so it can be used in server actions.
  */
 import { findFont } from "@v1/selections/fonts";

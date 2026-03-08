@@ -51,15 +51,7 @@ interface CertificationSheetProps {
 function serializeDate(date?: Date) {
   if (!date) return undefined;
   return new Date(
-    Date.UTC(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-      0,
-      0,
-      0,
-      0,
-    ),
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0),
   ).toISOString();
 }
 
@@ -98,17 +90,20 @@ export function CertificationSheet({
   const [instituteZip, setInstituteZip] = React.useState("");
   const [instituteCountryCode, setInstituteCountryCode] = React.useState("");
   const [issueDate, setIssueDate] = React.useState<Date | undefined>(undefined);
-  const [expiryDate, setExpiryDate] = React.useState<Date | undefined>(undefined);
-  const [certificationPath, setCertificationPath] = React.useState<string | undefined>(
+  const [expiryDate, setExpiryDate] = React.useState<Date | undefined>(
     undefined,
   );
-  const [uploadedFileName, setUploadedFileName] = React.useState<string | undefined>(
-    undefined,
-  );
+  const [certificationPath, setCertificationPath] = React.useState<
+    string | undefined
+  >(undefined);
+  const [uploadedFileName, setUploadedFileName] = React.useState<
+    string | undefined
+  >(undefined);
   const [isDragging, setIsDragging] = React.useState(false);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [sheetContainer, setSheetContainer] = React.useState<HTMLDivElement | null>(null);
+  const [sheetContainer, setSheetContainer] =
+    React.useState<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -164,7 +159,9 @@ export function CertificationSheet({
       const maxSize = 50 * 1024 * 1024;
 
       if (!allowedTypes.includes(file.type)) {
-        toast.error("Invalid file type. Please upload a PDF, JPG, JPEG, or PNG file.");
+        toast.error(
+          "Invalid file type. Please upload a PDF, JPG, JPEG, or PNG file.",
+        );
         return;
       }
       if (file.size > maxSize) {
@@ -194,7 +191,8 @@ export function CertificationSheet({
             if (f.size > maxSize) {
               return {
                 valid: false,
-                error: "File too large. Please upload a file smaller than 50MB.",
+                error:
+                  "File too large. Please upload a file smaller than 50MB.",
               };
             }
             return { valid: true };
@@ -300,41 +298,52 @@ export function CertificationSheet({
         certificationPath: certificationPath || undefined,
       };
 
-      queryClient.setQueryData(trpc.composite.catalogContent.queryKey(), (old: any) => {
-        if (!old) return old;
-        const existing = old.brandCatalog?.certifications ?? [];
-        const nextRow = {
-          id: certificationId,
-          title: nextCertification.title,
-          certification_code: nextCertification.certificationCode ?? null,
-          institute_name: nextCertification.instituteName ?? null,
-          institute_email: nextCertification.instituteEmail ?? null,
-          institute_website: nextCertification.instituteWebsite ?? null,
-          institute_address_line_1: nextCertification.instituteAddressLine1 ?? null,
-          institute_address_line_2: nextCertification.instituteAddressLine2 ?? null,
-          institute_city: nextCertification.instituteCity ?? null,
-          institute_state: nextCertification.instituteState ?? null,
-          institute_zip: nextCertification.instituteZip ?? null,
-          institute_country_code: nextCertification.instituteCountryCode ?? null,
-          issue_date: issueDateIso ?? null,
-          expiry_date: expiryDateIso ?? null,
-          certification_path: nextCertification.certificationPath ?? null,
-          created_at:
-            existing.find((cert: any) => cert.id === certificationId)?.created_at ?? now,
-          updated_at: now,
-        };
+      queryClient.setQueryData(
+        trpc.composite.catalogContent.queryKey(),
+        (old: any) => {
+          if (!old) return old;
+          const existing = old.brandCatalog?.certifications ?? [];
+          const nextRow = {
+            id: certificationId,
+            title: nextCertification.title,
+            certification_code: nextCertification.certificationCode ?? null,
+            institute_name: nextCertification.instituteName ?? null,
+            institute_email: nextCertification.instituteEmail ?? null,
+            institute_website: nextCertification.instituteWebsite ?? null,
+            institute_address_line_1:
+              nextCertification.instituteAddressLine1 ?? null,
+            institute_address_line_2:
+              nextCertification.instituteAddressLine2 ?? null,
+            institute_city: nextCertification.instituteCity ?? null,
+            institute_state: nextCertification.instituteState ?? null,
+            institute_zip: nextCertification.instituteZip ?? null,
+            institute_country_code:
+              nextCertification.instituteCountryCode ?? null,
+            issue_date: issueDateIso ?? null,
+            expiry_date: expiryDateIso ?? null,
+            certification_path: nextCertification.certificationPath ?? null,
+            created_at:
+              existing.find((cert: any) => cert.id === certificationId)
+                ?.created_at ?? now,
+            updated_at: now,
+          };
 
-        return {
-          ...old,
-          brandCatalog: {
-            ...old.brandCatalog,
-            certifications: isEditMode
-              ? existing.map((cert: any) => (cert.id === certificationId ? nextRow : cert))
-              : [...existing, nextRow],
-          },
-        };
+          return {
+            ...old,
+            brandCatalog: {
+              ...old.brandCatalog,
+              certifications: isEditMode
+                ? existing.map((cert: any) =>
+                    cert.id === certificationId ? nextRow : cert,
+                  )
+                : [...existing, nextRow],
+            },
+          };
+        },
+      );
+      queryClient.invalidateQueries({
+        queryKey: trpc.composite.catalogContent.queryKey(),
       });
-      queryClient.invalidateQueries({ queryKey: trpc.composite.catalogContent.queryKey() });
 
       if (isEditMode) {
         await onSave?.(nextCertification);
@@ -606,7 +615,9 @@ export function CertificationSheet({
                       <p className="mb-1 type-small text-tertiary">
                         Drop your certificate here, or click to browse.
                       </p>
-                      <p className="type-small text-tertiary">50MB file limit.</p>
+                      <p className="type-small text-tertiary">
+                        50MB file limit.
+                      </p>
                     </>
                   )}
                 </div>

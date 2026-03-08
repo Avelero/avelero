@@ -161,8 +161,7 @@ export function ExportQrCodesModal({
 
     if (exportProgress?.status === "failed" || exportRunStatus === "failed") {
       setErrorMessage(
-        exportProgress?.errorMessage ||
-          GENERIC_QR_EXPORT_ERROR_MESSAGE,
+        exportProgress?.errorMessage || GENERIC_QR_EXPORT_ERROR_MESSAGE,
       );
       setExportState("failed");
     }
@@ -255,9 +254,7 @@ export function ExportQrCodesModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {!hideTrigger && (
-        <DialogTrigger asChild>{buttonElement}</DialogTrigger>
-      )}
+      {!hideTrigger && <DialogTrigger asChild>{buttonElement}</DialogTrigger>}
       <DialogContent size="xl" className="p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <div className="flex items-center gap-1.5">
@@ -315,7 +312,9 @@ export function ExportQrCodesModal({
                   </p>
                   <p className="type-small text-secondary">
                     We only export GS1 Digital Link QR codes in the format{" "}
-                    <span className="font-mono">https://domain.com/01/barcode</span>{" "}
+                    <span className="font-mono">
+                      https://domain.com/01/barcode
+                    </span>{" "}
                     to keep passports portable across providers.
                   </p>
                 </div>
@@ -335,9 +334,7 @@ export function ExportQrCodesModal({
                   <p className="type-p text-foreground font-medium">
                     Failed to load QR export summary
                   </p>
-                  <p className="type-small text-secondary">
-                    Please try again.
-                  </p>
+                  <p className="type-small text-secondary">Please try again.</p>
                 </div>
               )}
 
@@ -375,8 +372,9 @@ export function ExportQrCodesModal({
               <div className="text-center">
                 <p className="type-small text-secondary">
                   We&apos;re preparing your QR export in the background. You can
-                  close this modal and we&apos;ll email you when it&apos;s ready,
-                  or leave it open and the download will start automatically.
+                  close this modal and we&apos;ll email you when it&apos;s
+                  ready, or leave it open and the download will start
+                  automatically.
                 </p>
               </div>
             </div>

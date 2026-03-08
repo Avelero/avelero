@@ -2,8 +2,8 @@
 
 import { authActionClient } from "@/actions/safe-action";
 import {
-  type ThemeStyles,
-  buildThemeStylesheet,
+  type Passport,
+  buildPassportStylesheet,
   generateGoogleFontsUrlFromTypography,
 } from "@v1/dpp-components";
 import type { Json } from "@v1/supabase/types";
@@ -13,26 +13,23 @@ const BUCKET_NAME = "dpp-themes";
 
 const schema = z.object({
   brandId: z.string().uuid(),
-  themeStyles: z.custom<ThemeStyles>(),
+  passport: z.custom<Passport>(),
 });
 
 export const saveThemeAction = authActionClient
   .schema(schema)
   .metadata({ name: "design.save-theme" })
   .action(async ({ parsedInput, ctx }) => {
-    const { brandId, themeStyles } = parsedInput;
+    const { brandId, passport } = parsedInput;
     const supabase = ctx.supabase;
 
     // Generate Google Fonts URL from typography settings
     const googleFontsUrl = generateGoogleFontsUrlFromTypography(
-      themeStyles?.typography,
+      passport?.tokens?.typography as Record<string, unknown> | undefined,
     );
 
-    // Build CSS stylesheet from theme styles
-    const stylesheetContent = buildThemeStylesheet({
-      themeStyles,
-      includeFontFaces: true,
-    });
+    // Build CSS stylesheet from passport tokens
+    const stylesheetContent = buildPassportStylesheet(passport.tokens);
 
     const stylesheetPath = `${brandId}/theme.css`;
     const now = new Date().toISOString();
@@ -54,11 +51,11 @@ export const saveThemeAction = authActionClient
       }
     }
 
-    // Update theme_styles in brand_theme table (preserves theme_config)
+    // Update passport in brand_theme table
     const { error: dbError } = await supabase
       .from("brand_theme")
       .update({
-        theme_styles: themeStyles as unknown as Json,
+        passport: passport as unknown as Json,
         stylesheet_path: stylesheetPath,
         google_fonts_url: googleFontsUrl || null,
         updated_at: now,
@@ -67,7 +64,7 @@ export const saveThemeAction = authActionClient
 
     if (dbError) {
       throw new Error(
-        dbError.message || "Unable to save theme styles for brand",
+        dbError.message || "Unable to save passport for brand",
       );
     }
 

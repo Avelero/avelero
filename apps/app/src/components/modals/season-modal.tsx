@@ -281,7 +281,8 @@ export function SeasonModal({
     onOpenChange(newOpen);
   };
 
-  const isSaving = createSeasonMutation.isPending || updateSeasonMutation.isPending;
+  const isSaving =
+    createSeasonMutation.isPending || updateSeasonMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -366,16 +367,12 @@ export function SeasonModal({
 
         {/* Footer */}
         <DialogFooter className="px-6 py-4 border-t border-border bg-background">
-            <Button
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isSaving}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={!name.trim() || isSaving}>
-              {isEditMode ? "Save" : "Create"}
-            </Button>
+          <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={!name.trim() || isSaving}>
+            {isEditMode ? "Save" : "Create"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  type Notification,
-  useNotifications,
-} from "@/hooks/use-notifications";
+import { type Notification, useNotifications } from "@/hooks/use-notifications";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -12,7 +9,14 @@ import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { toast } from "@v1/ui/sonner";
 import Link from "next/link";
-import { type ReactNode, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 interface NotificationActionData {
   kind?: string;
@@ -39,7 +43,10 @@ function NotificationCenterContent() {
   );
 
   const unreadIds = useMemo(
-    () => notifications.filter((notification) => !notification.seenAt).map((n) => n.id),
+    () =>
+      notifications
+        .filter((notification) => !notification.seenAt)
+        .map((n) => n.id),
     [notifications],
   );
 
@@ -148,9 +155,7 @@ function NotificationCenterContent() {
               <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-accent text-tertiary">
                 <Icons.Inbox className="h-4 w-4" />
               </div>
-              <p className="type-small text-secondary">
-                No notifications yet.
-              </p>
+              <p className="type-small text-secondary">No notifications yet.</p>
             </div>
           ) : (
             notifications.map((notification) => {

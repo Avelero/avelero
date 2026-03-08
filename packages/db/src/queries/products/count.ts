@@ -41,7 +41,9 @@ export async function resolveSelectedProductIds(
     const rows = await db
       .select({ id: products.id })
       .from(products)
-      .where(and(eq(products.brandId, brandId), inArray(products.id, dedupedIds)));
+      .where(
+        and(eq(products.brandId, brandId), inArray(products.id, dedupedIds)),
+      );
 
     const allowed = new Set(rows.map((row) => row.id));
     return dedupedIds.filter((id) => allowed.has(id));

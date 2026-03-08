@@ -327,7 +327,9 @@ export function ManufacturerSheet({
           const existing = old.brandCatalog.manufacturers ?? [];
           const nextManufacturers = isEditMode
             ? existing.map((manufacturer: any) =>
-                manufacturer.id === manufacturerId ? nextManufacturer : manufacturer,
+                manufacturer.id === manufacturerId
+                  ? nextManufacturer
+                  : manufacturer,
               )
             : [...existing, nextManufacturer];
 
@@ -385,7 +387,8 @@ export function ManufacturerSheet({
 
   const isNameValid = name.trim().length > 0 && !fieldErrors.name;
   const isSaving =
-    createManufacturerMutation.isPending || updateManufacturerMutation.isPending;
+    createManufacturerMutation.isPending ||
+    updateManufacturerMutation.isPending;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

@@ -4,9 +4,8 @@
  * Contains only the fixed structural components (Header, Footer) that are
  * always rendered and not part of the layout zone system.
  *
- * All zone-based components (image, hero, details, buttons, impact, materials,
- * journey, banner) are now defined in COMPONENT_LIBRARY
- * (packages/dpp-components/src/lib/component-library.ts).
+ * Style paths are relative to passport.header.styles / passport.footer.styles.
+ * Content paths are relative to passport.header / passport.footer.
  */
 
 import { CAPITALIZATION_OPTIONS } from "./constants";
@@ -22,20 +21,28 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
     styleFields: [
       {
         type: "color",
-        path: "header.borderColor",
-        label: "Border Color",
-      },
-      {
-        type: "color",
-        path: "header.backgroundColor",
+        path: "container.backgroundColor",
         label: "Background",
       },
     ],
     configFields: [
       {
         type: "image",
-        path: "branding.headerLogoUrl",
+        path: "logoUrl",
         label: "Logo",
+      },
+    ],
+    children: [
+      {
+        id: "header.textLogo",
+        displayName: "Text Logo",
+        styleFields: [
+          {
+            type: "color",
+            path: "textLogo.color",
+            label: "Color",
+          },
+        ],
       },
     ],
   },
@@ -49,61 +56,56 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
     styleFields: [
       {
         type: "color",
-        path: "footer.borderColor",
-        label: "Border Color",
-      },
-      {
-        type: "color",
-        path: "footer.backgroundColor",
+        path: "container.backgroundColor",
         label: "Background",
       },
     ],
     configFields: [
       {
         type: "url",
-        path: "social.instagramUrl",
+        path: "social.instagram",
         label: "Instagram",
         placeholder: "https://instagram.com/...",
         section: "Social Links",
       },
       {
         type: "url",
-        path: "social.facebookUrl",
+        path: "social.facebook",
         label: "Facebook",
         placeholder: "https://facebook.com/...",
         section: "Social Links",
       },
       {
         type: "url",
-        path: "social.pinterestUrl",
+        path: "social.pinterest",
         label: "Pinterest",
         placeholder: "https://pinterest.com/...",
         section: "Social Links",
       },
       {
         type: "url",
-        path: "social.twitterUrl",
+        path: "social.twitter",
         label: "X (Twitter)",
         placeholder: "https://x.com/...",
         section: "Social Links",
       },
       {
         type: "url",
-        path: "social.tiktokUrl",
+        path: "social.tiktok",
         label: "TikTok",
         placeholder: "https://tiktok.com/@...",
         section: "Social Links",
       },
       {
         type: "url",
-        path: "social.youtubeUrl",
+        path: "social.youtube",
         label: "YouTube",
         placeholder: "https://youtube.com/@...",
         section: "Social Links",
       },
       {
         type: "url",
-        path: "social.linkedinUrl",
+        path: "social.linkedin",
         label: "LinkedIn",
         placeholder: "https://linkedin.com/company/...",
         section: "Social Links",
@@ -111,39 +113,39 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
     ],
     children: [
       {
-        id: "footer__legal-name",
+        id: "footer.brandName",
         displayName: "Brand",
         styleFields: [
           {
             type: "color",
-            path: "footer__legal-name.color",
+            path: "brandName.color",
             label: "Color",
           },
           {
             type: "typescale",
-            path: "footer__legal-name.typescale",
+            path: "brandName.typescale",
             label: "Typescale",
           },
           {
             type: "select",
-            path: "footer__legal-name.textTransform",
+            path: "brandName.textTransform",
             label: "Capitalization",
             options: CAPITALIZATION_OPTIONS,
           },
         ],
       },
       {
-        id: "footer__social-icons",
+        id: "footer.socialIcon",
         displayName: "Socials",
         styleFields: [
           {
             type: "color",
-            path: "footer__social-icons.color",
+            path: "socialIcon.color",
             label: "Color",
           },
           {
             type: "typescale",
-            path: "footer__social-icons.typescale",
+            path: "socialIcon.typescale",
             label: "Typescale",
           },
         ],

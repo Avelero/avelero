@@ -9,7 +9,10 @@ export type BrandLifecyclePhase =
   | "suspended"
   | "cancelled";
 
-export type BillingAccessOverride = "none" | "temporary_allow" | "temporary_block";
+export type BillingAccessOverride =
+  | "none"
+  | "temporary_allow"
+  | "temporary_block";
 
 export type BrandAccessDecision =
   | "full_access"

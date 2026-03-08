@@ -24,11 +24,8 @@ export { COMPONENT_TREE } from "./component-tree";
 // Utility functions
 export {
   findComponentById,
-  getComponentAncestry,
-  getAllComponentIds,
   hasEditableContent,
   isSelectableComponent,
   hasConfigContent,
-  hasVisibilityToggle,
   resolveComponentForEditor,
 } from "./utils";

@@ -1,21 +1,16 @@
 "use client";
 
-import { type ThemeStyles, buildThemeStylesheet } from "@v1/dpp-components";
+import { type Passport, buildPassportStylesheet } from "@v1/dpp-components";
 import { useEffect, useMemo } from "react";
 
 type Props = {
-  themeStyles?: ThemeStyles;
-  className?: string;
+  tokens?: Passport["tokens"];
 };
 
-export function PreviewThemeInjector({ themeStyles }: Props) {
+export function PreviewThemeInjector({ tokens }: Props) {
   const css = useMemo(
-    () =>
-      buildThemeStylesheet({
-        themeStyles,
-        includeFontFaces: true,
-      }),
-    [themeStyles],
+    () => (tokens ? buildPassportStylesheet(tokens) : ""),
+    [tokens],
   );
 
   useEffect(() => {

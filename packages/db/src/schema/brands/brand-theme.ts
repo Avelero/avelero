@@ -17,8 +17,7 @@ export const brandTheme = pgTable(
     brandId: uuid("brand_id")
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
-    themeStyles: jsonb("theme_styles").notNull().default({}),
-    themeConfig: jsonb("theme_config").notNull().default({}),
+    passport: jsonb("passport").notNull().default({}),
     stylesheetPath: text("stylesheet_path"),
     googleFontsUrl: text("google_fonts_url"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })

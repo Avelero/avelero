@@ -15,7 +15,11 @@ import {
 } from "@/components/tables/settings/certifications";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
@@ -69,7 +73,8 @@ export function CertificationsSection() {
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [editingCertification, setEditingCertification] =
     React.useState<CertificationListItem | null>(null);
-  const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
+  const [deleteDialog, setDeleteDialog] =
+    React.useState<DeleteDialogState>(null);
 
   const certificationsQuery = useSuspenseQuery(
     trpc.catalog.certifications.list.queryOptions(undefined),
@@ -81,10 +86,12 @@ export function CertificationsSection() {
   const allRows = React.useMemo(
     () =>
       [...(certificationsQuery.data?.data ?? [])].sort((a, b) => {
-        const updatedDiff = toTimestamp(b.updated_at) - toTimestamp(a.updated_at);
+        const updatedDiff =
+          toTimestamp(b.updated_at) - toTimestamp(a.updated_at);
         if (updatedDiff !== 0) return updatedDiff;
 
-        const createdDiff = toTimestamp(b.created_at) - toTimestamp(a.created_at);
+        const createdDiff =
+          toTimestamp(b.created_at) - toTimestamp(a.created_at);
         if (createdDiff !== 0) return createdDiff;
 
         return a.title.localeCompare(b.title);
@@ -116,7 +123,10 @@ export function CertificationsSection() {
     const allowed = new Set(allRows.map((row) => row.id));
     setSelectedIds((prev) => {
       const next = prev.filter((id) => allowed.has(id));
-      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+      if (
+        next.length === prev.length &&
+        next.every((id, index) => id === prev[index])
+      ) {
         return prev;
       }
       return next;
@@ -146,50 +156,59 @@ export function CertificationsSection() {
         toast.success("Certification deleted");
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to delete certification";
+          error instanceof Error
+            ? error.message
+            : "Failed to delete certification";
         toast.error(message);
       }
     },
     [deleteCertificationMutation, invalidateLists],
   );
 
-  const deleteSelectedNow = React.useCallback(async (ids: string[]) => {
-    if (ids.length === 0) return;
+  const deleteSelectedNow = React.useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
 
-    const currentIds = [...ids];
-    const results = await Promise.allSettled(
-      currentIds.map((id) => deleteCertificationMutation.mutateAsync({ id })),
-    );
+      const currentIds = [...ids];
+      const results = await Promise.allSettled(
+        currentIds.map((id) => deleteCertificationMutation.mutateAsync({ id })),
+      );
 
-    const failures = results.filter((result) => result.status === "rejected");
-    const failedIds = results.flatMap((result, index) =>
-      result.status === "rejected" ? [currentIds[index]!] : [],
-    );
-    const successes = results.length - failures.length;
+      const failures = results.filter((result) => result.status === "rejected");
+      const failedIds = results.flatMap((result, index) =>
+        result.status === "rejected" ? [currentIds[index]!] : [],
+      );
+      const successes = results.length - failures.length;
 
-    if (successes > 0) {
-      setSelectedIds(failedIds);
-      await invalidateLists();
-    }
+      if (successes > 0) {
+        setSelectedIds(failedIds);
+        await invalidateLists();
+      }
 
-    if (failures.length === 0) {
-      setSelectedIds([]);
-      toast.success(`${successes} certification${successes === 1 ? "" : "s"} deleted`);
-      return;
-    }
+      if (failures.length === 0) {
+        setSelectedIds([]);
+        toast.success(
+          `${successes} certification${successes === 1 ? "" : "s"} deleted`,
+        );
+        return;
+      }
 
-    if (successes > 0) {
-      toast.error(`${failures.length} delete${failures.length === 1 ? "" : "s"} failed`);
-      return;
-    }
+      if (successes > 0) {
+        toast.error(
+          `${failures.length} delete${failures.length === 1 ? "" : "s"} failed`,
+        );
+        return;
+      }
 
-    const reason = failures[0];
-    toast.error(
-      reason && reason.status === "rejected" && reason.reason instanceof Error
-        ? reason.reason.message
-        : "Failed to delete selected certifications",
-    );
-  }, [deleteCertificationMutation, invalidateLists]);
+      const reason = failures[0];
+      toast.error(
+        reason && reason.status === "rejected" && reason.reason instanceof Error
+          ? reason.reason.message
+          : "Failed to delete selected certifications",
+      );
+    },
+    [deleteCertificationMutation, invalidateLists],
+  );
 
   const handleDeleteCertification = React.useCallback(
     (certification: CertificationListItem) => {

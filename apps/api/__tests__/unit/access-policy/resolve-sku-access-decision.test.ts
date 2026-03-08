@@ -5,7 +5,9 @@ import type {
   ResolvedBrandAccessDecision,
 } from "../../../src/lib/access-policy/types";
 
-function buildSnapshot(overrides: Partial<BrandAccessSnapshot> = {}): BrandAccessSnapshot {
+function buildSnapshot(
+  overrides: Partial<BrandAccessSnapshot> = {},
+): BrandAccessSnapshot {
   return {
     brandId: "brand-1",
     lifecycle: {

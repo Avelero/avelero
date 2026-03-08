@@ -1,53 +1,54 @@
 /**
  * DPP footer with brand label and social link shortcuts.
  */
-import type { ThemeConfig } from "@v1/dpp-components";
+import { resolveStyles } from "../../lib/resolve-styles";
+import type { Passport, SocialLinks } from "../../types/passport";
 
 interface Props {
-  themeConfig: ThemeConfig;
-  /** Brand name to display in footer - comes from product data (manufacturer) */
+  footer: Passport["footer"];
+  tokens: Passport["tokens"];
   brandName: string;
 }
 
-export function Footer({ themeConfig, brandName }: Props) {
-  // Render social links only when their URLs are valid and safe to open.
-  const { social } = themeConfig;
+function isValidUrl(url: string): boolean {
+  if (!url || typeof url !== "string" || url.trim() === "") return false;
+  try {
+    const urlObj = new URL(url);
+    return urlObj.protocol === "http:" || urlObj.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
-  // Helper function to validate URLs
-  const isValidUrl = (url: string): boolean => {
-    if (!url || typeof url !== "string" || url.trim() === "") return false;
-    try {
-      const urlObj = new URL(url);
-      return urlObj.protocol === "http:" || urlObj.protocol === "https:";
-    } catch {
-      return false;
-    }
-  };
+const SOCIAL_LABELS: Array<{ key: keyof SocialLinks; text: string }> = [
+  { key: "instagram", text: "IG" },
+  { key: "facebook", text: "FB" },
+  { key: "twitter", text: "X" },
+  { key: "pinterest", text: "PT" },
+  { key: "tiktok", text: "TK" },
+  { key: "youtube", text: "YT" },
+  { key: "linkedin", text: "LK" },
+];
 
-  // Build social media array - show if URL is valid (no separate toggle needed)
-  const socialMedia = [
-    { text: "IG", url: social?.instagramUrl },
-    { text: "FB", url: social?.facebookUrl },
-    { text: "X", url: social?.twitterUrl },
-    { text: "PT", url: social?.pinterestUrl },
-    { text: "TK", url: social?.tiktokUrl },
-    { text: "YT", url: social?.youtubeUrl },
-    { text: "LK", url: social?.linkedinUrl },
-  ].filter((item) => isValidUrl(item.url ?? ""));
+export function Footer({ footer, tokens, brandName }: Props) {
+  const s = resolveStyles(footer.styles, tokens);
+
+  const socialMedia = SOCIAL_LABELS.map((item) => ({
+    text: item.text,
+    url: footer.social[item.key],
+  })).filter((item) => isValidUrl(item.url ?? ""));
 
   return (
-    <div className="w-full">
-      <div className="footer flex justify-between items-center p-sm border-t">
-        {/* Brand name on the left - comes from product data (manufacturer) */}
-        <div className="footer__legal-name">{brandName}</div>
-
-        {/* Social media on the right */}
+    <div className="w-full" style={s.container}>
+      <div className="flex justify-between items-center p-sm border-t">
+        <div style={s.brandName}>{brandName}</div>
         <div className="flex items-center gap-md">
           {socialMedia.map((item) => (
             <a
               key={item.text}
               href={item.url}
-              className="footer__social-icons cursor-pointer"
+              className="cursor-pointer"
+              style={s.socialIcon}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Visit ${item.text} (opens in new tab)`}

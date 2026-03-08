@@ -246,8 +246,9 @@ export function ExportProductsModal({
               <div className="text-center">
                 <p className="type-small text-secondary">
                   We&apos;re preparing your export in the background. You can
-                  close this modal and we&apos;ll email you when it&apos;s ready,
-                  or leave it open and the download will start automatically.
+                  close this modal and we&apos;ll email you when it&apos;s
+                  ready, or leave it open and the download will start
+                  automatically.
                 </p>
               </div>
             </div>

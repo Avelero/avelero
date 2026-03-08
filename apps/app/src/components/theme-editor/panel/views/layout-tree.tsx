@@ -15,16 +15,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type {
-  ComponentType,
-  LayoutComponentInstance,
-  ZoneId,
-} from "@v1/dpp-components";
-import { COMPONENT_LIBRARY } from "@v1/dpp-components/lib/component-library";
-import type { ComponentDefinition } from "@v1/dpp-components/lib/component-library-types";
+import type { Section, SectionType, ZoneId } from "@v1/dpp-components";
+import { SECTION_REGISTRY, type ComponentDefinition } from "@v1/dpp-components";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   COMPONENT_TREE,
   findComponentById,
@@ -34,8 +29,7 @@ import {
 import { AddComponentPopover } from "./add-component-popover";
 
 // =============================================================================
-// INSERT LINE (blue line with + icon between items, Shopify-style)
-// Shows on hover with 500ms debounce.
+// INSERT LINE
 // =============================================================================
 
 interface InsertLineProps {
@@ -47,10 +41,10 @@ function InsertLine({ zoneId, position }: InsertLineProps) {
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { addInstance } = useDesignEditor();
+  const { addSection } = useDesignEditor();
 
-  const handleAdd = (componentType: ComponentType) => {
-    addInstance(zoneId, componentType, position);
+  const handleAdd = (sectionType: SectionType) => {
+    addSection(zoneId, sectionType, position);
     setOpen(false);
     setVisible(false);
   };
@@ -69,12 +63,6 @@ function InsertLine({ zoneId, position }: InsertLineProps) {
     setVisible(false);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
-
   const isActive = visible || open;
 
   return (
@@ -83,7 +71,6 @@ function InsertLine({ zoneId, position }: InsertLineProps) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* When visible, expand the hover hitbox to 8px so line doesn't flicker away */}
       {isActive && (
         <div
           className="absolute inset-x-0 -top-0.5 -bottom-0.5"
@@ -91,7 +78,6 @@ function InsertLine({ zoneId, position }: InsertLineProps) {
           onMouseLeave={handleMouseLeave}
         />
       )}
-      {/* Visible line + popover trigger */}
       <AddComponentPopover
         zoneId={zoneId}
         open={open}
@@ -118,7 +104,6 @@ function InsertLine({ zoneId, position }: InsertLineProps) {
 
 // =============================================================================
 // CHILD TREE ITEM (recursive, for editorTree children)
-// Matches the old main branch LayoutTreeItem style exactly.
 // =============================================================================
 
 interface ChildTreeItemProps {
@@ -164,42 +149,38 @@ function ChildTreeItem({
         onMouseEnter={() => onItemHover(item.id)}
         onMouseLeave={() => onItemHover(null)}
       >
-          {/* Expand/collapse chevron or spacer */}
-          {hasChildren ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleExpand(item.id);
-              }}
-              className="flex items-center justify-center min-w-4 h-7 hover:bg-accent-dark rounded"
-              aria-label={isExpanded ? "Collapse" : "Expand"}
-            >
-              <Icons.ChevronRight
-                className={cn(
-                  "h-3 w-3 text-tertiary transition-transform duration-150",
-                  isExpanded && "rotate-90",
-                )}
-              />
-            </button>
-          ) : (
-            <div className="min-w-4" />
-          )}
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand(item.id);
+            }}
+            className="flex items-center justify-center min-w-4 h-7 hover:bg-accent-dark rounded"
+            aria-label={isExpanded ? "Collapse" : "Expand"}
+          >
+            <Icons.ChevronRight
+              className={cn(
+                "h-3 w-3 text-tertiary transition-transform duration-150",
+                isExpanded && "rotate-90",
+              )}
+            />
+          </button>
+        ) : (
+          <div className="min-w-4" />
+        )}
 
-          {/* Icon */}
-          <div className="flex items-center justify-center min-w-4 h-7">
-            <Icons.GalleryVertical className="h-3 w-3 text-tertiary" />
-          </div>
-
-          {/* Label */}
-          <div className="flex items-center px-2 h-7">
-            <span className="type-small text-primary truncate">
-              {item.displayName}
-            </span>
-          </div>
+        <div className="flex items-center justify-center min-w-4 h-7">
+          <Icons.GalleryVertical className="h-3 w-3 text-tertiary" />
         </div>
 
-      {/* Children */}
+        <div className="flex items-center px-2 h-7">
+          <span className="type-small text-primary truncate">
+            {item.displayName}
+          </span>
+        </div>
+      </div>
+
       {isExpanded && hasChildren && (
         <div>
           {item.children!.map((child) => (
@@ -220,7 +201,7 @@ function ChildTreeItem({
 }
 
 // =============================================================================
-// FIXED ITEM (Header / Footer - with expandable children tree)
+// FIXED ITEM (Header / Footer)
 // =============================================================================
 
 interface FixedItemProps {
@@ -231,8 +212,7 @@ interface FixedItemProps {
 function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
   const { navigateToComponent, expandedItems, toggleExpanded } =
     useDesignEditor();
-  const hasChildren =
-    componentDef.children && componentDef.children.length > 0;
+  const hasChildren = componentDef.children && componentDef.children.length > 0;
   const isExpanded = expandedItems.has(componentDef.id);
   const isEditable =
     hasEditableContent(componentDef) || hasConfigContent(componentDef);
@@ -258,7 +238,6 @@ function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
         onMouseEnter={() => onItemHover(componentDef.id)}
         onMouseLeave={() => onItemHover(null)}
       >
-        {/* Expand/collapse chevron or spacer */}
         {hasChildren ? (
           <button
             type="button"
@@ -280,12 +259,10 @@ function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
           <div className="min-w-4" />
         )}
 
-        {/* Icon */}
         <div className="flex items-center justify-center min-w-4 h-7">
           <Icons.GalleryVertical className="h-3 w-3 text-tertiary" />
         </div>
 
-        {/* Label */}
         <div className="flex items-center px-2 h-7">
           <span className="type-small text-primary truncate">
             {componentDef.displayName}
@@ -293,7 +270,6 @@ function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
         </div>
       </div>
 
-      {/* Children tree */}
       {isExpanded && hasChildren && (
         <div>
           {componentDef.children!.map((child) => (
@@ -314,34 +290,36 @@ function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
 }
 
 // =============================================================================
-// SORTABLE INSTANCE ITEM (with expandable editorTree children)
+// SORTABLE SECTION ITEM
 // =============================================================================
 
-interface SortableInstanceItemProps {
-  instance: LayoutComponentInstance;
+interface SortableSectionItemProps {
+  section: Section;
   zoneId: ZoneId;
   onItemHover: (id: string | null) => void;
 }
 
-function SortableInstanceItem({
-  instance,
+function SortableSectionItem({
+  section,
   zoneId,
   onItemHover,
-}: SortableInstanceItemProps) {
+}: SortableSectionItemProps) {
   const {
-    navigateToInstance,
-    deleteInstance,
-    activeInstanceId,
+    navigateToSectionInstance,
+    deleteSection,
+    activeSectionId,
     expandedItems,
     toggleExpanded,
     navigateToComponent,
   } = useDesignEditor();
 
-  const entry = COMPONENT_LIBRARY[instance.componentType];
-  const editorTree = entry?.editorTree as ComponentDefinition | undefined;
+  const entry = SECTION_REGISTRY[section.type as SectionType];
+  const editorTree = entry?.schema.editorTree as
+    | ComponentDefinition
+    | undefined;
   const hasChildren = editorTree?.children && editorTree.children.length > 0;
-  const isExpanded = expandedItems.has(instance.id);
-  const isSelected = activeInstanceId === instance.id;
+  const isExpanded = expandedItems.has(section.id);
+  const isSelected = activeSectionId === section.id;
 
   const rootIsEditable = editorTree
     ? hasEditableContent(editorTree) || hasConfigContent(editorTree)
@@ -355,7 +333,7 @@ function SortableInstanceItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: instance.id });
+  } = useSortable({ id: section.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -364,13 +342,15 @@ function SortableInstanceItem({
 
   const handleMainClick = () => {
     if (rootIsEditable) {
-      navigateToInstance(zoneId, instance.id);
+      navigateToSectionInstance(zoneId, section.id);
     } else if (hasChildren) {
-      toggleExpanded(instance.id);
+      toggleExpanded(section.id);
     }
   };
 
   const handleChildClick = (childId: string) => {
+    // Set the section as active target first, then navigate to child
+    navigateToSectionInstance(zoneId, section.id);
     navigateToComponent(childId);
   };
 
@@ -380,7 +360,6 @@ function SortableInstanceItem({
       style={style}
       className={cn("flex flex-col", isDragging && "opacity-50")}
     >
-      {/* Main row */}
       <div
         className={cn(
           "group/instance relative flex items-center w-full h-7 rounded hover:bg-accent",
@@ -391,13 +370,12 @@ function SortableInstanceItem({
         onMouseEnter={() => onItemHover(editorTree?.id ?? null)}
         onMouseLeave={() => onItemHover(null)}
       >
-        {/* Expand/collapse chevron or spacer */}
         {hasChildren ? (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              toggleExpanded(instance.id);
+              toggleExpanded(section.id);
             }}
             className="flex items-center justify-center min-w-4 h-7 hover:bg-accent-dark rounded"
             aria-label={isExpanded ? "Collapse" : "Expand"}
@@ -413,7 +391,6 @@ function SortableInstanceItem({
           <div className="min-w-4" />
         )}
 
-        {/* Icon: GalleryVertical by default, GripVertical on hover (drag handle) */}
         <div
           className="flex items-center justify-center min-w-4 h-7 touch-none rounded hover:bg-accent-dark"
           {...attributes}
@@ -424,30 +401,27 @@ function SortableInstanceItem({
           <Icons.GripVertical className="h-3 w-3 text-tertiary hidden group-hover/instance:block cursor-grab active:cursor-grabbing" />
         </div>
 
-        {/* Label */}
         <div className="flex items-center px-2 h-7 flex-1 min-w-0">
           <span className="type-small text-primary truncate">
-            {entry?.displayName ?? instance.componentType}
+            {entry?.schema.displayName ?? section.type}
           </span>
         </div>
 
-        {/* Right side: trash (on hover) */}
         <div className="flex items-center opacity-0 group-hover/instance:opacity-100 pr-1">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              deleteInstance(zoneId, instance.id);
+              deleteSection(zoneId, section.id);
             }}
             className="flex items-center justify-center w-6 h-6 hover:bg-accent-dark rounded"
-            aria-label="Delete component"
+            aria-label="Delete section"
           >
             <Icons.Trash2 className="h-3 w-3 text-tertiary" />
           </button>
         </div>
       </div>
 
-      {/* Children tree from editorTree */}
       {isExpanded && hasChildren && (
         <div>
           {editorTree!.children!.map((child) => (
@@ -472,19 +446,18 @@ function SortableInstanceItem({
 // =============================================================================
 
 const ZONE_LABELS: Record<ZoneId, string> = {
-  "column-left": "Column (left)",
-  "column-right": "Column (right)",
-  content: "Content",
+  sidebar: "Sidebar",
+  canvas: "Canvas",
 };
 
 interface ZoneSectionProps {
   zoneId: ZoneId;
-  instances: LayoutComponentInstance[];
+  sections: Section[];
   onItemHover: (id: string | null) => void;
 }
 
-function ZoneSection({ zoneId, instances, onItemHover }: ZoneSectionProps) {
-  const { moveInstance } = useDesignEditor();
+function ZoneSection({ zoneId, sections, onItemHover }: ZoneSectionProps) {
+  const { moveSection } = useDesignEditor();
   const dndId = useMemo(() => `dnd-zone-${zoneId}`, [zoneId]);
 
   const sensors = useSensors(
@@ -497,23 +470,21 @@ function ZoneSection({ zoneId, instances, onItemHover }: ZoneSectionProps) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = instances.findIndex((inst) => inst.id === active.id);
-    const newIndex = instances.findIndex((inst) => inst.id === over.id);
+    const oldIndex = sections.findIndex((s) => s.id === active.id);
+    const newIndex = sections.findIndex((s) => s.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    moveInstance(zoneId, active.id as string, newIndex);
+    moveSection(zoneId, active.id as string, newIndex);
   }
 
   return (
     <div className="flex flex-col">
-      {/* Zone label */}
       <div className="flex items-center h-8 px-1">
         <span className="type-small font-medium text-secondary">
           {ZONE_LABELS[zoneId]}
         </span>
       </div>
 
-      {/* Sortable instances with insert lines between them */}
       <DndContext
         id={dndId}
         sensors={sensors}
@@ -521,27 +492,27 @@ function ZoneSection({ zoneId, instances, onItemHover }: ZoneSectionProps) {
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={instances.map((inst) => inst.id)}
+          items={sections.map((s) => s.id)}
           strategy={verticalListSortingStrategy}
         >
-          {instances.map((instance, index) => (
-            <div key={instance.id}>
-              {index > 0 && (
-                <InsertLine zoneId={zoneId} position={index} />
-              )}
-              <SortableInstanceItem instance={instance} zoneId={zoneId} onItemHover={onItemHover} />
+          {sections.map((section, index) => (
+            <div key={section.id}>
+              {index > 0 && <InsertLine zoneId={zoneId} position={index} />}
+              <SortableSectionItem
+                section={section}
+                zoneId={zoneId}
+                onItemHover={onItemHover}
+              />
             </div>
           ))}
         </SortableContext>
       </DndContext>
 
-      {/* Insert line between last item and Add section button */}
-      {instances.length > 0 && (
-        <InsertLine zoneId={zoneId} position={instances.length} />
+      {sections.length > 0 && (
+        <InsertLine zoneId={zoneId} position={sections.length} />
       )}
 
-      {/* Add section button */}
-      <AddSectionButton zoneId={zoneId} instanceCount={instances.length} />
+      <AddSectionButton zoneId={zoneId} sectionCount={sections.length} />
     </div>
   );
 }
@@ -552,15 +523,15 @@ function ZoneSection({ zoneId, instances, onItemHover }: ZoneSectionProps) {
 
 interface AddSectionButtonProps {
   zoneId: ZoneId;
-  instanceCount: number;
+  sectionCount: number;
 }
 
-function AddSectionButton({ zoneId, instanceCount }: AddSectionButtonProps) {
+function AddSectionButton({ zoneId, sectionCount }: AddSectionButtonProps) {
   const [open, setOpen] = useState(false);
-  const { addInstance } = useDesignEditor();
+  const { addSection } = useDesignEditor();
 
-  const handleAdd = (componentType: ComponentType) => {
-    addInstance(zoneId, componentType, instanceCount);
+  const handleAdd = (sectionType: SectionType) => {
+    addSection(zoneId, sectionType, sectionCount);
     setOpen(false);
   };
 
@@ -578,9 +549,7 @@ function AddSectionButton({ zoneId, instanceCount }: AddSectionButtonProps) {
           open && "bg-accent",
         )}
       >
-        {/* Spacer matching chevron area */}
         <div className="min-w-4" />
-        {/* Plus icon aligned with list item icons */}
         <div className="flex items-center justify-center min-w-4 h-7">
           <Icons.Plus className="h-3 w-3" />
         </div>
@@ -597,11 +566,7 @@ function AddSectionButton({ zoneId, instanceCount }: AddSectionButtonProps) {
 // =============================================================================
 
 export function LayoutTree() {
-  const {
-    themeConfigDraft,
-    setHoveredComponentId,
-  } = useDesignEditor();
-  const { zones } = themeConfigDraft.layout;
+  const { passportDraft, setHoveredComponentId } = useDesignEditor();
 
   const headerDef = COMPONENT_TREE.find((c) => c.id === "header");
   const footerDef = COMPONENT_TREE.find((c) => c.id === "footer");
@@ -613,7 +578,6 @@ export function LayoutTree() {
         return;
       }
 
-      // Only highlight editable components in the preview
       const component = findComponentById(id);
       if (
         !component ||
@@ -637,22 +601,27 @@ export function LayoutTree() {
       <div className="flex items-center h-8 px-1">
         <span className="type-small font-medium text-secondary">Header</span>
       </div>
-      {headerDef && <FixedItem componentDef={headerDef} onItemHover={handleItemHover} />}
+      {headerDef && (
+        <FixedItem componentDef={headerDef} onItemHover={handleItemHover} />
+      )}
 
       <div className="border-t my-1" />
 
-      {/* Column (left) zone */}
-      <ZoneSection zoneId="column-left" instances={zones["column-left"]} onItemHover={handleItemHover} />
+      {/* Sidebar zone */}
+      <ZoneSection
+        zoneId="sidebar"
+        sections={passportDraft.sidebar}
+        onItemHover={handleItemHover}
+      />
 
       <div className="border-t my-1" />
 
-      {/* Column (right) zone */}
-      <ZoneSection zoneId="column-right" instances={zones["column-right"]} onItemHover={handleItemHover} />
-
-      <div className="border-t my-1" />
-
-      {/* Content zone */}
-      <ZoneSection zoneId="content" instances={zones.content} onItemHover={handleItemHover} />
+      {/* Canvas zone */}
+      <ZoneSection
+        zoneId="canvas"
+        sections={passportDraft.canvas}
+        onItemHover={handleItemHover}
+      />
 
       <div className="border-t my-1" />
 
@@ -660,7 +629,9 @@ export function LayoutTree() {
       <div className="flex items-center h-8 px-1">
         <span className="type-small font-medium text-secondary">Footer</span>
       </div>
-      {footerDef && <FixedItem componentDef={footerDef} onItemHover={handleItemHover} />}
+      {footerDef && (
+        <FixedItem componentDef={footerDef} onItemHover={handleItemHover} />
+      )}
     </div>
   );
 }

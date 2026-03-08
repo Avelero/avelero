@@ -397,8 +397,8 @@ interface StylesSectionProps {
 }
 
 export function StylesSection({ componentId }: StylesSectionProps) {
-  const { themeConfigDraft } = useDesignEditor();
-  const component = resolveComponentForEditor(componentId, themeConfigDraft);
+  const { passportDraft } = useDesignEditor();
+  const component = resolveComponentForEditor(componentId, passportDraft);
 
   if (!component) {
     return (

@@ -195,7 +195,9 @@ export async function createMissingEntities(
       brandId,
       missingAttributeNames,
     );
-    const newAttrNames = new Set(missingAttributeNames.map((n) => n.toLowerCase()));
+    const newAttrNames = new Set(
+      missingAttributeNames.map((n) => n.toLowerCase()),
+    );
     stats.attributesCreated += attrMap.size;
     bulkCacheAttributes(caches, attrMap, newAttrNames);
   }

@@ -1,11 +1,7 @@
 import { getBrandBySlug, getBrandTheme } from "@v1/db/queries";
 import { getPublicDppByUpid } from "@v1/db/queries/dpp";
 import { projectSinglePassport } from "@v1/db/queries/products";
-import {
-  brandCustomDomains,
-  brands,
-  productPassports,
-} from "@v1/db/schema";
+import { brandCustomDomains, brands, productPassports } from "@v1/db/schema";
 import { getPublicUrl } from "@v1/supabase/storage";
 import { and, eq, inArray } from "drizzle-orm";
 /**
@@ -20,7 +16,7 @@ import { and, eq, inArray } from "drizzle-orm";
  * - Input validation on all parameters
  */
 import { z } from "zod";
-import { resolveThemeConfigImageUrls } from "../../../utils/theme-config-images.js";
+import { resolvePassportImageUrls } from "../../../utils/theme-config-images.js";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
 import { internalServerError } from "../../../utils/errors.js";
 import {
@@ -129,9 +125,9 @@ function buildPublicPassportResponse(
     storageClient,
     result.snapshot.productAttributes?.image,
   );
-  const resolvedThemeConfig = resolveThemeConfigImageUrls(
+  const resolvedBrandPassport = resolvePassportImageUrls(
     storageClient,
-    (result.theme?.config as Record<string, unknown>) ?? null,
+    (result.theme?.passport as Record<string, unknown>) ?? null,
   );
 
   return {
@@ -142,8 +138,7 @@ function buildPublicPassportResponse(
         image: productImageUrl ?? "",
       },
     },
-    themeConfig: resolvedThemeConfig,
-    themeStyles: result.theme?.styles ?? null,
+    brandPassport: resolvedBrandPassport,
     stylesheetUrl,
     googleFontsUrl: result.theme?.googleFontsUrl ?? null,
     passport: {
@@ -181,11 +176,14 @@ async function resolvePublicPassportResponse(
     const projection = await projectSinglePassport(ctx.db, result.passport.id);
 
     if (projection.error) {
-      console.error("[resolvePublicPassportResponse] inline projection failed", {
-        passportId: result.passport.id,
-        upid,
-        error: projection.error,
-      });
+      console.error(
+        "[resolvePublicPassportResponse] inline projection failed",
+        {
+          passportId: result.passport.id,
+          upid,
+          error: projection.error,
+        },
+      );
     }
 
     result = await getPublicDppByUpid(ctx.db, upid);
@@ -193,7 +191,10 @@ async function resolvePublicPassportResponse(
     if (!result.found || !result.passport) {
       return null;
     }
-    if (result.passport.workingVariantId && result.productStatus !== "published") {
+    if (
+      result.passport.workingVariantId &&
+      result.productStatus !== "published"
+    ) {
       return null;
     }
 
@@ -235,16 +236,15 @@ export const dppPublicRouter = createTRPCRouter({
         ? getPublicUrl(ctx.supabase, "dpp-themes", theme.stylesheetPath)
         : null;
 
-      // Resolve image paths in themeConfig to full URLs
-      const resolvedThemeConfig = resolveThemeConfigImageUrls(
+      // Resolve image paths in passport to full URLs
+      const resolvedBrandPassport = resolvePassportImageUrls(
         ctx.supabase,
-        (theme?.themeConfig as Record<string, unknown>) ?? null,
+        (theme?.passport as Record<string, unknown>) ?? null,
       );
 
       return {
         brandName: brand.name,
-        themeConfig: resolvedThemeConfig,
-        themeStyles: theme?.themeStyles ?? null,
+        brandPassport: resolvedBrandPassport,
         stylesheetUrl,
         googleFontsUrl: theme?.googleFontsUrl ?? null,
       };

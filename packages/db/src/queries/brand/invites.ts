@@ -253,11 +253,15 @@ export async function createBrandInvites(
       .where(
         and(
           eq(brandInvites.brandId, params.brandId),
-          or(isNull(brandInvites.expiresAt), gt(brandInvites.expiresAt, nowIso)),
+          or(
+            isNull(brandInvites.expiresAt),
+            gt(brandInvites.expiresAt, nowIso),
+          ),
         ),
       );
 
-    const currentSeats = (memberCountRow?.count ?? 0) + (pendingCountRow?.count ?? 0);
+    const currentSeats =
+      (memberCountRow?.count ?? 0) + (pendingCountRow?.count ?? 0);
     const availableSeats = Math.max(0, plan.maxSeats - currentSeats);
     insertsAllowed = Math.min(valid.length, availableSeats);
   }

@@ -1,22 +1,29 @@
 /**
- * Pure data transformation functions extracted from InformationFrame.
+ * Data transformers for section components.
  *
- * These transform DppData into display models consumed by the UI components
- * (ImpactFrame, MaterialsFrame, JourneyFrame).
+ * These convert DppData into display models consumed by section UI.
+ * Moved from lib/dpp-data-transformers.ts into the sections module.
  */
 
 import { countries } from "@v1/selections";
-import type { ImpactMetricDisplay } from "../components/impact/large-impact-card";
 import type { DppData } from "../types/dpp-data";
 
-/** Get country name from ISO code, falling back to the code itself */
+/** Get country name from ISO code, falling back to the code itself. */
 export function getCountryName(code: string | undefined): string {
   if (!code) return "";
   const country = countries[code.toUpperCase() as keyof typeof countries];
   return country?.name ?? code;
 }
 
-/** Build impact metrics array from environmental data */
+// ─── Impact ──────────────────────────────────────────────────────────────────
+
+export interface ImpactMetricDisplay {
+  type: string;
+  value: string;
+  unit: string;
+  icon: "leaf" | "drop" | "recycle" | "factory";
+}
+
 export function transformImpactMetrics(data: DppData): ImpactMetricDisplay[] {
   const { environmental } = data;
   const metrics: ImpactMetricDisplay[] = [];
@@ -41,6 +48,8 @@ export function transformImpactMetrics(data: DppData): ImpactMetricDisplay[] {
   return metrics;
 }
 
+// ─── Materials ───────────────────────────────────────────────────────────────
+
 export interface MaterialDisplayData {
   percentage: number;
   type: string;
@@ -49,7 +58,6 @@ export interface MaterialDisplayData {
   certificationUrl?: string;
 }
 
-/** Transform materials composition for display */
 export function transformMaterials(data: DppData): MaterialDisplayData[] {
   const { materials } = data;
   return (
@@ -63,13 +71,14 @@ export function transformMaterials(data: DppData): MaterialDisplayData[] {
   );
 }
 
+// ─── Journey ─────────────────────────────────────────────────────────────────
+
 export interface JourneyStageData {
   id: string;
   name: string;
   companies: Array<{ name: string; location: string }>;
 }
 
-/** Transform supply chain into journey stages, grouped by process step */
 export function transformJourney(data: DppData): JourneyStageData[] {
   const { manufacturing } = data;
   const journeyMap = new Map<

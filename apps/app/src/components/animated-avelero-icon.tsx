@@ -27,7 +27,10 @@ export function AnimatedAveleroIcon({
 
   return (
     <span
-      className={cn("inline-flex items-center justify-center text-primary", className)}
+      className={cn(
+        "inline-flex items-center justify-center text-primary",
+        className,
+      )}
       onMouseEnter={playAnimation}
       onMouseLeave={stopAnimation}
       aria-hidden="true"

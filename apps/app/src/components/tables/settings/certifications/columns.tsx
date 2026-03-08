@@ -16,7 +16,9 @@ function formatCertificationLabel(row: CertificationListItem) {
   return title || code || "";
 }
 
-export const certificationColumns: Array<FlatTableColumn<CertificationListItem>> = [
+export const certificationColumns: Array<
+  FlatTableColumn<CertificationListItem>
+> = [
   {
     id: "title",
     header: "Certification",

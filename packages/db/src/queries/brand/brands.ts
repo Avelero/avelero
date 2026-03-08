@@ -1,9 +1,6 @@
 import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "../../client";
-import {
-  DEFAULT_THEME_CONFIG,
-  DEFAULT_THEME_STYLES,
-} from "../../defaults/theme-defaults";
+import { DEFAULT_PASSPORT } from "../../defaults/theme-defaults";
 import { seedBrandCatalogDefaults } from "../catalog/seeding";
 import {
   brandBilling,
@@ -225,7 +222,9 @@ export async function getBrandsByUserId(
         logo_path: row.logo_path,
         country_code: row.country_code,
         role:
-          row.role === "owner" || row.role === "member" || row.role === "avelero"
+          row.role === "owner" ||
+          row.role === "member" ||
+          row.role === "avelero"
             ? row.role
             : "member",
       }) satisfies BrandMembershipListItem,
@@ -309,8 +308,7 @@ export async function createBrand(
     // Seed default theme configuration for the new brand
     await tx.insert(brandTheme).values({
       brandId: brand.id,
-      themeStyles: DEFAULT_THEME_STYLES,
-      themeConfig: DEFAULT_THEME_CONFIG,
+      passport: DEFAULT_PASSPORT,
     });
 
     // Seed default brand-owned attributes/values from the taxonomy template.
@@ -320,7 +318,10 @@ export async function createBrand(
       .insert(brandMembers)
       .values({ userId, brandId: brand.id, role: creatorRole });
 
-    await tx.update(users).set({ brandId: brand.id }).where(eq(users.id, userId));
+    await tx
+      .update(users)
+      .set({ brandId: brand.id })
+      .where(eq(users.id, userId));
 
     return { id: brand.id, slug: brand.slug } as const;
   });

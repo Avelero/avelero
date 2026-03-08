@@ -3,29 +3,26 @@
 import { Header } from "@/components/header";
 import { UnsavedChangesModal } from "@/components/modals/unsaved-changes-modal";
 import { Sidebar } from "@/components/sidebar";
-import { DesignEditorProvider, useDesignEditor } from "@/contexts/design-editor-provider";
+import {
+  DesignEditorProvider,
+  useDesignEditor,
+} from "@/contexts/design-editor-provider";
 import { useNavigationBlocker } from "@/hooks/use-navigation-blocker";
 import { useThemeQuery } from "@/hooks/use-theme";
 import { useUserQuery } from "@/hooks/use-user";
 import { DEMO_DPP_DATA } from "@/lib/demo-data";
-import type { DppData, ThemeConfig, ThemeStyles } from "@v1/dpp-components";
+import type { DppData, Passport } from "@v1/dpp-components";
 import { DesignPreview } from "./design-preview";
 import { DesignPanel } from "./panel";
 
 interface ThemeEditorPageProps {
-  initialThemeConfig?: ThemeConfig;
-  initialThemeStyles?: ThemeStyles;
+  initialPassport?: Passport;
   initialGoogleFontsUrl?: string | null;
   previewData?: DppData;
 }
 
-/**
- * Client component that loads theme data and renders the theme editor.
- * Can optionally receive initial data for SSR, otherwise uses Suspense query.
- */
 export function ThemeEditorPage({
-  initialThemeConfig,
-  initialThemeStyles,
+  initialPassport,
   initialGoogleFontsUrl,
   previewData,
 }: ThemeEditorPageProps = {}) {
@@ -33,16 +30,13 @@ export function ThemeEditorPage({
   const { data: theme } = useThemeQuery();
   const brandId = user?.brand_id ?? undefined;
 
-  // Use provided props or fall back to query data
-  const themeConfig = initialThemeConfig ?? theme.themeConfig;
-  const themeStyles = initialThemeStyles ?? theme.themeStyles;
+  const passport = initialPassport ?? theme.passport;
   const googleFontsUrl = initialGoogleFontsUrl ?? theme.googleFontsUrl;
   const data = previewData ?? DEMO_DPP_DATA;
 
   return (
     <DesignEditorProvider
-      initialThemeConfig={themeConfig}
-      initialThemeStyles={themeStyles}
+      initialPassport={passport}
       initialGoogleFontsUrl={googleFontsUrl}
       previewData={data}
       brandId={brandId}

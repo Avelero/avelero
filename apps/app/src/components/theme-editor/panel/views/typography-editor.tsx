@@ -10,6 +10,7 @@ import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { useTRPC } from "@/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import type { CustomFont, TypographyScale } from "@v1/dpp-components";
+import { toast } from "@v1/ui/sonner";
 import { fonts } from "@v1/selections/fonts";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -54,7 +55,10 @@ const FONT_WEIGHT_OPTIONS = [
 ];
 
 const PRESET_WEIGHT_LABEL_BY_VALUE = new Map(
-  FONT_WEIGHT_OPTIONS.map((option) => [Number.parseInt(option.value, 10), option.label]),
+  FONT_WEIGHT_OPTIONS.map((option) => [
+    Number.parseInt(option.value, 10),
+    option.label,
+  ]),
 );
 const FONT_WEIGHT_VALUES = FONT_WEIGHT_OPTIONS.map((option) =>
   Number.parseInt(option.value, 10),
@@ -70,14 +74,14 @@ const LINE_HEIGHT_OPTIONS = [
   { value: "2", label: "Double" },
 ];
 
+// letterSpacing is now a number in px
 const LETTER_SPACING_OPTIONS = [
-  { value: "-0.025em", label: "Tight" },
-  { value: "0em", label: "Normal" },
-  { value: "0.025em", label: "Wide" },
+  { value: "-0.4", label: "Tight" },
+  { value: "0", label: "Normal" },
+  { value: "0.4", label: "Wide" },
 ];
 
 function parseVariantWeight(variant: string): number | undefined {
-  // Normalize Google variant values such as "regular", "700", or "700italic".
   const normalizedVariant = variant.toLowerCase();
   if (normalizedVariant === "regular" || normalizedVariant === "italic") {
     return 400;
@@ -91,7 +95,6 @@ function parseVariantWeight(variant: string): number | undefined {
 }
 
 function getWeightBucketLabel(weight: number): string {
-  // Bucket arbitrary numeric weights into the nearest named interval.
   if (weight < 200) return "Thin";
   if (weight < 300) return "Extra Light";
   if (weight < 400) return "Light";
@@ -104,7 +107,6 @@ function getWeightBucketLabel(weight: number): string {
 }
 
 function toWeightOption(weight: number): { value: string; label: string } {
-  // Format exact custom weights with a bucket label and numeric divergence.
   const presetLabel = PRESET_WEIGHT_LABEL_BY_VALUE.get(weight);
   if (presetLabel) {
     return { value: String(weight), label: presetLabel };
@@ -115,13 +117,11 @@ function toWeightOption(weight: number): { value: string; label: string } {
 }
 
 function getFallbackAxisWeight(start: number, end: number): number {
-  // Clamp regular weight into axis range to provide a valid single fallback option.
   const clampedWeight = Math.min(Math.max(400, start), end);
   return Math.round(clampedWeight);
 }
 
 function collectWeightsFromCustomFont(font: CustomFont): number[] {
-  // Expand custom font metadata into concrete selectable weight values.
   if (typeof font.fontWeight === "number") {
     return [font.fontWeight];
   }
@@ -155,7 +155,6 @@ function getAvailableWeightOptions(
   fontFamily: string | undefined,
   customFonts: CustomFont[],
 ) {
-  // Resolve weight options from the selected font family (custom first, then Google metadata).
   if (!fontFamily) return FONT_WEIGHT_OPTIONS;
 
   const normalizedFamily = fontFamily.toLowerCase();
@@ -193,7 +192,9 @@ function getAvailableWeightOptions(
     }
 
     if (googleWeights.size === 0) {
-      googleWeights.add(getFallbackAxisWeight(weightAxis.start, weightAxis.end));
+      googleWeights.add(
+        getFallbackAxisWeight(weightAxis.start, weightAxis.end),
+      );
     }
   } else if (googleFont.variants?.length) {
     for (const variant of googleFont.variants) {
@@ -329,7 +330,6 @@ function TypographyScaleForm({
   customFonts,
   onManageCustomFonts,
 }: TypographyScaleFormProps) {
-  // Update one typography property while preserving the rest of the scale config.
   const handleChange = <K extends keyof TypographyScale>(
     key: K,
     newValue: TypographyScale[K],
@@ -343,7 +343,6 @@ function TypographyScaleForm({
   );
 
   React.useEffect(() => {
-    // Keep font weight valid when the selected font family has limited variants.
     const currentWeight = Number.parseInt(String(value.fontWeight ?? 400), 10);
     const hasCurrentWeight = weightOptions.some(
       (option) => Number.parseInt(option.value, 10) === currentWeight,
@@ -415,8 +414,10 @@ function TypographyScaleForm({
         </FieldWrapper>
         <FieldWrapper label="Tracking">
           <TypographySelect
-            value={String(value.letterSpacing || "0em")}
-            onValueChange={(v) => handleChange("letterSpacing", v)}
+            value={String(value.letterSpacing ?? 0)}
+            onValueChange={(v) =>
+              handleChange("letterSpacing", Number.parseFloat(v))
+            }
             options={LETTER_SPACING_OPTIONS}
             placeholder="Select..."
             className="h-8 text-sm"
@@ -429,8 +430,8 @@ function TypographyScaleForm({
 
 export function TypographyEditor() {
   const {
-    themeStylesDraft,
-    setThemeStylesDraft,
+    passportDraft,
+    updateCustomFonts,
     updateTypographyScale,
     brandId,
   } = useDesignEditor();
@@ -444,35 +445,45 @@ export function TypographyEditor() {
   };
 
   const getTypographyValue = (scale: TypographyScaleKey): TypographyScale => {
-    return themeStylesDraft.typography?.[scale] || {};
+    return passportDraft.tokens.typography?.[scale] || ({} as TypographyScale);
   };
 
-  // Get custom fonts from theme styles
-  const customFonts = themeStylesDraft.customFonts ?? [];
+  // Get custom fonts from passport tokens
+  const customFonts = passportDraft.tokens.fonts ?? [];
 
-  // Update custom fonts in theme styles and auto-save to database
+  // Update custom fonts and auto-save to database
   const handleCustomFontsChange = React.useCallback(
     async (fonts: CustomFont[]) => {
       // Update local state immediately for UI
-      const updatedThemeStyles = {
-        ...themeStylesDraft,
-        customFonts: fonts,
-      };
-      setThemeStylesDraft(updatedThemeStyles);
+      updateCustomFonts(fonts);
 
       // Auto-save to database so fonts persist without clicking Save
       if (brandId) {
-        await saveThemeAction({
-          brandId,
-          themeStyles: updatedThemeStyles,
-        });
-        // Invalidate cache so re-entering the editor shows the fonts
-        await queryClient.invalidateQueries({
-          queryKey: trpc.brand.theme.get.queryKey(),
-        });
+        try {
+          const updatedPassport = {
+            ...passportDraft,
+            tokens: {
+              ...passportDraft.tokens,
+              fonts,
+            },
+          };
+          const result = await saveThemeAction({
+            brandId,
+            passport: updatedPassport,
+          });
+          if (result?.serverError) {
+            throw new Error(result.serverError);
+          }
+          // Invalidate cache so re-entering the editor shows the fonts
+          await queryClient.invalidateQueries({
+            queryKey: trpc.brand.theme.get.queryKey(),
+          });
+        } catch {
+          toast.error("Failed to save custom fonts");
+        }
       }
     },
-    [themeStylesDraft, setThemeStylesDraft, brandId, queryClient, trpc],
+    [passportDraft, updateCustomFonts, brandId, queryClient, trpc],
   );
 
   const handleManageCustomFonts = React.useCallback(() => {

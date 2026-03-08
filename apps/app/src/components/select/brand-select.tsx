@@ -155,7 +155,6 @@ function BrandSelectContent({ isExpanded, onPopupChange }: BrandSelectProps) {
             ))}
           </SelectGroup>
         </SelectList>
-
       </SelectContent>
     </Select>
   );

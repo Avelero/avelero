@@ -21,7 +21,9 @@ export function CertificationsTable({
   selectedIds: string[];
   onSelectedIdsChange: (next: string[]) => void;
   onEditCertification: (certification: CertificationListItem) => void;
-  onDeleteCertification: (certification: CertificationListItem) => void | Promise<void>;
+  onDeleteCertification: (
+    certification: CertificationListItem,
+  ) => void | Promise<void>;
   onCreateCertification: () => void;
   hasSearch: boolean;
 }) {
@@ -47,7 +49,9 @@ export function CertificationsTable({
       ]}
       emptyState={
         <SettingsTableEmptyState
-          title={hasSearch ? "No certifications found" : "No certifications yet"}
+          title={
+            hasSearch ? "No certifications found" : "No certifications yet"
+          }
           description={
             hasSearch
               ? "Try a different search term."

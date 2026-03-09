@@ -39,22 +39,31 @@ function createJourneyModalSelectionGetter(
 
 function buildOperatorModalFacts(stageName: string, company: JourneyCompany) {
   // Gather the operator details that should appear in the quick overview modal.
-  const facts: Array<{ label: string; value: React.ReactNode }> = [];
+  const facts: Array<{
+    key: string;
+    label: string;
+    value: React.ReactNode;
+  }> = [];
 
   if (company.name) {
-    facts.push({ label: "Name", value: company.name });
+    facts.push({ key: "Name", label: "Name", value: company.name });
   }
 
-  facts.push({ label: "Role", value: stageName });
+  facts.push({ key: "Role", label: "Role", value: stageName });
 
   if (company.legalName && company.legalName !== company.name) {
-    facts.push({ label: "Legal name", value: company.legalName });
+    facts.push({
+      key: "Legal name",
+      label: "Legal name",
+      value: company.legalName,
+    });
   }
 
   if (company.website) {
     const operatorHref = toExternalHref(company.website);
 
     facts.push({
+      key: "Website",
       label: "Website",
       value: operatorHref ? (
         <a
@@ -72,41 +81,55 @@ function buildOperatorModalFacts(stageName: string, company: JourneyCompany) {
   }
 
   if (company.email) {
-    facts.push({ label: "Email", value: company.email });
+    facts.push({ key: "Email", label: "Email", value: company.email });
   }
 
   if (company.phone) {
-    facts.push({ label: "Phone", value: company.phone });
-  }
-
-  if (company.addressLine1) {
-    facts.push({ label: "Address line 1", value: company.addressLine1 });
-  }
-
-  if (company.addressLine2) {
-    facts.push({ label: "Address line 2", value: company.addressLine2 });
+    facts.push({ key: "Phone", label: "Phone", value: company.phone });
   }
 
   if (company.city) {
-    facts.push({ label: "City", value: company.city });
-  }
-
-  if (company.state) {
-    facts.push({ label: "State", value: company.state });
-  }
-
-  if (company.zip) {
-    facts.push({ label: "Postal code", value: company.zip });
+    facts.push({ key: "City", label: "City", value: company.city });
   }
 
   if (company.countryCode) {
     facts.push({
+      key: "Country",
       label: "Country",
       value: getCountryName(company.countryCode) || company.countryCode,
     });
   }
 
   return facts;
+}
+
+function buildOperatorMapQuery(
+  company: JourneyCompany,
+  showExactLocation: boolean,
+): string | null {
+  // Collapse the operator address into either an exact or city-level Google Maps query.
+  const country = company.countryCode
+    ? getCountryName(company.countryCode) ?? company.countryCode
+    : undefined;
+  const queryParts = (
+    showExactLocation
+      ? [
+          company.addressLine1,
+          company.city,
+          company.state,
+          company.zip,
+          country,
+        ]
+      : [company.city, country]
+  )
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  if (queryParts.length === 0) {
+    return null;
+  }
+
+  return queryParts.join(", ");
 }
 
 function getFirstStageLineTop(titleRowHeight: string | number) {
@@ -124,6 +147,7 @@ export function JourneySection({
   data,
   zoneId,
   wrapperClassName,
+  modalContent,
   modalStyles,
 }: SectionProps) {
   // Resolve styles and build the stage timeline for the sidebar card.
@@ -154,6 +178,7 @@ export function JourneySection({
     color: true,
   });
   const modalSelect = createJourneyModalSelectionGetter(select);
+  const showExactLocation = modalContent?.showExactLocation !== false;
   const titleRowHeight = getResolvedTextLineHeight(
     s["card.type"],
     tokens.typography.h6.fontSize * tokens.typography.h6.lineHeight,
@@ -337,6 +362,10 @@ export function JourneySection({
           facts={buildOperatorModalFacts(
             selectedOperator.stageName,
             selectedOperator.company,
+          )}
+          mapQuery={buildOperatorMapQuery(
+            selectedOperator.company,
+            showExactLocation,
           )}
           select={modalSelect}
           styles={modalStyles ?? {}}

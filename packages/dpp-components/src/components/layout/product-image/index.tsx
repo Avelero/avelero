@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Product image renderer and measurement helpers for the DPP layout.
+ */
+
 import {
   type CSSProperties,
   type RefObject,
@@ -583,7 +587,7 @@ export function ProductImage({ productImage, tokens, image, alt }: Props) {
          */
         <div
           ref={mediaContainerRef}
-          className="flex items-center justify-center p-[5%] h-[50vh] @3xl:h-[calc(var(--dpp-available-viewport-height,_100vh)-var(--header-height))] @3xl:py-[5%] @3xl:px-0"
+          className="dpp-product-image__media-container flex items-center justify-center p-[5%] @3xl:py-[5%] @3xl:px-0"
           style={mediaContainerStyle}
         >
           {/**

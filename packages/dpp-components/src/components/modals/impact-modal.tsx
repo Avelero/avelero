@@ -5,6 +5,7 @@
  */
 
 import {
+  ModalBody,
   ModalContent,
   ModalDescription,
   ModalField,
@@ -58,57 +59,59 @@ export function ImpactModal({
   // Render a mock metric explainer using the shared title, description, label, and value slots.
   return (
     <ModalContent styles={styles}>
-      <ModalSection>
-        <ModalSubtitle
-          {...getModalSelectionProps(select, "modal.subtitle")}
-          styles={styles}
-        >
-          {subtitle}
-        </ModalSubtitle>
-        <ModalTitle
-          {...getModalSelectionProps(select, "modal.title")}
-          styles={styles}
-        >
-          {title}
-        </ModalTitle>
-      </ModalSection>
-
-      <ModalDescription
-        {...getModalSelectionProps(select, "modal.description")}
-        styles={styles}
-      >
-        {description}
-      </ModalDescription>
-
-      <ModalSection className="gap-2">
-        <ModalValue
-          {...getModalSelectionProps(select, "modal.label")}
-          styles={styles}
-          style={styles["modal.label"]}
-        >
-          {equivalentLabel}
-        </ModalValue>
-        <ModalValue
-          {...getModalSelectionProps(select, "modal.value")}
-          className="text-balance"
-          styles={styles}
-        >
-          {equivalentValue}
-        </ModalValue>
-      </ModalSection>
-
-      <ModalSection>
-        {facts.map((fact) => (
-          <ModalField
-            key={fact.label}
-            label={fact.label}
-            labelProps={getModalSelectionProps(select, "modal.label")}
+      <ModalBody>
+        <ModalSection>
+          <ModalSubtitle
+            {...getModalSelectionProps(select, "modal.subtitle")}
             styles={styles}
-            value={fact.value}
-            valueProps={getModalSelectionProps(select, "modal.value")}
-          />
-        ))}
-      </ModalSection>
+          >
+            {subtitle}
+          </ModalSubtitle>
+          <ModalTitle
+            {...getModalSelectionProps(select, "modal.title")}
+            styles={styles}
+          >
+            {title}
+          </ModalTitle>
+        </ModalSection>
+
+        <ModalDescription
+          {...getModalSelectionProps(select, "modal.description")}
+          styles={styles}
+        >
+          {description}
+        </ModalDescription>
+
+        <ModalSection className="gap-2">
+          <ModalValue
+            {...getModalSelectionProps(select, "modal.label")}
+            styles={styles}
+            style={styles["modal.label"]}
+          >
+            {equivalentLabel}
+          </ModalValue>
+          <ModalValue
+            {...getModalSelectionProps(select, "modal.value")}
+            className="text-balance"
+            styles={styles}
+          >
+            {equivalentValue}
+          </ModalValue>
+        </ModalSection>
+
+        <ModalSection>
+          {facts.map((fact) => (
+            <ModalField
+              key={fact.label}
+              label={fact.label}
+              labelProps={getModalSelectionProps(select, "modal.label")}
+              styles={styles}
+              value={fact.value}
+              valueProps={getModalSelectionProps(select, "modal.value")}
+            />
+          ))}
+        </ModalSection>
+      </ModalBody>
     </ModalContent>
   );
 }

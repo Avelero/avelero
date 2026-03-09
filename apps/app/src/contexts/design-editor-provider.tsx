@@ -204,6 +204,54 @@ function ensurePassportHasProductImage(passport: Passport): Passport {
   };
 }
 
+function ensurePassportHasModalMapStyles(passport: Passport): Passport {
+  // Seed the modal map slot for passports saved before the location preview existed.
+  if (passport.modal.styles["modal.map"]) {
+    return passport;
+  }
+
+  const modalMapDefaults =
+    COMPONENT_REGISTRY.modal!.schema.defaults.styles["modal.map"] ?? {};
+
+  return {
+    ...passport,
+    modal: {
+      ...passport.modal,
+      styles: {
+        ...passport.modal.styles,
+        "modal.map": structuredClone(modalMapDefaults),
+      },
+    },
+  };
+}
+
+function ensurePassportHasModalContent(passport: Passport): Passport {
+  // Seed the modal content settings for passports saved before privacy controls existed.
+  if (passport.modal.content?.showExactLocation !== undefined) {
+    return passport;
+  }
+
+  const modalContentDefaults = COMPONENT_REGISTRY.modal!.schema.defaults
+    .content as Passport["modal"]["content"] | undefined;
+
+  return {
+    ...passport,
+    modal: {
+      ...passport.modal,
+      content: structuredClone(
+        modalContentDefaults ?? { showExactLocation: true },
+      ),
+    },
+  };
+}
+
+function ensurePassportHasFixedComponentDefaults(passport: Passport): Passport {
+  // Apply all fixed-component compatibility hydrations before the editor reads the draft.
+  return ensurePassportHasModalContent(
+    ensurePassportHasModalMapStyles(ensurePassportHasProductImage(passport)),
+  );
+}
+
 /**
  * Split a style path into the style key and final property segment.
  *
@@ -248,10 +296,10 @@ export function DesignEditorProvider({
   // Passport State
   // ---------------------------------------------------------------------------
   const [passportDraft, setPassportDraft] = useState<Passport>(() =>
-    ensurePassportHasProductImage(initialPassport),
+    ensurePassportHasFixedComponentDefaults(initialPassport),
   );
   const [savedPassport, setSavedPassport] = useState<Passport>(() =>
-    ensurePassportHasProductImage(initialPassport),
+    ensurePassportHasFixedComponentDefaults(initialPassport),
   );
 
   // ---------------------------------------------------------------------------
@@ -264,7 +312,8 @@ export function DesignEditorProvider({
 
   // Reset when initial values change (e.g., brand switch)
   useEffect(() => {
-    const nextPassport = ensurePassportHasProductImage(initialPassport);
+    const nextPassport =
+      ensurePassportHasFixedComponentDefaults(initialPassport);
     setPassportDraft(nextPassport);
     setSavedPassport(nextPassport);
   }, [initialPassport]);
@@ -659,6 +708,10 @@ export function DesignEditorProvider({
       setActiveSectionId(null);
       setActiveZoneId(null);
       setActiveTarget({ type: "productImage" });
+    } else if (componentId === "modal" || componentId.startsWith("modal.")) {
+      setActiveSectionId(null);
+      setActiveZoneId(null);
+      setActiveTarget({ type: "modal" });
     } else if (componentId === "footer" || componentId.startsWith("footer.")) {
       setActiveSectionId(null);
       setActiveZoneId(null);

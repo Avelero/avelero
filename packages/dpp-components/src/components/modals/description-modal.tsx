@@ -5,6 +5,7 @@
  */
 
 import {
+  ModalBody,
   ModalContent,
   ModalDescription,
   ModalSection,
@@ -32,33 +33,35 @@ export function DescriptionModal({
   // Render the product narrative modal with dedicated title, subtitle, and body slots.
   return (
     <ModalContent styles={styles}>
-      <ModalSection>
-        {manufacturerName ? (
-          <ModalSubtitle
-            {...getModalSelectionProps(select, "modal.subtitle")}
-            styles={styles}
-          >
-            {manufacturerName}
-          </ModalSubtitle>
-        ) : null}
+      <ModalBody>
+        <ModalSection>
+          {manufacturerName ? (
+            <ModalSubtitle
+              {...getModalSelectionProps(select, "modal.subtitle")}
+              styles={styles}
+            >
+              {manufacturerName}
+            </ModalSubtitle>
+          ) : null}
 
-        {productTitle ? (
-          <ModalTitle
-            {...getModalSelectionProps(select, "modal.title")}
-            styles={styles}
-          >
-            {productTitle}
-          </ModalTitle>
-        ) : null}
-      </ModalSection>
+          {productTitle ? (
+            <ModalTitle
+              {...getModalSelectionProps(select, "modal.title")}
+              styles={styles}
+            >
+              {productTitle}
+            </ModalTitle>
+          ) : null}
+        </ModalSection>
 
-      <ModalDescription
-        {...getModalSelectionProps(select, "modal.description")}
-        asChild
-        styles={styles}
-      >
-        <div>{description}</div>
-      </ModalDescription>
+        <ModalDescription
+          {...getModalSelectionProps(select, "modal.description")}
+          asChild
+          styles={styles}
+        >
+          <div>{description}</div>
+        </ModalDescription>
+      </ModalBody>
     </ModalContent>
   );
 }

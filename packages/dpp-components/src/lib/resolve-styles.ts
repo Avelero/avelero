@@ -82,6 +82,11 @@ function resolveOverride(
   const bc = resolveColor(override.borderColor, tokens.colors);
   if (bc) css.borderColor = bc;
 
+  // Media sizing
+  if (override.aspectRatio !== undefined) {
+    css.aspectRatio = `${override.aspectRatio}`;
+  }
+
   // Typography via typescale
   if (override.typescale) {
     const scale = tokens.typography[override.typescale];

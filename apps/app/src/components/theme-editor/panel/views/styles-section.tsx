@@ -161,6 +161,7 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
           onChange={(num) => updateComponentStyle(field.path, num)}
           unit={field.unit}
           min={0}
+          step={field.step}
         />
       );
     }
@@ -358,7 +359,8 @@ function categorizeField(field: StyleField): FieldCategory {
   if (
     label.includes("size") ||
     label.includes("width") ||
-    label.includes("height")
+    label.includes("height") ||
+    label.includes("ratio")
   ) {
     return "sizing";
   }

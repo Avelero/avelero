@@ -37,6 +37,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
   // Render the fixed left media column and the dynamic right-hand section stack.
   const { tokens, sidebar, canvas } = passport;
   const modalStyles = resolveStyles(passport.modal.styles, tokens);
+  const modalContent = passport.modal.content ?? { showExactLocation: true };
 
   return (
     <main className="flex-grow flex flex-col pb-xl w-full">
@@ -72,6 +73,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
                         data={data}
                         zoneId="sidebar"
                         content={content}
+                        modalContent={modalContent}
                         modalStyles={modalStyles}
                         wrapperClassName={getSidebarSectionWrapperClassName(
                           index,
@@ -101,6 +103,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
                   data={data}
                   zoneId="canvas"
                   content={content}
+                  modalContent={modalContent}
                   modalStyles={modalStyles}
                 />
               );

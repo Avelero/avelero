@@ -4,37 +4,41 @@
  * Manufacturer overview modal content.
  */
 
-import { DataTable } from "../data-table";
 import {
+  ModalBody,
   ModalContent,
+  ModalDataTable,
   ModalDescription,
   ModalSection,
+  ModalStaticMap,
   ModalSubtitle,
   ModalTitle,
   getModalSelectionProps,
 } from "../modal";
-import type { ModalSelectionGetter, ModalStyles } from "../modal";
-
-interface ManufacturerModalFact {
-  label: string;
-  value: React.ReactNode;
-}
+import type {
+  ModalDataTableRow,
+  ModalSelectionGetter,
+  ModalStyles,
+} from "../modal";
 
 interface ManufacturerModalProps {
   description?: string;
-  facts?: ManufacturerModalFact[];
+  facts?: ModalDataTableRow[];
+  mapQuery?: string | null;
   select?: ModalSelectionGetter;
   styles: ModalStyles;
   subtitle?: string;
   title?: string;
 }
 
-const DEFAULT_MANUFACTURER_FACTS: ManufacturerModalFact[] = [
+const DEFAULT_MANUFACTURER_FACTS: ModalDataTableRow[] = [
   {
+    key: "Address",
     label: "Address",
-    value: "Keizersgracht 100\n1015 CV Amsterdam\nNetherlands",
+    value: "Strawinskylaan 3051\n1077 ZX Amsterdam\nNetherlands",
   },
   {
+    key: "Website",
     label: "Website",
     value: (
       <a
@@ -47,60 +51,63 @@ const DEFAULT_MANUFACTURER_FACTS: ManufacturerModalFact[] = [
       </a>
     ),
   },
-  { label: "Contact", value: "hello@example.com" },
+  { key: "Contact", label: "Contact", value: "hello@example.com" },
 ];
 
 export function ManufacturerModal({
   description = "This manufacturer is listed as the responsible producer for this product passport.",
   facts = DEFAULT_MANUFACTURER_FACTS,
+  mapQuery,
   select,
   styles,
   subtitle = "Manufacturer overview",
   title = "Atelier Nord",
 }: ManufacturerModalProps) {
-  // Render a compact manufacturer profile using the shared modal building blocks.
-  const borderColor = styles["modal.container"]?.borderColor;
-  const rows = facts.map((fact) => ({
-    key: fact.label,
-    label: fact.label,
-    labelProps: getModalSelectionProps(select, "modal.label"),
-    value: fact.value,
-    valueProps: getModalSelectionProps(select, "modal.value"),
-  }));
-
   return (
     <ModalContent styles={styles}>
-      <ModalSection>
-        <ModalSubtitle
-          {...getModalSelectionProps(select, "modal.subtitle")}
+      <ModalBody>
+        <ModalSection>
+          <ModalSubtitle
+            {...getModalSelectionProps(select, "modal.subtitle")}
+            styles={styles}
+          >
+            {subtitle}
+          </ModalSubtitle>
+          <ModalTitle
+            {...getModalSelectionProps(select, "modal.title")}
+            styles={styles}
+          >
+            {title}
+          </ModalTitle>
+        </ModalSection>
+
+        <ModalDescription
+          {...getModalSelectionProps(select, "modal.description")}
           styles={styles}
         >
-          {subtitle}
-        </ModalSubtitle>
-        <ModalTitle
-          {...getModalSelectionProps(select, "modal.title")}
-          styles={styles}
-        >
-          {title}
-        </ModalTitle>
-      </ModalSection>
+          {description}
+        </ModalDescription>
 
-      <ModalDescription
-        {...getModalSelectionProps(select, "modal.description")}
-        styles={styles}
-      >
-        {description}
-      </ModalDescription>
+        <ModalSection>
+          <ModalDataTable
+            rows={facts}
+            select={select}
+            styles={styles}
+            valueClassName="whitespace-pre-line"
+          />
+        </ModalSection>
 
-      <ModalSection>
-        <DataTable
-          borderColor={borderColor}
-          labelStyle={styles["modal.label"]}
-          rows={rows}
-          valueClassName="whitespace-pre-line"
-          valueStyle={styles["modal.value"]}
-        />
-      </ModalSection>
+        {mapQuery ? (
+          <ModalSection>
+            <ModalStaticMap
+              alt={`${title} location map`}
+              query={mapQuery}
+              select={select}
+              styles={styles}
+            />
+          </ModalSection>
+        ) : null}
+      </ModalBody>
     </ModalContent>
   );
 }

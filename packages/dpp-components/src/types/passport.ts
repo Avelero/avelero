@@ -71,6 +71,7 @@ export interface StyleOverride {
   backgroundColor?: string;
   boxShadow?: string;
   borderColor?: string;
+  aspectRatio?: number;
   typescale?: TypeScale;
   typographyDetached?: boolean;
   fontSize?: number;
@@ -156,6 +157,9 @@ export interface Passport {
     styles: Styles;
   };
   modal: {
+    content: {
+      showExactLocation: boolean;
+    };
     styles: Styles;
   };
   footer: {

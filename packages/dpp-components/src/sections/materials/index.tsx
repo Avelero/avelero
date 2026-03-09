@@ -32,7 +32,11 @@ function buildCertificationModalFacts(
   material: ReturnType<typeof transformMaterials>[number],
 ) {
   // Gather the available certification facts into label/value rows for the modal.
-  const facts: Array<{ label: string; value: React.ReactNode }> = [];
+  const facts: Array<{
+    key: string;
+    label: string;
+    value: React.ReactNode;
+  }> = [];
   const certification = material.certification;
   const institute = certification?.testingInstitute;
 
@@ -42,6 +46,7 @@ function buildCertificationModalFacts(
 
   if (certification.code) {
     facts.push({
+      key: "Certification code",
       label: "Certification code",
       value: certification.code,
     });
@@ -49,6 +54,7 @@ function buildCertificationModalFacts(
 
   if (certification.issueDate) {
     facts.push({
+      key: "Issue date",
       label: "Issue date",
       value: formatDateFactValue(certification.issueDate),
     });
@@ -56,19 +62,25 @@ function buildCertificationModalFacts(
 
   if (certification.expiryDate) {
     facts.push({
+      key: "Expiry date",
       label: "Expiry date",
       value: formatDateFactValue(certification.expiryDate),
     });
   }
 
   if (institute?.legalName) {
-    facts.push({ label: "Institute name", value: institute.legalName });
+    facts.push({
+      key: "Institute name",
+      label: "Institute name",
+      value: institute.legalName,
+    });
   }
 
   if (institute?.website) {
     const certificationHref = toExternalHref(institute.website);
 
     facts.push({
+      key: "Institute website",
       label: "Institute website",
       value: certificationHref ? (
         <a
@@ -86,61 +98,64 @@ function buildCertificationModalFacts(
   }
 
   if (institute?.email) {
-    facts.push({ label: "Institute email", value: institute.email });
+    facts.push({
+      key: "Institute email",
+      label: "Institute email",
+      value: institute.email,
+    });
   }
 
   if (institute?.phone) {
-    facts.push({ label: "Institute phone", value: institute.phone });
-  }
-
-  if (institute?.addressLine1) {
-    facts.push({ label: "Address line 1", value: institute.addressLine1 });
-  }
-
-  if (institute?.addressLine2) {
-    facts.push({ label: "Address line 2", value: institute.addressLine2 });
+    facts.push({
+      key: "Institute phone",
+      label: "Institute phone",
+      value: institute.phone,
+    });
   }
 
   if (institute?.city) {
-    facts.push({ label: "City", value: institute.city });
-  }
-
-  if (institute?.state) {
-    facts.push({ label: "State", value: institute.state });
-  }
-
-  if (institute?.postalCode) {
-    facts.push({ label: "Postal code", value: institute.postalCode });
+    facts.push({ key: "City", label: "City", value: institute.city });
   }
 
   if (institute?.country) {
     facts.push({
+      key: "Country",
       label: "Country",
       value: getCountryName(institute.country) || institute.country,
     });
   }
 
-  if (certification.documentUrl) {
-    const documentHref = toExternalHref(certification.documentUrl);
+  return facts;
+}
 
-    facts.push({
-      label: "Certificate document",
-      value: documentHref ? (
-        <a
-          className="underline underline-offset-4"
-          href={documentHref}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          Download certificate
-        </a>
-      ) : (
-        certification.documentUrl
-      ),
-    });
+function buildCertificationMapQuery(
+  material: ReturnType<typeof transformMaterials>[number],
+  showExactLocation: boolean,
+): string | null {
+  // Collapse the testing institute address into either an exact or city-level Google Maps query.
+  const institute = material.certification?.testingInstitute;
+  const country = institute?.country
+    ? getCountryName(institute.country) || institute.country
+    : undefined;
+  const queryParts = (
+    showExactLocation
+      ? [
+          institute?.addressLine1,
+          institute?.city,
+          institute?.state,
+          institute?.postalCode,
+          country,
+        ]
+      : [institute?.city, country]
+  )
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  if (queryParts.length === 0) {
+    return null;
   }
 
-  return facts;
+  return queryParts.join(", ");
 }
 
 function formatDateFactValue(value: string) {
@@ -155,6 +170,7 @@ export function MaterialsSection({
   data,
   zoneId,
   wrapperClassName,
+  modalContent,
   modalStyles,
 }: SectionProps) {
   // Resolve styles and shape the materials data for the sidebar card.
@@ -185,6 +201,7 @@ export function MaterialsSection({
   });
   const dividerColor = s.card?.borderColor ?? "var(--border)";
   const modalSelect = createMaterialsModalSelectionGetter(select);
+  const showExactLocation = modalContent?.showExactLocation !== false;
   const originRowHeight = getResolvedTextLineHeight(
     s["card.origin"],
     tokens.typography.body.fontSize * tokens.typography.body.lineHeight,
@@ -326,8 +343,19 @@ export function MaterialsSection({
 
       {selectedCertification ? (
         <CertificationModal
+          certificateUrl={
+            selectedCertification.certification?.documentUrl
+              ? toExternalHref(
+                  selectedCertification.certification.documentUrl,
+                ) ?? undefined
+              : undefined
+          }
           description={`This certification applies to ${selectedCertification.type.toLowerCase()} and is reported as part of this product passport.`}
           facts={buildCertificationModalFacts(selectedCertification)}
+          mapQuery={buildCertificationMapQuery(
+            selectedCertification,
+            showExactLocation,
+          )}
           select={modalSelect}
           styles={modalStyles ?? {}}
           subtitle="Certification overview"

@@ -52,6 +52,9 @@ export const DEFAULT_PASSPORT: Passport = {
     styles: structuredClone(productImageDefaults.styles),
   },
   modal: {
+    content: structuredClone(
+      modalDefaults.content,
+    ) as Passport["modal"]["content"],
     styles: structuredClone(modalDefaults.styles),
   },
   footer: {

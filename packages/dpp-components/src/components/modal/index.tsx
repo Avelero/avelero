@@ -8,13 +8,100 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import * as React from "react";
+import { DataTable } from "../data-table";
 
-const Modal = DialogPrimitive.Root;
 const ModalTrigger = DialogPrimitive.Trigger;
 const ModalClose = DialogPrimitive.Close;
 
 export type ModalStyles = Record<string, React.CSSProperties>;
 export type ModalSelectionGetter = (slotId: string) => Record<string, string>;
+
+const ACTIVE_MODAL_COUNT_ATTRIBUTE = "data-dpp-active-modal-count";
+const ACTIVE_SHEET_ATTRIBUTE = "data-dpp-modal-sheet-open";
+const ModalOpenStateContext = React.createContext(false);
+
+interface ModalProps
+  extends Omit<
+    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>,
+    "defaultOpen" | "onOpenChange" | "open"
+  > {
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
+}
+
+function getDppRootActiveModalCount(root: HTMLElement): number {
+  // Read the current modal count defensively so multiple dialogs can coexist.
+  const count = Number.parseInt(
+    root.getAttribute(ACTIVE_MODAL_COUNT_ATTRIBUTE) ?? "0",
+    10,
+  );
+
+  return Number.isFinite(count) ? count : 0;
+}
+
+function updateDppRootModalState(root: HTMLElement, delta: 1 | -1) {
+  // Keep a simple reference count so the mobile image stays collapsed until every modal closes.
+  const nextCount = Math.max(0, getDppRootActiveModalCount(root) + delta);
+
+  if (nextCount === 0) {
+    root.removeAttribute(ACTIVE_MODAL_COUNT_ATTRIBUTE);
+    root.removeAttribute(ACTIVE_SHEET_ATTRIBUTE);
+    return;
+  }
+
+  root.setAttribute(ACTIVE_MODAL_COUNT_ATTRIBUTE, `${nextCount}`);
+  root.setAttribute(ACTIVE_SHEET_ATTRIBUTE, "true");
+}
+
+function setForwardedRef<T>(ref: React.ForwardedRef<T>, value: T) {
+  // Support both callback and object refs while keeping the local portal host reference in sync.
+  if (typeof ref === "function") {
+    ref(value);
+    return;
+  }
+
+  if (ref) {
+    ref.current = value;
+  }
+}
+
+function Modal({
+  children,
+  defaultOpen = false,
+  onOpenChange,
+  open: openProp,
+  ...props
+}: ModalProps) {
+  // Mirror the Radix root API while exposing modal-open state to the DPP layout shell.
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
+  const isControlled = openProp !== undefined;
+  const isOpen = openProp ?? uncontrolledOpen;
+
+  const handleOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      // Preserve controlled and uncontrolled usage while forwarding Radix state updates upstream.
+      if (!isControlled) {
+        setUncontrolledOpen(nextOpen);
+      }
+
+      onOpenChange?.(nextOpen);
+    },
+    [isControlled, onOpenChange],
+  );
+
+  return (
+    <ModalOpenStateContext.Provider value={isOpen}>
+      <DialogPrimitive.Root
+        {...props}
+        open={isOpen}
+        onOpenChange={handleOpenChange}
+      >
+        {children}
+      </DialogPrimitive.Root>
+    </ModalOpenStateContext.Provider>
+  );
+}
 
 function getModalSlotStyle(
   styles: ModalStyles | undefined,
@@ -95,7 +182,6 @@ const ModalOverlay = React.forwardRef<
 
 interface ModalContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
-  bodyClassName?: string;
   hideClose?: boolean;
   styles?: ModalStyles;
 }
@@ -104,25 +190,62 @@ const ModalContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   ModalContentProps
 >(function ModalContent(
-  {
-    bodyClassName,
-    children,
-    className,
-    hideClose = false,
-    style,
-    styles,
-    ...props
-  },
+  { children, className, hideClose = false, style, styles, ...props },
   ref,
 ) {
-  // Render the shared modal shell and the padded content region used by the DPP overlays.
+  // Render the modal shell: portal, overlay, dialog chrome, and close button.
+  // Compose ModalBody, ModalHeader, and ModalFooter as children to build the layout.
+  const isOpen = React.useContext(ModalOpenStateContext);
   const contentStyle = getModalSlotStyle(styles, "modal.container", style);
+  const [resolvedRoot, setResolvedRoot] = React.useState<HTMLElement | null>(
+    null,
+  );
+  const isRegisteredRef = React.useRef(false);
+
+  const handleContentRef = React.useCallback(
+    (node: React.ElementRef<typeof DialogPrimitive.Content> | null) => {
+      // Capture the nearest DPP root from the actual portaled content node.
+      setForwardedRef(ref, node);
+      setResolvedRoot(node?.closest<HTMLElement>(".dpp-root") ?? null);
+    },
+    [ref],
+  );
+
+  React.useEffect(() => {
+    // Sync the background layout marker as soon as the dialog starts opening or closing.
+    if (!resolvedRoot) {
+      return;
+    }
+
+    if (isOpen && !isRegisteredRef.current) {
+      updateDppRootModalState(resolvedRoot, 1);
+      isRegisteredRef.current = true;
+      return;
+    }
+
+    if (!isOpen && isRegisteredRef.current) {
+      updateDppRootModalState(resolvedRoot, -1);
+      isRegisteredRef.current = false;
+    }
+  }, [isOpen, resolvedRoot]);
+
+  React.useEffect(() => {
+    // Always clean up the root marker if Radix unmounts the content after the exit animation.
+    return () => {
+      if (!resolvedRoot || !isRegisteredRef.current) {
+        return;
+      }
+
+      updateDppRootModalState(resolvedRoot, -1);
+      isRegisteredRef.current = false;
+    };
+  }, [resolvedRoot]);
 
   return (
     <ModalPortal>
       <ModalOverlay />
       <DialogPrimitive.Content
-        ref={ref}
+        ref={handleContentRef}
         className={cn(
           "dpp-native-dialog__content fixed z-[91] flex flex-col overflow-hidden border border-black/5 outline-none",
           "shadow-[0_-18px_60px_rgba(15,23,42,0.18)] md:shadow-[0_28px_90px_rgba(15,23,42,0.18)]",
@@ -137,7 +260,7 @@ const ModalContent = React.forwardRef<
       >
         {!hideClose && (
           <ModalClose
-            className="absolute right-4 top-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 hover:bg-[var(--muted-dark,#E0E0E0)]"
+            className="absolute right-4 top-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 bg-[var(--background,#FFFFFF)] hover:bg-[var(--muted-dark,#E0E0E0)]"
             style={{ color: "var(--muted-dark-foreground, #808080)" }}
           >
             <Icons.X aria-hidden className="h-4 w-4 shrink-0" />
@@ -145,44 +268,61 @@ const ModalContent = React.forwardRef<
           </ModalClose>
         )}
 
-        <div
-          className={cn(
-            "scrollbar-none flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-6 pt-8",
-            bodyClassName,
-          )}
-          style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}
-        >
-          {children}
-        </div>
+        {children}
       </DialogPrimitive.Content>
     </ModalPortal>
   );
 });
 
-function ModalHeader({
+function ModalBody({
   className,
+  style,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  // Group the modal title and supporting copy with the default shell spacing.
+  // Scrollable padded content area inside the modal shell.
   return (
     <div
-      className={cn("flex flex-col gap-3 pr-14 text-left", className)}
+      className={cn(
+        "scrollbar-none flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-6 pt-8",
+        className,
+      )}
+      style={{
+        paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+        ...style,
+      }}
       {...props}
     />
   );
 }
 
-function ModalFooter({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
-  // Align footer actions consistently across modal layouts.
+interface ModalHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
+  styles?: ModalStyles;
+}
+
+function ModalHeader({ className, styles, ...props }: ModalHeaderProps) {
+  // Padded header zone with a bottom border separating it from the body.
   return (
     <div
-      className={cn(
-        "mt-auto flex flex-col gap-3 sm:flex-row sm:justify-end",
-        className,
-      )}
+      className={cn("flex flex-col gap-3 border-b px-6 pt-8 pb-6", className)}
+      style={{ borderColor: styles?.["modal.container"]?.borderColor }}
+      {...props}
+    />
+  );
+}
+
+interface ModalFooterProps extends React.HTMLAttributes<HTMLDivElement> {
+  styles?: ModalStyles;
+}
+
+function ModalFooter({ className, styles, ...props }: ModalFooterProps) {
+  // Padded footer zone with a top border separating it from the body.
+  return (
+    <div
+      className={cn("flex flex-col gap-3 border-t px-6 py-6", className)}
+      style={{
+        borderColor: styles?.["modal.container"]?.borderColor,
+        paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+      }}
       {...props}
     />
   );
@@ -335,6 +475,169 @@ function ModalField({
   );
 }
 
+export interface ModalDataTableRow {
+  key: string;
+  label: React.ReactNode;
+  value: React.ReactNode;
+}
+
+const DEFAULT_MODAL_MAP_ASPECT_RATIO = 3;
+const DEFAULT_MODAL_MAP_WIDTH = 640;
+const DEFAULT_MODAL_MAP_ZOOM = 16;
+
+function getModalMapAspectRatio(
+  mapStyle: React.CSSProperties | undefined,
+): number {
+  // Normalize the map slot aspect ratio into a positive decimal value.
+  const value = mapStyle?.aspectRatio;
+
+  if (typeof value === "number" && value > 0) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsedValue = Number.parseFloat(value);
+
+    if (Number.isFinite(parsedValue) && parsedValue > 0) {
+      return parsedValue;
+    }
+  }
+
+  return DEFAULT_MODAL_MAP_ASPECT_RATIO;
+}
+
+function buildGoogleMapsSearchHref(query: string): string {
+  // Open the same address query in the full Google Maps UI.
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function buildGoogleStaticMapProxySrc(
+  query: string,
+  zoom: number,
+  aspectRatio: number,
+): string {
+  // Proxy the static map through the app so the Google Maps API key stays server-side.
+  const height = Math.max(
+    120,
+    Math.round(DEFAULT_MODAL_MAP_WIDTH / aspectRatio),
+  );
+  const params = new URLSearchParams({
+    height: `${height}`,
+    q: query,
+    width: `${DEFAULT_MODAL_MAP_WIDTH}`,
+    zoom: `${zoom}`,
+  });
+
+  return `/api/google-maps/static?${params.toString()}`;
+}
+
+interface ModalStaticMapProps
+  extends Omit<
+    React.AnchorHTMLAttributes<HTMLAnchorElement>,
+    "children" | "href"
+  > {
+  alt?: string;
+  query?: string | null;
+  select?: ModalSelectionGetter;
+  styles?: ModalStyles;
+  zoom?: number;
+}
+
+interface ModalDataTableProps {
+  className?: string;
+  gridTemplateColumns?: string;
+  rows: ModalDataTableRow[];
+  select?: ModalSelectionGetter;
+  styles?: ModalStyles;
+  valueClassName?: string;
+}
+
+function ModalDataTable({
+  className,
+  gridTemplateColumns,
+  rows,
+  select,
+  styles,
+  valueClassName,
+}: ModalDataTableProps) {
+  // Render a modal-aware data table that automatically applies slot styles and selection props.
+  const borderColor = styles?.["modal.container"]?.borderColor;
+  const tableRows = rows.map((row) => ({
+    key: row.key,
+    label: row.label,
+    labelProps: getModalSelectionProps(select, "modal.label"),
+    value: row.value,
+    valueProps: getModalSelectionProps(select, "modal.value"),
+  }));
+
+  return (
+    <DataTable
+      borderColor={borderColor}
+      className={className}
+      gridTemplateColumns={gridTemplateColumns}
+      labelStyle={styles?.["modal.label"]}
+      rows={tableRows}
+      valueClassName={cn("whitespace-normal break-all", valueClassName)}
+      valueStyle={styles?.["modal.value"]}
+    />
+  );
+}
+
+function ModalStaticMap({
+  alt,
+  className,
+  query,
+  rel = "noopener noreferrer",
+  select,
+  style,
+  styles,
+  target = "_blank",
+  title,
+  zoom = DEFAULT_MODAL_MAP_ZOOM,
+  ...props
+}: ModalStaticMapProps) {
+  // Render a clickable static Google Maps preview for the supplied address query.
+  const trimmedQuery = query?.trim();
+  const mapStyle = getModalSlotStyle(styles, "modal.map", style);
+
+  if (!trimmedQuery) {
+    return null;
+  }
+
+  const aspectRatio = getModalMapAspectRatio(mapStyle);
+  const href = buildGoogleMapsSearchHref(trimmedQuery);
+  const imageSrc = buildGoogleStaticMapProxySrc(
+    trimmedQuery,
+    zoom,
+    aspectRatio,
+  );
+
+  return (
+    <a
+      {...getModalSelectionProps(select, "modal.map")}
+      {...props}
+      className={cn(
+        "group block overflow-hidden bg-[var(--muted-light,#F5F5F5)]",
+        className,
+      )}
+      href={href}
+      rel={rel}
+      style={mapStyle}
+      target={target}
+      title={title ?? "Open in Google Maps"}
+    >
+      <img
+        alt={alt ?? `Map of ${trimmedQuery}`}
+        className="block h-full w-full object-cover transition-transform duration-150 group-hover:scale-[1.01]"
+        decoding="async"
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        src={imageSrc}
+      />
+    </a>
+  );
+}
+
 ModalOverlay.displayName = DialogPrimitive.Overlay.displayName;
 ModalContent.displayName = DialogPrimitive.Content.displayName;
 ModalTitle.displayName = DialogPrimitive.Title.displayName;
@@ -347,6 +650,7 @@ export {
   ModalPortal,
   ModalOverlay,
   ModalContent,
+  ModalBody,
   ModalHeader,
   ModalFooter,
   ModalTitle,
@@ -356,4 +660,6 @@ export {
   ModalLabel,
   ModalValue,
   ModalField,
+  ModalDataTable,
+  ModalStaticMap,
 };

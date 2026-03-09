@@ -5,34 +5,37 @@
  */
 
 import {
+  ModalBody,
   ModalContent,
+  ModalDataTable,
   ModalDescription,
-  ModalField,
   ModalSection,
+  ModalStaticMap,
   ModalSubtitle,
   ModalTitle,
   getModalSelectionProps,
 } from "../modal";
-import type { ModalSelectionGetter, ModalStyles } from "../modal";
-
-interface OperatorModalFact {
-  label: string;
-  value: React.ReactNode;
-}
+import type {
+  ModalDataTableRow,
+  ModalSelectionGetter,
+  ModalStyles,
+} from "../modal";
 
 interface OperatorModalProps {
   description?: string;
-  facts?: OperatorModalFact[];
+  facts?: ModalDataTableRow[];
+  mapQuery?: string | null;
   select?: ModalSelectionGetter;
   styles: ModalStyles;
   subtitle?: string;
   title?: string;
 }
 
-const DEFAULT_OPERATOR_FACTS: OperatorModalFact[] = [
-  { label: "Location", value: "Porto, Portugal" },
-  { label: "Role", value: "Cut and sew facility" },
+const DEFAULT_OPERATOR_FACTS: ModalDataTableRow[] = [
+  { key: "Location", label: "Location", value: "Porto, Portugal" },
+  { key: "Role", label: "Role", value: "Cut and sew facility" },
   {
+    key: "Website",
     label: "Website",
     value: (
       <a
@@ -45,12 +48,13 @@ const DEFAULT_OPERATOR_FACTS: OperatorModalFact[] = [
       </a>
     ),
   },
-  { label: "Contact", value: "operations@example.com" },
+  { key: "Contact", label: "Contact", value: "operations@example.com" },
 ];
 
 export function OperatorModal({
   description = "This operator is responsible for one of the production steps recorded in the product journey.",
   facts = DEFAULT_OPERATOR_FACTS,
+  mapQuery,
   select,
   styles,
   subtitle = "Supply chain operator",
@@ -59,40 +63,44 @@ export function OperatorModal({
   // Render a mock operator profile using the shared modal title, description, label, and value slots.
   return (
     <ModalContent styles={styles}>
-      <ModalSection>
-        <ModalSubtitle
-          {...getModalSelectionProps(select, "modal.subtitle")}
-          styles={styles}
-        >
-          {subtitle}
-        </ModalSubtitle>
-        <ModalTitle
-          {...getModalSelectionProps(select, "modal.title")}
-          styles={styles}
-        >
-          {title}
-        </ModalTitle>
-      </ModalSection>
-
-      <ModalDescription
-        {...getModalSelectionProps(select, "modal.description")}
-        styles={styles}
-      >
-        {description}
-      </ModalDescription>
-
-      <ModalSection>
-        {facts.map((fact) => (
-          <ModalField
-            key={fact.label}
-            label={fact.label}
-            labelProps={getModalSelectionProps(select, "modal.label")}
+      <ModalBody>
+        <ModalSection>
+          <ModalSubtitle
+            {...getModalSelectionProps(select, "modal.subtitle")}
             styles={styles}
-            value={fact.value}
-            valueProps={getModalSelectionProps(select, "modal.value")}
-          />
-        ))}
-      </ModalSection>
+          >
+            {subtitle}
+          </ModalSubtitle>
+          <ModalTitle
+            {...getModalSelectionProps(select, "modal.title")}
+            styles={styles}
+          >
+            {title}
+          </ModalTitle>
+        </ModalSection>
+
+        <ModalDescription
+          {...getModalSelectionProps(select, "modal.description")}
+          styles={styles}
+        >
+          {description}
+        </ModalDescription>
+
+        <ModalSection>
+          <ModalDataTable rows={facts} select={select} styles={styles} />
+        </ModalSection>
+
+        {mapQuery ? (
+          <ModalSection>
+            <ModalStaticMap
+              alt={`${title} location map`}
+              query={mapQuery}
+              select={select}
+              styles={styles}
+            />
+          </ModalSection>
+        ) : null}
+      </ModalBody>
     </ModalContent>
   );
 }

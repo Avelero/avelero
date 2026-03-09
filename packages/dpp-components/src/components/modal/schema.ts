@@ -30,6 +30,14 @@ export const MODAL_SCHEMA: FixedComponentSchema = {
   editorTree: {
     id: "modal",
     displayName: "Modal",
+    configFields: [
+      {
+        type: "toggle",
+        path: "content.showExactLocation",
+        label: "Show Exact Location",
+        section: "Privacy",
+      },
+    ],
     children: [
       {
         id: "modal.container",
@@ -89,6 +97,23 @@ export const MODAL_SCHEMA: FixedComponentSchema = {
         displayName: "Value",
         styleFields: createModalTypographyFields("modal.value"),
       },
+      {
+        id: "modal.map",
+        displayName: "Map",
+        styleFields: [
+          {
+            type: "radius",
+            path: "modal.map.borderRadius",
+            label: "Border Radius",
+          },
+          {
+            type: "number",
+            path: "modal.map.aspectRatio",
+            label: "Aspect Ratio",
+            step: 0.1,
+          },
+        ],
+      },
     ],
   },
   defaults: {
@@ -127,7 +152,13 @@ export const MODAL_SCHEMA: FixedComponentSchema = {
         color: "$foreground",
         textTransform: "none",
       },
+      "modal.map": {
+        aspectRatio: 3,
+        borderRadius: 10,
+      },
     },
-    content: {},
+    content: {
+      showExactLocation: true,
+    },
   },
 };

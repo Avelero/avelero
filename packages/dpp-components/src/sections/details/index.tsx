@@ -39,22 +39,24 @@ function createDetailsModalSelectionGetter(
 
 function buildManufacturerModalFacts(manufacturer: Manufacturer) {
   // Gather the available manufacturer facts into reusable modal field rows.
-  const facts: Array<{ label: string; value: React.ReactNode }> = [];
+  const facts: Array<{ key: string; label: string; value: React.ReactNode }> =
+    [];
   const displayName = manufacturer.name?.trim();
   const legalName = manufacturer.legalName?.trim();
 
   if (displayName) {
-    facts.push({ label: "Name", value: displayName });
+    facts.push({ key: "Name", label: "Name", value: displayName });
   }
 
   if (legalName && legalName !== displayName) {
-    facts.push({ label: "Legal name", value: legalName });
+    facts.push({ key: "Legal name", label: "Legal name", value: legalName });
   }
 
   if (manufacturer.website) {
     const manufacturerHref = toExternalHref(manufacturer.website);
 
     facts.push({
+      key: "Website",
       label: "Website",
       value: manufacturerHref ? (
         <a
@@ -72,35 +74,20 @@ function buildManufacturerModalFacts(manufacturer: Manufacturer) {
   }
 
   if (manufacturer.email) {
-    facts.push({ label: "Email", value: manufacturer.email });
+    facts.push({ key: "Email", label: "Email", value: manufacturer.email });
   }
 
   if (manufacturer.phone) {
-    facts.push({ label: "Phone", value: manufacturer.phone });
-  }
-
-  if (manufacturer.addressLine1) {
-    facts.push({ label: "Address line 1", value: manufacturer.addressLine1 });
-  }
-
-  if (manufacturer.addressLine2) {
-    facts.push({ label: "Address line 2", value: manufacturer.addressLine2 });
+    facts.push({ key: "Phone", label: "Phone", value: manufacturer.phone });
   }
 
   if (manufacturer.city) {
-    facts.push({ label: "City", value: manufacturer.city });
-  }
-
-  if (manufacturer.state) {
-    facts.push({ label: "State", value: manufacturer.state });
-  }
-
-  if (manufacturer.zip) {
-    facts.push({ label: "Postal code", value: manufacturer.zip });
+    facts.push({ key: "City", label: "City", value: manufacturer.city });
   }
 
   if (manufacturer.countryCode) {
     facts.push({
+      key: "Country",
       label: "Country",
       value:
         getCountryName(manufacturer.countryCode) || manufacturer.countryCode,
@@ -110,12 +97,42 @@ function buildManufacturerModalFacts(manufacturer: Manufacturer) {
   return facts;
 }
 
+function buildManufacturerMapQuery(
+  manufacturer: Manufacturer,
+  showExactLocation: boolean,
+): string | null {
+  // Collapse the manufacturer address into either an exact or city-level Google Maps query.
+  const country = manufacturer.countryCode
+    ? getCountryName(manufacturer.countryCode) ?? manufacturer.countryCode
+    : undefined;
+  const queryParts = (
+    showExactLocation
+      ? [
+          manufacturer.addressLine1,
+          manufacturer.city,
+          manufacturer.state,
+          manufacturer.zip,
+          country,
+        ]
+      : [manufacturer.city, country]
+  )
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  if (queryParts.length === 0) {
+    return null;
+  }
+
+  return queryParts.join(", ");
+}
+
 export function DetailsSection({
   section,
   tokens,
   data,
   zoneId,
   wrapperClassName,
+  modalContent,
   modalStyles,
 }: SectionProps) {
   // Resolve styles and map the product metadata into detail rows.
@@ -135,6 +152,7 @@ export function DetailsSection({
   const labelSelection = select("details.label");
   const valueSelection = select("details.value");
   const modalSelect = createDetailsModalSelectionGetter(select);
+  const showExactLocation = modalContent?.showExactLocation !== false;
   const manufacturerValueStyle = createInteractiveHoverStyle(
     {
       ...s.value,
@@ -270,6 +288,7 @@ export function DetailsSection({
         <ManufacturerModal
           description="This manufacturer is listed as the responsible producer for this product passport."
           facts={buildManufacturerModalFacts(manufacturer)}
+          mapQuery={buildManufacturerMapQuery(manufacturer, showExactLocation)}
           select={modalSelect}
           styles={modalStyles ?? {}}
           subtitle="Manufacturer overview"

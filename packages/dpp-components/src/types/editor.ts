@@ -41,6 +41,7 @@ export interface StyleField {
   path: string;
   label: string;
   unit?: "px" | "%" | "em" | "rem";
+  step?: number;
   options?: Array<{ value: string; label: string }>;
   /**
    * Optional section name to group fields under a header in the editor.
@@ -150,4 +151,6 @@ export interface SectionProps {
   wrapperClassName?: string;
   /** Resolved passport-level modal styles, passed by the layout renderer. */
   modalStyles?: Record<string, React.CSSProperties>;
+  /** Modal content settings shared across sections, passed by the layout renderer. */
+  modalContent?: Passport["modal"]["content"];
 }

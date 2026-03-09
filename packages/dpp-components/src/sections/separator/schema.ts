@@ -19,11 +19,17 @@ export const SEPARATOR_SCHEMA: SectionSchema = {
         path: "line.backgroundColor",
         label: "Color",
       },
+      {
+        type: "number",
+        path: "line.height",
+        label: "Thickness",
+        unit: "px",
+      },
     ],
   },
   defaults: {
     styles: {
-      line: { backgroundColor: "$border" },
+      line: { backgroundColor: "$border", height: 1 },
     },
     content: {},
   },

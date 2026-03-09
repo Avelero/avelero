@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Sidebar button-link section.
  *
@@ -5,6 +7,7 @@
  */
 import { Icons } from "@v1/ui/icons";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
+import { useHapticTap } from "../../lib/haptics";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
   createInteractiveHoverStyle,
@@ -33,6 +36,7 @@ export function ButtonsSection({
   const buttonStyle = createInteractiveHoverStyle(s.button, {
     background: true,
   });
+  const hapticTap = useHapticTap();
 
   if (menuItems.length === 0) return null;
 
@@ -52,6 +56,7 @@ export function ButtonsSection({
             rel="noopener noreferrer"
             className={`flex items-center justify-between gap-md p-md cursor-pointer ${INTERACTIVE_HOVER_CLASS_NAME}`}
             style={buttonStyle}
+            onClick={() => hapticTap()}
           >
             <span>{item.label}</span>
             <Icons.ChevronRight

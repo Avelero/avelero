@@ -10,6 +10,7 @@ import { MapPinIcon } from "@phosphor-icons/react/dist/ssr/MapPin";
 import { useState } from "react";
 import { Modal, OperatorModal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
+import { useHapticTap } from "../../lib/haptics";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
   createInteractiveHoverStyle,
@@ -154,6 +155,7 @@ export function JourneySection({
   const s = resolveStyles(section.styles, tokens);
   const journey = transformJourney(data);
   const [isOperatorDialogOpen, setIsOperatorDialogOpen] = useState(false);
+  const hapticTap = useHapticTap();
   const [selectedOperator, setSelectedOperator] = useState<{
     company: JourneyCompany;
     stageName: string;
@@ -307,6 +309,7 @@ export function JourneySection({
                                 className={`inline cursor-pointer appearance-none border-0 bg-transparent p-0 align-baseline underline underline-offset-4 ${INTERACTIVE_HOVER_CLASS_NAME}`}
                                 style={operatorStyle}
                                 onClick={() => {
+                                  hapticTap();
                                   // Keep the selected operator mounted while the dialog animates out.
                                   setSelectedOperator({
                                     company,

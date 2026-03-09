@@ -4,9 +4,10 @@
 
 export * from "./types";
 export * from "./lib/css-generator";
-export * from "./lib/default-passport";
-export * from "./lib/default-tokens";
-export * from "./lib/demo-passport";
+export * from "./lib/defaults/passport";
+export * from "./lib/defaults/tokens";
+export * from "./lib/demo/passport";
+export * from "./lib/demo/data";
 export * from "./lib/editor-selection";
 export * from "./lib/google-fonts";
 export * from "./lib/token-utils";

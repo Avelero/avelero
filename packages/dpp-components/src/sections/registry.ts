@@ -17,10 +17,10 @@ import { DescriptionSection } from "./description";
 import { DESCRIPTION_SCHEMA } from "./description/schema";
 import { DetailsSection } from "./details";
 import { DETAILS_SCHEMA } from "./details/schema";
-import { FeatureCardsSection } from "./feature-cards";
-import { FEATURE_CARDS_SCHEMA } from "./feature-cards/schema";
 import { HeroSection } from "./hero";
 import { HERO_SCHEMA } from "./hero/schema";
+import { ImageCardsSection } from "./image-cards";
+import { IMAGE_CARDS_SCHEMA } from "./image-cards/schema";
 import { ImpactSection } from "./impact";
 import { IMPACT_SCHEMA } from "./impact/schema";
 import { JourneySection } from "./journey";
@@ -63,9 +63,9 @@ export const SECTION_REGISTRY: Record<SectionType, SectionRegistryEntry> = {
   journey: { schema: JOURNEY_SCHEMA, component: JourneySection },
   banner: { schema: BANNER_SCHEMA, component: BannerSection },
   carousel: { schema: CAROUSEL_SCHEMA, component: CarouselSection },
-  featureCards: {
-    schema: FEATURE_CARDS_SCHEMA,
-    component: FeatureCardsSection,
+  imageCards: {
+    schema: IMAGE_CARDS_SCHEMA,
+    component: ImageCardsSection,
   },
   textImage: { schema: TEXT_IMAGE_SCHEMA, component: TextImageSection },
   separator: { schema: SEPARATOR_SCHEMA, component: SeparatorSection },

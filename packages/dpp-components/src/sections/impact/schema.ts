@@ -151,6 +151,7 @@ export const IMPACT_SCHEMA: SectionSchema = {
       card: {
         backgroundColor: "$card",
         boxShadow: SURFACE_CARD_SHADOW,
+        borderColor: "$border",
         borderRadius: 8,
         borderWidth: 0,
       },

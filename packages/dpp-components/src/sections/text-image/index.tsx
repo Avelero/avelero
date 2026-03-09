@@ -6,6 +6,7 @@
  */
 
 import Image from "next/image";
+import { ImagePlaceholder } from "../../components/image-placeholder";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { SectionProps } from "../registry";
@@ -119,7 +120,10 @@ export function TextImageSection({
       {content.headline ? (
         <h2
           {...headingSelection}
-          className={mobileOrderClassNames.heading}
+          className={[
+            "whitespace-pre-line",
+            mobileOrderClassNames.heading,
+          ].join(" ")}
           style={s.heading}
         >
           {content.headline}
@@ -140,7 +144,7 @@ export function TextImageSection({
     </div>
   );
 
-  const imageContent = content.image ? (
+  const imageContent = (
     <div
       {...imageSelection}
       className={[
@@ -149,18 +153,22 @@ export function TextImageSection({
       ].join(" ")}
       style={s.image}
     >
-      <Image
-        src={content.image}
-        alt={content.imageAlt || content.headline || ""}
-        fill
-        className="object-cover"
-        sizes="(max-width: 767px) calc(100vw - 2rem), (max-width: 1280px) calc((100vw - 2rem) / 2), 550px"
-        quality={90}
-        priority={false}
-        unoptimized={isLocalDevImage(content.image)}
-      />
+      {content.image ? (
+        <Image
+          src={content.image}
+          alt={content.imageAlt || content.headline || ""}
+          fill
+          className="object-cover"
+          sizes="(max-width: 767px) calc(100vw - 2rem), (max-width: 1280px) calc((100vw - 2rem) / 2), 550px"
+          quality={90}
+          priority={false}
+          unoptimized={isLocalDevImage(content.image)}
+        />
+      ) : (
+        <ImagePlaceholder />
+      )}
     </div>
-  ) : null;
+  );
 
   return (
     <div className={wrapperClassName ?? "w-full"}>

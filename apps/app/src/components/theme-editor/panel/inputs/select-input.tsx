@@ -35,7 +35,9 @@ export function SelectInput({ field, value, onChange }: SelectInputProps) {
   const [open, setOpen] = useState(false);
   const options = field.options ?? [];
   const selectedValue = typeof value === "string" ? value : "";
-  const selectedOption = options.find((option) => option.value === selectedValue);
+  const selectedOption = options.find(
+    (option) => option.value === selectedValue,
+  );
   const displayValue =
     selectedOption?.label ?? field.placeholder ?? "Select...";
   const isPlaceholder = !selectedOption;

@@ -11,6 +11,7 @@ export const CAROUSEL_SCHEMA: SectionSchema = {
   type: "carousel",
   displayName: "Similar Products",
   allowedZones: ["canvas"],
+  hidden: true,
   editorTree: {
     id: "carousel",
     displayName: "Similar Products",

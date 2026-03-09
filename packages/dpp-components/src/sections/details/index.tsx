@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { DataTable, ManufacturerModal, Modal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
+import { useHapticTap } from "../../lib/haptics";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
   createInteractiveHoverStyle,
@@ -143,6 +144,7 @@ export function DetailsSection({
     manufacturer?.legalName?.trim() || manufacturer?.name?.trim() || "";
   const [isManufacturerDialogOpen, setIsManufacturerDialogOpen] =
     useState(false);
+  const hapticTap = useHapticTap();
   const borderColor =
     s.row?.borderColor ?? s.header?.borderColor ?? s.container?.borderColor;
   const select = createSectionSelectionAttributes(section.id, zoneId);
@@ -201,7 +203,10 @@ export function DetailsSection({
           type="button"
           className={`block w-full appearance-none cursor-pointer overflow-hidden truncate border-0 bg-transparent p-0 text-left ${INTERACTIVE_HOVER_CLASS_NAME}`}
           style={manufacturerValueStyle}
-          onClick={() => setIsManufacturerDialogOpen(true)}
+          onClick={() => {
+            hapticTap();
+            setIsManufacturerDialogOpen(true);
+          }}
         >
           {manufacturerName}
         </button>

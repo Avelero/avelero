@@ -9,7 +9,6 @@
  * IMPORTANT: This route only works on custom domains. Requests to
  * passport.avelero.com/01/... are rejected by the proxy with a 404.
  */
-import { demoPassport } from "@/demo-data/config";
 import { fetchPassportByBarcode } from "@/lib/api";
 import { resolveDomain } from "@/lib/domain";
 import { transformSnapshotToDppData } from "@/lib/transform-snapshot-to-dpp-data";
@@ -20,6 +19,7 @@ import {
   Header,
   type Passport,
   buildPassportStylesheet,
+  createDemoPassport,
   generateGoogleFontsUrlFromTypography,
 } from "@v1/dpp-components";
 import type { Metadata } from "next";
@@ -136,7 +136,7 @@ export default async function BarcodeDPPPage({
   const brandName = data.dppData.productAttributes.manufacturer?.name ?? "";
 
   // Use brand passport from API, fall back to demo passport
-  const passport: Passport = data.brandPassport ?? demoPassport;
+  const passport: Passport = data.brandPassport ?? createDemoPassport();
 
   const googleFontsUrl =
     data.googleFontsUrl ??

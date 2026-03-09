@@ -70,6 +70,16 @@ export function ImageInput({
     if (fieldPath.includes("banner") || fieldPath.includes("cta")) {
       return "banner";
     }
+    if (
+      fieldPath.includes("cardOne") ||
+      fieldPath.includes("cardTwo") ||
+      fieldPath.includes("cardThree")
+    ) {
+      return "image-cards";
+    }
+    if (fieldPath === "image") {
+      return "text-image";
+    }
     return "assets";
   };
 

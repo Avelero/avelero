@@ -5,6 +5,7 @@
  */
 
 import Image from "next/image";
+import { ImagePlaceholder } from "../../components/image-placeholder";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { SectionProps } from "../registry";
@@ -36,14 +37,25 @@ export function BannerSection({
     backgroundImage?.includes("localhost:") ||
     backgroundImage?.includes("localhost/");
 
+  // Extract borderRadius from resolved styles so mobile can force it to 0
+  // while desktop preserves the customer's setting via a CSS variable.
+  const containerStyle = { ...(s.container ?? {}) };
+  const bannerRadius = containerStyle.borderRadius;
+  containerStyle.borderRadius = undefined;
+
   return (
     <div className={wrapperClassName ?? "w-full"}>
       <div
         {...containerSelection}
-        className="relative w-full flex flex-col items-center justify-center py-3x px-lg @3xl:px-3x overflow-hidden"
-        style={s.container}
+        className="relative w-full flex flex-col items-center justify-center py-3x px-lg @3xl:px-3x overflow-hidden @3xl:[border-radius:var(--dpp-banner-radius,0px)]"
+        style={{
+          ...containerStyle,
+          ...(bannerRadius
+            ? ({ "--dpp-banner-radius": bannerRadius } as React.CSSProperties)
+            : {}),
+        }}
       >
-        {backgroundImage && (
+        {backgroundImage ? (
           <Image
             src={backgroundImage}
             alt=""
@@ -54,6 +66,8 @@ export function BannerSection({
             priority={false}
             unoptimized={isLocalDev}
           />
+        ) : (
+          <ImagePlaceholder />
         )}
 
         <div className="relative z-10 flex flex-col gap-xl w-full items-center">
@@ -61,7 +75,7 @@ export function BannerSection({
             {headline && (
               <h2
                 {...headlineSelection}
-                className="max-w-[600px]"
+                className="max-w-[600px] whitespace-pre-line"
                 style={s.headline}
               >
                 {headline}
@@ -70,7 +84,7 @@ export function BannerSection({
             {subline && (
               <p
                 {...sublineSelection}
-                className="max-w-[600px]"
+                className="max-w-[600px] whitespace-pre-line"
                 style={s.subline}
               >
                 {subline}

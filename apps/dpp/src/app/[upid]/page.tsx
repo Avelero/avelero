@@ -2,7 +2,6 @@
  * Public UPID-based passport page.
  */
 
-import { demoPassport } from "@/demo-data/config";
 import { fetchPassportDpp } from "@/lib/api";
 import { transformSnapshotToDppData } from "@/lib/transform-snapshot-to-dpp-data";
 import { isValidUpid } from "@/lib/validation";
@@ -12,6 +11,7 @@ import {
   Header,
   type Passport,
   buildPassportStylesheet,
+  createDemoPassport,
   generateGoogleFontsUrlFromTypography,
 } from "@v1/dpp-components";
 import type { Metadata } from "next";
@@ -90,7 +90,7 @@ export default async function PassportDPPPage({ params }: PageProps) {
   const brandName = data.dppData.productAttributes.manufacturer?.name ?? "";
 
   // Use brand passport from API, fall back to demo passport
-  const passport: Passport = data.brandPassport ?? demoPassport;
+  const passport: Passport = data.brandPassport ?? createDemoPassport();
 
   // Resolve theme assets even when the page falls back to the in-repo demo theme.
   const googleFontsUrl =

@@ -10,8 +10,7 @@ import {
 import { useNavigationBlocker } from "@/hooks/use-navigation-blocker";
 import { useThemeQuery } from "@/hooks/use-theme";
 import { useUserQuery } from "@/hooks/use-user";
-import { DEMO_DPP_DATA } from "@/lib/demo-data";
-import type { DppData, Passport } from "@v1/dpp-components";
+import { DEMO_DATA, type DppData, type Passport } from "@v1/dpp-components";
 import { DesignPreview } from "./design-preview";
 import { DesignPanel } from "./panel";
 
@@ -32,7 +31,7 @@ export function ThemeEditorPage({
 
   const passport = initialPassport ?? theme.passport;
   const googleFontsUrl = initialGoogleFontsUrl ?? theme.googleFontsUrl;
-  const data = previewData ?? DEMO_DPP_DATA;
+  const data = previewData ?? DEMO_DATA;
 
   return (
     <DesignEditorProvider

@@ -2,14 +2,14 @@
  * Public demo page for the passport experience.
  */
 
-import { demoPassport } from "@/demo-data/config";
-import { demoContentData, demoProductData } from "@/demo-data/data";
 import {
   ContentFrame,
+  DEMO_DATA,
   DemoCTA,
   Footer,
   Header,
   buildPassportStylesheet,
+  createDemoPassport,
   generateGoogleFontsUrlFromTypography,
 } from "@v1/dpp-components";
 import type { Metadata } from "next";
@@ -24,7 +24,8 @@ export const metadata: Metadata = {
  * Renders the public demo passport with the same font-loading path as production DPPs.
  */
 export default function DemoPage() {
-  const brandName = demoProductData.productAttributes.brand;
+  const demoPassport = createDemoPassport();
+  const brandName = DEMO_DATA.productAttributes.brand;
   const googleFontsUrl = generateGoogleFontsUrlFromTypography(
     demoPassport.tokens.typography,
     demoPassport.tokens.fonts,
@@ -60,11 +61,7 @@ export default function DemoPage() {
         />
 
         {/* Main content */}
-        <ContentFrame
-          passport={demoPassport}
-          data={demoProductData}
-          content={demoContentData}
-        />
+        <ContentFrame passport={demoPassport} data={DEMO_DATA} />
 
         {/* Demo CTA Button - sticky positioned above footer */}
         <DemoCTA />

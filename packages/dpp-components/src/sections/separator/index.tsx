@@ -32,7 +32,7 @@ export function SeparatorSection({
   return (
     <div {...rootSelection} className={rootClassName}>
       <div className={innerClassName}>
-        <div className="h-px w-full" style={s.line} />
+        <div className="w-full" style={s.line} />
       </div>
     </div>
   );

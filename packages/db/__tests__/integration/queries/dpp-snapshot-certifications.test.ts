@@ -33,8 +33,8 @@ async function seedCertifiedMaterial(input: {
   brandId: string;
   productId: string;
 }) {
-  const issueDate = "2024-02-15T00:00:00";
-  const expiryDate = "2027-02-15T00:00:00";
+  const issueDate = "2024-02-15 00:00:00";
+  const expiryDate = "2027-02-15 00:00:00";
   const certificationPath = `${input.brandId}/grs-2024-12345.pdf`;
 
   const [certification] = await testDb

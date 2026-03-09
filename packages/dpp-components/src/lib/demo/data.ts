@@ -1,15 +1,18 @@
 /**
- * Demo product data for Avelero Apparel
- * Displayed at the root path for demonstration purposes
+ * Demo product data for Avelero Apparel.
+ *
+ * Used by both the public passport.avelero.com demo page and the theme
+ * editor preview. Lives here so the data is defined once.
  */
-import type { DppContent, DppData } from "@v1/dpp-components";
 
-export const demoProductData: DppData = {
+import type { DppData } from "../../types/data";
+
+export const DEMO_DATA: DppData = {
   productIdentifiers: {
     productId: 1,
     productName: "Sustainable Wool-Blend Jacket",
     productImage:
-      "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937619/ChatGPT_Image_29_apr_2025_16_40_03_trhpro.webp",
+      "https://storage.avelero.com/storage/v1/object/public/products/system/model-demo.webp",
     articleNumber: "8819438821",
   },
 
@@ -190,60 +193,4 @@ export const demoProductData: DppData = {
       },
     ],
   },
-};
-
-/**
- * Demo content (non-compliance data) for Avelero Apparel
- */
-export const demoContentData: DppContent = {
-  similarProducts: [
-    {
-      image:
-        "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937619/ChatGPT_Image_29_apr_2025_16_40_03_trhpro.webp",
-      name: "SPECTACULAR ZIPPER JACKET",
-      price: 600,
-      currency: "€",
-      url: "https://avelero.com",
-    },
-    {
-      image:
-        "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937032/AIModelTwo_vglkse.webp",
-      name: "BOMBER BLACK JACKET",
-      price: 550,
-      currency: "€",
-      url: "https://avelero.com",
-    },
-    {
-      image:
-        "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937032/AIModelThree_klgnyi.webp",
-      name: "AMAZING ZIPPER JACKET",
-      price: 1050,
-      currency: "€",
-      url: "https://avelero.com",
-    },
-    {
-      image:
-        "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937032/AIModelFour_bjqsyy.webp",
-      name: "DENIM WONDER JACKET",
-      price: 880,
-      currency: "€",
-      url: "https://avelero.com",
-    },
-    {
-      image:
-        "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937033/AIModelFive_l0dh6e.webp",
-      name: "HOODED COLORED JACKET",
-      price: 1250,
-      currency: "€",
-      url: "https://avelero.com",
-    },
-    {
-      image:
-        "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937033/AIModelSix_btqjzc.webp",
-      name: "WASHED DENIM JACKET",
-      price: 490,
-      currency: "€",
-      url: "https://avelero.com",
-    },
-  ],
 };

@@ -3,7 +3,7 @@
  */
 
 export const SURFACE_CARD_SHADOW =
-  "0px 0px 2px rgba(0, 0, 0, 0.15), 0px 2px 5px rgba(0, 0, 0, 0.05), 0px 8px 40px rgba(0, 0, 0, 0.04)";
+  "0 4px 4px rgba(0, 0, 0, 0.04), 0 0 1px rgba(0, 0, 0, 0.62)";
 
 export const CAPITALIZATION_STYLE_OPTIONS = [
   { value: "none", label: "None" },

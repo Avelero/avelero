@@ -10,7 +10,7 @@ import type {
   CustomFont,
   TypeScale,
   TypographyScale,
-} from "../types/passport";
+} from "../../types/passport";
 
 const FONT_FAMILY = "Switzer Variable";
 const FONT_URL =
@@ -27,7 +27,7 @@ export const DEFAULT_COLORS: ColorTokens = {
   cardForeground: "#000000",
   primary: "#0000FF",
   primaryForeground: "#FFFFFF",
-  border: "#F2F2F2",
+  border: "#F0F0F0",
   link: "#0000FF",
 };
 

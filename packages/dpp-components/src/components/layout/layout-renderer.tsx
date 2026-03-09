@@ -20,17 +20,9 @@ interface Props {
 }
 
 /** Builds the sidebar section shell classes for selectable spacing. */
-function getSidebarSectionWrapperClassName(
-  index: number,
-  sidebarLength: number,
-): string {
-  // Give each sidebar section its own 16px shell while collapsing the outer edges.
-  return [
-    "w-full",
-    "px-md",
-    index === 0 ? "pt-0" : "pt-md",
-    index === sidebarLength - 1 ? "pb-0" : "pb-md",
-  ].join(" ");
+function getSidebarSectionWrapperClassName(index: number): string {
+  // Give each sidebar section its own 16px shell while collapsing the top edge of the first.
+  return ["w-full", "px-md", index === 0 ? "pt-0" : "pt-md", "pb-md"].join(" ");
 }
 
 /** Builds the shared canvas section shell classes for consistent alignment. */
@@ -66,7 +58,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
             {/* Right column — sidebar sections */}
             <div className="@3xl:flex @3xl:justify-end @3xl:w-full">
               <div className="@3xl:max-w-[428px]">
-                <div className="relative flex flex-col overflow-visible @3xl:ml-auto @3xl:w-full @3xl:py-12">
+                <div className="relative flex flex-col overflow-visible @3xl:ml-auto @3xl:w-full @3xl:pt-12 @3xl:pb-8">
                   {sidebar.map((section, index) => {
                     const entry = SECTION_REGISTRY[section.type];
                     if (!entry) return null;
@@ -83,7 +75,6 @@ export function LayoutRenderer({ passport, data, content }: Props) {
                         modalStyles={modalStyles}
                         wrapperClassName={getSidebarSectionWrapperClassName(
                           index,
-                          sidebar.length,
                         )}
                       />
                     );

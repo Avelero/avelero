@@ -83,6 +83,9 @@ function resolveOverride(
   if (bc) css.borderColor = bc;
 
   // Media sizing
+  if (override.height !== undefined) {
+    css.height = `${override.height}px`;
+  }
   if (override.aspectRatio !== undefined) {
     css.aspectRatio = `${override.aspectRatio}`;
   }

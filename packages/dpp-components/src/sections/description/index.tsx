@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { DescriptionModal, Modal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
+import { useHapticTap } from "../../lib/haptics";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
   createInteractiveHoverStyle,
@@ -83,6 +84,7 @@ export function DescriptionSection({
     "";
   const productTitle = data.productIdentifiers.productName?.trim() ?? "";
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const hapticTap = useHapticTap();
   const preview = truncateDescriptionPreview(
     description,
     DESCRIPTION_PREVIEW_WORD_LIMIT,
@@ -133,7 +135,10 @@ export function DescriptionSection({
               type="button"
               className={`appearance-none border-0 bg-transparent p-0 w-fit text-left ${INTERACTIVE_HOVER_CLASS_NAME}`}
               style={showMoreStyle}
-              onClick={() => setIsDialogOpen(true)}
+              onClick={() => {
+                hapticTap();
+                setIsDialogOpen(true);
+              }}
             >
               Show more
             </button>

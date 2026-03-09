@@ -24,7 +24,7 @@ const PRIVATE_BUCKETS = new Set<string>([
 
 const PASSPORT_SECTION_IMAGE_FIELDS = {
   banner: ["backgroundImage"],
-  featureCards: ["cardOneImage", "cardTwoImage", "cardThreeImage"],
+  imageCards: ["cardOneImage", "cardTwoImage", "cardThreeImage"],
   textImage: ["image"],
 } as const;
 
@@ -158,7 +158,7 @@ function extractPath(
  *
  * Walks:
  * - header.logoUrl
- * - Marketing section images in sidebar/canvas (`banner`, `featureCards`, `textImage`)
+ * - Marketing section images in sidebar/canvas (`banner`, `imageCards`, `textImage`)
  */
 export function resolvePassportImageUrls<T>(passport: T): T {
   if (!passport || typeof passport !== "object") return passport;

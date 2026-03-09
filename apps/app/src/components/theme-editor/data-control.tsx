@@ -1,7 +1,7 @@
 "use client";
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { DEMO_DPP_DATA } from "@/lib/demo-data";
+import { DEMO_DATA } from "@v1/dpp-components";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@v1/ui/cn";
@@ -49,7 +49,7 @@ export function DataControl() {
   // Update preview data when source or product changes
   useEffect(() => {
     if (dataSource === "mock") {
-      setPreviewData(DEMO_DPP_DATA);
+      setPreviewData(DEMO_DATA);
     } else if (productDppData) {
       setPreviewData(productDppData);
     }

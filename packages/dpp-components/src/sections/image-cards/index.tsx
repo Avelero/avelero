@@ -1,11 +1,12 @@
 /**
- * Feature cards canvas section.
+ * Image cards canvas section.
  *
  * Renders a three-card marketing row that scrolls horizontally on small
  * screens and settles into a three-column grid on larger canvas layouts.
  */
 
 import Image from "next/image";
+import { ImagePlaceholder } from "../../components/image-placeholder";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
@@ -14,10 +15,10 @@ import {
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { SectionProps } from "../registry";
 
-type FeatureCardId = "cardOne" | "cardTwo" | "cardThree";
+type ImageCardId = "cardOne" | "cardTwo" | "cardThree";
 
-interface FeatureCardItem {
-  id: FeatureCardId;
+interface ImageCardItem {
+  id: ImageCardId;
   image: string;
   imageAlt: string;
   heading: string;
@@ -25,12 +26,12 @@ interface FeatureCardItem {
   url: string;
 }
 
-interface FeatureCardsContent {
+interface ImageCardsContent {
   title: string;
-  cards: FeatureCardItem[];
+  cards: ImageCardItem[];
 }
 
-const FEATURE_CARD_FIELD_MAP = [
+const IMAGE_CARD_FIELD_MAP = [
   {
     id: "cardOne",
     imageKey: "cardOneImage",
@@ -70,12 +71,12 @@ function getStringContentValue(
 /**
  * Normalize the section content into a stable view model for rendering.
  */
-function getFeatureCardsContent(
+function getImageCardsContent(
   content: Record<string, unknown>,
-): FeatureCardsContent {
+): ImageCardsContent {
   return {
     title: getStringContentValue(content, "title"),
-    cards: FEATURE_CARD_FIELD_MAP.map((fieldMap) => ({
+    cards: IMAGE_CARD_FIELD_MAP.map((fieldMap) => ({
       id: fieldMap.id,
       image: getStringContentValue(content, fieldMap.imageKey),
       imageAlt: getStringContentValue(content, fieldMap.imageAltKey),
@@ -100,14 +101,14 @@ function isLocalDevImage(value: string): boolean {
 /**
  * Render the horizontally scrollable three-card canvas section.
  */
-export function FeatureCardsSection({
+export function ImageCardsSection({
   section,
   tokens,
   zoneId,
   wrapperClassName,
 }: SectionProps) {
   const s = resolveStyles(section.styles, tokens);
-  const content = getFeatureCardsContent(section.content);
+  const content = getImageCardsContent(section.content);
   const visibleCards = content.cards.filter(
     (card) =>
       card.image.trim() ||
@@ -116,8 +117,8 @@ export function FeatureCardsSection({
       card.url.trim(),
   );
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const containerSelection = select("featureCards.container", "overlay");
-  const titleSelection = select("featureCards.title");
+  const containerSelection = select("imageCards.container", "overlay");
+  const titleSelection = select("imageCards.title");
   const buttonStyle = createInteractiveHoverStyle(s.cardButton, {
     color: true,
   });
@@ -137,31 +138,29 @@ export function FeatureCardsSection({
           ) : null}
 
           {visibleCards.length > 0 ? (
-            <div className="scrollbar-none flex snap-x snap-mandatory gap-sm overflow-x-auto px-md @3xl:grid @3xl:grid-cols-3 @3xl:overflow-visible @3xl:px-0">
+            <div className="scrollbar-none flex snap-x snap-mandatory gap-sm overflow-x-auto px-md scroll-pl-md @3xl:grid @3xl:grid-cols-3 @3xl:overflow-visible @3xl:px-0 @3xl:scroll-pl-0">
               {visibleCards.map((card) => {
                 const imageSelection = select(
-                  `featureCards.${card.id}.image`,
+                  `imageCards.${card.id}.image`,
                   "overlay",
                 );
                 const headingSelection = select(
-                  `featureCards.${card.id}.heading`,
+                  `imageCards.${card.id}.heading`,
                 );
-                const bodySelection = select(`featureCards.${card.id}.body`);
-                const buttonSelection = select(
-                  `featureCards.${card.id}.button`,
-                );
+                const bodySelection = select(`imageCards.${card.id}.body`);
+                const buttonSelection = select(`imageCards.${card.id}.button`);
 
                 return (
                   <article
                     key={card.id}
                     className="flex w-[calc((100vw-2rem-0.75rem)/1.5)] min-w-[14rem] max-w-[19rem] shrink-0 snap-start flex-col gap-md @3xl:w-auto @3xl:min-w-0 @3xl:max-w-none"
                   >
-                    {card.image ? (
-                      <div
-                        {...imageSelection}
-                        className="relative w-full overflow-hidden"
-                        style={s.cardImage}
-                      >
+                    <div
+                      {...imageSelection}
+                      className="relative w-full overflow-hidden"
+                      style={s.cardImage}
+                    >
+                      {card.image ? (
                         <Image
                           src={card.image}
                           alt={card.imageAlt || card.heading || ""}
@@ -172,8 +171,10 @@ export function FeatureCardsSection({
                           priority={false}
                           unoptimized={isLocalDevImage(card.image)}
                         />
-                      </div>
-                    ) : null}
+                      ) : (
+                        <ImagePlaceholder />
+                      )}
+                    </div>
 
                     <div className="flex flex-col gap-xs">
                       {card.heading ? (

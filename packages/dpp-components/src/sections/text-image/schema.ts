@@ -44,7 +44,7 @@ export const TEXT_IMAGE_SCHEMA: SectionSchema = {
           },
         ],
         configFields: [
-          { type: "text", path: "headline", label: "Heading Text" },
+          { type: "textarea", path: "headline", label: "Heading Text" },
         ],
       },
       {
@@ -70,6 +70,16 @@ export const TEXT_IMAGE_SCHEMA: SectionSchema = {
             type: "radius",
             path: "image.borderRadius",
             label: "Border Radius",
+          },
+          {
+            type: "border",
+            path: "image.borderWidth",
+            label: "Border",
+          },
+          {
+            type: "color",
+            path: "image.borderColor",
+            label: "Border Color",
           },
           {
             type: "number",
@@ -119,7 +129,7 @@ export const TEXT_IMAGE_SCHEMA: SectionSchema = {
       },
       image: {
         aspectRatio: 1,
-        borderRadius: 8,
+        borderRadius: 4,
       },
     },
     content: {

@@ -8,19 +8,15 @@
  * Used when a new brand is created.
  */
 
-import { COMPONENT_REGISTRY } from "../components/layout/registry";
-import { SECTION_REGISTRY } from "../sections/registry";
+import { COMPONENT_REGISTRY } from "../../components/layout/registry";
+import { SECTION_REGISTRY } from "../../sections/registry";
 import type {
   Passport,
   Section,
   SectionType,
   SocialLinks,
-} from "../types/passport";
-import {
-  DEFAULT_COLORS,
-  DEFAULT_FONTS,
-  DEFAULT_TYPOGRAPHY,
-} from "./default-tokens";
+} from "../../types/passport";
+import { DEFAULT_COLORS, DEFAULT_FONTS, DEFAULT_TYPOGRAPHY } from "./tokens";
 
 function createSection(type: SectionType, id: string): Section {
   const { defaults } = SECTION_REGISTRY[type].schema;

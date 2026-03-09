@@ -88,6 +88,7 @@ export const BUTTONS_SCHEMA: SectionSchema = {
         color: "$cardForeground",
         backgroundColor: "$card",
         boxShadow: SURFACE_CARD_SHADOW,
+        borderColor: "$border",
         borderRadius: 8,
         borderWidth: 0,
         textTransform: "none",

@@ -11,6 +11,7 @@ import { Icons } from "@v1/ui/icons";
 import { Fragment, useState } from "react";
 import { CertificationModal, Modal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
+import { useHapticTap } from "../../lib/haptics";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
   createInteractiveHoverStyle,
@@ -178,6 +179,7 @@ export function MaterialsSection({
   const materials = transformMaterials(data);
   const [isCertificationDialogOpen, setIsCertificationDialogOpen] =
     useState(false);
+  const hapticTap = useHapticTap();
   const [selectedCertification, setSelectedCertification] = useState<
     ReturnType<typeof transformMaterials>[number] | null
   >(null);
@@ -326,6 +328,7 @@ export function MaterialsSection({
                       className={`appearance-none border-0 bg-transparent p-0 w-fit cursor-pointer text-left underline underline-offset-4 ${INTERACTIVE_HOVER_CLASS_NAME}`}
                       style={certTextStyle}
                       onClick={() => {
+                        hapticTap();
                         // Keep the selected certification mounted while the dialog animates out.
                         setSelectedCertification(material);
                         setIsCertificationDialogOpen(true);

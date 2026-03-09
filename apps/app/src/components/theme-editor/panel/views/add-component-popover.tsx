@@ -20,9 +20,10 @@ export function AddComponentPopover({
   onSelect,
   children,
 }: Props) {
-  // Filter sections that are allowed in this zone
+  // Filter sections that are allowed in this zone and not hidden
   const availableSections = Object.entries(SECTION_REGISTRY).filter(
-    ([, entry]) => entry.schema.allowedZones.includes(zoneId),
+    ([, entry]) =>
+      entry.schema.allowedZones.includes(zoneId) && !entry.schema.hidden,
   );
 
   return (

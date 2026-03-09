@@ -117,6 +117,8 @@ export interface SectionSchema {
   allowedZones: ZoneId[];
   editorTree: ComponentDefinition;
   defaults: SectionDefaults;
+  /** When true, the section is hidden from the "Add section" popover. */
+  hidden?: boolean;
 }
 
 // ─── Fixed Component Schema ──────────────────────────────────────────────────

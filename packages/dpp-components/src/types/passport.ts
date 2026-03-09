@@ -72,6 +72,7 @@ export interface StyleOverride {
   boxShadow?: string;
   borderColor?: string;
   aspectRatio?: number;
+  height?: number;
   typescale?: TypeScale;
   typographyDetached?: boolean;
   fontSize?: number;
@@ -113,7 +114,7 @@ export type SectionType =
   | "buttons"
   | "banner"
   | "carousel"
-  | "featureCards"
+  | "imageCards"
   | "textImage"
   | "separator";
 

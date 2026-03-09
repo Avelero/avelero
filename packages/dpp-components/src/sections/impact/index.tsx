@@ -13,6 +13,7 @@ import { RecycleIcon } from "@phosphor-icons/react/dist/ssr/Recycle";
 import { useState } from "react";
 import { ImpactModal, Modal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
+import { useHapticTap } from "../../lib/haptics";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
   createInteractiveHoverStyle,
@@ -59,6 +60,7 @@ export function ImpactSection({
   const s = resolveStyles(section.styles, tokens);
   const metrics = transformImpactMetrics(data);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const hapticTap = useHapticTap();
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const titleSelection = select("impact.title");
   const helpLinkSelection = select("impact.helpLink");
@@ -92,7 +94,10 @@ export function ImpactSection({
             type="button"
             className={`appearance-none border-0 bg-transparent p-0 underline underline-offset-4 cursor-pointer text-right ${INTERACTIVE_HOVER_CLASS_NAME}`}
             style={helpLinkStyle}
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              hapticTap();
+              setIsModalOpen(true);
+            }}
           >
             {IMPACT_MODAL_TRIGGER_LABEL}
           </button>

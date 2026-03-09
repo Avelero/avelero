@@ -62,7 +62,7 @@ export const BANNER_SCHEMA: SectionSchema = {
           },
         ],
         configFields: [
-          { type: "text", path: "headline", label: "Headline Text" },
+          { type: "textarea", path: "headline", label: "Headline Text" },
         ],
       },
       {
@@ -89,7 +89,7 @@ export const BANNER_SCHEMA: SectionSchema = {
           },
         ],
         configFields: [
-          { type: "text", path: "subline", label: "Subline Text" },
+          { type: "textarea", path: "subline", label: "Subline Text" },
         ],
       },
       {
@@ -121,7 +121,7 @@ export const BANNER_SCHEMA: SectionSchema = {
   },
   defaults: {
     styles: {
-      container: { backgroundColor: "$primary", borderRadius: 0 },
+      container: { backgroundColor: "$primary", borderRadius: 4 },
       headline: {
         typescale: "h2",
         color: "$primaryForeground",
@@ -136,9 +136,10 @@ export const BANNER_SCHEMA: SectionSchema = {
       },
       button: {
         typescale: "body-sm",
-        color: "$primaryForeground",
+        color: "$foreground",
+        backgroundColor: "$background",
         borderColor: "$primaryForeground",
-        borderRadius: 0,
+        borderRadius: 99,
         borderWidth: 1,
         textTransform: "none",
       },

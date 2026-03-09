@@ -1,5 +1,5 @@
 /**
- * Feature cards section schema.
+ * Image cards section schema.
  *
  * Defines the editor controls for the canvas-only three-card image row.
  */
@@ -7,7 +7,7 @@
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
 import type { ComponentDefinition, SectionSchema } from "../registry";
 
-interface FeatureCardSlotConfig {
+interface ImageCardSlotConfig {
   id: "cardOne" | "cardTwo" | "cardThree";
   displayName: string;
   imagePath: string;
@@ -17,7 +17,7 @@ interface FeatureCardSlotConfig {
   urlPath: string;
 }
 
-const FEATURE_CARD_SLOTS: FeatureCardSlotConfig[] = [
+const IMAGE_CARD_SLOTS: ImageCardSlotConfig[] = [
   {
     id: "cardOne",
     displayName: "Card 1",
@@ -48,24 +48,32 @@ const FEATURE_CARD_SLOTS: FeatureCardSlotConfig[] = [
 ] as const;
 
 /**
- * Build the repeated editor subtree for a single feature card slot.
+ * Build the repeated editor subtree for a single image card slot.
  */
-function createFeatureCardNode(
-  slot: FeatureCardSlotConfig,
-): ComponentDefinition {
+function createImageCardNode(slot: ImageCardSlotConfig): ComponentDefinition {
   return {
-    id: `featureCards.${slot.id}`,
+    id: `imageCards.${slot.id}`,
     displayName: slot.displayName,
     isGrouping: true,
     children: [
       {
-        id: `featureCards.${slot.id}.image`,
+        id: `imageCards.${slot.id}.image`,
         displayName: "Image",
         styleFields: [
           {
             type: "radius",
             path: "cardImage.borderRadius",
             label: "Border Radius",
+          },
+          {
+            type: "border",
+            path: "cardImage.borderWidth",
+            label: "Border",
+          },
+          {
+            type: "color",
+            path: "cardImage.borderColor",
+            label: "Border Color",
           },
           {
             type: "number",
@@ -80,7 +88,7 @@ function createFeatureCardNode(
         ],
       },
       {
-        id: `featureCards.${slot.id}.heading`,
+        id: `imageCards.${slot.id}.heading`,
         displayName: "Heading",
         styleFields: [
           { type: "color", path: "cardHeading.color", label: "Color" },
@@ -101,7 +109,7 @@ function createFeatureCardNode(
         ],
       },
       {
-        id: `featureCards.${slot.id}.body`,
+        id: `imageCards.${slot.id}.body`,
         displayName: "Body",
         styleFields: [
           { type: "color", path: "cardBody.color", label: "Color" },
@@ -122,7 +130,7 @@ function createFeatureCardNode(
         ],
       },
       {
-        id: `featureCards.${slot.id}.button`,
+        id: `imageCards.${slot.id}.button`,
         displayName: "Button",
         styleFields: [
           { type: "color", path: "cardButton.color", label: "Color" },
@@ -145,10 +153,10 @@ function createFeatureCardNode(
 }
 
 /**
- * Seed blank content defaults for all three feature card slots.
+ * Seed blank content defaults for all three image card slots.
  */
-function createFeatureCardContentDefaults(): Record<string, string> {
-  return FEATURE_CARD_SLOTS.reduce<Record<string, string>>((defaults, slot) => {
+function createImageCardContentDefaults(): Record<string, string> {
+  return IMAGE_CARD_SLOTS.reduce<Record<string, string>>((defaults, slot) => {
     defaults[slot.imagePath] = "";
     defaults[slot.imageAltPath] = "";
     defaults[slot.headingPath] = "";
@@ -158,16 +166,16 @@ function createFeatureCardContentDefaults(): Record<string, string> {
   }, {});
 }
 
-export const FEATURE_CARDS_SCHEMA: SectionSchema = {
-  type: "featureCards",
-  displayName: "Feature Cards",
+export const IMAGE_CARDS_SCHEMA: SectionSchema = {
+  type: "imageCards",
+  displayName: "Image Cards",
   allowedZones: ["canvas"],
   editorTree: {
-    id: "featureCards",
-    displayName: "Feature Cards",
+    id: "imageCards",
+    displayName: "Image Cards",
     children: [
       {
-        id: "featureCards.container",
+        id: "imageCards.container",
         displayName: "Container",
         styleFields: [
           {
@@ -178,7 +186,7 @@ export const FEATURE_CARDS_SCHEMA: SectionSchema = {
         ],
       },
       {
-        id: "featureCards.title",
+        id: "imageCards.title",
         displayName: "Title",
         styleFields: [
           { type: "color", path: "title.color", label: "Color" },
@@ -192,7 +200,7 @@ export const FEATURE_CARDS_SCHEMA: SectionSchema = {
         ],
         configFields: [{ type: "text", path: "title", label: "Title Text" }],
       },
-      ...FEATURE_CARD_SLOTS.map(createFeatureCardNode),
+      ...IMAGE_CARD_SLOTS.map(createImageCardNode),
     ],
   },
   defaults: {
@@ -225,7 +233,7 @@ export const FEATURE_CARDS_SCHEMA: SectionSchema = {
     },
     content: {
       title: "",
-      ...createFeatureCardContentDefaults(),
+      ...createImageCardContentDefaults(),
     },
   },
 };

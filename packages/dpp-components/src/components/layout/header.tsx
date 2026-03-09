@@ -32,7 +32,7 @@ export function Header({
 
   const positionClass =
     position === "fixed"
-      ? "fixed top-0 left-0 right-0 w-full z-50"
+      ? "dpp-scroll-lock-zero-right fixed top-0 left-0 right-0 z-50"
       : "sticky top-0 w-full z-50";
 
   const positionStyle =

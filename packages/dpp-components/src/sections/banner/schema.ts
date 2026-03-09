@@ -1,7 +1,7 @@
 /**
  * Banner section schema.
  *
- * Defines the editor defaults and style controls for the CTA banner and button.
+ * Defines the editor controls for the CTA banner and button.
  */
 
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
@@ -11,36 +11,6 @@ export const BANNER_SCHEMA: SectionSchema = {
   type: "banner",
   displayName: "CTA Banner",
   allowedZones: ["canvas"],
-  defaultContent: {
-    headline: "",
-    subline: "",
-    ctaText: "",
-    ctaUrl: "",
-    backgroundImage: "",
-  },
-  defaultStyles: {
-    container: { backgroundColor: "$primary", borderRadius: 0 },
-    headline: {
-      typescale: "h2",
-      color: "$primaryForeground",
-      textAlign: "center",
-      textTransform: "none",
-    },
-    subline: {
-      typescale: "body",
-      color: "$primaryForeground",
-      textAlign: "center",
-      textTransform: "none",
-    },
-    button: {
-      typescale: "body-sm",
-      color: "$primaryForeground",
-      borderColor: "$primaryForeground",
-      borderRadius: 0,
-      borderWidth: 1,
-      textTransform: "none",
-    },
-  },
   editorTree: {
     id: "banner",
     displayName: "CTA Banner",

@@ -8,6 +8,7 @@
  */
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
 import * as React from "react";
 
 const ResponsiveDialog = DialogPrimitive.Root;
@@ -108,12 +109,10 @@ const ResponsiveDialogContent = React.forwardRef<
       >
         {!hideClose && (
           <ResponsiveDialogClose
-            className="absolute right-6 top-6 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full transition-opacity duration-200 hover:bg-black/[0.04] hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10"
-            style={{ color: "var(--foreground, #1E2040)", opacity: 0.72 }}
+            className="absolute right-4 top-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 hover:bg-[var(--muted-dark,#E0E0E0)]"
+            style={{ color: "var(--muted-dark-foreground, #808080)" }}
           >
-            <span aria-hidden className="text-[2rem] leading-none">
-              &times;
-            </span>
+            <Icons.X aria-hidden className="h-4 w-4 shrink-0" />
             <span className="sr-only">Close</span>
           </ResponsiveDialogClose>
         )}

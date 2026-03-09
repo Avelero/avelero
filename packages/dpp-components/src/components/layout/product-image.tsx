@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { DEFAULT_PRODUCT_IMAGE_STYLES } from "../../lib/default-product-image";
+import { DEFAULT_PASSPORT_TEMPLATE } from "../../lib/default-passport";
 import { getDppSelectableAttributes } from "../../lib/editor-selection";
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { Passport } from "../../types/passport";
@@ -511,7 +511,7 @@ export function ProductImage({ productImage, tokens, image, alt }: Props) {
     enabled: hasIntersected,
   });
   const s = resolveStyles(
-    productImage?.styles ?? DEFAULT_PRODUCT_IMAGE_STYLES,
+    productImage?.styles ?? DEFAULT_PASSPORT_TEMPLATE.productImage.styles,
     tokens,
   );
   const mediaContainerSize = useMediaContainerSize(mediaContainerRef);

@@ -1,7 +1,7 @@
 /**
  * Carousel section schema.
  *
- * Defines the editor defaults and style controls for the similar products carousel.
+ * Defines the editor controls for the similar products carousel.
  */
 
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
@@ -11,32 +11,6 @@ export const CAROUSEL_SCHEMA: SectionSchema = {
   type: "carousel",
   displayName: "Similar Products",
   allowedZones: ["canvas"],
-  defaultContent: {
-    showTitle: true,
-    showPrice: true,
-    roundPrice: true,
-    productCount: 6,
-  },
-  defaultStyles: {
-    title: { typescale: "h6", color: "$foreground", textTransform: "none" },
-    navButton: {
-      color: "$foreground",
-      backgroundColor: "$background",
-      borderColor: "$border",
-    },
-    productImage: { borderColor: "$border", borderRadius: 0 },
-    productDetails: {},
-    productName: {
-      typescale: "body-sm",
-      color: "$foreground",
-      textTransform: "none",
-    },
-    productPrice: {
-      typescale: "body-sm",
-      color: "$foreground",
-      textTransform: "none",
-    },
-  },
   editorTree: {
     id: "carousel",
     displayName: "Similar Products",

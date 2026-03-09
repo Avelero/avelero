@@ -59,7 +59,12 @@ export interface MaterialDisplayData {
   type: string;
   origin: string;
   certification?: string;
-  certificationUrl?: string;
+  certificationCode?: string;
+  certificationEmail?: string;
+  certificationInstitute?: string;
+  certificationLocation?: string;
+  certificationPhone?: string;
+  certificationWebsite?: string;
 }
 
 function resolveCountryLabel(value: string | undefined): string {
@@ -122,7 +127,17 @@ export function transformMaterials(data: DppData): MaterialDisplayData[] {
               : resolveCountryLabel(m.countryOfOrigin),
         ]),
         certification: formatCertificationLabel(m.certification?.type),
-        certificationUrl: m.certification?.testingInstitute?.website,
+        certificationCode: m.certification?.code,
+        certificationEmail: institute?.email,
+        certificationInstitute: institute?.legalName,
+        certificationLocation: formatLocationLabel([
+          institute?.city,
+          institute?.country
+            ? resolveCountryLabel(institute.country)
+            : undefined,
+        ]),
+        certificationPhone: institute?.phone,
+        certificationWebsite: institute?.website,
       };
     }) ?? []
   );
@@ -133,7 +148,13 @@ export function transformMaterials(data: DppData): MaterialDisplayData[] {
 export interface JourneyStageData {
   id: string;
   name: string;
-  companies: Array<{ name: string; location: string; url?: string }>;
+  companies: Array<{
+    email?: string;
+    location: string;
+    name: string;
+    phone?: string;
+    url?: string;
+  }>;
 }
 
 function formatProcessStepLabel(value: string | undefined): string {
@@ -157,7 +178,13 @@ export function transformJourney(data: DppData): JourneyStageData[] {
     {
       id: string;
       name: string;
-      companies: Array<{ name: string; location: string; url?: string }>;
+      companies: Array<{
+        email?: string;
+        location: string;
+        name: string;
+        phone?: string;
+        url?: string;
+      }>;
     }
   >();
 
@@ -165,6 +192,7 @@ export function transformJourney(data: DppData): JourneyStageData[] {
     const processStep = step.processStep ?? "Unknown Step";
     const existing = journeyMap.get(processStep);
     const company = {
+      email: step.operator.email,
       name: step.operator.legalName,
       location: [
         step.operator.city,
@@ -172,6 +200,7 @@ export function transformJourney(data: DppData): JourneyStageData[] {
       ]
         .filter(Boolean)
         .join(", "),
+      phone: step.operator.phone,
       url: step.operator.website,
     };
 

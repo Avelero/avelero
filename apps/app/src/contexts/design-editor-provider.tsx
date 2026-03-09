@@ -21,8 +21,8 @@ import type {
   ZoneId,
 } from "@v1/dpp-components";
 import {
-  SECTION_REGISTRY,
-  createDefaultProductImage,
+  DEFAULT_PASSPORT_TEMPLATE,
+  DEFAULT_SECTION_TEMPLATES,
   type ColorTokenKey,
   generateGoogleFontsUrlFromTypography,
   getTokenName,
@@ -88,6 +88,7 @@ type DesignEditorContextValue = {
   updateComponentStyle: (path: string, value: StyleValue | undefined) => void;
   getComponentStyleValue: (path: string) => StyleValue | undefined;
   getRawComponentStyleValue: (path: string) => StyleValue | undefined;
+  getDefaultComponentStyleValue: (path: string) => StyleValue | undefined;
   getComponentStyleTokenRef: (path: string) => string | null;
 
   // Content helpers (operate on active target)
@@ -198,7 +199,7 @@ function ensurePassportHasProductImage(passport: Passport): Passport {
 
   return {
     ...passport,
-    productImage: createDefaultProductImage(),
+    productImage: structuredClone(DEFAULT_PASSPORT_TEMPLATE.productImage),
   };
 }
 
@@ -458,7 +459,9 @@ export function DesignEditorProvider({
         if (activeTarget.type === "header") {
           styles = next.header.styles;
         } else if (activeTarget.type === "productImage") {
-          next.productImage ??= createDefaultProductImage();
+          next.productImage ??= structuredClone(
+            DEFAULT_PASSPORT_TEMPLATE.productImage,
+          );
           styles = next.productImage.styles;
         } else if (activeTarget.type === "footer") {
           styles = next.footer.styles;
@@ -513,6 +516,40 @@ export function DesignEditorProvider({
     [getRawComponentStyleValue, passportDraft.tokens.colors],
   );
 
+  // Resolve the canonical default style value for the current editor target.
+  const getDefaultComponentStyleValue = useCallback(
+    (path: string): StyleValue | undefined => {
+      if (!activeTarget) return undefined;
+
+      if (activeTarget.type === "header") {
+        return deepGet(DEFAULT_PASSPORT_TEMPLATE.header.styles, path) as
+          | StyleValue
+          | undefined;
+      }
+
+      if (activeTarget.type === "productImage") {
+        return deepGet(DEFAULT_PASSPORT_TEMPLATE.productImage.styles, path) as
+          | StyleValue
+          | undefined;
+      }
+
+      if (activeTarget.type === "footer") {
+        return deepGet(DEFAULT_PASSPORT_TEMPLATE.footer.styles, path) as
+          | StyleValue
+          | undefined;
+      }
+
+      const zone = passportDraft[activeTarget.zoneId];
+      const section = zone?.find((s: Section) => s.id === activeTarget.sectionId);
+      if (!section) return undefined;
+
+      return deepGet(DEFAULT_SECTION_TEMPLATES[section.type].styles, path) as
+        | StyleValue
+        | undefined;
+    },
+    [activeTarget, passportDraft],
+  );
+
   const getComponentStyleTokenRef = useCallback(
     (path: string): string | null => {
       const storedValue = getRawComponentStyleValue(path);
@@ -542,7 +579,9 @@ export function DesignEditorProvider({
             value,
           );
         } else if (activeTarget.type === "productImage") {
-          next.productImage ??= createDefaultProductImage();
+          next.productImage ??= structuredClone(
+            DEFAULT_PASSPORT_TEMPLATE.productImage,
+          );
           deepSet(
             next.productImage as unknown as Record<string, unknown>,
             path,
@@ -677,18 +716,13 @@ export function DesignEditorProvider({
   const addSection = useCallback(
     (zoneId: ZoneId, sectionType: SectionType, position: number) => {
       const id = generateSectionId();
-      const entry = SECTION_REGISTRY[sectionType];
-      const schema = entry?.schema;
+      const template = DEFAULT_SECTION_TEMPLATES[sectionType];
 
       const newSection: Section = {
         id,
         type: sectionType,
-        content: schema?.defaultContent
-          ? structuredClone(schema.defaultContent)
-          : {},
-        styles: schema?.defaultStyles
-          ? structuredClone(schema.defaultStyles)
-          : {},
+        content: structuredClone(template.content),
+        styles: structuredClone(template.styles),
       };
 
       setPassportDraft((prev) => {
@@ -798,6 +832,7 @@ export function DesignEditorProvider({
       updateComponentStyle,
       getComponentStyleValue,
       getRawComponentStyleValue,
+      getDefaultComponentStyleValue,
       getComponentStyleTokenRef,
       updateConfigValue,
       getConfigValue,
@@ -836,6 +871,7 @@ export function DesignEditorProvider({
       updateComponentStyle,
       getComponentStyleValue,
       getRawComponentStyleValue,
+      getDefaultComponentStyleValue,
       getComponentStyleTokenRef,
       updateConfigValue,
       getConfigValue,

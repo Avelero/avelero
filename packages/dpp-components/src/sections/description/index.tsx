@@ -6,17 +6,64 @@
  * Renders a labeled description preview clamped to three lines.
  */
 
-import { useEffect, useRef, useState } from "react";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogDescription,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-} from "../../components/overlay/responsive-dialog";
+import { useState } from "react";
+import { DescriptionModal, ResponsiveDialog } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
+import {
+  INTERACTIVE_HOVER_CLASS_NAME,
+  createInteractiveHoverStyle,
+} from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { SectionProps } from "../registry";
+
+const DESCRIPTION_PREVIEW_WORD_LIMIT = 30;
+
+function truncateDescriptionPreview(text: string, wordLimit: number) {
+  // Build a stable preview during render so server and client agree on whether the control should exist.
+  const trimmedText = text.trim();
+  const words = trimmedText.match(/\S+/g) ?? [];
+
+  if (words.length <= wordLimit) {
+    return {
+      text: trimmedText,
+      isTruncated: false,
+    };
+  }
+
+  const previewTokens = trimmedText.match(/\S+|\s+/g) ?? [];
+  let previewText = "";
+  let visibleWordCount = 0;
+
+  for (const token of previewTokens) {
+    if (token.trim().length === 0) {
+      if (visibleWordCount === 0 || visibleWordCount >= wordLimit) {
+        continue;
+      }
+
+      previewText += token;
+      continue;
+    }
+
+    if (visibleWordCount >= wordLimit) {
+      break;
+    }
+
+    previewText += token;
+    visibleWordCount += 1;
+  }
+
+  return {
+    text: `${previewText.trimEnd()}…`,
+    isTruncated: true,
+  };
+}
+
+function createDescriptionModalSelectionGetter(
+  select: ReturnType<typeof createSectionSelectionAttributes>,
+) {
+  // Scope modal slot ids to the description section namespace for editor selection.
+  return (slotId: string) => select(`description.${slotId}`);
+}
 
 export function DescriptionSection({
   section,
@@ -25,7 +72,7 @@ export function DescriptionSection({
   zoneId,
   wrapperClassName,
 }: SectionProps) {
-  // Resolve styles and determine whether the description overflows the preview.
+  // Resolve styles and build the stable preview shown in the collapsed sidebar card.
   const s = resolveStyles(section.styles, tokens);
   const description = data.productAttributes.description?.trim() ?? "";
   const manufacturerName =
@@ -34,9 +81,11 @@ export function DescriptionSection({
     data.manufacturing?.manufacturer?.legalName?.trim() ||
     "";
   const productTitle = data.productIdentifiers.productName?.trim() ?? "";
-  const descriptionRef = useRef<HTMLParagraphElement>(null);
-  const [showButton, setShowButton] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const preview = truncateDescriptionPreview(
+    description,
+    DESCRIPTION_PREVIEW_WORD_LIMIT,
+  );
   const rootSelect = createSectionSelectionAttributes(
     section.id,
     zoneId,
@@ -47,39 +96,10 @@ export function DescriptionSection({
   const headingSelection = select("description.heading");
   const bodySelection = select("description.body");
   const showMoreSelection = select("description.showMore");
-
-  useEffect(() => {
-    // Measure the clamped paragraph after layout settles so the control only shows when needed.
-    const updateShowButton = () => {
-      const paragraph = descriptionRef.current;
-      if (!paragraph) return;
-      setShowButton(paragraph.scrollHeight > paragraph.clientHeight + 1);
-    };
-
-    updateShowButton();
-
-    const resizeObserver = new ResizeObserver(() => updateShowButton());
-    if (descriptionRef.current) {
-      resizeObserver.observe(descriptionRef.current);
-    }
-
-    const handleFontsLoaded = () => updateShowButton();
-    if (document.fonts) {
-      document.fonts.addEventListener("loadingdone", handleFontsLoaded);
-    }
-
-    const timeoutId = window.setTimeout(updateShowButton, 100);
-    window.addEventListener("resize", updateShowButton);
-
-    return () => {
-      resizeObserver.disconnect();
-      if (document.fonts) {
-        document.fonts.removeEventListener("loadingdone", handleFontsLoaded);
-      }
-      window.clearTimeout(timeoutId);
-      window.removeEventListener("resize", updateShowButton);
-    };
-  }, [description, section.styles, tokens]);
+  const showMoreStyle = createInteractiveHoverStyle(s.showMore, {
+    color: true,
+  });
+  const modalSelect = createDescriptionModalSelectionGetter(select);
 
   if (!description) return null;
 
@@ -100,19 +120,18 @@ export function DescriptionSection({
         <div className="flex flex-col gap-xs">
           <p
             {...bodySelection}
-            ref={descriptionRef}
             className="line-clamp-3 whitespace-pre-line"
             style={s.body}
           >
-            {description}
+            {preview.text}
           </p>
 
-          {showButton ? (
+          {preview.isTruncated ? (
             <button
               {...showMoreSelection}
               type="button"
-              className="appearance-none border-0 bg-transparent p-0 w-fit text-left"
-              style={s.showMore}
+              className={`appearance-none border-0 bg-transparent p-0 w-fit text-left ${INTERACTIVE_HOVER_CLASS_NAME}`}
+              style={showMoreStyle}
               onClick={() => setIsDialogOpen(true)}
             >
               Show more
@@ -121,30 +140,13 @@ export function DescriptionSection({
         </div>
       </div>
 
-      <ResponsiveDialogContent bodyClassName="gap-8">
-        <ResponsiveDialogHeader className="gap-4">
-          {manufacturerName ? (
-            <p
-              className="text-lg font-medium leading-7"
-              style={{ color: "var(--muted-light-foreground, #62637A)" }}
-            >
-              {manufacturerName}
-            </p>
-          ) : null}
-
-          {productTitle ? (
-            <ResponsiveDialogTitle>{productTitle}</ResponsiveDialogTitle>
-          ) : null}
-        </ResponsiveDialogHeader>
-
-        <ResponsiveDialogDescription
-          asChild
-          className="whitespace-pre-line"
-          style={s.body}
-        >
-          <div>{description}</div>
-        </ResponsiveDialogDescription>
-      </ResponsiveDialogContent>
+      <DescriptionModal
+        description={description}
+        manufacturerName={manufacturerName}
+        productTitle={productTitle}
+        select={modalSelect}
+        styles={s}
+      />
     </ResponsiveDialog>
   );
 }

@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { createDefaultPassport } from "@v1/dpp-components";
 import type { Database } from "../../client";
-import { DEFAULT_PASSPORT } from "../../defaults/theme-defaults";
 import { seedBrandCatalogDefaults } from "../catalog/seeding";
 import {
   brandBilling,
@@ -308,7 +308,7 @@ export async function createBrand(
     // Seed default theme configuration for the new brand
     await tx.insert(brandTheme).values({
       brandId: brand.id,
-      passport: DEFAULT_PASSPORT,
+      passport: createDefaultPassport(),
     });
 
     // Seed default brand-owned attributes/values from the taxonomy template.

@@ -5,6 +5,10 @@
  */
 import { Icons } from "@v1/ui/icons";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
+import {
+  INTERACTIVE_HOVER_CLASS_NAME,
+  createInteractiveHoverStyle,
+} from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { SectionProps } from "../registry";
 
@@ -26,10 +30,9 @@ export function ButtonsSection({
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const buttonSelection = select("buttons.button");
   const iconSelection = select("buttons.button.icon");
-  const buttonStyle: React.CSSProperties = {
-    ...s.button,
-    border: "none",
-  };
+  const buttonStyle = createInteractiveHoverStyle(s.button, {
+    background: true,
+  });
 
   if (menuItems.length === 0) return null;
 
@@ -47,7 +50,7 @@ export function ButtonsSection({
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between gap-md p-md cursor-pointer"
+            className={`flex items-center justify-between gap-md p-md cursor-pointer ${INTERACTIVE_HOVER_CLASS_NAME}`}
             style={buttonStyle}
           >
             <span>{item.label}</span>

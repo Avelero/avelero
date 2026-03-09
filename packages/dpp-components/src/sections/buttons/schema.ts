@@ -1,38 +1,15 @@
 /**
  * Buttons section schema.
  *
- * Defines the editor defaults and style controls for stacked sidebar action cards.
+ * Defines the editor controls for stacked sidebar action cards.
  */
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
 import type { SectionSchema } from "../registry";
-
-const DEFAULT_MENU_ITEMS = [
-  { label: "Care instructions", url: "https://avelero.com/" },
-  { label: "Recycling & Repair", url: "https://avelero.com/" },
-  { label: "Warranty", url: "https://avelero.com/" },
-];
 
 export const BUTTONS_SCHEMA: SectionSchema = {
   type: "buttons",
   displayName: "Menu Buttons",
   allowedZones: ["sidebar"],
-  defaultContent: {
-    variant: "primary",
-    menuItems: DEFAULT_MENU_ITEMS,
-  },
-  defaultStyles: {
-    button: {
-      typescale: "h6",
-      color: "$cardForeground",
-      backgroundColor: "$card",
-      boxShadow:
-        "0px 0px 2px rgba(0, 0, 0, 0.15), 0px 2px 5px rgba(0, 0, 0, 0.05), 0px 8px 40px rgba(0, 0, 0, 0.04)",
-      borderRadius: 12,
-      borderWidth: 0,
-      textTransform: "none",
-    },
-    "button.icon": { color: "$cardForeground", size: 20 },
-  },
   editorTree: {
     id: "buttons",
     displayName: "Menu Buttons",
@@ -46,6 +23,23 @@ export const BUTTONS_SCHEMA: SectionSchema = {
             type: "color",
             path: "button.backgroundColor",
             label: "Background",
+          },
+          {
+            type: "toggle",
+            path: "button.boxShadow",
+            label: "Shadow",
+          },
+          {
+            type: "toggle",
+            path: "button.borderWidth",
+            label: "Border",
+            enabledValue: 1,
+            disabledValue: 0,
+          },
+          {
+            type: "color",
+            path: "button.borderColor",
+            label: "Border Color",
           },
           { type: "typescale", path: "button.typescale", label: "Typography" },
           {

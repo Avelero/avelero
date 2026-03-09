@@ -15,6 +15,12 @@ export type StyleFieldType =
   | "typescale" // Dropdown to select from H1-H6, Body, Body-sm, Body-xs
   | "toggle";
 
+export type StyleFieldValue =
+  | string
+  | number
+  | boolean
+  | Record<string, number>;
+
 export interface StyleField {
   type: StyleFieldType;
   /**
@@ -30,6 +36,11 @@ export interface StyleField {
    * Fields without a section appear at the top ungrouped.
    */
   section?: string;
+  /**
+   * Optional values written when the toggle is enabled or disabled.
+   */
+  enabledValue?: StyleFieldValue;
+  disabledValue?: StyleFieldValue;
 }
 
 // =============================================================================

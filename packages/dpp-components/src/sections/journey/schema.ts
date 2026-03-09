@@ -1,68 +1,16 @@
 /**
  * Journey section schema.
  *
- * Defines the editor defaults and style controls for the journey timeline cards.
+ * Defines the editor controls for the journey timeline cards.
  */
-
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
+import { createModalSchemaGroup } from "../modal-schema";
 import type { SectionSchema } from "../registry";
-
-const JOURNEY_CARD_SHADOW =
-  "0px 0px 2px rgba(0, 0, 0, 0.15), 0px 2px 5px rgba(0, 0, 0, 0.05), 0px 8px 40px rgba(0, 0, 0, 0.04)";
 
 export const JOURNEY_SCHEMA: SectionSchema = {
   type: "journey",
   displayName: "Journey",
   allowedZones: ["sidebar"],
-  defaultContent: {},
-  defaultStyles: {
-    title: {
-      typescale: "h6",
-      typographyDetached: true,
-      fontSize: 22,
-      fontWeight: 500,
-      lineHeight: 1.2,
-      color: "$foreground",
-      textTransform: "none",
-    },
-    card: {
-      backgroundColor: "$card",
-      boxShadow: JOURNEY_CARD_SHADOW,
-      borderColor: "$border",
-      borderRadius: 12,
-      borderWidth: 0,
-    },
-    "card.type": {
-      typescale: "h5",
-      typographyDetached: true,
-      fontSize: 26,
-      fontWeight: 500,
-      lineHeight: 1.15,
-      color: "$cardForeground",
-      textTransform: "none",
-    },
-    "card.operator": {
-      typescale: "body",
-      typographyDetached: true,
-      fontSize: 18,
-      fontWeight: 600,
-      lineHeight: 1.3,
-      color: "$cardForeground",
-      textTransform: "none",
-    },
-    "card.location": {
-      typescale: "body",
-      typographyDetached: true,
-      fontSize: 18,
-      fontWeight: 400,
-      lineHeight: 1.3,
-      color: "$mutedLightForeground",
-      textTransform: "none",
-    },
-    "card.locationIcon": { color: "$mutedLightForeground", size: 18 },
-    "card.line": { backgroundColor: "$border" },
-    "card.dot": { backgroundColor: "$border" },
-  },
   editorTree: {
     id: "journey",
     displayName: "Journey",
@@ -86,7 +34,23 @@ export const JOURNEY_SCHEMA: SectionSchema = {
         displayName: "Card",
         styleFields: [
           { type: "color", path: "card.backgroundColor", label: "Background" },
-          { type: "color", path: "card.borderColor", label: "Divider Color" },
+          {
+            type: "toggle",
+            path: "card.boxShadow",
+            label: "Shadow",
+          },
+          {
+            type: "toggle",
+            path: "card.borderWidth",
+            label: "Border",
+            enabledValue: 1,
+            disabledValue: 0,
+          },
+          {
+            type: "color",
+            path: "card.borderColor",
+            label: "Border / Divider Color",
+          },
           { type: "radius", path: "card.borderRadius", label: "Border Radius" },
         ],
       },
@@ -171,6 +135,7 @@ export const JOURNEY_SCHEMA: SectionSchema = {
           { type: "color", path: "card.dot.backgroundColor", label: "Color" },
         ],
       },
+      createModalSchemaGroup("journey"),
     ],
   },
 };

@@ -1,7 +1,7 @@
 /**
  * Hero section schema.
  *
- * Defines the editor defaults and style controls for the title and brand block.
+ * Defines the editor controls for the title and brand block.
  */
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
 import type { SectionSchema } from "../registry";
@@ -10,15 +10,6 @@ export const HERO_SCHEMA: SectionSchema = {
   type: "hero",
   displayName: "Hero",
   allowedZones: ["sidebar"],
-  defaultContent: {},
-  defaultStyles: {
-    title: { typescale: "h1", color: "$foreground", textTransform: "none" },
-    brand: {
-      typescale: "h5",
-      color: "$mutedLightForeground",
-      textTransform: "none",
-    },
-  },
   editorTree: {
     id: "hero",
     displayName: "Hero",

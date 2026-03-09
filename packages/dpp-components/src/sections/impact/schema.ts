@@ -1,62 +1,16 @@
 /**
  * Impact section schema.
  *
- * Defines the editor defaults and style controls for the impact metric cards.
+ * Defines the editor controls for the impact metric cards.
  */
-
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
+import { createModalSchemaGroup } from "../modal-schema";
 import type { SectionSchema } from "../registry";
-
-const IMPACT_CARD_SHADOW =
-  "0px 0px 2px rgba(0, 0, 0, 0.15), 0px 2px 5px rgba(0, 0, 0, 0.05), 0px 8px 40px rgba(0, 0, 0, 0.04)";
 
 export const IMPACT_SCHEMA: SectionSchema = {
   type: "impact",
   displayName: "Impact",
   allowedZones: ["sidebar"],
-  defaultContent: {
-    helpText: "What does this mean?",
-    helpUrl: "https://avelero.com/",
-  },
-  defaultStyles: {
-    title: {
-      typescale: "h6",
-      color: "$foreground",
-      textTransform: "none",
-    },
-    helpLink: {
-      typescale: "body",
-      typographyDetached: true,
-      fontWeight: 500,
-      color: "$mutedLightForeground",
-      textTransform: "none",
-    },
-    card: {
-      backgroundColor: "$card",
-      boxShadow: IMPACT_CARD_SHADOW,
-      borderRadius: 12,
-      borderWidth: 0,
-    },
-    "card.icon": { color: "$primary", size: 28 },
-    "card.type": {
-      typescale: "body-sm",
-      color: "$mutedLightForeground",
-      textTransform: "none",
-    },
-    "card.value": {
-      typescale: "h1",
-      typographyDetached: true,
-      fontWeight: 500,
-      lineHeight: 1,
-      color: "$cardForeground",
-      textTransform: "none",
-    },
-    "card.unit": {
-      typescale: "body-sm",
-      color: "$mutedLightForeground",
-      textTransform: "none",
-    },
-  },
   editorTree: {
     id: "impact",
     displayName: "Impact",
@@ -77,7 +31,7 @@ export const IMPACT_SCHEMA: SectionSchema = {
       },
       {
         id: "impact.helpLink",
-        displayName: "Help Link",
+        displayName: "Help Button",
         styleFields: [
           { type: "color", path: "helpLink.color", label: "Color" },
           {
@@ -92,16 +46,25 @@ export const IMPACT_SCHEMA: SectionSchema = {
             options: [...CAPITALIZATION_STYLE_OPTIONS],
           },
         ],
-        configFields: [
-          { type: "text", path: "helpText", label: "Text" },
-          { type: "url", path: "helpUrl", label: "URL" },
-        ],
       },
       {
         id: "impact.card",
         displayName: "Card",
         styleFields: [
           { type: "color", path: "card.backgroundColor", label: "Background" },
+          {
+            type: "toggle",
+            path: "card.boxShadow",
+            label: "Shadow",
+          },
+          {
+            type: "toggle",
+            path: "card.borderWidth",
+            label: "Border",
+            enabledValue: 1,
+            disabledValue: 0,
+          },
+          { type: "color", path: "card.borderColor", label: "Border Color" },
           { type: "radius", path: "card.borderRadius", label: "Border Radius" },
         ],
       },
@@ -167,6 +130,7 @@ export const IMPACT_SCHEMA: SectionSchema = {
           },
         ],
       },
+      createModalSchemaGroup("impact"),
     ],
   },
 };

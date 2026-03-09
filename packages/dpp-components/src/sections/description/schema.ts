@@ -1,31 +1,16 @@
 /**
  * Description section schema.
  *
- * Defines the editor defaults and style controls for the clamped description preview.
+ * Defines the editor controls for the clamped description preview.
  */
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
+import { createModalSchemaGroup } from "../modal-schema";
 import type { SectionSchema } from "../registry";
 
 export const DESCRIPTION_SCHEMA: SectionSchema = {
   type: "description",
   displayName: "Description",
   allowedZones: ["sidebar"],
-  defaultContent: {},
-  defaultStyles: {
-    header: { borderColor: "$border" },
-    heading: { typescale: "h6", color: "$foreground", textTransform: "none" },
-    body: {
-      typescale: "body",
-      color: "$mutedDarkForeground",
-      textTransform: "none",
-    },
-    showMore: { 
-      typescale: "body",
-      typographyDetached: true,
-      fontWeight: 600,
-      color: "$link",
-      textTransform: "none" },
-  },
   editorTree: {
     id: "description",
     displayName: "Description",
@@ -87,6 +72,7 @@ export const DESCRIPTION_SCHEMA: SectionSchema = {
           },
         ],
       },
+      createModalSchemaGroup("description"),
     ],
   },
 };

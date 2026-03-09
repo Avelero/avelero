@@ -1,65 +1,16 @@
 /**
  * Materials section schema.
  *
- * Defines the editor defaults and style controls for the materials breakdown cards.
+ * Defines the editor controls for the materials breakdown cards.
  */
-
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
+import { createModalSchemaGroup } from "../modal-schema";
 import type { SectionSchema } from "../registry";
-
-const MATERIALS_CARD_SHADOW =
-  "0px 0px 2px rgba(0, 0, 0, 0.15), 0px 2px 5px rgba(0, 0, 0, 0.05), 0px 8px 40px rgba(0, 0, 0, 0.04)";
 
 export const MATERIALS_SCHEMA: SectionSchema = {
   type: "materials",
   displayName: "Materials",
   allowedZones: ["sidebar"],
-  defaultContent: {
-    showCertificationCheckIcon: false,
-  },
-  defaultStyles: {
-    title: { typescale: "h6", color: "$foreground", textTransform: "none" },
-    card: {
-      backgroundColor: "$card",
-      boxShadow: MATERIALS_CARD_SHADOW,
-      borderColor: "$border",
-      borderRadius: 12,
-      borderWidth: 0,
-    },
-    "card.percentage": {
-      typescale: "h6",
-      color: "$cardForeground",
-      textTransform: "none",
-    },
-    "card.type": {
-      typescale: "h6",
-      color: "$cardForeground",
-      textTransform: "none",
-    },
-    "card.origin": {
-      typescale: "body",
-      color: "$mutedLightForeground",
-      textTransform: "none",
-    },
-    "card.locationIcon": { color: "$mutedLightForeground", size: 14 },
-    "card.certification": {
-      typescale: "body-sm",
-      typographyDetached: true,
-      lineHeight: 2,
-      color: "$cardForeground",
-      backgroundColor: "$mutedDark",
-      borderRadius: 9999,
-      textTransform: "none",
-    },
-    "card.certIcon": { color: "$cardForeground", size: 14 },
-    "card.certText": {
-      typescale: "body",
-      typographyDetached: true,
-      fontWeight: 600,
-      color: "$cardForeground",
-      textTransform: "none",
-    },
-  },
   editorTree: {
     id: "materials",
     displayName: "Materials",
@@ -83,7 +34,23 @@ export const MATERIALS_SCHEMA: SectionSchema = {
         displayName: "Card",
         styleFields: [
           { type: "color", path: "card.backgroundColor", label: "Background" },
-          { type: "color", path: "card.borderColor", label: "Divider Color" },
+          {
+            type: "toggle",
+            path: "card.boxShadow",
+            label: "Shadow",
+          },
+          {
+            type: "toggle",
+            path: "card.borderWidth",
+            label: "Border",
+            enabledValue: 1,
+            disabledValue: 0,
+          },
+          {
+            type: "color",
+            path: "card.borderColor",
+            label: "Border / Divider Color",
+          },
           { type: "radius", path: "card.borderRadius", label: "Border Radius" },
         ],
       },
@@ -224,6 +191,7 @@ export const MATERIALS_SCHEMA: SectionSchema = {
           },
         ],
       },
+      createModalSchemaGroup("materials"),
     ],
   },
 };

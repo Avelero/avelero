@@ -2,18 +2,12 @@
  * Section registry — maps section types to their components and schemas.
  *
  * Used by the layout renderer to look up components at render time,
- * and by the theme editor to discover editable fields and defaults.
+ * and by the theme editor to discover editable fields.
  */
 
 import type { DppContent } from "../types/dpp-content";
 import type { DppData } from "../types/dpp-data";
-import type {
-  Passport,
-  Section,
-  SectionType,
-  Styles,
-  ZoneId,
-} from "../types/passport";
+import type { Passport, Section, SectionType, ZoneId } from "../types/passport";
 import { BannerSection } from "./banner";
 import { BANNER_SCHEMA } from "./banner/schema";
 import { ButtonsSection } from "./buttons";
@@ -44,6 +38,12 @@ export type StyleFieldType =
   | "typescale"
   | "toggle";
 
+export type StyleFieldValue =
+  | string
+  | number
+  | boolean
+  | Record<string, number>;
+
 export interface StyleField {
   type: StyleFieldType;
   path: string;
@@ -51,6 +51,8 @@ export interface StyleField {
   unit?: "px" | "%" | "em" | "rem";
   options?: Array<{ value: string; label: string }>;
   section?: string;
+  enabledValue?: StyleFieldValue;
+  disabledValue?: StyleFieldValue;
 }
 
 export type ContentFieldType =
@@ -96,13 +98,11 @@ export interface SectionProps {
 
 // ─── Section Schema ──────────────────────────────────────────────────────────
 
-/** Schema describing a section type for the editor and defaults. */
+/** Schema describing a section type for the editor. */
 export interface SectionSchema {
   type: SectionType;
   displayName: string;
   allowedZones: ZoneId[];
-  defaultContent: Record<string, unknown>;
-  defaultStyles: Styles;
   editorTree: ComponentDefinition;
 }
 

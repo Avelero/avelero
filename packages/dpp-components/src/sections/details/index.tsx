@@ -1,12 +1,25 @@
+"use client";
+
 /**
  * Product details sidebar section.
  *
  * Renders the product metadata as two left-aligned columns under a labeled header.
  */
 
+import { useState } from "react";
+import {
+  LabeledDataTable,
+  ManufacturerModal,
+  ResponsiveDialog,
+} from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
+import {
+  INTERACTIVE_HOVER_CLASS_NAME,
+  createInteractiveHoverStyle,
+} from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
 import { toExternalHref } from "../../lib/url-utils";
+import type { Manufacturer } from "../../types/dpp-data";
 import { getCountryName } from "../_transforms";
 import type { SectionProps } from "../registry";
 
@@ -21,6 +34,82 @@ function toCapitalizedLabel(value: string): string {
     .join(" ");
 }
 
+function createDetailsModalSelectionGetter(
+  select: ReturnType<typeof createSectionSelectionAttributes>,
+) {
+  // Scope modal slot ids to the details section namespace for editor selection.
+  return (slotId: string) => select(`details.${slotId}`);
+}
+
+function formatManufacturerAddress(
+  manufacturer: Manufacturer,
+): string | undefined {
+  // Collapse the manufacturer address into a multiline block for the overview modal.
+  const countryName = getCountryName(manufacturer.countryCode);
+  const cityStateZip = [
+    manufacturer.city?.trim(),
+    [manufacturer.state?.trim(), manufacturer.zip?.trim()]
+      .filter(Boolean)
+      .join(" "),
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const addressLines = [
+    manufacturer.addressLine1?.trim(),
+    manufacturer.addressLine2?.trim(),
+    cityStateZip,
+    countryName || undefined,
+  ].filter(Boolean);
+
+  return addressLines.length > 0 ? addressLines.join("\n") : undefined;
+}
+
+function buildManufacturerModalFacts(manufacturer: Manufacturer) {
+  // Gather the available manufacturer facts into reusable modal field rows.
+  const facts: Array<{ label: string; value: React.ReactNode }> = [];
+  const displayName = manufacturer.name?.trim();
+  const legalName = manufacturer.legalName?.trim();
+  const address = formatManufacturerAddress(manufacturer);
+
+  if (displayName && legalName && displayName !== legalName) {
+    facts.push({ label: "Brand name", value: displayName });
+  }
+
+  if (manufacturer.website) {
+    const manufacturerHref = toExternalHref(manufacturer.website);
+
+    facts.push({
+      label: "Website",
+      value: manufacturerHref ? (
+        <a
+          className="underline underline-offset-4"
+          href={manufacturerHref}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          {manufacturer.website}
+        </a>
+      ) : (
+        manufacturer.website
+      ),
+    });
+  }
+
+  if (manufacturer.email) {
+    facts.push({ label: "Contact", value: manufacturer.email });
+  }
+
+  if (manufacturer.phone) {
+    facts.push({ label: "Phone", value: manufacturer.phone });
+  }
+
+  if (address) {
+    facts.push({ label: "Address", value: address });
+  }
+
+  return facts;
+}
+
 export function DetailsSection({
   section,
   tokens,
@@ -31,9 +120,11 @@ export function DetailsSection({
   // Resolve styles and map the product metadata into detail rows.
   const s = resolveStyles(section.styles, tokens);
   const { productIdentifiers, productAttributes, manufacturing } = data;
-
   const manufacturer = manufacturing?.manufacturer;
-  const normalizedManufacturerUrl = toExternalHref(manufacturer?.website);
+  const manufacturerName =
+    manufacturer?.legalName?.trim() || manufacturer?.name?.trim() || "";
+  const [isManufacturerDialogOpen, setIsManufacturerDialogOpen] =
+    useState(false);
   const borderColor =
     s.row?.borderColor ?? s.header?.borderColor ?? s.container?.borderColor;
   const select = createSectionSelectionAttributes(section.id, zoneId);
@@ -42,31 +133,60 @@ export function DetailsSection({
   const rowSelection = select("details.row");
   const labelSelection = select("details.label");
   const valueSelection = select("details.value");
+  const modalSelect = createDetailsModalSelectionGetter(select);
+  const manufacturerValueStyle = createInteractiveHoverStyle(
+    {
+      ...s.value,
+      fontWeight: 500,
+      textDecorationLine: "underline",
+      textUnderlineOffset: "0.16em",
+    },
+    {
+      color: true,
+    },
+  );
 
   const rows: Array<{
     key: string;
     label: string;
-    value: string;
-    href?: string;
-    external?: boolean;
+    labelProps: Record<string, string>;
+    rowProps: Record<string, string>;
+    value: React.ReactNode;
+    valueProps?: Record<string, string>;
   }> = [];
 
   if (productIdentifiers.articleNumber) {
     rows.push({
       key: "article-number",
       label: "Article Number",
-      value: productIdentifiers.articleNumber,
-      href: "#article-number",
+      labelProps: labelSelection,
+      rowProps: rowSelection,
+      value: (
+        <span className="block truncate">
+          {productIdentifiers.articleNumber}
+        </span>
+      ),
+      valueProps: valueSelection,
     });
   }
 
-  if (manufacturer?.legalName) {
+  if (manufacturerName) {
     rows.push({
       key: "manufacturer",
       label: "Manufacturer",
-      value: manufacturer.legalName,
-      href: normalizedManufacturerUrl,
-      external: true,
+      labelProps: labelSelection,
+      rowProps: rowSelection,
+      value: (
+        <button
+          {...valueSelection}
+          type="button"
+          className={`block w-full appearance-none cursor-pointer overflow-hidden truncate border-0 bg-transparent p-0 text-left ${INTERACTIVE_HOVER_CLASS_NAME}`}
+          style={manufacturerValueStyle}
+          onClick={() => setIsManufacturerDialogOpen(true)}
+        >
+          {manufacturerName}
+        </button>
+      ),
     });
   }
 
@@ -76,7 +196,10 @@ export function DetailsSection({
       rows.push({
         key: "country-of-origin",
         label: "Country Of Origin",
-        value: countryName,
+        labelProps: labelSelection,
+        rowProps: rowSelection,
+        value: <span className="block truncate">{countryName}</span>,
+        valueProps: valueSelection,
       });
     }
   }
@@ -85,7 +208,14 @@ export function DetailsSection({
     rows.push({
       key: "category",
       label: "Category",
-      value: productAttributes.category.category,
+      labelProps: labelSelection,
+      rowProps: rowSelection,
+      value: (
+        <span className="block truncate">
+          {productAttributes.category.category}
+        </span>
+      ),
+      valueProps: valueSelection,
     });
   }
 
@@ -96,7 +226,10 @@ export function DetailsSection({
       rows.push({
         key: `attribute-${attr.name}-${index}`,
         label: toCapitalizedLabel(attr.name),
-        value: attr.value,
+        labelProps: labelSelection,
+        rowProps: rowSelection,
+        value: <span className="block truncate">{attr.value}</span>,
+        valueProps: valueSelection,
       });
     }
   }
@@ -104,64 +237,44 @@ export function DetailsSection({
   if (rows.length === 0) return null;
 
   return (
-    <div
-      className={["flex flex-col w-full", wrapperClassName]
-        .filter(Boolean)
-        .join(" ")}
+    <ResponsiveDialog
+      open={isManufacturerDialogOpen}
+      onOpenChange={setIsManufacturerDialogOpen}
     >
       <div
-        {...headerSelection}
-        className="w-full border-b pb-xs"
-        style={{ ...s.header, borderColor }}
+        className={["flex flex-col w-full", wrapperClassName]
+          .filter(Boolean)
+          .join(" ")}
       >
-        <h2 
-          {...headingSelection}
-          className="w-fit"
-          style={s.heading}>
-          Details
-        </h2>
+        <div
+          {...headerSelection}
+          className="w-full border-b pb-xs"
+          style={{ ...s.header, borderColor }}
+        >
+          <h2 {...headingSelection} className="w-fit" style={s.heading}>
+            Details
+          </h2>
+        </div>
+
+        <LabeledDataTable
+          borderColor={borderColor}
+          labelStyle={s.label}
+          rows={rows}
+          valueClassName="overflow-hidden whitespace-nowrap text-left text-ellipsis"
+          valueStyle={s.value}
+        />
       </div>
 
-      <div className="grid w-full min-w-0 grid-cols-[minmax(120px,max-content)_minmax(0,1fr)]">
-        {rows.map((row) => (
-          <div
-            key={row.key}
-            {...rowSelection}
-            className="col-span-2 grid min-w-0 border-b py-sm"
-            style={{ borderColor, gridTemplateColumns: "subgrid" }}
-          >
-            <div className="min-w-0 pr-4">
-              <div
-                {...labelSelection}
-                className="min-w-[120px] whitespace-nowrap"
-                style={s.label}
-              >
-                {row.label}
-              </div>
-            </div>
-            <div className="min-w-0">
-              <div
-                {...valueSelection}
-                className="min-w-0 overflow-hidden whitespace-nowrap text-left text-ellipsis"
-                style={s.value}
-              >
-                {row.href ? (
-                  <a
-                    href={row.href}
-                    className="block truncate cursor-pointer"
-                    target={row.external ? "_blank" : undefined}
-                    rel={row.external ? "noopener noreferrer" : undefined}
-                  >
-                    {row.value}
-                  </a>
-                ) : (
-                  <span className="block truncate">{row.value}</span>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+      {manufacturer && manufacturerName ? (
+        <ManufacturerModal
+          description="This manufacturer is listed as the responsible producer for this product passport."
+          facts={buildManufacturerModalFacts(manufacturer)}
+          select={modalSelect}
+          styles={s}
+          subtitle="Manufacturer overview"
+          title={manufacturerName}
+        />
+      ) : null}
+    </ResponsiveDialog>
   );
 }

@@ -57,7 +57,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
             {/* Right column — sidebar sections */}
             <div className="@3xl:flex @3xl:justify-end @3xl:w-full">
               <div className="@3xl:max-w-[428px]">
-                <div className="flex flex-col overflow-x-hidden relative @3xl:ml-auto @3xl:w-full @3xl:py-12">
+                <div className="relative flex flex-col overflow-visible @3xl:ml-auto @3xl:w-full @3xl:py-12">
                   {sidebar.map((section, index) => {
                     const entry = SECTION_REGISTRY[section.type];
                     if (!entry) return null;

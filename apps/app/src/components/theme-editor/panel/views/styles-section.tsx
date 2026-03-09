@@ -4,6 +4,7 @@ import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
+import { Switch } from "@v1/ui/switch";
 import {
   Select,
   SelectContent,
@@ -106,8 +107,20 @@ interface StyleFieldRendererProps {
   field: StyleField;
 }
 
+function isToggleFieldChecked(value: unknown): boolean {
+  // Interpret zero-width borders and empty strings as disabled toggle states.
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value > 0;
+  if (typeof value === "string") return value.trim().length > 0;
+  return value !== undefined && value !== null;
+}
+
 function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
-  const { getComponentStyleValue, updateComponentStyle } = useDesignEditor();
+  const {
+    getComponentStyleValue,
+    getDefaultComponentStyleValue,
+    updateComponentStyle,
+  } = useDesignEditor();
 
   // Values are always present in the DB (seeded on brand creation)
   const value = getComponentStyleValue(field.path);
@@ -258,7 +271,23 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
     }
 
     case "toggle":
-      return null;
+      return (
+        <FieldWrapper label={field.label} row>
+          <Switch
+            checked={isToggleFieldChecked(value)}
+            onCheckedChange={(checked) => {
+              // Restore the canonical default value when the toggle is turned back on.
+              const defaultValue = getDefaultComponentStyleValue(field.path);
+              updateComponentStyle(
+                field.path,
+                checked
+                  ? (field.enabledValue ?? defaultValue ?? true)
+                  : field.disabledValue,
+              );
+            }}
+          />
+        </FieldWrapper>
+      );
 
     default:
       return null;
@@ -290,7 +319,12 @@ function categorizeField(field: StyleField): FieldCategory {
   const label = field.label.toLowerCase();
   const path = field.path.toLowerCase();
 
-  if (label.includes("background") || path.includes("background")) {
+  if (
+    label.includes("background") ||
+    label.includes("shadow") ||
+    path.includes("background") ||
+    path.includes("boxshadow")
+  ) {
     return "background";
   }
 

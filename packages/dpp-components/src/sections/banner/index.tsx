@@ -1,9 +1,21 @@
+/**
+ * Banner canvas section.
+ *
+ * Renders the full-width CTA banner inside the shared canvas wrapper.
+ */
+
 import Image from "next/image";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { SectionProps } from "../registry";
 
-export function BannerSection({ section, tokens, zoneId }: SectionProps) {
+/** Render the banner section with its background media and centered copy. */
+export function BannerSection({
+  section,
+  tokens,
+  zoneId,
+  wrapperClassName,
+}: SectionProps) {
   const s = resolveStyles(section.styles, tokens);
   const { headline, subline, ctaText, ctaUrl, backgroundImage } =
     section.content as {
@@ -25,7 +37,7 @@ export function BannerSection({ section, tokens, zoneId }: SectionProps) {
     backgroundImage?.includes("localhost/");
 
   return (
-    <div className="my-3x @3xl:my-2x">
+    <div className={wrapperClassName ?? "w-full"}>
       <div
         {...containerSelection}
         className="relative w-full flex flex-col items-center justify-center py-3x px-lg @3xl:px-3x overflow-hidden"

@@ -14,6 +14,7 @@ export { BorderInput } from "./border-input";
 
 // Content input components
 export { TextInput } from "./text-input";
+export { SelectInput } from "./select-input";
 export { UrlInput } from "./url-input";
 export { ToggleInput } from "./toggle-input";
 export { NumberInput } from "./number-input";

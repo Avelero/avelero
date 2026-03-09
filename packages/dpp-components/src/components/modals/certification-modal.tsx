@@ -6,6 +6,10 @@
 
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr/DownloadSimple";
 import {
+  INTERACTIVE_HOVER_CLASS_NAME,
+  createInteractiveHoverStyle,
+} from "../../lib/interactive-hover";
+import {
   ModalBody,
   ModalContent,
   ModalDataTable,
@@ -57,6 +61,26 @@ const DEFAULT_CERTIFICATION_FACTS: ModalDataTableRow[] = [
   { key: "Contact", label: "Contact", value: "compliance@example.com" },
 ];
 
+function getCertificateDownloadButtonStyle(styles: ModalStyles) {
+  // Invert the modal foreground/background pair so the CTA defaults to a solid high-contrast fill.
+  return createInteractiveHoverStyle(
+    {
+      backgroundColor:
+        typeof styles["modal.value"]?.color === "string"
+          ? styles["modal.value"].color
+          : "#1E2040",
+      color:
+        typeof styles["modal.container"]?.backgroundColor === "string"
+          ? styles["modal.container"].backgroundColor
+          : "#FFFFFF",
+      padding: 16,
+    },
+    {
+      background: true,
+    },
+  );
+}
+
 export function CertificationModal({
   certificateUrl,
   description = "This certification is recorded as part of the material traceability information for this product passport.",
@@ -67,6 +91,10 @@ export function CertificationModal({
   subtitle = "Certification overview",
   title = "Global Organic Textile Standard",
 }: CertificationModalProps) {
+  // Render the certification modal and opt the footer CTA into the shared interactive hover treatment.
+  const certificateDownloadButtonStyle =
+    getCertificateDownloadButtonStyle(styles);
+
   return (
     <ModalContent styles={styles}>
       <ModalBody>
@@ -111,18 +139,11 @@ export function CertificationModal({
       {certificateUrl && (
         <ModalFooter styles={styles}>
           <a
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full text-base leading-6"
+            className={`inline-flex w-full items-center justify-center gap-2 rounded-full text-base leading-6 ${INTERACTIVE_HOVER_CLASS_NAME}`}
             download
             href={certificateUrl}
             rel="noopener noreferrer"
-            style={{
-              backgroundColor: "var(--background, #FFFFFF)",
-              borderColor: "var(--border, #E0E0E0)",
-              borderStyle: "solid",
-              borderWidth: 1,
-              color: "var(--foreground, #1E2040)",
-              padding: 16,
-            }}
+            style={certificateDownloadButtonStyle}
             target="_blank"
           >
             <DownloadSimpleIcon aria-hidden className="h-4 w-4 shrink-0" />

@@ -112,7 +112,10 @@ export type SectionType =
   | "journey"
   | "buttons"
   | "banner"
-  | "carousel";
+  | "carousel"
+  | "featureCards"
+  | "textImage"
+  | "separator";
 
 export type ZoneId = "sidebar" | "canvas";
 

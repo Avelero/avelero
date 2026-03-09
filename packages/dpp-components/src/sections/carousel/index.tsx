@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * Similar products carousel canvas section.
+ *
+ * Renders the carousel inside the shared canvas wrapper so it aligns with the
+ * other canvas blocks.
+ */
+
 import { Icons } from "@v1/ui/icons";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -8,11 +15,13 @@ import { resolveStyles } from "../../lib/resolve-styles";
 import { formatPrice } from "../../utils/formatting";
 import type { SectionProps } from "../registry";
 
+/** Render the similar products carousel and keep scroll controls in sync. */
 export function CarouselSection({
   section,
   tokens,
   zoneId,
   content,
+  wrapperClassName,
 }: SectionProps) {
   const s = resolveStyles(section.styles, tokens);
   const products = content?.similarProducts ?? [];
@@ -109,12 +118,10 @@ export function CarouselSection({
   const showNavButtons = displayProducts.length > 3;
 
   return (
-    <div className="my-3x w-full">
-      <div className="max-w-container mx-auto px-sm @3xl:px-lg">
-        <h6 {...titleSelection} style={s.title}>
-          Similar Items
-        </h6>
-      </div>
+    <div className={wrapperClassName ?? "w-full"}>
+      <h6 {...titleSelection} style={s.title}>
+        Similar Items
+      </h6>
 
       <div className="relative pt-sm">
         <div className="w-full overflow-hidden">

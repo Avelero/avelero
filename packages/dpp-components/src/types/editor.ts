@@ -60,6 +60,7 @@ export type ContentFieldType =
   | "textarea"
   | "url"
   | "image"
+  | "select"
   | "toggle"
   | "number"
   | "modal";
@@ -72,6 +73,7 @@ export interface ContentField {
   path: string;
   label: string;
   placeholder?: string;
+  options?: Array<{ value: string; label: string }>;
   /**
    * Optional section name to group fields under a header in the editor.
    */

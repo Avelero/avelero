@@ -8,6 +8,7 @@ import {
   ImageInput,
   MenuInput,
   NumberInput,
+  SelectInput,
   TextInput,
   TextareaInput,
   ToggleInput,
@@ -95,6 +96,15 @@ function ContentFieldRenderer({ field, brandId }: ContentFieldRendererProps) {
         />
       );
     }
+
+    case "select":
+      return (
+        <SelectInput
+          field={field}
+          value={value}
+          onChange={(v) => updateConfigValue(field.path, v)}
+        />
+      );
 
     case "toggle":
       return (

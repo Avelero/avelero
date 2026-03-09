@@ -80,7 +80,64 @@ export const DEMO_PASSPORT: Passport = {
     }),
     demoSection("journey", "sec_jour0001", {}),
   ],
-  canvas: [],
+  canvas: [
+    demoSection("separator", "sec_sepa0001", {}),
+    demoSection("textImage", "sec_txti0001", {
+      headline: "B Corp Certification",
+      body: [
+        "Avelero Apparel achieved B Corp Certification in 2024, recognizing our commitment to high standards of social and environmental performance, transparency, and accountability.",
+        "This certification connects us to a global community of like-minded organizations working to build a more responsible fashion industry.",
+        "Read more at bcorporation.net/find-a-b-corp/company/avelero-apparel",
+      ].join("\n\n"),
+      image:
+        "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937032/AIModelTwo_vglkse.webp",
+      imageAlt: "Avelero Apparel sustainability certification campaign image",
+      imagePosition: "right",
+      mobileLayout: "split",
+    }),
+    demoSection("textImage", "sec_txti0002", {
+      headline: "Documenting our work",
+      body: [
+        "We collect our product, material, and manufacturing data in a way that makes sustainability progress easier to understand and share.",
+        "That means the passport can present the work clearly, instead of burying it in a generic compliance layout.",
+        "Read more at avelero.com",
+      ].join("\n\n"),
+      image:
+        "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937032/AIModelThree_klgnyi.webp",
+      imageAlt: "Avelero Apparel documentation and reporting campaign image",
+      imagePosition: "left",
+      mobileLayout: "split",
+    }),
+    demoSection("featureCards", "sec_feat0001", {
+      title: "Latest",
+      cardOneImage: "/passport-menu-image.webp",
+      cardOneImageAlt: "Metal chain necklace on a pink textured background",
+      cardOneHeading: "Design for longevity",
+      cardOneBody:
+        "Every product is designed with its full lifecycle in mind, from wear and repair to reuse and recycling.",
+      cardOneUrl: "https://avelero.com/",
+      cardTwoImage: "/passport-banner-image.webp",
+      cardTwoImageAlt: "Model wearing a light denim outfit on a runway",
+      cardTwoHeading: "Preferred materials",
+      cardTwoBody:
+        "Around 70% of our collection uses organic, recycled, or responsibly sourced materials, heading to 100%.",
+      cardTwoUrl: "https://avelero.com/",
+      cardThreeImage: "/passport-carousel-image.webp",
+      cardThreeImageAlt: "Textured yellow bag against a purple backdrop",
+      cardThreeHeading: "Low impact production",
+      cardThreeBody:
+        "We reduce water, chemicals, and energy across production through certified partners and clean techniques.",
+      cardThreeUrl: "https://avelero.com/",
+    }),
+    demoSection("banner", "sec_bann0001", {
+      headline: "Explore Our Sustainability Commitments",
+      subline:
+        "Read more about the standards, certifications, and policies behind this product.",
+      ctaText: "View Compliance",
+      ctaUrl: "https://avelero.com/",
+      backgroundImage: "",
+    }),
+  ],
 };
 
 export function createDemoPassport(): Passport {

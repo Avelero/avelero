@@ -33,6 +33,12 @@ function getSidebarSectionWrapperClassName(
   ].join(" ");
 }
 
+/** Builds the shared canvas section shell classes for consistent alignment. */
+function getCanvasSectionWrapperClassName(): string {
+  // Keep every canvas block aligned to the shared content container.
+  return "max-w-container py-4 @3xl:py-8 mx-auto w-full @3xl:px-lg";
+}
+
 export function LayoutRenderer({ passport, data, content }: Props) {
   // Render the fixed left media column and the dynamic right-hand section stack.
   const { tokens, sidebar, canvas } = passport;
@@ -105,6 +111,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
                   content={content}
                   modalContent={modalContent}
                   modalStyles={modalStyles}
+                  wrapperClassName={getCanvasSectionWrapperClassName()}
                 />
               );
             })}

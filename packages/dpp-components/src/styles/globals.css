@@ -59,8 +59,6 @@
     /* Shared motion tokens */
     --dpp-motion-duration: 300ms;
     --dpp-motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
-    --dpp-product-image-mobile-height: 50vh;
-    --dpp-product-image-mobile-height-open: 25vh;
   }
 
   .dpp-root * {
@@ -156,31 +154,6 @@
   body[data-scroll-locked] .dpp-root .dpp-scroll-lock-zero-right {
     right: var(--removed-body-scroll-bar-size, 0px);
   }
-
-  /* Animate the mobile media column height so the content stack reflows upward with the sheet. */
-  .dpp-root .dpp-product-image__media-container {
-    height: var(--dpp-product-image-mobile-height);
-    transition: height var(--dpp-motion-duration) var(--dpp-motion-ease);
-    will-change: height;
-  }
-
-  .dpp-root[data-dpp-modal-sheet-open="true"] .dpp-product-image__media-container {
-    height: var(--dpp-product-image-mobile-height-open);
-  }
-
-  @container (min-width: 768px) {
-    .dpp-root .dpp-product-image__media-container {
-      height: calc(
-        var(--dpp-available-viewport-height, 100vh) - var(--header-height)
-      );
-    }
-
-    .dpp-root[data-dpp-modal-sheet-open="true"] .dpp-product-image__media-container {
-      height: calc(
-        var(--dpp-available-viewport-height, 100vh) - var(--header-height)
-      );
-    }
-  }
 }
 
 @layer components {
@@ -204,6 +177,7 @@
     width: 100%;
     max-height: calc(80dvh);
     border-radius: 28px 28px 0 0;
+    transform: translate3d(0, 100%, 0);
     transform-origin: bottom center;
     will-change: transform, opacity;
   }
@@ -264,24 +238,24 @@
   @keyframes dpp-native-dialog-mobile-in {
     from {
       opacity: 0;
-      transform: translateY(100%);
+      transform: translate3d(0, 100%, 0);
     }
 
     to {
       opacity: 1;
-      transform: translateY(0);
+      transform: translate3d(0, 0, 0);
     }
   }
 
   @keyframes dpp-native-dialog-mobile-out {
     from {
       opacity: 1;
-      transform: translateY(0);
+      transform: translate3d(0, 0, 0);
     }
 
     to {
       opacity: 0;
-      transform: translateY(100%);
+      transform: translate3d(0, 100%, 0);
     }
   }
 

@@ -17,6 +17,8 @@ import { DescriptionSection } from "./description";
 import { DESCRIPTION_SCHEMA } from "./description/schema";
 import { DetailsSection } from "./details";
 import { DETAILS_SCHEMA } from "./details/schema";
+import { FeatureCardsSection } from "./feature-cards";
+import { FEATURE_CARDS_SCHEMA } from "./feature-cards/schema";
 import { HeroSection } from "./hero";
 import { HERO_SCHEMA } from "./hero/schema";
 import { ImpactSection } from "./impact";
@@ -25,6 +27,10 @@ import { JourneySection } from "./journey";
 import { JOURNEY_SCHEMA } from "./journey/schema";
 import { MaterialsSection } from "./materials";
 import { MATERIALS_SCHEMA } from "./materials/schema";
+import { SeparatorSection } from "./separator";
+import { SEPARATOR_SCHEMA } from "./separator/schema";
+import { TextImageSection } from "./text-image";
+import { TEXT_IMAGE_SCHEMA } from "./text-image/schema";
 
 // Re-export editor types for backward compatibility — section schemas and
 // renderers import SectionSchema, SectionProps, ComponentDefinition etc. from
@@ -57,4 +63,10 @@ export const SECTION_REGISTRY: Record<SectionType, SectionRegistryEntry> = {
   journey: { schema: JOURNEY_SCHEMA, component: JourneySection },
   banner: { schema: BANNER_SCHEMA, component: BannerSection },
   carousel: { schema: CAROUSEL_SCHEMA, component: CarouselSection },
+  featureCards: {
+    schema: FEATURE_CARDS_SCHEMA,
+    component: FeatureCardsSection,
+  },
+  textImage: { schema: TEXT_IMAGE_SCHEMA, component: TextImageSection },
+  separator: { schema: SEPARATOR_SCHEMA, component: SeparatorSection },
 };

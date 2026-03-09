@@ -293,20 +293,18 @@ export function JourneySection({
                             />
                           </div>
                           <div
-                            className="min-w-0 flex flex-wrap items-start gap-micro"
+                            className="min-w-0"
                             style={{
                               minHeight: locationRowHeight,
                               lineHeight: locationRowHeight,
                             }}
                           >
-                            <span
-                              className="min-w-0 inline-flex items-center"
-                              style={{ minHeight: locationRowHeight }}
-                            >
+                            {/* Keep operator, separator, and location in one text flow so the location can wrap naturally. */}
+                            <span className="min-w-0 break-words">
                               <button
                                 {...operatorSelection}
                                 type="button"
-                                className={`appearance-none border-0 bg-transparent p-0 cursor-pointer underline underline-offset-4 ${INTERACTIVE_HOVER_CLASS_NAME}`}
+                                className={`inline cursor-pointer appearance-none border-0 bg-transparent p-0 align-baseline underline underline-offset-4 ${INTERACTIVE_HOVER_CLASS_NAME}`}
                                 style={operatorStyle}
                                 onClick={() => {
                                   // Keep the selected operator mounted while the dialog animates out.
@@ -319,31 +317,24 @@ export function JourneySection({
                               >
                                 {company.name}
                               </button>
+                              {company.location && (
+                                <span
+                                  aria-hidden="true"
+                                  style={s["card.location"]}
+                                >
+                                  {"\u00A0• "}
+                                </span>
+                              )}
+                              {company.location && (
+                                <span
+                                  {...locationSelection}
+                                  className="break-words"
+                                  style={s["card.location"]}
+                                >
+                                  {company.location}
+                                </span>
+                              )}
                             </span>
-                            {company.location && (
-                              <span
-                                aria-hidden="true"
-                                className="inline-flex items-center"
-                                style={{
-                                  ...s["card.location"],
-                                  minHeight: locationRowHeight,
-                                }}
-                              >
-                                •
-                              </span>
-                            )}
-                            {company.location && (
-                              <span
-                                {...locationSelection}
-                                className="inline-flex items-center"
-                                style={{
-                                  ...s["card.location"],
-                                  minHeight: locationRowHeight,
-                                }}
-                              >
-                                {company.location}
-                              </span>
-                            )}
                           </div>
                         </div>
                       );

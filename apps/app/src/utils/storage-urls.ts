@@ -22,6 +22,12 @@ const PRIVATE_BUCKETS = new Set<string>([
   BUCKETS.BRAND_AVATARS,
 ]);
 
+const PASSPORT_SECTION_IMAGE_FIELDS = {
+  banner: ["backgroundImage"],
+  featureCards: ["cardOneImage", "cardTwoImage", "cardThreeImage"],
+  textImage: ["image"],
+} as const;
+
 // ============================================================================
 // URL Builders
 // ============================================================================
@@ -152,7 +158,7 @@ function extractPath(
  *
  * Walks:
  * - header.logoUrl
- * - Banner section content.backgroundImage in sidebar/canvas
+ * - Marketing section images in sidebar/canvas (`banner`, `featureCards`, `textImage`)
  */
 export function resolvePassportImageUrls<T>(passport: T): T {
   if (!passport || typeof passport !== "object") return passport;
@@ -170,23 +176,27 @@ export function resolvePassportImageUrls<T>(passport: T): T {
     }
   }
 
-  // Resolve banner section images in sidebar and canvas
+  // Resolve section images stored in canvas and sidebar marketing blocks.
   for (const zoneKey of ["sidebar", "canvas"]) {
     const zone = resolved[zoneKey];
     if (!Array.isArray(zone)) continue;
     for (const section of zone) {
       if (typeof section !== "object" || section === null) continue;
       const sec = section as Record<string, unknown>;
-      if (sec.type !== "banner") continue;
+      const imageFields =
+        PASSPORT_SECTION_IMAGE_FIELDS[
+          sec.type as keyof typeof PASSPORT_SECTION_IMAGE_FIELDS
+        ];
+      if (!imageFields) continue;
       const content = sec.content as Record<string, unknown> | undefined;
-      if (
-        content &&
-        typeof content.backgroundImage === "string" &&
-        content.backgroundImage &&
-        !isFullUrl(content.backgroundImage)
-      ) {
-        content.backgroundImage =
-          buildPublicUrl(BUCKETS.DPP_ASSETS, content.backgroundImage) ?? "";
+      if (!content) continue;
+
+      for (const imageField of imageFields) {
+        const imageValue = content[imageField];
+        if (typeof imageValue !== "string" || !imageValue) continue;
+        if (isFullUrl(imageValue)) continue;
+        content[imageField] =
+          buildPublicUrl(BUCKETS.DPP_ASSETS, imageValue) ?? "";
       }
     }
   }

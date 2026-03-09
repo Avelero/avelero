@@ -1,11 +1,8 @@
 /**
- * Default brand passport.
+ * Demo passport for the public passport.avelero.com demo page.
  *
- * Assembles sections from SECTION_REGISTRY schema defaults and fixed components
- * from COMPONENT_REGISTRY schema defaults. Only defines layout order — all style
- * and content values come from the registries.
- *
- * Used when a new brand is created.
+ * Self-contained with inline demo content and a demo-specific layout.
+ * Shares styles from schema defaults and tokens from default-tokens.
  */
 
 import { COMPONENT_REGISTRY } from "../components/layout/registry";
@@ -22,13 +19,17 @@ import {
   DEFAULT_TYPOGRAPHY,
 } from "./default-tokens";
 
-function createSection(type: SectionType, id: string): Section {
-  const { defaults } = SECTION_REGISTRY[type].schema;
+/** Create a demo section: styles from schema defaults, custom inline content. */
+function demoSection(
+  type: SectionType,
+  id: string,
+  content: Record<string, unknown>,
+): Section {
   return {
     id,
     type,
-    content: structuredClone(defaults.content),
-    styles: structuredClone(defaults.styles),
+    content,
+    styles: structuredClone(SECTION_REGISTRY[type].schema.defaults.styles),
   };
 }
 
@@ -37,7 +38,7 @@ const productImageDefaults = COMPONENT_REGISTRY.productImage!.schema.defaults;
 const modalDefaults = COMPONENT_REGISTRY.modal!.schema.defaults;
 const footerDefaults = COMPONENT_REGISTRY.footer!.schema.defaults;
 
-export const DEFAULT_PASSPORT: Passport = {
+export const DEMO_PASSPORT: Passport = {
   version: 2,
   tokens: {
     colors: structuredClone(DEFAULT_COLORS),
@@ -59,17 +60,26 @@ export const DEFAULT_PASSPORT: Passport = {
     styles: structuredClone(footerDefaults.styles),
   },
   sidebar: [
-    createSection("hero", "sec_hero0001"),
-    createSection("description", "sec_desc0001"),
-    createSection("details", "sec_deta0001"),
-    createSection("buttons", "sec_butt0001"),
-    createSection("impact", "sec_impa0001"),
-    createSection("materials", "sec_mate0001"),
-    createSection("journey", "sec_jour0001"),
+    demoSection("hero", "sec_hero0001", {}),
+    demoSection("description", "sec_desc0001", {}),
+    demoSection("details", "sec_deta0001", {}),
+    demoSection("buttons", "sec_butt0001", {
+      variant: "primary",
+      menuItems: [
+        { label: "Care Instructions", url: "https://avelero.com/" },
+        { label: "Recycling & Repair", url: "https://avelero.com/" },
+        { label: "Warranty", url: "https://avelero.com/" },
+      ],
+    }),
+    demoSection("impact", "sec_impa0001", {}),
+    demoSection("materials", "sec_mate0001", {
+      showCertificationCheckIcon: true,
+    }),
+    demoSection("journey", "sec_jour0001", {}),
   ],
   canvas: [],
 };
 
-export function createDefaultPassport(): Passport {
-  return structuredClone(DEFAULT_PASSPORT);
+export function createDemoPassport(): Passport {
+  return structuredClone(DEMO_PASSPORT);
 }

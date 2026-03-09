@@ -1,7 +1,7 @@
 "use client";
 
 import { Input } from "@v1/ui/input";
-import type { ContentField } from "../../registry/types";
+import type { ContentField } from "@v1/dpp-components";
 import { FieldWrapper } from "./field-wrapper";
 
 interface TextInputProps {

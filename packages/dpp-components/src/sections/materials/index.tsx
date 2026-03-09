@@ -18,8 +18,8 @@ import {
 import { resolveStyles } from "../../lib/resolve-styles";
 import { getResolvedTextLineHeight } from "../../lib/text-line-height";
 import { toExternalHref } from "../../lib/url-utils";
-import { getCountryName, transformMaterials } from "../_transforms";
 import type { SectionProps } from "../registry";
+import { getCountryName, transformMaterials } from "../transforms";
 
 function createMaterialsModalSelectionGetter(
   select: ReturnType<typeof createSectionSelectionAttributes>,
@@ -155,6 +155,7 @@ export function MaterialsSection({
   data,
   zoneId,
   wrapperClassName,
+  modalStyles,
 }: SectionProps) {
   // Resolve styles and shape the materials data for the sidebar card.
   const s = resolveStyles(section.styles, tokens);
@@ -328,7 +329,7 @@ export function MaterialsSection({
           description={`This certification applies to ${selectedCertification.type.toLowerCase()} and is reported as part of this product passport.`}
           facts={buildCertificationModalFacts(selectedCertification)}
           select={modalSelect}
-          styles={s}
+          styles={modalStyles ?? {}}
           subtitle="Certification overview"
           title={selectedCertification.certification?.type ?? "Certification"}
         />

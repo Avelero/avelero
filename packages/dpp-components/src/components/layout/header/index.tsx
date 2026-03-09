@@ -2,9 +2,9 @@
  * DPP header with optional brand logo image.
  */
 import Image from "next/image";
-import { createFixedSelectionAttributes } from "../../lib/editor-selection";
-import { resolveStyles } from "../../lib/resolve-styles";
-import type { Passport } from "../../types/passport";
+import { createFixedSelectionAttributes } from "../../../lib/editor-selection";
+import { resolveStyles } from "../../../lib/resolve-styles";
+import type { Passport } from "../../../types/passport";
 
 interface Props {
   header: Passport["header"];

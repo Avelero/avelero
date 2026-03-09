@@ -2,7 +2,7 @@
 
 import { Label } from "@v1/ui/label";
 import { Switch } from "@v1/ui/switch";
-import type { ContentField } from "../../registry/types";
+import type { ContentField } from "@v1/dpp-components";
 
 interface ToggleInputProps {
   field: ContentField;

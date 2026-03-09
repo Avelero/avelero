@@ -9,7 +9,9 @@ import type { DppData } from "@v1/dpp-components";
 import type { PassportDppApiResponse } from "./api";
 
 type SnapshotCertification = NonNullable<
-  NonNullable<PassportDppApiResponse["dppData"]["materials"]>["composition"][number]["certification"]
+  NonNullable<
+    PassportDppApiResponse["dppData"]["materials"]
+  >["composition"][number]["certification"]
 >;
 type SnapshotTestingInstitute = SnapshotCertification["testingInstitute"];
 

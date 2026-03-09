@@ -21,8 +21,8 @@ import type {
   ZoneId,
 } from "@v1/dpp-components";
 import {
-  DEFAULT_PASSPORT_TEMPLATE,
-  DEFAULT_SECTION_TEMPLATES,
+  COMPONENT_REGISTRY,
+  SECTION_REGISTRY,
   type ColorTokenKey,
   generateGoogleFontsUrlFromTypography,
   getTokenName,
@@ -64,6 +64,7 @@ export type MenuItemEditState = {
 type ActiveTarget =
   | { type: "header" }
   | { type: "productImage" }
+  | { type: "modal" }
   | { type: "footer" }
   | { type: "section"; zoneId: ZoneId; sectionId: string }
   | null;
@@ -118,11 +119,7 @@ type DesignEditorContextValue = {
     position: number,
   ) => string;
   deleteSection: (zoneId: ZoneId, sectionId: string) => void;
-  moveSection: (
-    zoneId: ZoneId,
-    sectionId: string,
-    newPosition: number,
-  ) => void;
+  moveSection: (zoneId: ZoneId, sectionId: string, newPosition: number) => void;
 
   // Section instance navigation
   navigateToSectionInstance: (zoneId: ZoneId, sectionId: string) => void;
@@ -199,7 +196,11 @@ function ensurePassportHasProductImage(passport: Passport): Passport {
 
   return {
     ...passport,
-    productImage: structuredClone(DEFAULT_PASSPORT_TEMPLATE.productImage),
+    productImage: {
+      styles: structuredClone(
+        COMPONENT_REGISTRY.productImage!.schema.defaults.styles,
+      ),
+    },
   };
 }
 
@@ -433,12 +434,11 @@ export function DesignEditorProvider({
     if (activeTarget.type === "productImage") {
       return passportDraft.productImage?.styles;
     }
+    if (activeTarget.type === "modal") return passportDraft.modal.styles;
     if (activeTarget.type === "footer") return passportDraft.footer.styles;
 
     const zone = passportDraft[activeTarget.zoneId];
-    const section = zone?.find(
-      (s: Section) => s.id === activeTarget.sectionId,
-    );
+    const section = zone?.find((s: Section) => s.id === activeTarget.sectionId);
     return section?.styles;
   }, [activeTarget, passportDraft]);
 
@@ -459,10 +459,9 @@ export function DesignEditorProvider({
         if (activeTarget.type === "header") {
           styles = next.header.styles;
         } else if (activeTarget.type === "productImage") {
-          next.productImage ??= structuredClone(
-            DEFAULT_PASSPORT_TEMPLATE.productImage,
-          );
           styles = next.productImage.styles;
+        } else if (activeTarget.type === "modal") {
+          styles = next.modal.styles;
         } else if (activeTarget.type === "footer") {
           styles = next.footer.styles;
         } else {
@@ -521,31 +520,26 @@ export function DesignEditorProvider({
     (path: string): StyleValue | undefined => {
       if (!activeTarget) return undefined;
 
-      if (activeTarget.type === "header") {
-        return deepGet(DEFAULT_PASSPORT_TEMPLATE.header.styles, path) as
+      // Fixed components — look up defaults from COMPONENT_REGISTRY
+      if (activeTarget.type !== "section") {
+        const fixedEntry = COMPONENT_REGISTRY[activeTarget.type];
+        if (!fixedEntry) return undefined;
+        return deepGet(fixedEntry.schema.defaults.styles, path) as
           | StyleValue
           | undefined;
       }
 
-      if (activeTarget.type === "productImage") {
-        return deepGet(DEFAULT_PASSPORT_TEMPLATE.productImage.styles, path) as
-          | StyleValue
-          | undefined;
-      }
-
-      if (activeTarget.type === "footer") {
-        return deepGet(DEFAULT_PASSPORT_TEMPLATE.footer.styles, path) as
-          | StyleValue
-          | undefined;
-      }
-
+      // Sections — look up defaults from SECTION_REGISTRY
       const zone = passportDraft[activeTarget.zoneId];
-      const section = zone?.find((s: Section) => s.id === activeTarget.sectionId);
+      const section = zone?.find(
+        (s: Section) => s.id === activeTarget.sectionId,
+      );
       if (!section) return undefined;
 
-      return deepGet(DEFAULT_SECTION_TEMPLATES[section.type].styles, path) as
-        | StyleValue
-        | undefined;
+      return deepGet(
+        SECTION_REGISTRY[section.type].schema.defaults.styles,
+        path,
+      ) as StyleValue | undefined;
     },
     [activeTarget, passportDraft],
   );
@@ -579,11 +573,14 @@ export function DesignEditorProvider({
             value,
           );
         } else if (activeTarget.type === "productImage") {
-          next.productImage ??= structuredClone(
-            DEFAULT_PASSPORT_TEMPLATE.productImage,
-          );
           deepSet(
             next.productImage as unknown as Record<string, unknown>,
+            path,
+            value,
+          );
+        } else if (activeTarget.type === "modal") {
+          deepSet(
+            next.modal as unknown as Record<string, unknown>,
             path,
             value,
           );
@@ -617,6 +614,9 @@ export function DesignEditorProvider({
       }
       if (activeTarget.type === "productImage") {
         return deepGet(passportDraft.productImage, path);
+      }
+      if (activeTarget.type === "modal") {
+        return deepGet(passportDraft.modal, path);
       }
       if (activeTarget.type === "footer") {
         return deepGet(passportDraft.footer, path);
@@ -659,10 +659,7 @@ export function DesignEditorProvider({
       setActiveSectionId(null);
       setActiveZoneId(null);
       setActiveTarget({ type: "productImage" });
-    } else if (
-      componentId === "footer" ||
-      componentId.startsWith("footer.")
-    ) {
+    } else if (componentId === "footer" || componentId.startsWith("footer.")) {
       setActiveSectionId(null);
       setActiveZoneId(null);
       setActiveTarget({ type: "footer" });
@@ -716,13 +713,13 @@ export function DesignEditorProvider({
   const addSection = useCallback(
     (zoneId: ZoneId, sectionType: SectionType, position: number) => {
       const id = generateSectionId();
-      const template = DEFAULT_SECTION_TEMPLATES[sectionType];
+      const { defaults } = SECTION_REGISTRY[sectionType].schema;
 
       const newSection: Section = {
         id,
         type: sectionType,
-        content: structuredClone(template.content),
-        styles: structuredClone(template.styles),
+        content: structuredClone(defaults.content),
+        styles: structuredClone(defaults.styles),
       };
 
       setPassportDraft((prev) => {
@@ -741,9 +738,7 @@ export function DesignEditorProvider({
     (zoneId: ZoneId, sectionId: string) => {
       setPassportDraft((prev) => {
         const next = structuredClone(prev);
-        next[zoneId] = next[zoneId].filter(
-          (s: Section) => s.id !== sectionId,
-        );
+        next[zoneId] = next[zoneId].filter((s: Section) => s.id !== sectionId);
         return next;
       });
 
@@ -763,9 +758,7 @@ export function DesignEditorProvider({
       setPassportDraft((prev) => {
         const next = structuredClone(prev);
         const zone = next[zoneId];
-        const currentIndex = zone.findIndex(
-          (s: Section) => s.id === sectionId,
-        );
+        const currentIndex = zone.findIndex((s: Section) => s.id === sectionId);
         if (currentIndex === -1) return prev;
 
         const [item] = zone.splice(currentIndex, 1);

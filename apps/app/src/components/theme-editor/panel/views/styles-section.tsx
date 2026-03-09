@@ -14,10 +14,7 @@ import {
   SelectTrigger,
 } from "@v1/ui/select";
 import * as React from "react";
-import {
-  type StyleField,
-  resolveComponentForEditor,
-} from "../../registry";
+import { type StyleField, resolveComponentForEditor } from "../../registry";
 import {
   BorderInput,
   ColorInput,
@@ -281,7 +278,7 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
               updateComponentStyle(
                 field.path,
                 checked
-                  ? (field.enabledValue ?? defaultValue ?? true)
+                  ? field.enabledValue ?? defaultValue ?? true
                   : field.disabledValue,
               );
             }}

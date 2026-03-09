@@ -7,10 +7,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { DEFAULT_PASSPORT_TEMPLATE } from "../../lib/default-passport";
-import { getDppSelectableAttributes } from "../../lib/editor-selection";
-import { resolveStyles } from "../../lib/resolve-styles";
-import type { Passport } from "../../types/passport";
+import { getDppSelectableAttributes } from "../../../lib/editor-selection";
+import { resolveStyles } from "../../../lib/resolve-styles";
+import type { Passport } from "../../../types/passport";
+import { COMPONENT_REGISTRY } from "../registry";
 
 /**
  * Product image renderer for the DPP content layout.
@@ -511,7 +511,8 @@ export function ProductImage({ productImage, tokens, image, alt }: Props) {
     enabled: hasIntersected,
   });
   const s = resolveStyles(
-    productImage?.styles ?? DEFAULT_PASSPORT_TEMPLATE.productImage.styles,
+    productImage?.styles ??
+      COMPONENT_REGISTRY.productImage!.schema.defaults.styles,
     tokens,
   );
   const mediaContainerSize = useMediaContainerSize(mediaContainerRef);

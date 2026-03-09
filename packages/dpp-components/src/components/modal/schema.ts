@@ -1,12 +1,17 @@
 /**
- * Shared schema fragments for section-specific modal styling.
+ * Modal fixed component schema.
+ *
+ * Defines the editor tree and defaults for the passport-level modal building blocks.
+ * Each text slot (title, subtitle, description, label, value) is independently stylable.
  */
 
-import { CAPITALIZATION_STYLE_OPTIONS } from "./editor-options";
-import type { ComponentDefinition, StyleField } from "./registry";
+import {
+  CAPITALIZATION_STYLE_OPTIONS,
+  SURFACE_CARD_SHADOW,
+} from "../../sections/editor-options";
+import type { FixedComponentSchema, StyleField } from "../../types/editor";
 
 function createModalTypographyFields(path: string): StyleField[] {
-  // Define the standard text controls shared by all modal typography slots.
   return [
     { type: "color", path: `${path}.color`, label: "Color" },
     { type: "typescale", path: `${path}.typescale`, label: "Typography" },
@@ -19,14 +24,15 @@ function createModalTypographyFields(path: string): StyleField[] {
   ];
 }
 
-export function createModalSchemaGroup(sectionId: string): ComponentDefinition {
-  // Build the reusable editor subtree for stylable modal container and text slots.
-  return {
-    id: `${sectionId}.modal`,
+export const MODAL_SCHEMA: FixedComponentSchema = {
+  id: "modal",
+  displayName: "Modal",
+  editorTree: {
+    id: "modal",
     displayName: "Modal",
     children: [
       {
-        id: `${sectionId}.modal.container`,
+        id: "modal.container",
         displayName: "Container",
         styleFields: [
           {
@@ -59,30 +65,69 @@ export function createModalSchemaGroup(sectionId: string): ComponentDefinition {
         ],
       },
       {
-        id: `${sectionId}.modal.title`,
+        id: "modal.title",
         displayName: "Title",
         styleFields: createModalTypographyFields("modal.title"),
       },
       {
-        id: `${sectionId}.modal.subtitle`,
+        id: "modal.subtitle",
         displayName: "Subtitle",
         styleFields: createModalTypographyFields("modal.subtitle"),
       },
       {
-        id: `${sectionId}.modal.description`,
+        id: "modal.description",
         displayName: "Description",
         styleFields: createModalTypographyFields("modal.description"),
       },
       {
-        id: `${sectionId}.modal.label`,
+        id: "modal.label",
         displayName: "Label",
         styleFields: createModalTypographyFields("modal.label"),
       },
       {
-        id: `${sectionId}.modal.value`,
+        id: "modal.value",
         displayName: "Value",
         styleFields: createModalTypographyFields("modal.value"),
       },
     ],
-  };
-}
+  },
+  defaults: {
+    styles: {
+      "modal.container": {
+        backgroundColor: "$card",
+        boxShadow: SURFACE_CARD_SHADOW,
+        borderColor: "$border",
+        borderRadius: 8,
+        borderWidth: 0,
+      },
+      "modal.title": {
+        typescale: "h2",
+        color: "$foreground",
+        textTransform: "none",
+      },
+      "modal.subtitle": {
+        typescale: "h6",
+        color: "$mutedLightForeground",
+        textTransform: "none",
+      },
+      "modal.description": {
+        typescale: "body",
+        color: "$mutedDarkForeground",
+        textTransform: "none",
+      },
+      "modal.label": {
+        typescale: "body",
+        typographyDetached: true,
+        fontWeight: 500,
+        color: "$mutedLightForeground",
+        textTransform: "none",
+      },
+      "modal.value": {
+        typescale: "body",
+        color: "$foreground",
+        textTransform: "none",
+      },
+    },
+    content: {},
+  },
+};

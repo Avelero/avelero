@@ -5,7 +5,7 @@ import { BUCKETS, UPLOAD_CONFIGS } from "@/utils/storage-config";
 import { buildPublicUrl, isFullUrl } from "@/utils/storage-urls";
 import { createClient } from "@v1/supabase/client";
 import { useCallback, useRef } from "react";
-import type { ContentField } from "../../registry/types";
+import type { ContentField } from "@v1/dpp-components";
 import { FieldWrapper } from "./field-wrapper";
 
 interface ImageInputProps {

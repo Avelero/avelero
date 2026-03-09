@@ -118,7 +118,9 @@ function parseSelectableTarget(
 /**
  * Find the deepest selectable preview node under the current event target.
  */
-function findSelectableTarget(target: EventTarget | null): SelectableNodeTarget | null {
+function findSelectableTarget(
+  target: EventTarget | null,
+): SelectableNodeTarget | null {
   if (!(target instanceof Element)) return null;
 
   const selectableElement = target.closest<HTMLElement>("[data-dpp-node-id]");

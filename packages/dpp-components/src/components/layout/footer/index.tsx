@@ -1,9 +1,9 @@
 /**
  * DPP footer with brand label and social link shortcuts.
  */
-import { createFixedSelectionAttributes } from "../../lib/editor-selection";
-import { resolveStyles } from "../../lib/resolve-styles";
-import type { Passport, SocialLinks } from "../../types/passport";
+import { createFixedSelectionAttributes } from "../../../lib/editor-selection";
+import { resolveStyles } from "../../../lib/resolve-styles";
+import type { Passport, SocialLinks } from "../../../types/passport";
 
 interface Props {
   footer: Passport["footer"];

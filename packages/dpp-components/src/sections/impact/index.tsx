@@ -18,8 +18,8 @@ import {
   createInteractiveHoverStyle,
 } from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
-import { transformImpactMetrics } from "../_transforms";
 import type { SectionProps } from "../registry";
+import { transformImpactMetrics } from "../transforms";
 
 const ICON_MAP = {
   leaf: LeafIcon,
@@ -53,6 +53,7 @@ export function ImpactSection({
   data,
   zoneId,
   wrapperClassName,
+  modalStyles,
 }: SectionProps) {
   // Resolve styles and map the available impact metrics into cards.
   const s = resolveStyles(section.styles, tokens);
@@ -147,7 +148,7 @@ export function ImpactSection({
         }
         facts={modalFacts}
         select={modalSelect}
-        styles={s}
+        styles={modalStyles ?? {}}
         subtitle="Impact clarification"
         title="Impact"
       />

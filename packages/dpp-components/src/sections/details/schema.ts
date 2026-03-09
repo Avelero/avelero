@@ -4,7 +4,6 @@
  * Defines the editor controls for the labeled details rows.
  */
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
-import { createModalSchemaGroup } from "../modal-schema";
 import type { SectionSchema } from "../registry";
 
 export const DETAILS_SCHEMA: SectionSchema = {
@@ -83,7 +82,32 @@ export const DETAILS_SCHEMA: SectionSchema = {
           },
         ],
       },
-      createModalSchemaGroup("details"),
     ],
+  },
+  defaults: {
+    styles: {
+      header: { borderColor: "$border" },
+      heading: {
+        typescale: "h6",
+        color: "$foreground",
+        textTransform: "none",
+      },
+      row: { borderColor: "$border" },
+      label: {
+        typescale: "body",
+        typographyDetached: true,
+        lineHeight: 1.2,
+        color: "$mutedLightForeground",
+        textTransform: "none",
+      },
+      value: {
+        typescale: "body",
+        typographyDetached: true,
+        lineHeight: 1.2,
+        color: "$foreground",
+        textTransform: "none",
+      },
+    },
+    content: {},
   },
 };

@@ -114,4 +114,32 @@ export const CAROUSEL_SCHEMA: SectionSchema = {
       },
     ],
   },
+  defaults: {
+    styles: {
+      title: { typescale: "h6", color: "$foreground", textTransform: "none" },
+      navButton: {
+        color: "$foreground",
+        backgroundColor: "$background",
+        borderColor: "$border",
+      },
+      productImage: { borderColor: "$border", borderRadius: 0 },
+      productDetails: {},
+      productName: {
+        typescale: "body-sm",
+        color: "$foreground",
+        textTransform: "none",
+      },
+      productPrice: {
+        typescale: "body-sm",
+        color: "$foreground",
+        textTransform: "none",
+      },
+    },
+    content: {
+      showTitle: true,
+      showPrice: true,
+      roundPrice: true,
+      productCount: 6,
+    },
+  },
 };

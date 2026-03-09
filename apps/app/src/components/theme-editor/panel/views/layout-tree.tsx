@@ -23,6 +23,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  COMPONENT_REGISTRY,
   SECTION_REGISTRY,
   buildDppSelectableNodeId,
   type ComponentDefinition,
@@ -33,11 +34,7 @@ import {
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { useCallback, useMemo, useRef, useState } from "react";
-import {
-  COMPONENT_TREE,
-  hasConfigContent,
-  hasEditableContent,
-} from "../../registry";
+import { hasConfigContent, hasEditableContent } from "../../registry";
 import { AddComponentPopover } from "./add-component-popover";
 
 /**
@@ -245,8 +242,12 @@ interface FixedItemProps {
 }
 
 function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
-  const { navigateToComponent, expandedItems, setSelectedNodeId, toggleExpanded } =
-    useDesignEditor();
+  const {
+    navigateToComponent,
+    expandedItems,
+    setSelectedNodeId,
+    toggleExpanded,
+  } = useDesignEditor();
   const hasChildren = componentDef.children && componentDef.children.length > 0;
   const isExpanded = expandedItems.has(componentDef.id);
   const isEditable =
@@ -480,12 +481,7 @@ function SortableSectionItem({
               item={child}
               level={1}
               getNodeId={(editorId) =>
-                getSectionNodeId(
-                  zoneId,
-                  section.id,
-                  editorId,
-                  "section-child",
-                )
+                getSectionNodeId(zoneId, section.id, editorId, "section-child")
               }
               expandedItems={expandedItems}
               onToggleExpand={toggleExpanded}
@@ -634,9 +630,10 @@ function AddSectionButton({ zoneId, sectionCount }: AddSectionButtonProps) {
 export function LayoutTree() {
   const { passportDraft, setHoveredNodeId } = useDesignEditor();
 
-  const headerDef = COMPONENT_TREE.find((c) => c.id === "header");
-  const productImageDef = COMPONENT_TREE.find((c) => c.id === "productImage");
-  const footerDef = COMPONENT_TREE.find((c) => c.id === "footer");
+  const headerDef = COMPONENT_REGISTRY.header?.schema.editorTree;
+  const productImageDef = COMPONENT_REGISTRY.productImage?.schema.editorTree;
+  const modalDef = COMPONENT_REGISTRY.modal?.schema.editorTree;
+  const footerDef = COMPONENT_REGISTRY.footer?.schema.editorTree;
 
   const handleItemHover = useCallback(
     (nodeId: string | null) => {
@@ -685,6 +682,13 @@ export function LayoutTree() {
         sections={passportDraft.canvas}
         onItemHover={handleItemHover}
       />
+
+      <div className="border-t my-1" />
+
+      {/* Modal styles */}
+      {modalDef && (
+        <FixedItem componentDef={modalDef} onItemHover={handleItemHover} />
+      )}
 
       <div className="border-t my-1" />
 

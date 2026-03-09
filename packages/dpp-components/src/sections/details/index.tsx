@@ -15,9 +15,9 @@ import {
 } from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
 import { toExternalHref } from "../../lib/url-utils";
-import type { Manufacturer } from "../../types/dpp-data";
-import { getCountryName } from "../_transforms";
+import type { Manufacturer } from "../../types/data";
 import type { SectionProps } from "../registry";
+import { getCountryName } from "../transforms";
 
 function toCapitalizedLabel(value: string): string {
   // Normalize raw attribute names into editor-friendly labels.
@@ -116,6 +116,7 @@ export function DetailsSection({
   data,
   zoneId,
   wrapperClassName,
+  modalStyles,
 }: SectionProps) {
   // Resolve styles and map the product metadata into detail rows.
   const s = resolveStyles(section.styles, tokens);
@@ -270,7 +271,7 @@ export function DetailsSection({
           description="This manufacturer is listed as the responsible producer for this product passport."
           facts={buildManufacturerModalFacts(manufacturer)}
           select={modalSelect}
-          styles={s}
+          styles={modalStyles ?? {}}
           subtitle="Manufacturer overview"
           title={manufacturerName}
         />

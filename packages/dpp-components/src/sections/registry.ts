@@ -5,9 +5,8 @@
  * and by the theme editor to discover editable fields.
  */
 
-import type { DppContent } from "../types/dpp-content";
-import type { DppData } from "../types/dpp-data";
-import type { Passport, Section, SectionType, ZoneId } from "../types/passport";
+import type { SectionRegistryEntry } from "../types/editor";
+import type { SectionType } from "../types/passport";
 import { BannerSection } from "./banner";
 import { BANNER_SCHEMA } from "./banner/schema";
 import { ButtonsSection } from "./buttons";
@@ -27,91 +26,26 @@ import { JOURNEY_SCHEMA } from "./journey/schema";
 import { MaterialsSection } from "./materials";
 import { MATERIALS_SCHEMA } from "./materials/schema";
 
-// ─── Editor Types ───────────────────────────────────────────────────────────
-
-export type StyleFieldType =
-  | "color"
-  | "number"
-  | "radius"
-  | "border"
-  | "select"
-  | "typescale"
-  | "toggle";
-
-export type StyleFieldValue =
-  | string
-  | number
-  | boolean
-  | Record<string, number>;
-
-export interface StyleField {
-  type: StyleFieldType;
-  path: string;
-  label: string;
-  unit?: "px" | "%" | "em" | "rem";
-  options?: Array<{ value: string; label: string }>;
-  section?: string;
-  enabledValue?: StyleFieldValue;
-  disabledValue?: StyleFieldValue;
-}
-
-export type ContentFieldType =
-  | "text"
-  | "textarea"
-  | "url"
-  | "image"
-  | "toggle"
-  | "number"
-  | "modal";
-
-export interface ContentField {
-  type: ContentFieldType;
-  path: string;
-  label: string;
-  placeholder?: string;
-  section?: string;
-  modalType?: "menu-primary" | "menu-secondary" | "carousel-products";
-  min?: number;
-  max?: number;
-}
-
-export interface ComponentDefinition {
-  id: string;
-  displayName: string;
-  children?: ComponentDefinition[];
-  styleFields?: StyleField[];
-  configFields?: ContentField[];
-  isGrouping?: boolean;
-}
-
-// ─── Section Props ───────────────────────────────────────────────────────────
-
-/** Props passed to every section component by the layout renderer. */
-export interface SectionProps {
-  section: Section;
-  tokens: Passport["tokens"];
-  data: DppData;
-  zoneId: ZoneId;
-  content?: DppContent;
-  wrapperClassName?: string;
-}
-
-// ─── Section Schema ──────────────────────────────────────────────────────────
-
-/** Schema describing a section type for the editor. */
-export interface SectionSchema {
-  type: SectionType;
-  displayName: string;
-  allowedZones: ZoneId[];
-  editorTree: ComponentDefinition;
-}
+// Re-export editor types for backward compatibility — section schemas and
+// renderers import SectionSchema, SectionProps, ComponentDefinition etc. from
+// this module. The canonical definitions now live in types/editor.ts.
+export type {
+  StyleFieldType,
+  StyleFieldValue,
+  StyleField,
+  ContentFieldType,
+  ContentField,
+  ComponentDefinition,
+  SectionProps,
+  SectionDefaults,
+  SectionSchema,
+  SectionRegistryEntry,
+  SectionVisibilityKey,
+  FixedComponentSchema,
+  FixedComponentRegistryEntry,
+} from "../types/editor";
 
 // ─── Registry ────────────────────────────────────────────────────────────────
-
-export interface SectionRegistryEntry {
-  schema: SectionSchema;
-  component: React.ComponentType<SectionProps>;
-}
 
 export const SECTION_REGISTRY: Record<SectionType, SectionRegistryEntry> = {
   hero: { schema: HERO_SCHEMA, component: HeroSection },

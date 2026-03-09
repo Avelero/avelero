@@ -308,7 +308,9 @@ function TypographyModeButton({
             size="icon-sm"
             className="rounded"
             onClick={onClick}
-            aria-label={detached ? "Attach typography token" : "Detach typography token"}
+            aria-label={
+              detached ? "Attach typography token" : "Detach typography token"
+            }
           >
             {detached ? (
               <Icons.Link className="h-4 w-4" />
@@ -351,10 +353,8 @@ export function TypographyStyleField({ field }: { field: StyleField }) {
     pathParts !== null &&
     typeof getRawComponentStyleValue(`${pathParts.styleKey}.fontSize`) ===
       "number"
-      ? (getRawComponentStyleValue(
-          `${pathParts.styleKey}.fontSize`,
-        ) as number)
-      : (scaleConfig?.fontSize ?? 0);
+      ? (getRawComponentStyleValue(`${pathParts.styleKey}.fontSize`) as number)
+      : scaleConfig?.fontSize ?? 0;
 
   const fontWeight =
     pathParts !== null &&
@@ -363,7 +363,7 @@ export function TypographyStyleField({ field }: { field: StyleField }) {
       ? (getRawComponentStyleValue(
           `${pathParts.styleKey}.fontWeight`,
         ) as number)
-      : (scaleConfig?.fontWeight ?? 400);
+      : scaleConfig?.fontWeight ?? 400;
 
   const lineHeight =
     pathParts !== null &&
@@ -372,7 +372,7 @@ export function TypographyStyleField({ field }: { field: StyleField }) {
       ? (getRawComponentStyleValue(
           `${pathParts.styleKey}.lineHeight`,
         ) as number)
-      : (scaleConfig?.lineHeight ?? 1.25);
+      : scaleConfig?.lineHeight ?? 1.25;
 
   const letterSpacing =
     pathParts !== null &&
@@ -381,7 +381,7 @@ export function TypographyStyleField({ field }: { field: StyleField }) {
       ? (getRawComponentStyleValue(
           `${pathParts.styleKey}.letterSpacing`,
         ) as number)
-      : (scaleConfig?.letterSpacing ?? 0);
+      : scaleConfig?.letterSpacing ?? 0;
 
   const weightOptions = React.useMemo(
     () => getAvailableWeightOptions(scaleConfig?.fontFamily, customFonts),
@@ -391,7 +391,10 @@ export function TypographyStyleField({ field }: { field: StyleField }) {
   const handleDetach = () => {
     if (!pathParts || !scaleConfig) return;
 
-    updateComponentStyle(`${pathParts.styleKey}.fontSize`, scaleConfig.fontSize);
+    updateComponentStyle(
+      `${pathParts.styleKey}.fontSize`,
+      scaleConfig.fontSize,
+    );
     updateComponentStyle(
       `${pathParts.styleKey}.fontWeight`,
       scaleConfig.fontWeight,

@@ -157,14 +157,16 @@ function extractPath(
 export function resolvePassportImageUrls<T>(passport: T): T {
   if (!passport || typeof passport !== "object") return passport;
 
-  const resolved = JSON.parse(JSON.stringify(passport)) as Record<string, unknown>;
+  const resolved = JSON.parse(JSON.stringify(passport)) as Record<
+    string,
+    unknown
+  >;
 
   // Resolve header.logoUrl
   const header = resolved.header as Record<string, unknown> | undefined;
   if (header && typeof header.logoUrl === "string" && header.logoUrl) {
     if (!isFullUrl(header.logoUrl)) {
-      header.logoUrl =
-        buildPublicUrl(BUCKETS.DPP_ASSETS, header.logoUrl) ?? "";
+      header.logoUrl = buildPublicUrl(BUCKETS.DPP_ASSETS, header.logoUrl) ?? "";
     }
   }
 

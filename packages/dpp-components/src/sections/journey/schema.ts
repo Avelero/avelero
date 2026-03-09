@@ -3,8 +3,10 @@
  *
  * Defines the editor controls for the journey timeline cards.
  */
-import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
-import { createModalSchemaGroup } from "../modal-schema";
+import {
+  CAPITALIZATION_STYLE_OPTIONS,
+  SURFACE_CARD_SHADOW,
+} from "../editor-options";
 import type { SectionSchema } from "../registry";
 
 export const JOURNEY_SCHEMA: SectionSchema = {
@@ -135,7 +137,43 @@ export const JOURNEY_SCHEMA: SectionSchema = {
           { type: "color", path: "card.dot.backgroundColor", label: "Color" },
         ],
       },
-      createModalSchemaGroup("journey"),
     ],
+  },
+  defaults: {
+    styles: {
+      title: {
+        typescale: "h6",
+        color: "$foreground",
+        textTransform: "none",
+      },
+      card: {
+        backgroundColor: "$card",
+        boxShadow: SURFACE_CARD_SHADOW,
+        borderColor: "$border",
+        borderRadius: 8,
+        borderWidth: 0,
+      },
+      "card.type": {
+        typescale: "h6",
+        color: "$cardForeground",
+        textTransform: "none",
+      },
+      "card.operator": {
+        typescale: "body",
+        typographyDetached: true,
+        fontWeight: 500,
+        color: "$cardForeground",
+        textTransform: "none",
+      },
+      "card.location": {
+        typescale: "body",
+        color: "$mutedLightForeground",
+        textTransform: "none",
+      },
+      "card.locationIcon": { color: "$mutedLightForeground", size: 14 },
+      "card.line": { backgroundColor: "$mutedLight" },
+      "card.dot": { backgroundColor: "$mutedLight" },
+    },
+    content: {},
   },
 };

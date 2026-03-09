@@ -119,4 +119,36 @@ export const BANNER_SCHEMA: SectionSchema = {
       },
     ],
   },
+  defaults: {
+    styles: {
+      container: { backgroundColor: "$primary", borderRadius: 0 },
+      headline: {
+        typescale: "h2",
+        color: "$primaryForeground",
+        textAlign: "center",
+        textTransform: "none",
+      },
+      subline: {
+        typescale: "body",
+        color: "$primaryForeground",
+        textAlign: "center",
+        textTransform: "none",
+      },
+      button: {
+        typescale: "body-sm",
+        color: "$primaryForeground",
+        borderColor: "$primaryForeground",
+        borderRadius: 0,
+        borderWidth: 1,
+        textTransform: "none",
+      },
+    },
+    content: {
+      headline: "",
+      subline: "",
+      ctaText: "",
+      ctaUrl: "",
+      backgroundImage: "",
+    },
+  },
 };

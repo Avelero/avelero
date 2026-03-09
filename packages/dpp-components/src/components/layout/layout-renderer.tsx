@@ -6,9 +6,10 @@
  * Canvas sections render full-width below the columns.
  */
 
+import { resolveStyles } from "../../lib/resolve-styles";
 import { SECTION_REGISTRY } from "../../sections/registry";
-import type { DppContent } from "../../types/dpp-content";
-import type { DppData } from "../../types/dpp-data";
+import type { DppContent } from "../../types/content";
+import type { DppData } from "../../types/data";
 import type { Passport } from "../../types/passport";
 import { ProductImage } from "./product-image";
 
@@ -35,6 +36,7 @@ function getSidebarSectionWrapperClassName(
 export function LayoutRenderer({ passport, data, content }: Props) {
   // Render the fixed left media column and the dynamic right-hand section stack.
   const { tokens, sidebar, canvas } = passport;
+  const modalStyles = resolveStyles(passport.modal.styles, tokens);
 
   return (
     <main className="flex-grow flex flex-col pb-xl w-full">
@@ -70,6 +72,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
                         data={data}
                         zoneId="sidebar"
                         content={content}
+                        modalStyles={modalStyles}
                         wrapperClassName={getSidebarSectionWrapperClassName(
                           index,
                           sidebar.length,
@@ -98,6 +101,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
                   data={data}
                   zoneId="canvas"
                   content={content}
+                  modalStyles={modalStyles}
                 />
               );
             })}

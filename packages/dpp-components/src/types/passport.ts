@@ -152,7 +152,10 @@ export interface Passport {
     logoUrl: string;
     styles: Styles;
   };
-  productImage?: {
+  productImage: {
+    styles: Styles;
+  };
+  modal: {
     styles: Styles;
   };
   footer: {

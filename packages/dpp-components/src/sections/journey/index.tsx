@@ -17,8 +17,8 @@ import {
 import { resolveStyles } from "../../lib/resolve-styles";
 import { getResolvedTextLineHeight } from "../../lib/text-line-height";
 import { toExternalHref } from "../../lib/url-utils";
-import { getCountryName, transformJourney } from "../_transforms";
 import type { SectionProps } from "../registry";
+import { getCountryName, transformJourney } from "../transforms";
 
 const TIMELINE_COLUMN_WIDTH = 48;
 const TIMELINE_DOT_SIZE = 8;
@@ -124,6 +124,7 @@ export function JourneySection({
   data,
   zoneId,
   wrapperClassName,
+  modalStyles,
 }: SectionProps) {
   // Resolve styles and build the stage timeline for the sidebar card.
   const s = resolveStyles(section.styles, tokens);
@@ -338,7 +339,7 @@ export function JourneySection({
             selectedOperator.company,
           )}
           select={modalSelect}
-          styles={s}
+          styles={modalStyles ?? {}}
           subtitle="Supply chain operator"
           title={selectedOperator.company.name}
         />

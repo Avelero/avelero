@@ -71,6 +71,7 @@ export function DescriptionSection({
   data,
   zoneId,
   wrapperClassName,
+  modalStyles,
 }: SectionProps) {
   // Resolve styles and build the stable preview shown in the collapsed sidebar card.
   const s = resolveStyles(section.styles, tokens);
@@ -145,7 +146,7 @@ export function DescriptionSection({
         manufacturerName={manufacturerName}
         productTitle={productTitle}
         select={modalSelect}
-        styles={s}
+        styles={modalStyles ?? {}}
       />
     </Modal>
   );

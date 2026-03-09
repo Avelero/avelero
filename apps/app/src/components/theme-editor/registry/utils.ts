@@ -1,14 +1,16 @@
 /**
  * Utility functions for the component registry.
  *
- * In the Passport system, section components are resolved via SECTION_REGISTRY
- * (from dpp-components), while fixed components (Header/Footer) use COMPONENT_TREE.
+ * Searches COMPONENT_REGISTRY (fixed components) and SECTION_REGISTRY (sections)
+ * to resolve editor component definitions by ID.
  */
 
-import type { Passport, SectionType, ZoneId } from "@v1/dpp-components";
-import { SECTION_REGISTRY } from "@v1/dpp-components";
-import { COMPONENT_TREE } from "./component-tree";
-import type { ComponentDefinition } from "./types";
+import type {
+  ComponentDefinition,
+  Passport,
+  SectionType,
+} from "@v1/dpp-components";
+import { COMPONENT_REGISTRY, SECTION_REGISTRY } from "@v1/dpp-components";
 
 /**
  * Recursively search a ComponentDefinition tree for a matching ID.
@@ -29,30 +31,38 @@ function findInTree(
 
 /**
  * Find a component definition by its ID.
- * Searches COMPONENT_TREE first, then SECTION_REGISTRY editorTrees.
+ * Searches COMPONENT_REGISTRY first, then SECTION_REGISTRY editorTrees.
  */
 export function findComponentById(
   id: string,
   tree?: ComponentDefinition[],
 ): ComponentDefinition | null {
-  const searchTree = tree ?? COMPONENT_TREE;
-  for (const component of searchTree) {
-    if (component.id === id) return component;
-    if (component.children) {
-      const found = findComponentById(id, component.children);
-      if (found) return found;
+  // When an explicit tree is passed, search only that subtree (recursive calls).
+  if (tree) {
+    for (const component of tree) {
+      if (component.id === id) return component;
+      if (component.children) {
+        const found = findComponentById(id, component.children);
+        if (found) return found;
+      }
     }
+    return null;
   }
 
-  // Only search SECTION_REGISTRY when using default tree
-  if (!tree) {
-    for (const entry of Object.values(SECTION_REGISTRY)) {
-      const found = findInTree(
-        id,
-        entry.schema.editorTree as ComponentDefinition,
-      );
-      if (found) return found;
-    }
+  // Search COMPONENT_REGISTRY editor trees (header, productImage, modal, footer)
+  for (const entry of Object.values(COMPONENT_REGISTRY)) {
+    if (!entry) continue;
+    const found = findInTree(id, entry.schema.editorTree);
+    if (found) return found;
+  }
+
+  // Search SECTION_REGISTRY editor trees
+  for (const entry of Object.values(SECTION_REGISTRY)) {
+    const found = findInTree(
+      id,
+      entry.schema.editorTree as ComponentDefinition,
+    );
+    if (found) return found;
   }
 
   return null;
@@ -85,14 +95,14 @@ export function isSelectableComponent(className: string): boolean {
 /**
  * Resolve a component definition for the editor by ID.
  *
- * Checks COMPONENT_TREE first (header, footer), then SECTION_REGISTRY
- * editorTrees, then passport sections by instance ID.
+ * Checks COMPONENT_REGISTRY first, then SECTION_REGISTRY editorTrees,
+ * then passport sections by instance ID.
  */
 export function resolveComponentForEditor(
   componentId: string,
   passport: Passport,
 ): ComponentDefinition | null {
-  // Try COMPONENT_TREE and SECTION_REGISTRY editorTrees
+  // Try COMPONENT_REGISTRY and SECTION_REGISTRY editorTrees
   const component = findComponentById(componentId);
   if (component) return component;
 

@@ -64,9 +64,7 @@ export const saveThemeAction = authActionClient
       .eq("brand_id", brandId);
 
     if (dbError) {
-      throw new Error(
-        dbError.message || "Unable to save passport for brand",
-      );
+      throw new Error(dbError.message || "Unable to save passport for brand");
     }
 
     return {

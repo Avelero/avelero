@@ -1,5 +1,5 @@
-import type { DppContent } from "../../types/dpp-content";
-import type { DppData } from "../../types/dpp-data";
+import type { DppContent } from "../../types/content";
+import type { DppData } from "../../types/data";
 import type { Passport } from "../../types/passport";
 import { LayoutRenderer } from "./layout-renderer";
 

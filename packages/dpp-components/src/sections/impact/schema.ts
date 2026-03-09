@@ -3,8 +3,10 @@
  *
  * Defines the editor controls for the impact metric cards.
  */
-import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
-import { createModalSchemaGroup } from "../modal-schema";
+import {
+  CAPITALIZATION_STYLE_OPTIONS,
+  SURFACE_CARD_SHADOW,
+} from "../editor-options";
 import type { SectionSchema } from "../registry";
 
 export const IMPACT_SCHEMA: SectionSchema = {
@@ -130,7 +132,48 @@ export const IMPACT_SCHEMA: SectionSchema = {
           },
         ],
       },
-      createModalSchemaGroup("impact"),
     ],
+  },
+  defaults: {
+    styles: {
+      title: {
+        typescale: "h6",
+        color: "$foreground",
+        textTransform: "none",
+      },
+      helpLink: {
+        typescale: "body",
+        typographyDetached: true,
+        fontWeight: 500,
+        color: "$mutedLightForeground",
+        textTransform: "none",
+      },
+      card: {
+        backgroundColor: "$card",
+        boxShadow: SURFACE_CARD_SHADOW,
+        borderRadius: 8,
+        borderWidth: 0,
+      },
+      "card.icon": { color: "$primary", size: 28 },
+      "card.type": {
+        typescale: "body-sm",
+        color: "$mutedLightForeground",
+        textTransform: "none",
+      },
+      "card.value": {
+        typescale: "h1",
+        typographyDetached: true,
+        fontWeight: 500,
+        lineHeight: 1,
+        color: "$cardForeground",
+        textTransform: "none",
+      },
+      "card.unit": {
+        typescale: "body-sm",
+        color: "$mutedLightForeground",
+        textTransform: "none",
+      },
+    },
+    content: {},
   },
 };

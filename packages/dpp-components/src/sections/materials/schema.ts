@@ -3,8 +3,10 @@
  *
  * Defines the editor controls for the materials breakdown cards.
  */
-import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
-import { createModalSchemaGroup } from "../modal-schema";
+import {
+  CAPITALIZATION_STYLE_OPTIONS,
+  SURFACE_CARD_SHADOW,
+} from "../editor-options";
 import type { SectionSchema } from "../registry";
 
 export const MATERIALS_SCHEMA: SectionSchema = {
@@ -191,7 +193,54 @@ export const MATERIALS_SCHEMA: SectionSchema = {
           },
         ],
       },
-      createModalSchemaGroup("materials"),
     ],
+  },
+  defaults: {
+    styles: {
+      title: { typescale: "h6", color: "$foreground", textTransform: "none" },
+      card: {
+        backgroundColor: "$card",
+        boxShadow: SURFACE_CARD_SHADOW,
+        borderColor: "$border",
+        borderRadius: 8,
+        borderWidth: 0,
+      },
+      "card.percentage": {
+        typescale: "h6",
+        color: "$cardForeground",
+        textTransform: "none",
+      },
+      "card.type": {
+        typescale: "h6",
+        color: "$cardForeground",
+        textTransform: "none",
+      },
+      "card.origin": {
+        typescale: "body",
+        color: "$mutedLightForeground",
+        textTransform: "none",
+      },
+      "card.locationIcon": { color: "$mutedLightForeground", size: 14 },
+      "card.certification": {
+        typescale: "body-sm",
+        typographyDetached: true,
+        lineHeight: 2,
+        color: "$cardForeground",
+        backgroundColor: "$mutedDark",
+        borderRadius: 9999,
+        textTransform: "none",
+      },
+      "card.certIcon": { color: "$cardForeground", size: 14 },
+      "card.certText": {
+        typescale: "body",
+        typographyDetached: true,
+        fontWeight: 500,
+        color: "$cardForeground",
+        textTransform: "none",
+      },
+    },
+    content: {
+      showCertificationCheckIcon: false,
+    },
   },
 };

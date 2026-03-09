@@ -40,10 +40,7 @@ export function DesignPreview() {
             brandName={brandName}
             position="sticky"
           />
-          <ContentFrame
-            passport={resolvedPassport}
-            data={previewData}
-          />
+          <ContentFrame passport={resolvedPassport} data={previewData} />
           <Footer
             footer={resolvedPassport.footer}
             tokens={resolvedPassport.tokens}

@@ -59,10 +59,7 @@ export function ManufacturerModal({
   title = "Atelier Nord",
 }: ManufacturerModalProps) {
   // Render a compact manufacturer profile using the shared modal building blocks.
-  const borderColor =
-    styles.row?.borderColor ??
-    styles.header?.borderColor ??
-    styles.container?.borderColor;
+  const borderColor = styles["modal.container"]?.borderColor;
   const rows = facts.map((fact) => ({
     key: fact.label,
     label: fact.label,
@@ -98,10 +95,10 @@ export function ManufacturerModal({
       <ModalSection>
         <DataTable
           borderColor={borderColor}
-          labelStyle={styles.label}
+          labelStyle={styles["modal.label"]}
           rows={rows}
           valueClassName="whitespace-pre-line"
-          valueStyle={styles.value}
+          valueStyle={styles["modal.value"]}
         />
       </ModalSection>
     </ModalContent>

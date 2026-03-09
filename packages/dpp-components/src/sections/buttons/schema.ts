@@ -3,7 +3,10 @@
  *
  * Defines the editor controls for stacked sidebar action cards.
  */
-import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
+import {
+  CAPITALIZATION_STYLE_OPTIONS,
+  SURFACE_CARD_SHADOW,
+} from "../editor-options";
 import type { SectionSchema } from "../registry";
 
 export const BUTTONS_SCHEMA: SectionSchema = {
@@ -77,5 +80,27 @@ export const BUTTONS_SCHEMA: SectionSchema = {
         ],
       },
     ],
+  },
+  defaults: {
+    styles: {
+      button: {
+        typescale: "h6",
+        color: "$cardForeground",
+        backgroundColor: "$card",
+        boxShadow: SURFACE_CARD_SHADOW,
+        borderRadius: 8,
+        borderWidth: 0,
+        textTransform: "none",
+      },
+      "button.icon": { color: "$cardForeground", size: 20 },
+    },
+    content: {
+      variant: "primary",
+      menuItems: [
+        { label: "Button 1", url: "" },
+        { label: "Button 2", url: "" },
+        { label: "Button 3", url: "" },
+      ],
+    },
   },
 };

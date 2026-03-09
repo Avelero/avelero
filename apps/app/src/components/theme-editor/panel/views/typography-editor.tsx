@@ -429,12 +429,8 @@ function TypographyScaleForm({
 }
 
 export function TypographyEditor() {
-  const {
-    passportDraft,
-    updateCustomFonts,
-    updateTypographyScale,
-    brandId,
-  } = useDesignEditor();
+  const { passportDraft, updateCustomFonts, updateTypographyScale, brandId } =
+    useDesignEditor();
   const [openItem, setOpenItem] = React.useState<string | null>(null);
   const [customFontsModalOpen, setCustomFontsModalOpen] = React.useState(false);
   const queryClient = useQueryClient();

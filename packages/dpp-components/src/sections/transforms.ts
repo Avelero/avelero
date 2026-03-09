@@ -6,11 +6,7 @@
  */
 
 import { countries } from "@v1/selections";
-import type {
-  DppData,
-  MaterialCertification,
-  Operator,
-} from "../types/dpp-data";
+import type { DppData, MaterialCertification, Operator } from "../types/data";
 
 /** Get country name from ISO code, falling back to the code itself. */
 export function getCountryName(code: string | undefined): string {

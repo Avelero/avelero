@@ -32,6 +32,8 @@ import {
   variantWeight,
 } from "../../schema";
 import {
+  CERTIFICATIONS_BUCKET,
+  buildPublicStorageUrl,
   buildProductImageUrl,
   getSupabaseUrlFromEnv,
 } from "../../utils/storage-url";
@@ -332,6 +334,9 @@ function buildMaterialsSnapshot(
     {
       title: string;
       certificationCode: string | null;
+      issueDate: string | null;
+      expiryDate: string | null;
+      certificationPath: string | null;
       instituteName: string | null;
       instituteEmail: string | null;
       instituteWebsite: string | null;
@@ -343,6 +348,7 @@ function buildMaterialsSnapshot(
       instituteCountryCode: string | null;
     }
   >,
+  storageBaseUrl: string | null | undefined,
 ): DppSnapshot["materials"] | null {
   // Return null when there are no links.
   if (links.length === 0) {
@@ -381,6 +387,13 @@ function buildMaterialsSnapshot(
           ? {
               title: certification.title,
               certificationCode: certification.certificationCode,
+              issueDate: certification.issueDate,
+              expiryDate: certification.expiryDate,
+              documentUrl: buildPublicStorageUrl(
+                storageBaseUrl,
+                CERTIFICATIONS_BUCKET,
+                certification.certificationPath,
+              ),
               testingInstitute: hasTestingInstituteData
                 ? {
                     instituteName: certification.instituteName,
@@ -704,6 +717,9 @@ async function buildSnapshotsForVariantChunk(
             id: brandCertifications.id,
             title: brandCertifications.title,
             certificationCode: brandCertifications.certificationCode,
+            issueDate: brandCertifications.issueDate,
+            expiryDate: brandCertifications.expiryDate,
+            certificationPath: brandCertifications.certificationPath,
             instituteName: brandCertifications.instituteName,
             instituteEmail: brandCertifications.instituteEmail,
             instituteWebsite: brandCertifications.instituteWebsite,
@@ -723,6 +739,9 @@ async function buildSnapshotsForVariantChunk(
       {
         title: row.title,
         certificationCode: row.certificationCode,
+        issueDate: row.issueDate,
+        expiryDate: row.expiryDate,
+        certificationPath: row.certificationPath,
         instituteName: row.instituteName,
         instituteEmail: row.instituteEmail,
         instituteWebsite: row.instituteWebsite,
@@ -882,6 +901,7 @@ async function buildSnapshotsForVariantChunk(
       materialLinks,
       materialsById,
       certificationsById,
+      storageBaseUrl,
     );
 
     const variantJourney = variantJourneyByVariantId.get(row.variantId) ?? [];

@@ -7,11 +7,7 @@
  */
 
 import { useState } from "react";
-import {
-  LabeledDataTable,
-  ManufacturerModal,
-  ResponsiveDialog,
-} from "../../components";
+import { DataTable, ManufacturerModal, Modal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
@@ -41,38 +37,18 @@ function createDetailsModalSelectionGetter(
   return (slotId: string) => select(`details.${slotId}`);
 }
 
-function formatManufacturerAddress(
-  manufacturer: Manufacturer,
-): string | undefined {
-  // Collapse the manufacturer address into a multiline block for the overview modal.
-  const countryName = getCountryName(manufacturer.countryCode);
-  const cityStateZip = [
-    manufacturer.city?.trim(),
-    [manufacturer.state?.trim(), manufacturer.zip?.trim()]
-      .filter(Boolean)
-      .join(" "),
-  ]
-    .filter(Boolean)
-    .join(", ");
-  const addressLines = [
-    manufacturer.addressLine1?.trim(),
-    manufacturer.addressLine2?.trim(),
-    cityStateZip,
-    countryName || undefined,
-  ].filter(Boolean);
-
-  return addressLines.length > 0 ? addressLines.join("\n") : undefined;
-}
-
 function buildManufacturerModalFacts(manufacturer: Manufacturer) {
   // Gather the available manufacturer facts into reusable modal field rows.
   const facts: Array<{ label: string; value: React.ReactNode }> = [];
   const displayName = manufacturer.name?.trim();
   const legalName = manufacturer.legalName?.trim();
-  const address = formatManufacturerAddress(manufacturer);
 
-  if (displayName && legalName && displayName !== legalName) {
-    facts.push({ label: "Brand name", value: displayName });
+  if (displayName) {
+    facts.push({ label: "Name", value: displayName });
+  }
+
+  if (legalName && legalName !== displayName) {
+    facts.push({ label: "Legal name", value: legalName });
   }
 
   if (manufacturer.website) {
@@ -96,15 +72,39 @@ function buildManufacturerModalFacts(manufacturer: Manufacturer) {
   }
 
   if (manufacturer.email) {
-    facts.push({ label: "Contact", value: manufacturer.email });
+    facts.push({ label: "Email", value: manufacturer.email });
   }
 
   if (manufacturer.phone) {
     facts.push({ label: "Phone", value: manufacturer.phone });
   }
 
-  if (address) {
-    facts.push({ label: "Address", value: address });
+  if (manufacturer.addressLine1) {
+    facts.push({ label: "Address line 1", value: manufacturer.addressLine1 });
+  }
+
+  if (manufacturer.addressLine2) {
+    facts.push({ label: "Address line 2", value: manufacturer.addressLine2 });
+  }
+
+  if (manufacturer.city) {
+    facts.push({ label: "City", value: manufacturer.city });
+  }
+
+  if (manufacturer.state) {
+    facts.push({ label: "State", value: manufacturer.state });
+  }
+
+  if (manufacturer.zip) {
+    facts.push({ label: "Postal code", value: manufacturer.zip });
+  }
+
+  if (manufacturer.countryCode) {
+    facts.push({
+      label: "Country",
+      value:
+        getCountryName(manufacturer.countryCode) || manufacturer.countryCode,
+    });
   }
 
   return facts;
@@ -237,7 +237,7 @@ export function DetailsSection({
   if (rows.length === 0) return null;
 
   return (
-    <ResponsiveDialog
+    <Modal
       open={isManufacturerDialogOpen}
       onOpenChange={setIsManufacturerDialogOpen}
     >
@@ -256,7 +256,7 @@ export function DetailsSection({
           </h2>
         </div>
 
-        <LabeledDataTable
+        <DataTable
           borderColor={borderColor}
           labelStyle={s.label}
           rows={rows}
@@ -275,6 +275,6 @@ export function DetailsSection({
           title={manufacturerName}
         />
       ) : null}
-    </ResponsiveDialog>
+    </Modal>
   );
 }

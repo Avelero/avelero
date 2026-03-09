@@ -4,19 +4,16 @@
  * Manufacturer overview modal content.
  */
 
-import { LabeledDataTable } from "../../labeled-data-table";
+import { DataTable } from "../data-table";
 import {
-  DppModalContent,
-  DppModalDescription,
-  DppModalSection,
-  DppModalSubtitle,
-  DppModalTitle,
+  ModalContent,
+  ModalDescription,
+  ModalSection,
+  ModalSubtitle,
+  ModalTitle,
   getModalSelectionProps,
-} from "./modal-building-blocks";
-import type {
-  DppModalSelectionGetter,
-  DppModalStyles,
-} from "./modal-building-blocks";
+} from "../modal";
+import type { ModalSelectionGetter, ModalStyles } from "../modal";
 
 interface ManufacturerModalFact {
   label: string;
@@ -26,8 +23,8 @@ interface ManufacturerModalFact {
 interface ManufacturerModalProps {
   description?: string;
   facts?: ManufacturerModalFact[];
-  select?: DppModalSelectionGetter;
-  styles: DppModalStyles;
+  select?: ModalSelectionGetter;
+  styles: ModalStyles;
   subtitle?: string;
   title?: string;
 }
@@ -75,38 +72,38 @@ export function ManufacturerModal({
   }));
 
   return (
-    <DppModalContent styles={styles}>
-      <DppModalSection>
-        <DppModalSubtitle
+    <ModalContent styles={styles}>
+      <ModalSection>
+        <ModalSubtitle
           {...getModalSelectionProps(select, "modal.subtitle")}
           styles={styles}
         >
           {subtitle}
-        </DppModalSubtitle>
-        <DppModalTitle
+        </ModalSubtitle>
+        <ModalTitle
           {...getModalSelectionProps(select, "modal.title")}
           styles={styles}
         >
           {title}
-        </DppModalTitle>
-      </DppModalSection>
+        </ModalTitle>
+      </ModalSection>
 
-      <DppModalDescription
+      <ModalDescription
         {...getModalSelectionProps(select, "modal.description")}
         styles={styles}
       >
         {description}
-      </DppModalDescription>
+      </ModalDescription>
 
-      <DppModalSection>
-        <LabeledDataTable
+      <ModalSection>
+        <DataTable
           borderColor={borderColor}
           labelStyle={styles.label}
           rows={rows}
           valueClassName="whitespace-pre-line"
           valueStyle={styles.value}
         />
-      </DppModalSection>
-    </DppModalContent>
+      </ModalSection>
+    </ModalContent>
   );
 }

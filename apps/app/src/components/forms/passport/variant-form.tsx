@@ -270,8 +270,17 @@ function VariantFormInner({
 
   // Sync with context
   React.useEffect(() => {
-    setIsSubmitting(isSubmitting || createVariantMutation.isPending);
-  }, [isSubmitting, createVariantMutation.isPending, setIsSubmitting]);
+    setIsSubmitting(
+      isSubmitting ||
+        createVariantMutation.isPending ||
+        publishVariantMutation.isPending,
+    );
+  }, [
+    isSubmitting,
+    createVariantMutation.isPending,
+    publishVariantMutation.isPending,
+    setIsSubmitting,
+  ]);
 
   React.useEffect(() => {
     setHasUnsavedChanges(hasUnsavedChanges);
@@ -363,9 +372,18 @@ function VariantFormInner({
       }
 
       try {
-        await submit();
+        const result = await submit();
+
+        if (productStatus === "published" && result?.variantId) {
+          await publishVariantMutation.mutateAsync({
+            variantId: result.variantId,
+          });
+        }
+
+        toast.success("Variant saved successfully");
       } catch (err) {
         console.error("Form submission failed:", err);
+        toast.error("Failed to save variant");
       }
     }
   };

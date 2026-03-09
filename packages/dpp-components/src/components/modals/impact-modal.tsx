@@ -5,19 +5,16 @@
  */
 
 import {
-  DppModalContent,
-  DppModalDescription,
-  DppModalField,
-  DppModalSection,
-  DppModalSubtitle,
-  DppModalTitle,
-  DppModalValue,
+  ModalContent,
+  ModalDescription,
+  ModalField,
+  ModalSection,
+  ModalSubtitle,
+  ModalTitle,
+  ModalValue,
   getModalSelectionProps,
-} from "./modal-building-blocks";
-import type {
-  DppModalSelectionGetter,
-  DppModalStyles,
-} from "./modal-building-blocks";
+} from "../modal";
+import type { ModalSelectionGetter, ModalStyles } from "../modal";
 
 interface ImpactModalFact {
   label: string;
@@ -29,8 +26,8 @@ interface ImpactModalProps {
   equivalentLabel?: string;
   equivalentValue?: string;
   facts?: ImpactModalFact[];
-  select?: DppModalSelectionGetter;
-  styles: DppModalStyles;
+  select?: ModalSelectionGetter;
+  styles: ModalStyles;
   subtitle?: string;
   title?: string;
 }
@@ -60,49 +57,49 @@ export function ImpactModal({
 }: ImpactModalProps) {
   // Render a mock metric explainer using the shared title, description, label, and value slots.
   return (
-    <DppModalContent styles={styles}>
-      <DppModalSection>
-        <DppModalSubtitle
+    <ModalContent styles={styles}>
+      <ModalSection>
+        <ModalSubtitle
           {...getModalSelectionProps(select, "modal.subtitle")}
           styles={styles}
         >
           {subtitle}
-        </DppModalSubtitle>
-        <DppModalTitle
+        </ModalSubtitle>
+        <ModalTitle
           {...getModalSelectionProps(select, "modal.title")}
           styles={styles}
         >
           {title}
-        </DppModalTitle>
-      </DppModalSection>
+        </ModalTitle>
+      </ModalSection>
 
-      <DppModalDescription
+      <ModalDescription
         {...getModalSelectionProps(select, "modal.description")}
         styles={styles}
       >
         {description}
-      </DppModalDescription>
+      </ModalDescription>
 
-      <DppModalSection className="gap-2">
-        <DppModalValue
+      <ModalSection className="gap-2">
+        <ModalValue
           {...getModalSelectionProps(select, "modal.label")}
           styles={styles}
           style={styles["modal.label"]}
         >
           {equivalentLabel}
-        </DppModalValue>
-        <DppModalValue
+        </ModalValue>
+        <ModalValue
           {...getModalSelectionProps(select, "modal.value")}
           className="text-balance"
           styles={styles}
         >
           {equivalentValue}
-        </DppModalValue>
-      </DppModalSection>
+        </ModalValue>
+      </ModalSection>
 
-      <DppModalSection>
+      <ModalSection>
         {facts.map((fact) => (
-          <DppModalField
+          <ModalField
             key={fact.label}
             label={fact.label}
             labelProps={getModalSelectionProps(select, "modal.label")}
@@ -111,7 +108,7 @@ export function ImpactModal({
             valueProps={getModalSelectionProps(select, "modal.value")}
           />
         ))}
-      </DppModalSection>
-    </DppModalContent>
+      </ModalSection>
+    </ModalContent>
   );
 }

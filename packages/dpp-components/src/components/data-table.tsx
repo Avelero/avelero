@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * Reusable labeled data table for sidebar details and modal summaries.
+ * Reusable data table for sidebar details and modal summaries.
  */
 
 import { cn } from "@v1/ui/cn";
 import type * as React from "react";
 
-export interface LabeledDataTableRow {
+export interface DataTableRow {
   key: string;
   label: React.ReactNode;
   labelProps?: React.HTMLAttributes<HTMLDivElement>;
@@ -16,20 +16,20 @@ export interface LabeledDataTableRow {
   valueProps?: React.HTMLAttributes<HTMLDivElement>;
 }
 
-interface LabeledDataTableProps {
+interface DataTableProps {
   borderColor?: string;
   className?: string;
   gridTemplateColumns?: string;
   labelClassName?: string;
   labelStyle?: React.CSSProperties;
-  rows: LabeledDataTableRow[];
+  rows: DataTableRow[];
   rowClassName?: string;
   rowStyle?: React.CSSProperties;
   valueClassName?: string;
   valueStyle?: React.CSSProperties;
 }
 
-export function LabeledDataTable({
+export function DataTable({
   borderColor,
   className,
   gridTemplateColumns = "minmax(120px,max-content)_minmax(0,1fr)",
@@ -40,7 +40,7 @@ export function LabeledDataTable({
   rowStyle,
   valueClassName,
   valueStyle,
-}: LabeledDataTableProps) {
+}: DataTableProps) {
   // Render a reusable two-column label/value table with section-provided styles.
   return (
     <div

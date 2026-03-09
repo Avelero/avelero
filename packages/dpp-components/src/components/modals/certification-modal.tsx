@@ -5,18 +5,15 @@
  */
 
 import {
-  DppModalContent,
-  DppModalDescription,
-  DppModalField,
-  DppModalSection,
-  DppModalSubtitle,
-  DppModalTitle,
+  ModalContent,
+  ModalDescription,
+  ModalField,
+  ModalSection,
+  ModalSubtitle,
+  ModalTitle,
   getModalSelectionProps,
-} from "./modal-building-blocks";
-import type {
-  DppModalSelectionGetter,
-  DppModalStyles,
-} from "./modal-building-blocks";
+} from "../modal";
+import type { ModalSelectionGetter, ModalStyles } from "../modal";
 
 interface CertificationModalFact {
   label: string;
@@ -26,8 +23,8 @@ interface CertificationModalFact {
 interface CertificationModalProps {
   description?: string;
   facts?: CertificationModalFact[];
-  select?: DppModalSelectionGetter;
-  styles: DppModalStyles;
+  select?: ModalSelectionGetter;
+  styles: ModalStyles;
   subtitle?: string;
   title?: string;
 }
@@ -52,7 +49,7 @@ const DEFAULT_CERTIFICATION_FACTS: CertificationModalFact[] = [
 ];
 
 export function CertificationModal({
-  description = "This mock modal shows the kind of certification overview we can render for a material or product-level certificate.",
+  description = "This certification is recorded as part of the material traceability information for this product passport.",
   facts = DEFAULT_CERTIFICATION_FACTS,
   select,
   styles,
@@ -61,32 +58,32 @@ export function CertificationModal({
 }: CertificationModalProps) {
   // Render a mock certification fact sheet using the shared modal building blocks.
   return (
-    <DppModalContent styles={styles}>
-      <DppModalSection>
-        <DppModalSubtitle
+    <ModalContent styles={styles}>
+      <ModalSection>
+        <ModalSubtitle
           {...getModalSelectionProps(select, "modal.subtitle")}
           styles={styles}
         >
           {subtitle}
-        </DppModalSubtitle>
-        <DppModalTitle
+        </ModalSubtitle>
+        <ModalTitle
           {...getModalSelectionProps(select, "modal.title")}
           styles={styles}
         >
           {title}
-        </DppModalTitle>
-      </DppModalSection>
+        </ModalTitle>
+      </ModalSection>
 
-      <DppModalDescription
+      <ModalDescription
         {...getModalSelectionProps(select, "modal.description")}
         styles={styles}
       >
         {description}
-      </DppModalDescription>
+      </ModalDescription>
 
-      <DppModalSection>
+      <ModalSection>
         {facts.map((fact) => (
-          <DppModalField
+          <ModalField
             key={fact.label}
             label={fact.label}
             labelProps={getModalSelectionProps(select, "modal.label")}
@@ -95,7 +92,7 @@ export function CertificationModal({
             valueProps={getModalSelectionProps(select, "modal.value")}
           />
         ))}
-      </DppModalSection>
-    </DppModalContent>
+      </ModalSection>
+    </ModalContent>
   );
 }

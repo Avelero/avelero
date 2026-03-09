@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import { DescriptionModal, ResponsiveDialog } from "../../components";
+import { DescriptionModal, Modal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
@@ -104,7 +104,7 @@ export function DescriptionSection({
   if (!description) return null;
 
   return (
-    <ResponsiveDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <Modal open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <div
         {...rootSelection}
         className={["flex flex-col gap-xs w-full", wrapperClassName]
@@ -147,6 +147,6 @@ export function DescriptionSection({
         select={modalSelect}
         styles={s}
       />
-    </ResponsiveDialog>
+    </Modal>
   );
 }

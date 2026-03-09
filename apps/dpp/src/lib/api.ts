@@ -1,10 +1,10 @@
-import type { Passport } from "@v1/dpp-components";
 /**
  * API client for DPP app.
  *
  * Provides server-side functions to fetch DPP data from the API.
  * Uses tRPC's HTTP batch link protocol with superjson serialization.
  */
+import type { Passport } from "@v1/dpp-components";
 import superjson from "superjson";
 import type { SuperJSONResult } from "superjson";
 
@@ -131,6 +131,9 @@ export interface PassportDppApiResponse {
         certification: {
           title: string;
           certificationCode: string | null;
+          issueDate: string | null;
+          expiryDate: string | null;
+          documentUrl: string | null;
           testingInstitute: {
             instituteName: string | null;
             instituteEmail: string | null;

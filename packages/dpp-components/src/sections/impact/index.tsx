@@ -11,7 +11,7 @@ import { FactoryIcon } from "@phosphor-icons/react/dist/ssr/Factory";
 import { LeafIcon } from "@phosphor-icons/react/dist/ssr/Leaf";
 import { RecycleIcon } from "@phosphor-icons/react/dist/ssr/Recycle";
 import { useState } from "react";
-import { ImpactModal, ResponsiveDialog } from "../../components";
+import { ImpactModal, Modal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
@@ -76,7 +76,7 @@ export function ImpactSection({
   if (metrics.length === 0) return null;
 
   return (
-    <ResponsiveDialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+    <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
       <div
         className={["flex flex-col gap-xs w-full", wrapperClassName]
           .filter(Boolean)
@@ -151,6 +151,6 @@ export function ImpactSection({
         subtitle="Impact clarification"
         title="Impact"
       />
-    </ResponsiveDialog>
+    </Modal>
   );
 }

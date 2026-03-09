@@ -5,24 +5,21 @@
  */
 
 import {
-  DppModalContent,
-  DppModalDescription,
-  DppModalSection,
-  DppModalSubtitle,
-  DppModalTitle,
+  ModalContent,
+  ModalDescription,
+  ModalSection,
+  ModalSubtitle,
+  ModalTitle,
   getModalSelectionProps,
-} from "./modal-building-blocks";
-import type {
-  DppModalSelectionGetter,
-  DppModalStyles,
-} from "./modal-building-blocks";
+} from "../modal";
+import type { ModalSelectionGetter, ModalStyles } from "../modal";
 
 interface DescriptionModalProps {
   description: string;
   manufacturerName?: string;
   productTitle?: string;
-  select?: DppModalSelectionGetter;
-  styles: DppModalStyles;
+  select?: ModalSelectionGetter;
+  styles: ModalStyles;
 }
 
 export function DescriptionModal({
@@ -34,34 +31,34 @@ export function DescriptionModal({
 }: DescriptionModalProps) {
   // Render the product narrative modal with dedicated title, subtitle, and body slots.
   return (
-    <DppModalContent styles={styles}>
-      <DppModalSection>
+    <ModalContent styles={styles}>
+      <ModalSection>
         {manufacturerName ? (
-          <DppModalSubtitle
+          <ModalSubtitle
             {...getModalSelectionProps(select, "modal.subtitle")}
             styles={styles}
           >
             {manufacturerName}
-          </DppModalSubtitle>
+          </ModalSubtitle>
         ) : null}
 
         {productTitle ? (
-          <DppModalTitle
+          <ModalTitle
             {...getModalSelectionProps(select, "modal.title")}
             styles={styles}
           >
             {productTitle}
-          </DppModalTitle>
+          </ModalTitle>
         ) : null}
-      </DppModalSection>
+      </ModalSection>
 
-      <DppModalDescription
+      <ModalDescription
         {...getModalSelectionProps(select, "modal.description")}
         asChild
         styles={styles}
       >
         <div>{description}</div>
-      </DppModalDescription>
-    </DppModalContent>
+      </ModalDescription>
+    </ModalContent>
   );
 }

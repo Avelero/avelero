@@ -1,7 +1,7 @@
 /**
- * Public exports for stylable DPP modal building blocks and presets.
+ * Public exports for DPP use-case specific modals.
  */
-export * from "./modal-building-blocks";
+
 export * from "./description-modal";
 export * from "./impact-modal";
 export * from "./certification-modal";

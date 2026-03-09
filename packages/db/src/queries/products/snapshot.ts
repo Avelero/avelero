@@ -31,6 +31,8 @@ import {
   variantWeight,
 } from "../../schema";
 import {
+  CERTIFICATIONS_BUCKET,
+  buildPublicStorageUrl,
   buildProductImageUrl,
   getSupabaseUrlFromEnv,
 } from "../../utils/storage-url";
@@ -276,6 +278,7 @@ async function fetchMaterialsWithCertifications(
   db: Database,
   variantId: string,
   productId: string,
+  storageBaseUrl: string | null | undefined,
 ): Promise<DppSnapshot["materials"] | null> {
   // Try variant-level first
   const variantMaterialRows = await db
@@ -331,6 +334,9 @@ async function fetchMaterialsWithCertifications(
     {
       title: string;
       certificationCode: string | null;
+      issueDate: string | null;
+      expiryDate: string | null;
+      certificationPath: string | null;
       instituteName: string | null;
       instituteEmail: string | null;
       instituteWebsite: string | null;
@@ -349,6 +355,9 @@ async function fetchMaterialsWithCertifications(
         id: brandCertifications.id,
         title: brandCertifications.title,
         certificationCode: brandCertifications.certificationCode,
+        issueDate: brandCertifications.issueDate,
+        expiryDate: brandCertifications.expiryDate,
+        certificationPath: brandCertifications.certificationPath,
         instituteName: brandCertifications.instituteName,
         instituteEmail: brandCertifications.instituteEmail,
         instituteWebsite: brandCertifications.instituteWebsite,
@@ -399,6 +408,13 @@ async function fetchMaterialsWithCertifications(
           ? {
               title: certification.title,
               certificationCode: certification.certificationCode,
+              issueDate: certification.issueDate,
+              expiryDate: certification.expiryDate,
+              documentUrl: buildPublicStorageUrl(
+                storageBaseUrl,
+                CERTIFICATIONS_BUCKET,
+                certification.certificationPath,
+              ),
               testingInstitute: hasTestingInstituteData
                 ? {
                     instituteName: certification.instituteName,
@@ -558,6 +574,9 @@ export async function generateDppSnapshot(
   const coreData = await fetchCoreData(db, variantId);
   if (!coreData) return null;
 
+  // Resolve storage base URL once so image and certification URLs stay consistent.
+  const storageBaseUrl = options?.storageBaseUrl ?? getSupabaseUrlFromEnv();
+
   // Fetch all related data in parallel
   const [
     categoryName,
@@ -573,7 +592,12 @@ export async function generateDppSnapshot(
     fetchVariantAttributeValues(db, variantId),
     fetchWeight(db, variantId, coreData.productId),
     fetchEnvironment(db, variantId, coreData.productId),
-    fetchMaterialsWithCertifications(db, variantId, coreData.productId),
+    fetchMaterialsWithCertifications(
+      db,
+      variantId,
+      coreData.productId,
+      storageBaseUrl,
+    ),
     fetchSupplyChain(db, variantId, coreData.productId),
   ]);
 
@@ -585,7 +609,6 @@ export async function generateDppSnapshot(
 
   // Build full image URL from storage path
   // Uses provided storageBaseUrl or falls back to environment variable
-  const storageBaseUrl = options?.storageBaseUrl ?? getSupabaseUrlFromEnv();
   const image = buildProductImageUrl(storageBaseUrl, imagePath);
 
   // Build the snapshot

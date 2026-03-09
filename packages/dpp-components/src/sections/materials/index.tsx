@@ -9,7 +9,7 @@
 import { MapPinIcon } from "@phosphor-icons/react/dist/ssr/MapPin";
 import { Icons } from "@v1/ui/icons";
 import { Fragment, useState } from "react";
-import { CertificationModal, ResponsiveDialog } from "../../components";
+import { CertificationModal, Modal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
@@ -18,7 +18,7 @@ import {
 import { resolveStyles } from "../../lib/resolve-styles";
 import { getResolvedTextLineHeight } from "../../lib/text-line-height";
 import { toExternalHref } from "../../lib/url-utils";
-import { transformMaterials } from "../_transforms";
+import { getCountryName, transformMaterials } from "../_transforms";
 import type { SectionProps } from "../registry";
 
 function createMaterialsModalSelectionGetter(
@@ -33,23 +33,43 @@ function buildCertificationModalFacts(
 ) {
   // Gather the available certification facts into label/value rows for the modal.
   const facts: Array<{ label: string; value: React.ReactNode }> = [];
+  const certification = material.certification;
+  const institute = certification?.testingInstitute;
 
-  if (material.certificationCode) {
+  if (!certification) {
+    return facts;
+  }
+
+  if (certification.code) {
     facts.push({
       label: "Certification code",
-      value: material.certificationCode,
+      value: certification.code,
     });
   }
 
-  if (material.certificationInstitute) {
-    facts.push({ label: "Institute", value: material.certificationInstitute });
+  if (certification.issueDate) {
+    facts.push({
+      label: "Issue date",
+      value: formatDateFactValue(certification.issueDate),
+    });
   }
 
-  if (material.certificationWebsite) {
-    const certificationHref = toExternalHref(material.certificationWebsite);
+  if (certification.expiryDate) {
+    facts.push({
+      label: "Expiry date",
+      value: formatDateFactValue(certification.expiryDate),
+    });
+  }
+
+  if (institute?.legalName) {
+    facts.push({ label: "Institute name", value: institute.legalName });
+  }
+
+  if (institute?.website) {
+    const certificationHref = toExternalHref(institute.website);
 
     facts.push({
-      label: "Website",
+      label: "Institute website",
       value: certificationHref ? (
         <a
           className="underline underline-offset-4"
@@ -57,27 +77,76 @@ function buildCertificationModalFacts(
           rel="noopener noreferrer"
           target="_blank"
         >
-          {material.certificationWebsite}
+          {institute.website}
         </a>
       ) : (
-        material.certificationWebsite
+        institute.website
       ),
     });
   }
 
-  if (material.certificationEmail) {
-    facts.push({ label: "Contact", value: material.certificationEmail });
+  if (institute?.email) {
+    facts.push({ label: "Institute email", value: institute.email });
   }
 
-  if (material.certificationPhone) {
-    facts.push({ label: "Phone", value: material.certificationPhone });
+  if (institute?.phone) {
+    facts.push({ label: "Institute phone", value: institute.phone });
   }
 
-  if (material.certificationLocation) {
-    facts.push({ label: "Location", value: material.certificationLocation });
+  if (institute?.addressLine1) {
+    facts.push({ label: "Address line 1", value: institute.addressLine1 });
+  }
+
+  if (institute?.addressLine2) {
+    facts.push({ label: "Address line 2", value: institute.addressLine2 });
+  }
+
+  if (institute?.city) {
+    facts.push({ label: "City", value: institute.city });
+  }
+
+  if (institute?.state) {
+    facts.push({ label: "State", value: institute.state });
+  }
+
+  if (institute?.postalCode) {
+    facts.push({ label: "Postal code", value: institute.postalCode });
+  }
+
+  if (institute?.country) {
+    facts.push({
+      label: "Country",
+      value: getCountryName(institute.country) || institute.country,
+    });
+  }
+
+  if (certification.documentUrl) {
+    const documentHref = toExternalHref(certification.documentUrl);
+
+    facts.push({
+      label: "Certificate document",
+      value: documentHref ? (
+        <a
+          className="underline underline-offset-4"
+          href={documentHref}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          Download certificate
+        </a>
+      ) : (
+        certification.documentUrl
+      ),
+    });
   }
 
   return facts;
+}
+
+function formatDateFactValue(value: string) {
+  // Collapse persisted timestamps to a stable calendar-date label in the modal.
+  const isoDate = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  return isoDate ?? value;
 }
 
 export function MaterialsSection({
@@ -123,7 +192,7 @@ export function MaterialsSection({
   if (materials.length === 0) return null;
 
   return (
-    <ResponsiveDialog
+    <Modal
       open={isCertificationDialogOpen}
       onOpenChange={setIsCertificationDialogOpen}
     >
@@ -244,7 +313,7 @@ export function MaterialsSection({
                         setIsCertificationDialogOpen(true);
                       }}
                     >
-                      {material.certification}
+                      {material.certification.type}
                     </button>
                   )}
                 </div>
@@ -261,9 +330,9 @@ export function MaterialsSection({
           select={modalSelect}
           styles={s}
           subtitle="Certification overview"
-          title={selectedCertification.certification ?? "Certification"}
+          title={selectedCertification.certification?.type ?? "Certification"}
         />
       ) : null}
-    </ResponsiveDialog>
+    </Modal>
   );
 }

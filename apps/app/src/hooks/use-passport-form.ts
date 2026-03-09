@@ -1436,6 +1436,17 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           });
         }
 
+        // Keep published create flows aligned with edit flows by materializing the snapshot immediately.
+        if (
+          (formValues.status ?? "unpublished") === "published" &&
+          productId &&
+          targetProductHandle
+        ) {
+          await publishProductMutation.mutateAsync({
+            productId,
+          });
+        }
+
         // Cache seeding: Fetch the complete product and seed the cache before navigation.
         // This ensures the edit page renders instantly without showing loading skeletons.
         // Best-effort: if this fails, navigation still proceeds (edit page will fetch data itself).

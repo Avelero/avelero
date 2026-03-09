@@ -125,6 +125,9 @@ export interface Environmental {
 export interface MaterialCertification {
   type: string;
   code: string;
+  issueDate?: string;
+  expiryDate?: string;
+  documentUrl?: string;
   testingInstitute?: TestingInstitute;
 }
 

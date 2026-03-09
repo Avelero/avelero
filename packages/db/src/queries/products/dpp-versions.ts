@@ -75,6 +75,9 @@ export interface DppSnapshot {
       certification: {
         title: string;
         certificationCode: string | null;
+        issueDate: string | null;
+        expiryDate: string | null;
+        documentUrl: string | null;
         testingInstitute: {
           instituteName: string | null;
           instituteEmail: string | null;

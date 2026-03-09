@@ -5,18 +5,15 @@
  */
 
 import {
-  DppModalContent,
-  DppModalDescription,
-  DppModalField,
-  DppModalSection,
-  DppModalSubtitle,
-  DppModalTitle,
+  ModalContent,
+  ModalDescription,
+  ModalField,
+  ModalSection,
+  ModalSubtitle,
+  ModalTitle,
   getModalSelectionProps,
-} from "./modal-building-blocks";
-import type {
-  DppModalSelectionGetter,
-  DppModalStyles,
-} from "./modal-building-blocks";
+} from "../modal";
+import type { ModalSelectionGetter, ModalStyles } from "../modal";
 
 interface OperatorModalFact {
   label: string;
@@ -26,8 +23,8 @@ interface OperatorModalFact {
 interface OperatorModalProps {
   description?: string;
   facts?: OperatorModalFact[];
-  select?: DppModalSelectionGetter;
-  styles: DppModalStyles;
+  select?: ModalSelectionGetter;
+  styles: ModalStyles;
   subtitle?: string;
   title?: string;
 }
@@ -52,7 +49,7 @@ const DEFAULT_OPERATOR_FACTS: OperatorModalFact[] = [
 ];
 
 export function OperatorModal({
-  description = "This mock modal shows how operator facts can be rendered as a quick, scannable form-style overview.",
+  description = "This operator is responsible for one of the production steps recorded in the product journey.",
   facts = DEFAULT_OPERATOR_FACTS,
   select,
   styles,
@@ -61,32 +58,32 @@ export function OperatorModal({
 }: OperatorModalProps) {
   // Render a mock operator profile using the shared modal title, description, label, and value slots.
   return (
-    <DppModalContent styles={styles}>
-      <DppModalSection>
-        <DppModalSubtitle
+    <ModalContent styles={styles}>
+      <ModalSection>
+        <ModalSubtitle
           {...getModalSelectionProps(select, "modal.subtitle")}
           styles={styles}
         >
           {subtitle}
-        </DppModalSubtitle>
-        <DppModalTitle
+        </ModalSubtitle>
+        <ModalTitle
           {...getModalSelectionProps(select, "modal.title")}
           styles={styles}
         >
           {title}
-        </DppModalTitle>
-      </DppModalSection>
+        </ModalTitle>
+      </ModalSection>
 
-      <DppModalDescription
+      <ModalDescription
         {...getModalSelectionProps(select, "modal.description")}
         styles={styles}
       >
         {description}
-      </DppModalDescription>
+      </ModalDescription>
 
-      <DppModalSection>
+      <ModalSection>
         {facts.map((fact) => (
-          <DppModalField
+          <ModalField
             key={fact.label}
             label={fact.label}
             labelProps={getModalSelectionProps(select, "modal.label")}
@@ -95,7 +92,7 @@ export function OperatorModal({
             valueProps={getModalSelectionProps(select, "modal.value")}
           />
         ))}
-      </DppModalSection>
-    </DppModalContent>
+      </ModalSection>
+    </ModalContent>
   );
 }

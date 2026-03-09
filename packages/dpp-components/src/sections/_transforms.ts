@@ -6,7 +6,11 @@
  */
 
 import { countries } from "@v1/selections";
-import type { DppData } from "../types/dpp-data";
+import type {
+  DppData,
+  MaterialCertification,
+  Operator,
+} from "../types/dpp-data";
 
 /** Get country name from ISO code, falling back to the code itself. */
 export function getCountryName(code: string | undefined): string {
@@ -58,13 +62,7 @@ export interface MaterialDisplayData {
   percentage: number;
   type: string;
   origin: string;
-  certification?: string;
-  certificationCode?: string;
-  certificationEmail?: string;
-  certificationInstitute?: string;
-  certificationLocation?: string;
-  certificationPhone?: string;
-  certificationWebsite?: string;
+  certification?: MaterialCertification;
 }
 
 function resolveCountryLabel(value: string | undefined): string {
@@ -114,6 +112,7 @@ export function transformMaterials(data: DppData): MaterialDisplayData[] {
     materials?.composition?.map((m, index) => {
       const institute = m.certification?.testingInstitute;
       const rawMaterialOperator = rawMaterialOperators[index];
+      const certificationType = formatCertificationLabel(m.certification?.type);
 
       return {
         percentage: m.percentage,
@@ -126,18 +125,12 @@ export function transformMaterials(data: DppData): MaterialDisplayData[] {
               ? resolveCountryLabel(rawMaterialOperator.countryCode)
               : resolveCountryLabel(m.countryOfOrigin),
         ]),
-        certification: formatCertificationLabel(m.certification?.type),
-        certificationCode: m.certification?.code,
-        certificationEmail: institute?.email,
-        certificationInstitute: institute?.legalName,
-        certificationLocation: formatLocationLabel([
-          institute?.city,
-          institute?.country
-            ? resolveCountryLabel(institute.country)
-            : undefined,
-        ]),
-        certificationPhone: institute?.phone,
-        certificationWebsite: institute?.website,
+        certification: m.certification
+          ? {
+              ...m.certification,
+              type: certificationType ?? m.certification.type,
+            }
+          : undefined,
       };
     }) ?? []
   );
@@ -145,16 +138,15 @@ export function transformMaterials(data: DppData): MaterialDisplayData[] {
 
 // ─── Journey ─────────────────────────────────────────────────────────────────
 
+export type JourneyCompanyData = Omit<Operator, "name"> & {
+  location: string;
+  name: string;
+};
+
 export interface JourneyStageData {
   id: string;
   name: string;
-  companies: Array<{
-    email?: string;
-    location: string;
-    name: string;
-    phone?: string;
-    url?: string;
-  }>;
+  companies: JourneyCompanyData[];
 }
 
 function formatProcessStepLabel(value: string | undefined): string {
@@ -178,30 +170,36 @@ export function transformJourney(data: DppData): JourneyStageData[] {
     {
       id: string;
       name: string;
-      companies: Array<{
-        email?: string;
-        location: string;
-        name: string;
-        phone?: string;
-        url?: string;
-      }>;
+      companies: JourneyCompanyData[];
     }
   >();
 
   for (const step of manufacturing?.supplyChain ?? []) {
     const processStep = step.processStep ?? "Unknown Step";
     const existing = journeyMap.get(processStep);
+    const companyName =
+      step.operator.name?.trim() ||
+      step.operator.legalName?.trim() ||
+      "Unknown Operator";
     const company = {
+      addressLine1: step.operator.addressLine1,
+      addressLine2: step.operator.addressLine2,
+      city: step.operator.city,
+      countryCode: step.operator.countryCode,
       email: step.operator.email,
-      name: step.operator.legalName,
+      legalName: step.operator.legalName,
       location: [
         step.operator.city,
         getCountryName(step.operator.countryCode) || step.operator.countryCode,
       ]
         .filter(Boolean)
         .join(", "),
+      name: companyName,
+      operatorId: step.operator.operatorId,
       phone: step.operator.phone,
-      url: step.operator.website,
+      state: step.operator.state,
+      website: step.operator.website,
+      zip: step.operator.zip,
     };
 
     if (existing) {

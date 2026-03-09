@@ -8,7 +8,7 @@
 
 import { MapPinIcon } from "@phosphor-icons/react/dist/ssr/MapPin";
 import { useState } from "react";
-import { OperatorModal, ResponsiveDialog } from "../../components";
+import { Modal, OperatorModal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
@@ -17,7 +17,7 @@ import {
 import { resolveStyles } from "../../lib/resolve-styles";
 import { getResolvedTextLineHeight } from "../../lib/text-line-height";
 import { toExternalHref } from "../../lib/url-utils";
-import { transformJourney } from "../_transforms";
+import { getCountryName, transformJourney } from "../_transforms";
 import type { SectionProps } from "../registry";
 
 const TIMELINE_COLUMN_WIDTH = 48;
@@ -41,14 +41,18 @@ function buildOperatorModalFacts(stageName: string, company: JourneyCompany) {
   // Gather the operator details that should appear in the quick overview modal.
   const facts: Array<{ label: string; value: React.ReactNode }> = [];
 
-  if (company.location) {
-    facts.push({ label: "Location", value: company.location });
+  if (company.name) {
+    facts.push({ label: "Name", value: company.name });
   }
 
   facts.push({ label: "Role", value: stageName });
 
-  if (company.url) {
-    const operatorHref = toExternalHref(company.url);
+  if (company.legalName && company.legalName !== company.name) {
+    facts.push({ label: "Legal name", value: company.legalName });
+  }
+
+  if (company.website) {
+    const operatorHref = toExternalHref(company.website);
 
     facts.push({
       label: "Website",
@@ -59,20 +63,47 @@ function buildOperatorModalFacts(stageName: string, company: JourneyCompany) {
           rel="noopener noreferrer"
           target="_blank"
         >
-          {company.url}
+          {company.website}
         </a>
       ) : (
-        company.url
+        company.website
       ),
     });
   }
 
   if (company.email) {
-    facts.push({ label: "Contact", value: company.email });
+    facts.push({ label: "Email", value: company.email });
   }
 
   if (company.phone) {
     facts.push({ label: "Phone", value: company.phone });
+  }
+
+  if (company.addressLine1) {
+    facts.push({ label: "Address line 1", value: company.addressLine1 });
+  }
+
+  if (company.addressLine2) {
+    facts.push({ label: "Address line 2", value: company.addressLine2 });
+  }
+
+  if (company.city) {
+    facts.push({ label: "City", value: company.city });
+  }
+
+  if (company.state) {
+    facts.push({ label: "State", value: company.state });
+  }
+
+  if (company.zip) {
+    facts.push({ label: "Postal code", value: company.zip });
+  }
+
+  if (company.countryCode) {
+    facts.push({
+      label: "Country",
+      value: getCountryName(company.countryCode) || company.countryCode,
+    });
   }
 
   return facts;
@@ -132,10 +163,7 @@ export function JourneySection({
   );
 
   return (
-    <ResponsiveDialog
-      open={isOperatorDialogOpen}
-      onOpenChange={setIsOperatorDialogOpen}
-    >
+    <Modal open={isOperatorDialogOpen} onOpenChange={setIsOperatorDialogOpen}>
       <div
         className={["flex flex-col gap-xs w-full", wrapperClassName]
           .filter(Boolean)
@@ -315,6 +343,6 @@ export function JourneySection({
           title={selectedOperator.company.name}
         />
       ) : null}
-    </ResponsiveDialog>
+    </Modal>
   );
 }

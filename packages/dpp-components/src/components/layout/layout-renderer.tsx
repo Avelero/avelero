@@ -20,9 +20,17 @@ interface Props {
 }
 
 /** Builds the sidebar section shell classes for selectable spacing. */
-function getSidebarSectionWrapperClassName(index: number, isLast: boolean): string {
+function getSidebarSectionWrapperClassName(
+  index: number,
+  isLast: boolean,
+): string {
   // Give each sidebar section its own 16px shell while collapsing the top edge of the first and bottom edge of the last.
-  return ["w-full", "px-md", index === 0 ? "pt-0" : "pt-md", isLast ? "pb-0" : "pb-md"].join(" ");
+  return [
+    "w-full",
+    "px-md",
+    index === 0 ? "pt-0" : "pt-md",
+    isLast ? "pb-0" : "pb-md",
+  ].join(" ");
 }
 
 /** Builds the shared canvas section shell classes for consistent alignment. */

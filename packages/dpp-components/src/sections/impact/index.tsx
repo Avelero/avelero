@@ -38,16 +38,6 @@ function createImpactModalSelectionGetter(
   return (slotId: string) => select(`impact.${slotId}`);
 }
 
-function buildImpactModalFacts(
-  metrics: ReturnType<typeof transformImpactMetrics>,
-) {
-  // Present the available impact metrics as scannable modal fact rows.
-  return metrics.map((metric) => ({
-    label: metric.type,
-    value: `${metric.value} ${metric.unit}`,
-  }));
-}
-
 export function ImpactSection({
   section,
   tokens,
@@ -73,8 +63,6 @@ export function ImpactSection({
     color: true,
   });
   const modalSelect = createImpactModalSelectionGetter(select);
-  const modalFacts = buildImpactModalFacts(metrics);
-  const primaryMetric = metrics[0];
 
   if (metrics.length === 0) return null;
 
@@ -144,18 +132,18 @@ export function ImpactSection({
       </div>
 
       <ImpactModal
-        description="Impact metrics summarize the environmental footprint data currently attached to this product passport. Use them to compare products in context, not as standalone claims."
-        equivalentLabel={primaryMetric ? primaryMetric.type : "Reported metric"}
-        equivalentValue={
-          primaryMetric
-            ? `${primaryMetric.value} ${primaryMetric.unit}`
-            : "No impact data available."
-        }
-        facts={modalFacts}
+        cardStyles={{
+          type: s["card.type"],
+          value: s["card.value"],
+          unit: s["card.unit"],
+        }}
+        metrics={metrics.map((m) => ({
+          type: m.type,
+          value: Number(m.value),
+          unit: m.unit,
+        }))}
         select={modalSelect}
         styles={modalStyles ?? {}}
-        subtitle="Impact clarification"
-        title="Impact"
       />
     </Modal>
   );

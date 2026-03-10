@@ -7,6 +7,7 @@ import {
   generateGoogleFontsUrlFromTypography,
 } from "@v1/dpp-components";
 import type { Json } from "@v1/supabase/types";
+import { normalizePassportImagePathsForStorage } from "@v1/api/src/utils/theme-config-images";
 import { z } from "zod";
 
 const BUCKET_NAME = "dpp-themes";
@@ -30,6 +31,9 @@ export const saveThemeAction = authActionClient
     );
 
     // Build CSS stylesheet from passport tokens
+    if (!passport?.tokens) {
+      throw new Error("Invalid passport: missing tokens");
+    }
     const stylesheetContent = buildPassportStylesheet(passport.tokens);
 
     const stylesheetPath = `${brandId}/theme.css`;
@@ -52,11 +56,16 @@ export const saveThemeAction = authActionClient
       }
     }
 
+    // Normalize image URLs to storage paths before persisting
+    const normalizedPassport = normalizePassportImagePathsForStorage(
+      passport as unknown as Record<string, unknown>,
+    );
+
     // Update passport in brand_theme table
     const { error: dbError } = await supabase
       .from("brand_theme")
       .update({
-        passport: passport as unknown as Json,
+        passport: normalizedPassport as unknown as Json,
         stylesheet_path: stylesheetPath,
         google_fonts_url: googleFontsUrl || null,
         updated_at: now,

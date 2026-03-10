@@ -374,13 +374,23 @@ function VariantFormInner({
       try {
         const result = await submit();
 
+        let publishFailed = false;
         if (productStatus === "published" && result?.variantId) {
-          await publishVariantMutation.mutateAsync({
-            variantId: result.variantId,
-          });
+          try {
+            await publishVariantMutation.mutateAsync({
+              variantId: result.variantId,
+            });
+          } catch (publishError) {
+            console.error("Failed to publish variant:", publishError);
+            publishFailed = true;
+          }
         }
 
-        toast.success("Variant saved successfully");
+        if (publishFailed) {
+          toast.success("Variant saved, but failed to publish");
+        } else {
+          toast.success("Variant saved successfully");
+        }
       } catch (err) {
         console.error("Form submission failed:", err);
         toast.error("Failed to save variant");

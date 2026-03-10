@@ -5,7 +5,7 @@ export function DemoCTA() {
         href="https://www.avelero.com"
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center justify-center transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 p-2 h-9 px-2 py-[10px] text-[14px] leading-[16px] hover:opacity-90 pointer-events-auto shadow-sm box-border"
+        className="inline-flex items-center justify-center transition-colors ease-in-out focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 p-2 h-9 px-2 py-[10px] text-[14px] leading-[16px] hover:opacity-90 pointer-events-auto shadow-sm box-border"
         style={{
           color: "var(--primary-foreground)",
           backgroundColor: "var(--primary)",

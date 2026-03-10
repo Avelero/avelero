@@ -58,7 +58,7 @@
 
     /* Shared motion tokens */
     --dpp-motion-duration: 300ms;
-    --dpp-motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --dpp-motion-ease: ease-in-out;
   }
 
   .dpp-root * {
@@ -121,7 +121,7 @@
 
   /* Navigation button fade */
   .dpp-root .nav-button-fade {
-    transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease-in-out;
   }
 
   .dpp-root .nav-button-fade.fading {
@@ -131,10 +131,15 @@
   /* Theme-aware hover treatment for interactive passport controls. */
   .dpp-root .dpp-interactive-hover {
     transition:
-      background-color 180ms ease,
-      color 180ms ease,
-      border-color 180ms ease,
-      box-shadow 180ms ease;
+      background-color 100ms ease-in-out,
+      color 100ms ease-in-out,
+      border-color 100ms ease-in-out,
+      box-shadow 100ms ease-in-out,
+      transform 100ms ease-in-out;
+  }
+
+  .dpp-root .dpp-interactive-hover:active {
+    transform: scale(0.98);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -175,11 +180,44 @@
     inset-inline: 0;
     bottom: 0;
     width: 100%;
-    max-height: calc(80dvh);
-    border-radius: 28px 28px 0 0;
+    max-height: calc(90dvh);
+    border-radius: var(--modal-border-radius, 28px) var(--modal-border-radius, 28px) 0 0;
     transform: translate3d(0, 100%, 0);
     transform-origin: bottom center;
     will-change: transform, opacity;
+  }
+
+  /* Top fade for scroll indication */
+  .dpp-native-dialog__content::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(
+      to bottom,
+      var(--card, #FFFFFF) 0%,
+      color-mix(in srgb, var(--card, #FFFFFF) 80%, transparent) 40%,
+      color-mix(in srgb, var(--card, #FFFFFF) 25%, transparent) 75%,
+      transparent 100%
+    );
+    border-radius: var(--modal-border-radius, 28px) var(--modal-border-radius, 28px) 0 0;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  /* Extend background below the drawer to fill iOS Safari's translucent bottom toolbar */
+  .dpp-native-dialog__content::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(env(safe-area-inset-bottom, 0px) + 100px);
+    transform: translateY(calc(100% - 1px));
+    background-color: inherit;
+    pointer-events: none;
   }
 
   .dpp-native-dialog__content[data-state="open"] {
@@ -199,19 +237,27 @@
       bottom: auto;
       width: min(calc(100vw - 32px), 480px);
       max-height: min(80dvh, 48rem);
-      border-radius: 28px;
+      border-radius: var(--modal-border-radius, 28px);
       transform: translate(-50%, -50%);
       transform-origin: center center;
     }
 
+    .dpp-native-dialog__content::after {
+      border-radius: var(--modal-border-radius, 28px) var(--modal-border-radius, 28px) 0 0;
+    }
+
+    .dpp-native-dialog__content::before {
+      display: none;
+    }
+
     .dpp-native-dialog__content[data-state="open"] {
-      animation: dpp-native-dialog-desktop-in 240ms
-        cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation: dpp-native-dialog-desktop-in 150ms
+        ease-in-out both;
     }
 
     .dpp-native-dialog__content[data-state="closed"] {
-      animation: dpp-native-dialog-desktop-out 180ms
-        cubic-bezier(0.4, 0, 1, 1) both;
+      animation: dpp-native-dialog-desktop-out 150ms
+        ease-in-out both;
     }
   }
 

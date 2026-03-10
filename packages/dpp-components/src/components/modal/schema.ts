@@ -122,7 +122,7 @@ export const MODAL_SCHEMA: FixedComponentSchema = {
         backgroundColor: "$card",
         boxShadow: SURFACE_CARD_SHADOW,
         borderColor: "$border",
-        borderRadius: 8,
+        borderRadius: 16,
         borderWidth: 0,
       },
       "modal.title": {

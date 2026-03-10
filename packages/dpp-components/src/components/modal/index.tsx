@@ -110,6 +110,7 @@ const ModalContent = React.forwardRef<
   // Render the modal shell: portal, overlay, dialog chrome, and close button.
   // Compose ModalBody, ModalHeader, and ModalFooter as children to build the layout.
   const contentStyle = getModalSlotStyle(styles, "modal.container", style);
+  const { borderRadius: themeRadius, ...restContentStyle } = contentStyle;
 
   return (
     <ModalPortal>
@@ -117,28 +118,40 @@ const ModalContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "dpp-native-dialog__content fixed z-[91] flex flex-col overflow-hidden border border-black/5 outline-none",
-          "shadow-[0_-18px_60px_rgba(15,23,42,0.18)] md:shadow-[0_28px_90px_rgba(15,23,42,0.18)]",
+          "dpp-native-dialog__content fixed z-[91] flex flex-col outline-none",
           className,
         )}
-        style={{
-          backgroundColor: "var(--card, #FFFFFF)",
-          color: "var(--foreground, #1E2040)",
-          ...contentStyle,
-        }}
+        style={
+          {
+            backgroundColor: "var(--card, #FFFFFF)",
+            borderStyle: "solid",
+            color: "var(--foreground, #1E2040)",
+            ...(themeRadius != null
+              ? {
+                  "--modal-border-radius":
+                    typeof themeRadius === "number"
+                      ? `${themeRadius}px`
+                      : String(themeRadius),
+                }
+              : {}),
+            ...restContentStyle,
+          } as React.CSSProperties
+        }
         {...props}
       >
-        {!hideClose && (
-          <ModalClose
-            className="absolute right-4 top-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 bg-[var(--background,#FFFFFF)] hover:bg-[var(--muted-dark,#E0E0E0)]"
-            style={{ color: "var(--muted-dark-foreground, #808080)" }}
-          >
-            <Icons.X aria-hidden className="h-4 w-4 shrink-0" />
-            <span className="sr-only">Close</span>
-          </ModalClose>
-        )}
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
+          {!hideClose && (
+            <ModalClose
+              className="absolute right-4 top-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-100 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 bg-[var(--background,#FFFFFF)] hover:bg-[var(--muted-dark,#E0E0E0)]"
+              style={{ color: "var(--muted-dark-foreground, #808080)" }}
+            >
+              <Icons.X aria-hidden className="h-4 w-4 shrink-0" />
+              <span className="sr-only">Close</span>
+            </ModalClose>
+          )}
 
-        {children}
+          {children}
+        </div>
       </DialogPrimitive.Content>
     </ModalPortal>
   );
@@ -498,7 +511,7 @@ function ModalStaticMap({
     >
       <img
         alt={alt ?? `Map of ${trimmedQuery}`}
-        className="block h-full w-full object-cover transition-transform duration-150 group-hover:scale-[1.01]"
+        className="block h-full w-full object-cover transition-transform duration-100 ease-in-out group-hover:scale-[1.01]"
         decoding="async"
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"

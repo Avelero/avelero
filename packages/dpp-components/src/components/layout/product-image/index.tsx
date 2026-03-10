@@ -613,7 +613,7 @@ export function ProductImage({ productImage, tokens, image, alt }: Props) {
             style={{
               flexGrow: 1,
               aspectRatio: mediaContainerSize.aspectRatio ?? undefined,
-              transition: "transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)",
+              transition: "transform 0.6s ease-in-out",
             }}
           >
             {/** Media.Root — natural aspect ratio + scale transform */}
@@ -622,7 +622,7 @@ export function ProductImage({ productImage, tokens, image, alt }: Props) {
                 aspectRatio: loadedMedia?.aspectRatio,
                 transform,
                 transition:
-                  "opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1), transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)",
+                  "opacity 0.3s ease-in-out, transform 0.6s ease-in-out",
                 opacity: isMediaLoaded ? 1 : 0,
                 willChange: "opacity, transform",
                 backgroundColor: "inherit",

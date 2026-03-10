@@ -7,6 +7,10 @@
 import Image from "next/image";
 import { ImagePlaceholder } from "../../components/image-placeholder";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
+import {
+  INTERACTIVE_HOVER_CLASS_NAME,
+  createInteractiveHoverStyle,
+} from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
 import type { SectionProps } from "../registry";
 
@@ -98,8 +102,10 @@ export function BannerSection({
               href={ctaUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center self-center px-lg py-sm cursor-pointer text-center"
-              style={s.button}
+              className={`inline-flex items-center justify-center self-center px-lg py-sm cursor-pointer text-center ${INTERACTIVE_HOVER_CLASS_NAME}`}
+              style={createInteractiveHoverStyle(s.button, {
+                background: true,
+              })}
               aria-label={`${ctaText} (opens in new tab)`}
             >
               {ctaText}

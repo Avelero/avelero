@@ -20,15 +20,15 @@ interface Props {
 }
 
 /** Builds the sidebar section shell classes for selectable spacing. */
-function getSidebarSectionWrapperClassName(index: number): string {
-  // Give each sidebar section its own 16px shell while collapsing the top edge of the first.
-  return ["w-full", "px-md", index === 0 ? "pt-0" : "pt-md", "pb-md"].join(" ");
+function getSidebarSectionWrapperClassName(index: number, isLast: boolean): string {
+  // Give each sidebar section its own 16px shell while collapsing the top edge of the first and bottom edge of the last.
+  return ["w-full", "px-md", index === 0 ? "pt-0" : "pt-md", isLast ? "pb-0" : "pb-md"].join(" ");
 }
 
 /** Builds the shared canvas section shell classes for consistent alignment. */
 function getCanvasSectionWrapperClassName(): string {
   // Keep every canvas block aligned to the shared content container.
-  return "max-w-container py-4 @3xl:py-8 mx-auto w-full @3xl:px-lg";
+  return "max-w-container py-8 mx-auto w-full @md:px-md";
 }
 
 export function LayoutRenderer({ passport, data, content }: Props) {
@@ -41,11 +41,11 @@ export function LayoutRenderer({ passport, data, content }: Props) {
     <main className="flex-grow flex flex-col pb-xl w-full">
       <div className="flex flex-col">
         {/* Two-column grid: product image + sidebar sections */}
-        <div className="max-w-container mx-auto w-full @3xl:px-lg">
-          <div className="grid grid-cols-1 @3xl:grid-cols-2 @3xl:gap-lg w-full">
+        <div className="max-w-container mx-auto w-full @md:px-lg">
+          <div className="grid grid-cols-1 @md:grid-cols-[1fr_min(calc(50%_-_16px),452px)] @md:gap-xl w-full">
             {/* Left column — product image (hardcoded) */}
             <div className="w-full">
-              <div className="@3xl:sticky @3xl:top-[var(--header-height)] flex flex-col gap-2x">
+              <div className="@md:sticky @md:top-[var(--header-height)] flex flex-col gap-2x">
                 <ProductImage
                   productImage={passport.productImage}
                   tokens={tokens}
@@ -56,9 +56,9 @@ export function LayoutRenderer({ passport, data, content }: Props) {
             </div>
 
             {/* Right column — sidebar sections */}
-            <div className="@3xl:flex @3xl:justify-end @3xl:w-full">
-              <div className="@3xl:max-w-[428px]">
-                <div className="relative flex flex-col overflow-visible @3xl:ml-auto @3xl:w-full @3xl:pt-12 @3xl:pb-8">
+            <div className="@md:flex @md:justify-end @md:w-full">
+              <div className="@md:max-w-[452px]">
+                <div className="relative flex flex-col overflow-visible @md:ml-auto @md:w-full pb-8 @md:py-12">
                   {sidebar.map((section, index) => {
                     const entry = SECTION_REGISTRY[section.type];
                     if (!entry) return null;
@@ -75,6 +75,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
                         modalStyles={modalStyles}
                         wrapperClassName={getSidebarSectionWrapperClassName(
                           index,
+                          index === sidebar.length - 1,
                         )}
                       />
                     );
@@ -87,7 +88,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
 
         {/* Canvas sections — full-width below columns */}
         {canvas.length > 0 && (
-          <div className="w-full">
+          <div className="max-w-container mx-auto w-full @md:px-lg">
             {canvas.map((section) => {
               const entry = SECTION_REGISTRY[section.type];
               if (!entry) return null;

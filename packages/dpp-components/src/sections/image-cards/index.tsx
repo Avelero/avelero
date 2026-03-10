@@ -132,13 +132,13 @@ export function ImageCardsSection({
       <div {...containerSelection} className="w-full" style={s.container}>
         <div className="flex flex-col gap-md">
           {content.title ? (
-            <h3 {...titleSelection} className="px-md @3xl:px-0" style={s.title}>
+            <h3 {...titleSelection} className="px-md @md:px-0" style={s.title}>
               {content.title}
             </h3>
           ) : null}
 
           {visibleCards.length > 0 ? (
-            <div className="scrollbar-none flex snap-x snap-mandatory gap-sm overflow-x-auto px-md scroll-pl-md @3xl:grid @3xl:grid-cols-3 @3xl:overflow-visible @3xl:px-0 @3xl:scroll-pl-0">
+            <div className="scrollbar-none flex snap-x snap-mandatory gap-sm overflow-x-auto px-md scroll-pl-md @md:grid @md:grid-cols-3 @md:overflow-visible @md:px-0 @md:scroll-pl-0">
               {visibleCards.map((card) => {
                 const imageSelection = select(
                   `imageCards.${card.id}.image`,
@@ -153,7 +153,7 @@ export function ImageCardsSection({
                 return (
                   <article
                     key={card.id}
-                    className="flex w-[calc((100vw-2rem-0.75rem)/1.5)] min-w-[14rem] max-w-[19rem] shrink-0 snap-start flex-col gap-md @3xl:w-auto @3xl:min-w-0 @3xl:max-w-none"
+                    className="flex w-[calc((100vw-2rem-0.75rem)/1.5)] min-w-[14rem] max-w-[19rem] shrink-0 snap-start flex-col gap-md @md:w-auto @md:min-w-0 @md:max-w-none"
                   >
                     <div
                       {...imageSelection}

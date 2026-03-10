@@ -52,23 +52,23 @@ function getMobileOrderClassNames(
   switch (mobileLayout) {
     case "imageFirst":
       return {
-        heading: "order-2 @3xl:order-none",
-        image: "order-1 @3xl:order-none",
-        body: "order-3 @3xl:order-none",
+        heading: "order-2 @md:order-none",
+        image: "order-1 @md:order-none",
+        body: "order-3 @md:order-none",
       };
 
     case "textFirst":
       return {
-        heading: "order-1 @3xl:order-none",
-        image: "order-3 @3xl:order-none",
-        body: "order-2 @3xl:order-none",
+        heading: "order-1 @md:order-none",
+        image: "order-3 @md:order-none",
+        body: "order-2 @md:order-none",
       };
 
     default:
       return {
-        heading: "order-1 @3xl:order-none",
-        image: "order-2 @3xl:order-none",
-        body: "order-3 @3xl:order-none",
+        heading: "order-1 @md:order-none",
+        image: "order-2 @md:order-none",
+        body: "order-3 @md:order-none",
       };
   }
 }
@@ -113,8 +113,8 @@ export function TextImageSection({
   const textContent = (
     <div
       className={[
-        "contents @3xl:flex @3xl:flex-col @3xl:justify-between @3xl:self-stretch",
-        imageOnLeft ? "@3xl:pl-8" : "@3xl:pr-8",
+        "contents @md:flex @md:flex-col @md:justify-between @md:self-stretch",
+        imageOnLeft ? "@md:pl-8" : "@md:pr-8",
       ].join(" ")}
     >
       {content.headline ? (
@@ -174,10 +174,10 @@ export function TextImageSection({
     <div className={wrapperClassName ?? "w-full"}>
       <div
         {...containerSelection}
-        className="w-full px-md @3xl:px-0"
+        className="w-full px-md @md:px-0"
         style={s.container}
       >
-        <div className="grid grid-cols-1 gap-y-lg @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-y-0">
+        <div className="grid grid-cols-1 gap-y-lg @md:grid-cols-2 @md:items-stretch @md:gap-y-0">
           {imageOnLeft ? imageContent : textContent}
           {imageOnLeft ? textContent : imageContent}
         </div>

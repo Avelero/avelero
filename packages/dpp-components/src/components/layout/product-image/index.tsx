@@ -584,7 +584,7 @@ export function ProductImage({ productImage, tokens, image, alt }: Props) {
   });
 
   return (
-    <div className="w-full px-4 @3xl:px-0">
+    <div className="w-full px-4 @md:px-0">
       {image ? (
         /**
          * MediaContainer (from MintLayout.MediaContainer)
@@ -597,7 +597,7 @@ export function ProductImage({ productImage, tokens, image, alt }: Props) {
          */
         <div
           ref={mediaContainerRef}
-          className="flex items-center justify-center p-[5%] h-[50vh] @3xl:h-[calc(var(--dpp-available-viewport-height,_100vh)-var(--header-height))] @3xl:py-[5%] @3xl:px-0"
+          className="flex items-center justify-center p-[5%] h-[50vh] @md:h-[calc(var(--dpp-available-viewport-height,_100vh)-var(--header-height))] @md:py-[5%] @md:px-0"
           style={mediaContainerStyle}
         >
           {/**

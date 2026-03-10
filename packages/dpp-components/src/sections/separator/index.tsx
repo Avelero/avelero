@@ -27,7 +27,7 @@ export function SeparatorSection({
   const rootSelection = select("separator", "overlay");
   const rootClassName = wrapperClassName ?? "w-full";
   const innerClassName =
-    zoneId === "canvas" ? "w-full px-md @3xl:px-0" : "w-full";
+    zoneId === "canvas" ? "w-full px-md @md:px-0" : "w-full";
 
   return (
     <div {...rootSelection} className={rootClassName}>

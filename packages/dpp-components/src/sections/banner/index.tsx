@@ -51,7 +51,7 @@ export function BannerSection({
     <div className={wrapperClassName ?? "w-full"}>
       <div
         {...containerSelection}
-        className="relative w-full flex flex-col items-center justify-center py-3x px-lg @3xl:px-3x overflow-hidden @3xl:[border-radius:var(--dpp-banner-radius,0px)]"
+        className="relative w-full flex flex-col items-center justify-center py-3x px-lg @md:px-3x overflow-hidden @md:[border-radius:var(--dpp-banner-radius,0px)]"
         style={{
           ...containerStyle,
           ...(bannerRadius

@@ -18,8 +18,14 @@ import { LightningIcon } from "@phosphor-icons/react/dist/ssr/Lightning";
 import { MonitorPlayIcon } from "@phosphor-icons/react/dist/ssr/MonitorPlay";
 import { ShowerIcon } from "@phosphor-icons/react/dist/ssr/Shower";
 import { TShirtIcon } from "@phosphor-icons/react/dist/ssr/TShirt";
-import { useLayoutEffect, useRef, useState } from "react";
-import { useHapticTap } from "../../lib/haptics";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { useHapticTap } from "../../../lib/haptics";
 import {
   ModalBody,
   ModalContent,
@@ -28,8 +34,8 @@ import {
   ModalSubtitle,
   ModalTitle,
   getModalSelectionProps,
-} from "../modal";
-import type { ModalSelectionGetter, ModalStyles } from "../modal";
+} from "../../modal";
+import type { ModalSelectionGetter, ModalStyles } from "../../modal";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -226,37 +232,61 @@ function TabGroup({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<MetricCategory, HTMLButtonElement>>(new Map());
-  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
   const [pressedCategory, setPressedCategory] = useState<MetricCategory | null>(
     null,
   );
+  const ready = useRef(false);
+  const [isReady, setIsReady] = useState(false);
 
-  // Scale the indicator when the active tab button is pressed.
   const indicatorPressed = pressedCategory === activeTab;
 
+  // Measure the active button and set CSS custom properties on the container.
   useLayoutEffect(() => {
     const button = buttonRefs.current.get(activeTab);
     const container = containerRef.current;
     if (!button || !container) return;
-    setIndicator({
-      left: button.offsetLeft,
-      width: button.offsetWidth,
-    });
+    container.style.setProperty(
+      "--tab-indicator-left",
+      `${button.offsetLeft}px`,
+    );
+    container.style.setProperty(
+      "--tab-indicator-width",
+      `${button.offsetWidth}px`,
+    );
   }, [activeTab]);
 
+  // Enable transitions only after the first paint so the indicator doesn't
+  // animate from 0,0 when the modal opens.
+  useEffect(() => {
+    if (!ready.current) {
+      ready.current = true;
+      requestAnimationFrame(() => setIsReady(true));
+    }
+  }, []);
+
   return (
-    <div ref={containerRef} className="relative flex gap-xs">
-      {/* Sliding indicator */}
+    <div
+      ref={containerRef}
+      className="relative flex gap-xs"
+      style={
+        {
+          "--tab-indicator-left": "0px",
+          "--tab-indicator-width": "0px",
+        } as React.CSSProperties
+      }
+    >
+      {/* Sliding pill indicator */}
       <div
         className="absolute top-0 h-full rounded-full"
         style={{
-          left: indicator.left,
-          width: indicator.width,
+          left: "var(--tab-indicator-left)",
+          width: "var(--tab-indicator-width)",
           backgroundColor: "var(--card, #FFFFFF)",
           boxShadow: SURFACE_CARD_SHADOW,
           transform: indicatorPressed ? "scale(0.98)" : "scale(1)",
-          transition:
-            "left 200ms ease-in-out, width 200ms ease-in-out, transform 100ms ease-in-out",
+          transition: isReady
+            ? "left 200ms ease-in-out, width 200ms ease-in-out, transform 100ms ease-in-out"
+            : "none",
           pointerEvents: "none",
         }}
       />
@@ -353,6 +383,7 @@ export function ImpactModal({
     availableCategories[0]?.category ?? "carbon",
   );
   const hapticTap = useHapticTap();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const activePair = availableCategories.find(
     (pair) => pair.category === activeTab,
@@ -362,14 +393,25 @@ export function ImpactModal({
   const showTabs = availableCategories.length > 1;
   const resolvedCardStyles = cardStyles ?? FALLBACK_CARD_STYLES;
 
-  function handleTabChange(category: MetricCategory) {
-    hapticTap();
-    setActiveTab(category);
-  }
+  const handleTabChange = useCallback(
+    (category: MetricCategory) => {
+      const scrollEl = scrollRef.current;
+      const prevScrollTop = scrollEl?.scrollTop ?? 0;
+      hapticTap();
+      setActiveTab(category);
+      // Restore scroll position after React re-renders the card list.
+      requestAnimationFrame(() => {
+        if (scrollEl) {
+          scrollEl.scrollTop = prevScrollTop;
+        }
+      });
+    },
+    [hapticTap],
+  );
 
   return (
     <ModalContent styles={styles}>
-      <ModalBody>
+      <ModalBody ref={scrollRef}>
         {/* Header */}
         <ModalSection>
           <ModalSubtitle

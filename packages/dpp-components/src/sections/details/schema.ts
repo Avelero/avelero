@@ -15,17 +15,6 @@ export const DETAILS_SCHEMA: SectionSchema = {
     displayName: "Details",
     children: [
       {
-        id: "details.header",
-        displayName: "Header",
-        styleFields: [
-          {
-            type: "color",
-            path: "header.borderColor",
-            label: "Border Color",
-          },
-        ],
-      },
-      {
         id: "details.heading",
         displayName: "Heading",
         styleFields: [
@@ -40,17 +29,6 @@ export const DETAILS_SCHEMA: SectionSchema = {
             path: "heading.textTransform",
             label: "Capitalization",
             options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
-      },
-      {
-        id: "details.row",
-        displayName: "Rows",
-        styleFields: [
-          {
-            type: "color",
-            path: "row.borderColor",
-            label: "Border Color",
           },
         ],
       },
@@ -97,7 +75,7 @@ export const DETAILS_SCHEMA: SectionSchema = {
         typescale: "body",
         typographyDetached: true,
         lineHeight: 1.2,
-        color: "$mutedLightForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
       value: {

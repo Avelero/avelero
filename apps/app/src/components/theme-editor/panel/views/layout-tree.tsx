@@ -24,16 +24,24 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   COMPONENT_REGISTRY,
+  MODAL_SCHEMA_REGISTRY,
   SECTION_REGISTRY,
   buildDppSelectableNodeId,
   type ComponentDefinition,
+  type DppData,
   type Section,
   type SectionType,
   type ZoneId,
 } from "@v1/dpp-components";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
-import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@v1/ui/tooltip";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hasConfigContent, hasEditableContent } from "../../registry";
 import { AddComponentPopover } from "./add-component-popover";
 
@@ -314,6 +322,209 @@ function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
       {isExpanded && hasChildren && (
         <div>
           {componentDef.children!.map((child) => (
+            <ChildTreeItem
+              key={child.id}
+              item={child}
+              level={1}
+              getNodeId={getFixedNodeId}
+              expandedItems={expandedItems}
+              onToggleExpand={toggleExpanded}
+              onItemClick={handleChildClick}
+              onItemHover={onItemHover}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// MODAL PREVIEW ITEM (expandable with children + eye icon toggle)
+// =============================================================================
+
+/**
+ * Check whether the current preview data has enough information
+ * to render a meaningful modal for the given section type.
+ */
+function hasModalData(sectionType: string, data: DppData): boolean {
+  switch (sectionType) {
+    case "impact":
+      return !!(
+        data.environmental?.carbonEmissions || data.environmental?.waterUsage
+      );
+    case "description":
+      // Description modal only needs the product to exist — always available.
+      return true;
+    case "details":
+      return !!data.manufacturing?.manufacturer;
+    case "materials":
+      return !!(
+        data.materials?.composition &&
+        data.materials.composition.length > 0 &&
+        data.materials.composition.some((m) => m.certification)
+      );
+    case "journey":
+      return !!(
+        data.manufacturing?.supplyChain &&
+        data.manufacturing.supplyChain.length > 0
+      );
+    default:
+      return true;
+  }
+}
+
+/** Maps section types to their modal display names in the editor. */
+const MODAL_PREVIEW_ITEMS: { sectionType: string; displayName: string }[] = [
+  { sectionType: "impact", displayName: "Impact" },
+  { sectionType: "description", displayName: "Description" },
+  { sectionType: "details", displayName: "Manufacturer" },
+  { sectionType: "materials", displayName: "Certificate" },
+  { sectionType: "journey", displayName: "Operator" },
+];
+
+interface ModalPreviewItemProps {
+  sectionType: string;
+  displayName: string;
+  modalChildren: ComponentDefinition[];
+  disabled?: boolean;
+  onItemHover: (nodeId: string | null) => void;
+}
+
+function ModalPreviewItem({
+  sectionType,
+  displayName,
+  modalChildren,
+  disabled,
+  onItemHover,
+}: ModalPreviewItemProps) {
+  const {
+    previewModalType,
+    setPreviewModalType,
+    expandedItems,
+    toggleExpanded,
+    navigateToComponent,
+    setSelectedNodeId,
+  } = useDesignEditor();
+  const isActive = previewModalType === sectionType;
+  const expandKey = `modal-preview-${sectionType}`;
+  const isExpanded = expandedItems.has(expandKey) && !disabled;
+  const hasChildren = modalChildren.length > 0;
+
+  // Close preview if this modal becomes disabled while active.
+  useEffect(() => {
+    if (disabled && isActive) {
+      setPreviewModalType(null);
+    }
+  }, [disabled, isActive, setPreviewModalType]);
+
+  const handleRowClick = () => {
+    if (disabled) return;
+    if (hasChildren) {
+      toggleExpanded(expandKey);
+    }
+  };
+
+  const handleChildClick = (childId: string, nodeId: string | null) => {
+    if (nodeId) {
+      setSelectedNodeId(nodeId);
+    }
+    navigateToComponent(childId);
+  };
+
+  const row = (
+    <div
+      className={cn(
+        "group/modal-item relative flex items-center w-full h-7 rounded",
+        disabled ? "cursor-default" : "hover:bg-accent cursor-pointer",
+      )}
+      onClick={handleRowClick}
+    >
+      {hasChildren && !disabled ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleExpanded(expandKey);
+          }}
+          className="flex items-center justify-center min-w-4 h-7 hover:bg-accent-dark rounded"
+          aria-label={isExpanded ? "Collapse" : "Expand"}
+        >
+          <Icons.ChevronRight
+            className={cn(
+              "h-3 w-3 text-tertiary transition-transform duration-150",
+              isExpanded && "rotate-90",
+            )}
+          />
+        </button>
+      ) : (
+        <div className="min-w-4" />
+      )}
+
+      <div className="flex items-center justify-center min-w-4 h-7">
+        <Icons.GalleryVertical
+          className={cn(
+            "h-3 w-3",
+            disabled ? "text-muted-foreground/50" : "text-tertiary",
+          )}
+        />
+      </div>
+
+      <div className="flex items-center px-2 h-7 flex-1 min-w-0">
+        <span
+          className={cn(
+            "type-small truncate",
+            disabled ? "text-muted-foreground" : "text-primary",
+          )}
+        >
+          {displayName}
+        </span>
+      </div>
+
+      {/* Eye icon: visible on hover when hidden, always visible when open */}
+      {!disabled && (
+        <div
+          className={cn(
+            "flex items-center pr-1",
+            !isActive && "opacity-0 group-hover/modal-item:opacity-100",
+          )}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPreviewModalType(isActive ? null : sectionType);
+            }}
+            className="flex items-center justify-center w-6 h-6 hover:bg-accent-dark rounded"
+            aria-label={isActive ? "Hide modal preview" : "Show modal preview"}
+          >
+            {isActive ? (
+              <Icons.Eye className="h-3 w-3 text-tertiary" />
+            ) : (
+              <Icons.EyeOff className="h-3 w-3 text-tertiary" />
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col">
+      {disabled ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>{row}</TooltipTrigger>
+            <TooltipContent side="right">Use mock data to view</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        row
+      )}
+
+      {isExpanded && hasChildren && (
+        <div>
+          {modalChildren.map((child) => (
             <ChildTreeItem
               key={child.id}
               item={child}
@@ -628,12 +839,19 @@ function AddSectionButton({ zoneId, sectionCount }: AddSectionButtonProps) {
 // =============================================================================
 
 export function LayoutTree() {
-  const { passportDraft, setHoveredNodeId } = useDesignEditor();
+  const { passportDraft, setHoveredNodeId, dataSource, previewData } =
+    useDesignEditor();
 
   const headerDef = COMPONENT_REGISTRY.header?.schema.editorTree;
   const productImageDef = COMPONENT_REGISTRY.productImage?.schema.editorTree;
-  const modalDef = COMPONENT_REGISTRY.modal?.schema.editorTree;
   const footerDef = COMPONENT_REGISTRY.footer?.schema.editorTree;
+
+  // Only show modal preview toggles for section types present in the passport
+  const allSections = [...passportDraft.sidebar, ...passportDraft.canvas];
+  const presentSectionTypes = new Set<string>(allSections.map((s) => s.type));
+  const availableModalPreviews = MODAL_PREVIEW_ITEMS.filter((item) =>
+    presentSectionTypes.has(item.sectionType),
+  );
 
   const handleItemHover = useCallback(
     (nodeId: string | null) => {
@@ -647,31 +865,54 @@ export function LayoutTree() {
       className="flex-1 p-2 overflow-y-auto scrollbar-hide"
       onMouseLeave={() => handleItemHover(null)}
     >
-      {/* Header section */}
+      {/* Layout — fixed structural components */}
       <div className="flex items-center h-8 px-1">
-        <span className="type-small font-medium text-secondary">Header</span>
+        <span className="type-small font-medium text-secondary">Layout</span>
       </div>
       {headerDef && (
         <FixedItem componentDef={headerDef} onItemHover={handleItemHover} />
       )}
-
-      <div className="border-t my-1" />
-
-      {/* Sidebar zone */}
-      <div className="flex items-center h-8 px-1">
-        <span className="type-small font-medium text-secondary">Sidebar</span>
-      </div>
       {productImageDef && (
         <FixedItem
           componentDef={productImageDef}
           onItemHover={handleItemHover}
         />
       )}
+      {footerDef && (
+        <FixedItem componentDef={footerDef} onItemHover={handleItemHover} />
+      )}
+
+      <div className="border-t my-1" />
+
+      {/* Modals — per-type expandable items with preview toggles */}
+      <div className="flex items-center h-8 px-1">
+        <span className="type-small font-medium text-secondary">Modals</span>
+      </div>
+      {availableModalPreviews.map((item) => {
+        const children =
+          MODAL_SCHEMA_REGISTRY[item.sectionType]?.schema.editorTree.children ??
+          [];
+        const disabled =
+          dataSource === "real" && !hasModalData(item.sectionType, previewData);
+        return (
+          <ModalPreviewItem
+            key={item.sectionType}
+            sectionType={item.sectionType}
+            displayName={item.displayName}
+            modalChildren={children}
+            disabled={disabled}
+            onItemHover={handleItemHover}
+          />
+        );
+      })}
+
+      <div className="border-t my-1" />
+
+      {/* Sidebar zone */}
       <ZoneSection
         zoneId="sidebar"
         sections={passportDraft.sidebar}
         onItemHover={handleItemHover}
-        showLabel={false}
       />
 
       <div className="border-t my-1" />
@@ -682,23 +923,6 @@ export function LayoutTree() {
         sections={passportDraft.canvas}
         onItemHover={handleItemHover}
       />
-
-      <div className="border-t my-1" />
-
-      {/* Modal styles */}
-      {modalDef && (
-        <FixedItem componentDef={modalDef} onItemHover={handleItemHover} />
-      )}
-
-      <div className="border-t my-1" />
-
-      {/* Footer section */}
-      <div className="flex items-center h-8 px-1">
-        <span className="type-small font-medium text-secondary">Footer</span>
-      </div>
-      {footerDef && (
-        <FixedItem componentDef={footerDef} onItemHover={handleItemHover} />
-      )}
     </div>
   );
 }

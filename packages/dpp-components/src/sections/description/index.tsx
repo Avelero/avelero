@@ -73,9 +73,11 @@ export function DescriptionSection({
   zoneId,
   wrapperClassName,
   modalStyles,
+  forceModalType,
 }: SectionProps) {
   // Resolve styles and build the stable preview shown in the collapsed sidebar card.
   const s = resolveStyles(section.styles, tokens);
+  const isForceOpen = forceModalType === "description";
   const description = data.productAttributes.description?.trim() ?? "";
   const manufacturerName =
     data.manufacturing?.manufacturer?.name?.trim() ||
@@ -89,13 +91,7 @@ export function DescriptionSection({
     description,
     DESCRIPTION_PREVIEW_WORD_LIMIT,
   );
-  const rootSelect = createSectionSelectionAttributes(
-    section.id,
-    zoneId,
-    "section-root",
-  );
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const rootSelection = rootSelect("description");
   const headingSelection = select("description.heading");
   const bodySelection = select("description.body");
   const showMoreSelection = select("description.showMore");
@@ -107,9 +103,12 @@ export function DescriptionSection({
   if (!description) return null;
 
   return (
-    <Modal open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <Modal
+      open={isDialogOpen || isForceOpen}
+      onOpenChange={setIsDialogOpen}
+      modal={!isForceOpen}
+    >
       <div
-        {...rootSelection}
         className={["flex flex-col gap-xs w-full", wrapperClassName]
           .filter(Boolean)
           .join(" ")}

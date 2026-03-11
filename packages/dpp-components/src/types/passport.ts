@@ -13,10 +13,8 @@
 export interface ColorTokens {
   background: string;
   foreground: string;
-  mutedLight: string;
-  mutedLightForeground: string;
-  mutedDark: string;
-  mutedDarkForeground: string;
+  muted: string;
+  mutedForeground: string;
   card: string;
   cardForeground: string;
   primary: string;

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Mock operator overview modal content.
+ * Manufacturer overview modal content.
  */
 
 import {
@@ -14,14 +14,14 @@ import {
   ModalSubtitle,
   ModalTitle,
   getModalSelectionProps,
-} from "../modal";
+} from "../../modal";
 import type {
   ModalDataTableRow,
   ModalSelectionGetter,
   ModalStyles,
-} from "../modal";
+} from "../../modal";
 
-interface OperatorModalProps {
+interface ManufacturerModalProps {
   description?: string;
   facts?: ModalDataTableRow[];
   mapQuery?: string | null;
@@ -31,9 +31,12 @@ interface OperatorModalProps {
   title?: string;
 }
 
-const DEFAULT_OPERATOR_FACTS: ModalDataTableRow[] = [
-  { key: "Location", label: "Location", value: "Porto, Portugal" },
-  { key: "Role", label: "Role", value: "Cut and sew facility" },
+const DEFAULT_MANUFACTURER_FACTS: ModalDataTableRow[] = [
+  {
+    key: "Address",
+    label: "Address",
+    value: "Strawinskylaan 3051\n1077 ZX Amsterdam\nNetherlands",
+  },
   {
     key: "Website",
     label: "Website",
@@ -48,19 +51,18 @@ const DEFAULT_OPERATOR_FACTS: ModalDataTableRow[] = [
       </a>
     ),
   },
-  { key: "Contact", label: "Contact", value: "operations@example.com" },
+  { key: "Contact", label: "Contact", value: "hello@example.com" },
 ];
 
-export function OperatorModal({
-  description = "This operator is responsible for one of the production steps recorded in the product journey.",
-  facts = DEFAULT_OPERATOR_FACTS,
+export function ManufacturerModal({
+  description = "This manufacturer is listed as the responsible producer for this product passport.",
+  facts = DEFAULT_MANUFACTURER_FACTS,
   mapQuery,
   select,
   styles,
-  subtitle = "Supply chain operator",
-  title = "Northern Atelier",
-}: OperatorModalProps) {
-  // Render a mock operator profile using the shared modal title, description, label, and value slots.
+  subtitle = "Manufacturer overview",
+  title = "Atelier Nord",
+}: ManufacturerModalProps) {
   return (
     <ModalContent styles={styles}>
       <ModalBody>
@@ -87,7 +89,12 @@ export function OperatorModal({
         </ModalDescription>
 
         <ModalSection>
-          <ModalDataTable rows={facts} select={select} styles={styles} />
+          <ModalDataTable
+            rows={facts}
+            select={select}
+            styles={styles}
+            valueClassName="whitespace-pre-line"
+          />
         </ModalSection>
 
         {mapQuery ? (

@@ -173,9 +173,11 @@ export function MaterialsSection({
   wrapperClassName,
   modalContent,
   modalStyles,
+  forceModalType,
 }: SectionProps) {
   // Resolve styles and shape the materials data for the sidebar card.
   const s = resolveStyles(section.styles, tokens);
+  const isForceOpen = forceModalType === "materials";
   const materials = transformMaterials(data);
   const [isCertificationDialogOpen, setIsCertificationDialogOpen] =
     useState(false);
@@ -186,13 +188,10 @@ export function MaterialsSection({
   const showCheckIcon = section.content.showCertificationCheckIcon !== false;
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const titleSelection = select("materials.title");
-  const cardSelection = select("materials.card");
   const percentageSelection = select("materials.card.percentage");
   const typeSelection = select("materials.card.type");
   const originSelection = select("materials.card.origin");
-  const locationIconSelection = select("materials.card.locationIcon");
   const certificationSelection = select("materials.card.certification");
-  const certIconSelection = select("materials.card.certIcon");
   const certTextSelection = select("materials.card.certText");
   const percentageStyle: React.CSSProperties = {
     ...s["card.percentage"],
@@ -213,8 +212,9 @@ export function MaterialsSection({
 
   return (
     <Modal
-      open={isCertificationDialogOpen}
+      open={isCertificationDialogOpen || isForceOpen}
       onOpenChange={setIsCertificationDialogOpen}
+      modal={!isForceOpen}
     >
       <div
         className={["flex flex-col gap-xs w-full", wrapperClassName]
@@ -226,7 +226,6 @@ export function MaterialsSection({
         </h6>
 
         <div
-          {...cardSelection}
           className="grid grid-cols-[max-content_minmax(0,1fr)] overflow-hidden"
           style={s.card}
         >
@@ -278,10 +277,7 @@ export function MaterialsSection({
                         style={s["card.certification"]}
                       >
                         {showCheckIcon && (
-                          <Icons.Check
-                            {...certIconSelection}
-                            style={s["card.certIcon"]}
-                          />
+                          <Icons.Check style={s["card.certIcon"]} />
                         )}
                         <span>Certified</span>
                       </span>
@@ -295,7 +291,6 @@ export function MaterialsSection({
                         style={{ height: originRowHeight }}
                       >
                         <MapPinIcon
-                          {...locationIconSelection}
                           style={s["card.locationIcon"]}
                           aria-hidden="true"
                         />
@@ -344,27 +339,32 @@ export function MaterialsSection({
         </div>
       </div>
 
-      {selectedCertification ? (
-        <CertificationModal
-          certificateUrl={
-            selectedCertification.certification?.documentUrl
-              ? toExternalHref(
-                  selectedCertification.certification.documentUrl,
-                ) ?? undefined
-              : undefined
-          }
-          description={`This certification applies to ${selectedCertification.type.toLowerCase()} and is reported as part of this product passport.`}
-          facts={buildCertificationModalFacts(selectedCertification)}
-          mapQuery={buildCertificationMapQuery(
-            selectedCertification,
-            showExactLocation,
-          )}
-          select={modalSelect}
-          styles={modalStyles ?? {}}
-          subtitle="Certification overview"
-          title={selectedCertification.certification?.type ?? "Certification"}
-        />
-      ) : null}
+      {(() => {
+        const certMaterial =
+          selectedCertification ??
+          (isForceOpen ? materials.find((m) => m.certification) ?? null : null);
+        if (!certMaterial) return null;
+        return (
+          <CertificationModal
+            certificateUrl={
+              certMaterial.certification?.documentUrl
+                ? toExternalHref(certMaterial.certification.documentUrl) ??
+                  undefined
+                : undefined
+            }
+            description={`This certification applies to ${certMaterial.type.toLowerCase()} and is reported as part of this product passport.`}
+            facts={buildCertificationModalFacts(certMaterial)}
+            mapQuery={buildCertificationMapQuery(
+              certMaterial,
+              showExactLocation,
+            )}
+            select={modalSelect}
+            styles={modalStyles ?? {}}
+            subtitle="Certification overview"
+            title={certMaterial.certification?.type ?? "Certification"}
+          />
+        );
+      })()}
     </Modal>
   );
 }

@@ -31,8 +31,9 @@ export function ButtonsSection({
   const s = resolveStyles(section.styles, tokens);
   const menuItems = (section.content.menuItems as MenuItem[] | undefined) ?? [];
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const buttonSelection = select("buttons.button");
-  const iconSelection = select("buttons.button.icon");
+  const rootSelection = select("buttons");
+  const labelSelection = select("buttons.label");
+  const iconSelection = select("buttons.icon");
   const buttonStyle = createInteractiveHoverStyle(s.button, {
     background: true,
   });
@@ -50,7 +51,7 @@ export function ButtonsSection({
         {menuItems.map((item, index) => (
           <a
             key={item.id || `menu-${index}`}
-            {...buttonSelection}
+            {...rootSelection}
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
@@ -58,7 +59,7 @@ export function ButtonsSection({
             style={buttonStyle}
             onClick={() => hapticTap()}
           >
-            <span>{item.label}</span>
+            <span {...labelSelection}>{item.label}</span>
             <Icons.ChevronRight
               {...iconSelection}
               className="shrink-0"

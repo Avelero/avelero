@@ -20,11 +20,11 @@ type DataSource = "mock" | "real";
  * - [gap] User menu (handled by parent)
  */
 export function DataControl() {
-  const [dataSource, setDataSource] = useState<DataSource>("mock");
   const [currentProductIndex, setCurrentProductIndex] = useState(0);
 
   const trpc = useTRPC();
-  const { setPreviewData, brandId } = useDesignEditor();
+  const { setPreviewData, brandId, dataSource, setDataSource } =
+    useDesignEditor();
 
   // Always fetch products list to check availability
   const { data: productsData, isLoading: isLoadingProducts } = useQuery({

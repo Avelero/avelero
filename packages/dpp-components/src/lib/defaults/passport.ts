@@ -8,7 +8,10 @@
  * Used when a new brand is created.
  */
 
-import { COMPONENT_REGISTRY } from "../../components/layout/registry";
+import {
+  COMPONENT_REGISTRY,
+  MODAL_SCHEMA_REGISTRY,
+} from "../../components/layout/registry";
 import { SECTION_REGISTRY } from "../../sections/registry";
 import type {
   Passport,
@@ -30,7 +33,7 @@ function createSection(type: SectionType, id: string): Section {
 
 const headerDefaults = COMPONENT_REGISTRY.header!.schema.defaults;
 const productImageDefaults = COMPONENT_REGISTRY.productImage!.schema.defaults;
-const modalDefaults = COMPONENT_REGISTRY.modal!.schema.defaults;
+const modalDefaults = MODAL_SCHEMA_REGISTRY.details!.schema.defaults;
 const footerDefaults = COMPONENT_REGISTRY.footer!.schema.defaults;
 
 export const DEFAULT_PASSPORT: Passport = {

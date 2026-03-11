@@ -18,18 +18,6 @@ export const BANNER_SCHEMA: SectionSchema = {
       {
         id: "banner.container",
         displayName: "Container",
-        styleFields: [
-          {
-            type: "color",
-            path: "container.backgroundColor",
-            label: "Background Color",
-          },
-          {
-            type: "radius",
-            path: "container.borderRadius",
-            label: "Border Radius",
-          },
-        ],
         configFields: [
           { type: "image", path: "backgroundImage", label: "Background Image" },
         ],
@@ -97,14 +85,7 @@ export const BANNER_SCHEMA: SectionSchema = {
         displayName: "Button",
         styleFields: [
           { type: "color", path: "button.color", label: "Text Color" },
-          { type: "color", path: "button.borderColor", label: "Border Color" },
           { type: "typescale", path: "button.typescale", label: "Typography" },
-          {
-            type: "radius",
-            path: "button.borderRadius",
-            label: "Border Radius",
-          },
-          { type: "border", path: "button.borderWidth", label: "Border Width" },
           {
             type: "select",
             path: "button.textTransform",

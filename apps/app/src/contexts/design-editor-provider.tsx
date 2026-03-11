@@ -22,6 +22,7 @@ import type {
 } from "@v1/dpp-components";
 import {
   COMPONENT_REGISTRY,
+  MODAL_SCHEMA_REGISTRY,
   SECTION_REGISTRY,
   type ColorTokenKey,
   generateGoogleFontsUrlFromTypography,
@@ -79,6 +80,8 @@ type DesignEditorContextValue = {
   saveDrafts: () => Promise<void>;
   previewData: DppData;
   setPreviewData: (data: DppData) => void;
+  dataSource: "mock" | "real";
+  setDataSource: (source: "mock" | "real") => void;
 
   // Token updates
   updateTypographyScale: (scale: TypeScale, value: TypographyScale) => void;
@@ -135,6 +138,10 @@ type DesignEditorContextValue = {
   hoveredNodeId: string | null;
   setSelectedNodeId: (id: string | null) => void;
   setHoveredNodeId: (id: string | null) => void;
+
+  // Modal preview — which modal type is being previewed (editor-only, not persisted)
+  previewModalType: string | null;
+  setPreviewModalType: (type: string | null) => void;
 };
 
 const DesignEditorContext = createContext<DesignEditorContextValue | null>(
@@ -211,7 +218,7 @@ function ensurePassportHasModalMapStyles(passport: Passport): Passport {
   }
 
   const modalMapDefaults =
-    COMPONENT_REGISTRY.modal!.schema.defaults.styles["modal.map"] ?? {};
+    MODAL_SCHEMA_REGISTRY.details!.schema.defaults.styles["modal.map"] ?? {};
 
   return {
     ...passport,
@@ -231,7 +238,7 @@ function ensurePassportHasModalContent(passport: Passport): Passport {
     return passport;
   }
 
-  const modalContentDefaults = COMPONENT_REGISTRY.modal!.schema.defaults
+  const modalContentDefaults = MODAL_SCHEMA_REGISTRY.details!.schema.defaults
     .content as Passport["modal"]["content"] | undefined;
 
   return {
@@ -287,6 +294,7 @@ export function DesignEditorProvider({
   // Preview Data State
   // ---------------------------------------------------------------------------
   const [previewData, setPreviewData] = useState<DppData>(initialPreviewData);
+  const [dataSource, setDataSource] = useState<"mock" | "real">("mock");
 
   useEffect(() => {
     setPreviewData(initialPreviewData);
@@ -860,6 +868,11 @@ export function DesignEditorProvider({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------------
+  // Modal Preview Visibility (editor-only toggle)
+  // ---------------------------------------------------------------------------
+  const [previewModalType, setPreviewModalType] = useState<string | null>(null);
+
+  // ---------------------------------------------------------------------------
   // Context Value
   // ---------------------------------------------------------------------------
   const value = useMemo(
@@ -872,6 +885,8 @@ export function DesignEditorProvider({
       saveDrafts,
       previewData,
       setPreviewData,
+      dataSource,
+      setDataSource,
       updateTypographyScale,
       updateColor,
       updateCustomFonts,
@@ -902,6 +917,8 @@ export function DesignEditorProvider({
       hoveredNodeId,
       setSelectedNodeId,
       setHoveredNodeId,
+      previewModalType,
+      setPreviewModalType,
     }),
     [
       passportDraft,
@@ -911,6 +928,7 @@ export function DesignEditorProvider({
       resetDrafts,
       saveDrafts,
       previewData,
+      dataSource,
       updateTypographyScale,
       updateColor,
       updateCustomFonts,
@@ -939,6 +957,7 @@ export function DesignEditorProvider({
       toggleExpanded,
       selectedNodeId,
       hoveredNodeId,
+      previewModalType,
     ],
   );
 

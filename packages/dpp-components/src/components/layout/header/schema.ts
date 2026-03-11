@@ -12,18 +12,6 @@ export const HEADER_SCHEMA: FixedComponentSchema = {
   editorTree: {
     id: "header",
     displayName: "Header",
-    styleFields: [
-      {
-        type: "color",
-        path: "container.backgroundColor",
-        label: "Background",
-      },
-      {
-        type: "color",
-        path: "container.borderColor",
-        label: "Border Color",
-      },
-    ],
     configFields: [{ type: "image", path: "logoUrl", label: "Logo" }],
     children: [
       {

@@ -17,6 +17,7 @@ interface Props {
   passport: Passport;
   data: DppData;
   content?: DppContent;
+  forceModalType?: string | null;
 }
 
 /** Builds the sidebar section shell classes for selectable spacing. */
@@ -39,7 +40,12 @@ function getCanvasSectionWrapperClassName(): string {
   return "max-w-container py-8 mx-auto w-full @md:px-md";
 }
 
-export function LayoutRenderer({ passport, data, content }: Props) {
+export function LayoutRenderer({
+  passport,
+  data,
+  content,
+  forceModalType,
+}: Props) {
   // Render the fixed left media column and the dynamic right-hand section stack.
   const { tokens, sidebar, canvas } = passport;
   const modalStyles = resolveStyles(passport.modal.styles, tokens);
@@ -81,6 +87,7 @@ export function LayoutRenderer({ passport, data, content }: Props) {
                         content={content}
                         modalContent={modalContent}
                         modalStyles={modalStyles}
+                        forceModalType={forceModalType}
                         wrapperClassName={getSidebarSectionWrapperClassName(
                           index,
                           index === sidebar.length - 1,

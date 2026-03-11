@@ -19,16 +19,14 @@ const FONT_URL =
 export const DEFAULT_COLORS: ColorTokens = {
   background: "#FFFFFF",
   foreground: "#000000",
-  mutedLight: "#E0E0E0",
-  mutedLightForeground: "#808080",
-  mutedDark: "#EBEBEB",
-  mutedDarkForeground: "#4D4D4D",
+  muted: "#E5E5E5",
+  mutedForeground: "#595959",
   card: "#FFFFFF",
   cardForeground: "#000000",
   primary: "#0000FF",
   primaryForeground: "#FFFFFF",
   border: "#F0F0F0",
-  link: "#0000FF",
+  link: "#000000",
 };
 
 export const DEFAULT_TYPOGRAPHY: Record<TypeScale, TypographyScale> = {

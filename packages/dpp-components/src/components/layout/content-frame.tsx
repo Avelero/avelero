@@ -7,8 +7,21 @@ interface Props {
   passport: Passport;
   data: DppData;
   content?: DppContent;
+  forceModalType?: string | null;
 }
 
-export function ContentFrame({ passport, data, content }: Props) {
-  return <LayoutRenderer passport={passport} data={data} content={content} />;
+export function ContentFrame({
+  passport,
+  data,
+  content,
+  forceModalType,
+}: Props) {
+  return (
+    <LayoutRenderer
+      passport={passport}
+      data={data}
+      content={content}
+      forceModalType={forceModalType}
+    />
+  );
 }

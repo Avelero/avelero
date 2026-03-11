@@ -157,4 +157,6 @@ export interface SectionProps {
   modalStyles?: Record<string, React.CSSProperties>;
   /** Modal content settings shared across sections, passed by the layout renderer. */
   modalContent?: Passport["modal"]["content"];
+  /** Section type being previewed in the editor — sections match against their own type. */
+  forceModalType?: string | null;
 }

@@ -41,33 +41,6 @@ export const IMPACT_SCHEMA: SectionSchema = {
             path: "helpLink.typescale",
             label: "Typography",
           },
-          {
-            type: "select",
-            path: "helpLink.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
-      },
-      {
-        id: "impact.card",
-        displayName: "Card",
-        styleFields: [
-          { type: "color", path: "card.backgroundColor", label: "Background" },
-          {
-            type: "toggle",
-            path: "card.boxShadow",
-            label: "Shadow",
-          },
-          {
-            type: "toggle",
-            path: "card.borderWidth",
-            label: "Border",
-            enabledValue: 1,
-            disabledValue: 0,
-          },
-          { type: "color", path: "card.borderColor", label: "Border Color" },
-          { type: "radius", path: "card.borderRadius", label: "Border Radius" },
         ],
       },
       {
@@ -75,7 +48,6 @@ export const IMPACT_SCHEMA: SectionSchema = {
         displayName: "Icon",
         styleFields: [
           { type: "color", path: "card.icon.color", label: "Color" },
-          { type: "number", path: "card.icon.size", label: "Size", unit: "px" },
         ],
       },
       {
@@ -106,12 +78,6 @@ export const IMPACT_SCHEMA: SectionSchema = {
             path: "card.value.typescale",
             label: "Typography",
           },
-          {
-            type: "select",
-            path: "card.value.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
         ],
       },
       {
@@ -123,12 +89,6 @@ export const IMPACT_SCHEMA: SectionSchema = {
             type: "typescale",
             path: "card.unit.typescale",
             label: "Typography",
-          },
-          {
-            type: "select",
-            path: "card.unit.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
           },
         ],
       },
@@ -145,7 +105,7 @@ export const IMPACT_SCHEMA: SectionSchema = {
         typescale: "body",
         typographyDetached: true,
         fontWeight: 500,
-        color: "$mutedLightForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
       card: {
@@ -158,7 +118,7 @@ export const IMPACT_SCHEMA: SectionSchema = {
       "card.icon": { color: "$primary", size: 28 },
       "card.type": {
         typescale: "body-sm",
-        color: "$mutedLightForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
       "card.value": {
@@ -171,7 +131,7 @@ export const IMPACT_SCHEMA: SectionSchema = {
       },
       "card.unit": {
         typescale: "body-sm",
-        color: "$mutedLightForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
     },

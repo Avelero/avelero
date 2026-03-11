@@ -59,29 +59,6 @@ function createImageCardNode(slot: ImageCardSlotConfig): ComponentDefinition {
       {
         id: `imageCards.${slot.id}.image`,
         displayName: "Image",
-        styleFields: [
-          {
-            type: "radius",
-            path: "cardImage.borderRadius",
-            label: "Border Radius",
-          },
-          {
-            type: "border",
-            path: "cardImage.borderWidth",
-            label: "Border",
-          },
-          {
-            type: "color",
-            path: "cardImage.borderColor",
-            label: "Border Color",
-          },
-          {
-            type: "number",
-            path: "cardImage.aspectRatio",
-            label: "Aspect Ratio",
-            step: 0.1,
-          },
-        ],
         configFields: [
           { type: "image", path: slot.imagePath, label: "Image" },
           { type: "text", path: slot.imageAltPath, label: "Image Alt Text" },
@@ -177,13 +154,6 @@ export const IMAGE_CARDS_SCHEMA: SectionSchema = {
       {
         id: "imageCards.container",
         displayName: "Container",
-        styleFields: [
-          {
-            type: "color",
-            path: "container.backgroundColor",
-            label: "Background",
-          },
-        ],
       },
       {
         id: "imageCards.title",
@@ -222,12 +192,12 @@ export const IMAGE_CARDS_SCHEMA: SectionSchema = {
       },
       cardBody: {
         typescale: "body",
-        color: "$mutedDarkForeground",
+        color: "$link",
         textTransform: "none",
       },
       cardButton: {
         typescale: "body",
-        color: "$mutedDarkForeground",
+        color: "$link",
         textTransform: "none",
       },
     },

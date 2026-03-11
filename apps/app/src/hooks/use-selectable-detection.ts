@@ -12,8 +12,6 @@ import { useDesignEditor } from "@/contexts/design-editor-provider";
 import type { ZoneId } from "@v1/dpp-components";
 import { useCallback, useEffect, useRef } from "react";
 
-/** Debounce delay in ms - hover shows after cursor has been on an item for this duration */
-const HOVER_DEBOUNCE_MS = 20;
 
 type SelectableNodeTarget =
   | {
@@ -143,11 +141,6 @@ export function useSelectableDetection(
     navigateBack,
   } = useDesignEditor();
 
-  // Debounce timer for hover detection.
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track the node under cursor before the debounce completes.
-  const pendingNodeRef = useRef<string | null>(null);
-
   // Track previous node ids so selection attributes update cleanly.
   const prevHoveredRef = useRef<string | null>(null);
   const prevSelectedRef = useRef<string | null>(null);
@@ -184,7 +177,7 @@ export function useSelectableDetection(
     prevSelectedRef.current = selectedNodeId;
   }, [selectedNodeId, containerRef]);
 
-  // Clean up hover state and any pending timers on unmount.
+  // Clean up selection attributes on unmount.
   useEffect(() => {
     return () => {
       const container = containerRef.current;
@@ -192,45 +185,20 @@ export function useSelectableDetection(
         removeSelectionAttribute(container, "hoverSelection");
         removeSelectionAttribute(container, "selectedSelection");
       }
-
-      if (debounceTimerRef.current !== null) {
-        clearTimeout(debounceTimerRef.current);
-      }
     };
   }, [containerRef]);
 
   /**
-   * Handle mouse move and debounce hover updates against explicit preview nodes.
+   * Handle mouse move and update hover state immediately.
    */
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
       const target = findSelectableTarget(event.target);
       const nodeId = target?.nodeId ?? null;
 
-      if (nodeId === pendingNodeRef.current) {
-        return;
+      if (nodeId !== hoveredNodeId) {
+        setHoveredNodeId(nodeId);
       }
-
-      pendingNodeRef.current = nodeId;
-
-      if (debounceTimerRef.current !== null) {
-        clearTimeout(debounceTimerRef.current);
-      }
-
-      if (nodeId === null) {
-        debounceTimerRef.current = null;
-        if (hoveredNodeId !== null) {
-          setHoveredNodeId(null);
-        }
-        return;
-      }
-
-      debounceTimerRef.current = setTimeout(() => {
-        if (pendingNodeRef.current === nodeId) {
-          setHoveredNodeId(nodeId);
-        }
-        debounceTimerRef.current = null;
-      }, HOVER_DEBOUNCE_MS);
     },
     [hoveredNodeId, setHoveredNodeId],
   );
@@ -239,12 +207,6 @@ export function useSelectableDetection(
    * Handle mouse leave and clear the current hover state immediately.
    */
   const handleMouseLeave = useCallback(() => {
-    if (debounceTimerRef.current !== null) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
-    }
-
-    pendingNodeRef.current = null;
     setHoveredNodeId(null);
   }, [setHoveredNodeId]);
 

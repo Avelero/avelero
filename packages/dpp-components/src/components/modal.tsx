@@ -8,7 +8,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import * as React from "react";
-import { DataTable } from "../data-table";
+import { DataTable } from "./data-table";
 
 const Modal = DialogPrimitive.Root;
 const ModalTrigger = DialogPrimitive.Trigger;
@@ -157,14 +157,14 @@ const ModalContent = React.forwardRef<
   );
 });
 
-function ModalBody({
-  className,
-  style,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+const ModalBody = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(function ModalBody({ className, style, ...props }, ref) {
   // Scrollable padded content area inside the modal shell.
   return (
     <div
+      ref={ref}
       className={cn(
         "scrollbar-none flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-6 pt-8",
         className,
@@ -176,7 +176,7 @@ function ModalBody({
       {...props}
     />
   );
-}
+});
 
 interface ModalHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   styles?: ModalStyles;

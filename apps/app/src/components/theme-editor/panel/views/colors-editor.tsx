@@ -10,10 +10,8 @@ const COLOR_TOKENS = [
   { key: "background", label: "Background" },
   { key: "foreground", label: "Foreground" },
   // Muted colors
-  { key: "mutedLight", label: "Muted Light" },
-  { key: "mutedLightForeground", label: "Muted Light Foreground" },
-  { key: "mutedDark", label: "Muted Dark" },
-  { key: "mutedDarkForeground", label: "Muted Dark Foreground" },
+  { key: "muted", label: "Muted" },
+  { key: "mutedForeground", label: "Muted Foreground" },
   // Card colors
   { key: "card", label: "Card" },
   { key: "cardForeground", label: "Card Foreground" },

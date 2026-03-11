@@ -12,8 +12,8 @@ import {
   ModalSubtitle,
   ModalTitle,
   getModalSelectionProps,
-} from "../modal";
-import type { ModalSelectionGetter, ModalStyles } from "../modal";
+} from "../../modal";
+import type { ModalSelectionGetter, ModalStyles } from "../../modal";
 
 interface DescriptionModalProps {
   description: string;

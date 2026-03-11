@@ -49,7 +49,7 @@ export const HERO_SCHEMA: SectionSchema = {
       title: { typescale: "h1", color: "$foreground", textTransform: "none" },
       brand: {
         typescale: "h5",
-        color: "$mutedLightForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
     },

@@ -32,31 +32,6 @@ export const JOURNEY_SCHEMA: SectionSchema = {
         ],
       },
       {
-        id: "journey.card",
-        displayName: "Card",
-        styleFields: [
-          { type: "color", path: "card.backgroundColor", label: "Background" },
-          {
-            type: "toggle",
-            path: "card.boxShadow",
-            label: "Shadow",
-          },
-          {
-            type: "toggle",
-            path: "card.borderWidth",
-            label: "Border",
-            enabledValue: 1,
-            disabledValue: 0,
-          },
-          {
-            type: "color",
-            path: "card.borderColor",
-            label: "Border / Divider Color",
-          },
-          { type: "radius", path: "card.borderRadius", label: "Border Radius" },
-        ],
-      },
-      {
         id: "journey.card.type",
         displayName: "Stage Name",
         styleFields: [
@@ -84,12 +59,6 @@ export const JOURNEY_SCHEMA: SectionSchema = {
             path: "card.operator.typescale",
             label: "Typography",
           },
-          {
-            type: "select",
-            path: "card.operator.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
         ],
       },
       {
@@ -102,39 +71,6 @@ export const JOURNEY_SCHEMA: SectionSchema = {
             path: "card.location.typescale",
             label: "Typography",
           },
-          {
-            type: "select",
-            path: "card.location.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
-      },
-      {
-        id: "journey.card.locationIcon",
-        displayName: "Location Icon",
-        styleFields: [
-          { type: "color", path: "card.locationIcon.color", label: "Color" },
-          {
-            type: "number",
-            path: "card.locationIcon.size",
-            label: "Size",
-            unit: "px",
-          },
-        ],
-      },
-      {
-        id: "journey.card.line",
-        displayName: "Timeline Line",
-        styleFields: [
-          { type: "color", path: "card.line.backgroundColor", label: "Color" },
-        ],
-      },
-      {
-        id: "journey.card.dot",
-        displayName: "Timeline Dot",
-        styleFields: [
-          { type: "color", path: "card.dot.backgroundColor", label: "Color" },
         ],
       },
     ],
@@ -162,17 +98,17 @@ export const JOURNEY_SCHEMA: SectionSchema = {
         typescale: "body",
         typographyDetached: true,
         fontWeight: 500,
-        color: "$cardForeground",
+        color: "$link",
         textTransform: "none",
       },
       "card.location": {
         typescale: "body",
-        color: "$mutedLightForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
-      "card.locationIcon": { color: "$mutedLightForeground", size: 14 },
-      "card.line": { backgroundColor: "$mutedLight" },
-      "card.dot": { backgroundColor: "$mutedLight" },
+      "card.locationIcon": { color: "$mutedForeground", size: 14 },
+      "card.line": { backgroundColor: "$muted" },
+      "card.dot": { backgroundColor: "$muted" },
     },
     content: {},
   },

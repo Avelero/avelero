@@ -12,18 +12,6 @@ export const FOOTER_SCHEMA: FixedComponentSchema = {
   editorTree: {
     id: "footer",
     displayName: "Footer",
-    styleFields: [
-      {
-        type: "color",
-        path: "container.backgroundColor",
-        label: "Background",
-      },
-      {
-        type: "color",
-        path: "container.borderColor",
-        label: "Border Color",
-      },
-    ],
     configFields: [
       {
         type: "url",
@@ -99,17 +87,6 @@ export const FOOTER_SCHEMA: FixedComponentSchema = {
         displayName: "Socials",
         styleFields: [
           { type: "color", path: "socialIcon.color", label: "Color" },
-          {
-            type: "typescale",
-            path: "socialIcon.typescale",
-            label: "Typography",
-          },
-          {
-            type: "select",
-            path: "socialIcon.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
         ],
       },
     ],
@@ -119,7 +96,7 @@ export const FOOTER_SCHEMA: FixedComponentSchema = {
       container: { backgroundColor: "$background", borderColor: "$border" },
       brandName: {
         typescale: "body-sm",
-        color: "$mutedLightForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
       socialIcon: {

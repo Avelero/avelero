@@ -1,17 +1,17 @@
 /**
- * Modal fixed component schema.
+ * Operator modal schema.
  *
- * Defines the editor tree and defaults for the passport-level modal building blocks.
- * Each text slot (title, subtitle, description, label, value) is independently stylable.
+ * Defines the editable building blocks for the supply chain operator modal.
+ * Uses: container, subtitle, title, description, label, value, map.
  */
 
 import {
   CAPITALIZATION_STYLE_OPTIONS,
   SURFACE_CARD_SHADOW,
-} from "../../sections/editor-options";
-import type { FixedComponentSchema, StyleField } from "../../types/editor";
+} from "../../../sections/editor-options";
+import type { FixedComponentSchema, StyleField } from "../../../types/editor";
 
-function createModalTypographyFields(path: string): StyleField[] {
+function createTypographyFields(path: string): StyleField[] {
   return [
     { type: "color", path: `${path}.color`, label: "Color" },
     { type: "typescale", path: `${path}.typescale`, label: "Typography" },
@@ -24,12 +24,12 @@ function createModalTypographyFields(path: string): StyleField[] {
   ];
 }
 
-export const MODAL_SCHEMA: FixedComponentSchema = {
-  id: "modal",
-  displayName: "Modal",
+export const OPERATOR_MODAL_SCHEMA: FixedComponentSchema = {
+  id: "operatorModal",
+  displayName: "Operator",
   editorTree: {
-    id: "modal",
-    displayName: "Modal",
+    id: "operatorModal",
+    displayName: "Operator Modal",
     configFields: [
       {
         type: "toggle",
@@ -40,77 +40,44 @@ export const MODAL_SCHEMA: FixedComponentSchema = {
     ],
     children: [
       {
-        id: "modal.container",
-        displayName: "Container",
-        styleFields: [
-          {
-            type: "color",
-            path: "modal.container.backgroundColor",
-            label: "Background",
-          },
-          {
-            type: "toggle",
-            path: "modal.container.boxShadow",
-            label: "Shadow",
-          },
-          {
-            type: "toggle",
-            path: "modal.container.borderWidth",
-            label: "Border",
-            enabledValue: 1,
-            disabledValue: 0,
-          },
-          {
-            type: "color",
-            path: "modal.container.borderColor",
-            label: "Border Color",
-          },
-          {
-            type: "radius",
-            path: "modal.container.borderRadius",
-            label: "Border Radius",
-          },
-        ],
-      },
-      {
         id: "modal.title",
         displayName: "Title",
-        styleFields: createModalTypographyFields("modal.title"),
+        styleFields: createTypographyFields("modal.title"),
       },
       {
         id: "modal.subtitle",
         displayName: "Subtitle",
-        styleFields: createModalTypographyFields("modal.subtitle"),
+        styleFields: createTypographyFields("modal.subtitle"),
       },
       {
         id: "modal.description",
         displayName: "Description",
-        styleFields: createModalTypographyFields("modal.description"),
+        styleFields: createTypographyFields("modal.description"),
       },
       {
         id: "modal.label",
         displayName: "Label",
-        styleFields: createModalTypographyFields("modal.label"),
+        styleFields: createTypographyFields("modal.label"),
       },
       {
         id: "modal.value",
         displayName: "Value",
-        styleFields: createModalTypographyFields("modal.value"),
+        styleFields: createTypographyFields("modal.value"),
       },
       {
         id: "modal.map",
         displayName: "Map",
         styleFields: [
           {
-            type: "radius",
-            path: "modal.map.borderRadius",
-            label: "Border Radius",
-          },
-          {
             type: "number",
             path: "modal.map.aspectRatio",
             label: "Aspect Ratio",
-            step: 0.1,
+            step: 0.5,
+          },
+          {
+            type: "radius",
+            path: "modal.map.borderRadius",
+            label: "Border Radius",
           },
         ],
       },
@@ -132,19 +99,19 @@ export const MODAL_SCHEMA: FixedComponentSchema = {
       },
       "modal.subtitle": {
         typescale: "h6",
-        color: "$mutedLightForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
       "modal.description": {
         typescale: "body",
-        color: "$mutedDarkForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
       "modal.label": {
         typescale: "body",
         typographyDetached: true,
         fontWeight: 500,
-        color: "$mutedLightForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
       "modal.value": {

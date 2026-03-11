@@ -45,16 +45,17 @@ export function ImpactSection({
   zoneId,
   wrapperClassName,
   modalStyles,
+  forceModalType,
 }: SectionProps) {
   // Resolve styles and map the available impact metrics into cards.
   const s = resolveStyles(section.styles, tokens);
   const metrics = transformImpactMetrics(data);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const isForceOpen = forceModalType === "impact";
   const hapticTap = useHapticTap();
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const titleSelection = select("impact.title");
   const helpLinkSelection = select("impact.helpLink");
-  const cardSelection = select("impact.card");
   const cardTypeSelection = select("impact.card.type");
   const cardValueSelection = select("impact.card.value");
   const cardUnitSelection = select("impact.card.unit");
@@ -67,7 +68,11 @@ export function ImpactSection({
   if (metrics.length === 0) return null;
 
   return (
-    <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
+    <Modal
+      open={isModalOpen || isForceOpen}
+      onOpenChange={setIsModalOpen}
+      modal={!isForceOpen}
+    >
       <div
         className={["flex flex-col gap-xs w-full", wrapperClassName]
           .filter(Boolean)
@@ -101,11 +106,10 @@ export function ImpactSection({
             return (
               <div
                 key={metric.type}
-                {...cardSelection}
                 className="flex items-center justify-between gap-md p-md"
                 style={s.card}
               >
-                <div className="flex-1 min-w-0 flex flex-col gap-xs">
+                <div className="flex-1 min-w-0 flex flex-col gap-micro">
                   <div {...cardTypeSelection} style={s["card.type"]}>
                     {metric.type}
                   </div>

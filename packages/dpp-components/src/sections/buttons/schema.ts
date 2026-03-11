@@ -3,71 +3,53 @@
  *
  * Defines the editor controls for stacked sidebar action cards.
  */
-import {
-  CAPITALIZATION_STYLE_OPTIONS,
-  SURFACE_CARD_SHADOW,
-} from "../editor-options";
+import { SURFACE_CARD_SHADOW } from "../editor-options";
 import type { SectionSchema } from "../registry";
 
 export const BUTTONS_SCHEMA: SectionSchema = {
   type: "buttons",
-  displayName: "Menu Buttons",
+  displayName: "Buttons",
   allowedZones: ["sidebar"],
   editorTree: {
     id: "buttons",
-    displayName: "Menu Buttons",
+    displayName: "Buttons",
+    configFields: [
+      {
+        type: "modal",
+        path: "menuItems",
+        label: "Menu Items",
+        modalType: "menu-primary",
+      },
+    ],
+    styleFields: [
+      {
+        type: "toggle",
+        path: "button.boxShadow",
+        label: "Shadow",
+        enabledValue: SURFACE_CARD_SHADOW,
+        disabledValue: "",
+      },
+      {
+        type: "border",
+        path: "button.borderWidth",
+        label: "Border Width",
+      },
+      {
+        type: "radius",
+        path: "button.borderRadius",
+        label: "Corner Radius",
+      },
+    ],
     children: [
       {
-        id: "buttons.button",
-        displayName: "Button",
+        id: "buttons.label",
+        displayName: "Label",
         styleFields: [
-          { type: "color", path: "button.color", label: "Text Color" },
-          {
-            type: "color",
-            path: "button.backgroundColor",
-            label: "Background",
-          },
-          {
-            type: "toggle",
-            path: "button.boxShadow",
-            label: "Shadow",
-          },
-          {
-            type: "toggle",
-            path: "button.borderWidth",
-            label: "Border",
-            enabledValue: 1,
-            disabledValue: 0,
-          },
-          {
-            type: "color",
-            path: "button.borderColor",
-            label: "Border Color",
-          },
           { type: "typescale", path: "button.typescale", label: "Typography" },
-          {
-            type: "radius",
-            path: "button.borderRadius",
-            label: "Border Radius",
-          },
-          {
-            type: "select",
-            path: "button.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
-        configFields: [
-          {
-            type: "modal",
-            path: "menuItems",
-            label: "Menu Items",
-            modalType: "menu-primary",
-          },
         ],
       },
       {
-        id: "buttons.button.icon",
+        id: "buttons.icon",
         displayName: "Icon",
         styleFields: [
           { type: "color", path: "button.icon.color", label: "Color" },

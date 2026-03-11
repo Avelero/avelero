@@ -18,13 +18,6 @@ export const TEXT_IMAGE_SCHEMA: SectionSchema = {
       {
         id: "textImage.container",
         displayName: "Container",
-        styleFields: [
-          {
-            type: "color",
-            path: "container.backgroundColor",
-            label: "Background",
-          },
-        ],
       },
       {
         id: "textImage.heading",
@@ -65,29 +58,6 @@ export const TEXT_IMAGE_SCHEMA: SectionSchema = {
       {
         id: "textImage.image",
         displayName: "Image",
-        styleFields: [
-          {
-            type: "radius",
-            path: "image.borderRadius",
-            label: "Border Radius",
-          },
-          {
-            type: "border",
-            path: "image.borderWidth",
-            label: "Border",
-          },
-          {
-            type: "color",
-            path: "image.borderColor",
-            label: "Border Color",
-          },
-          {
-            type: "number",
-            path: "image.aspectRatio",
-            label: "Aspect Ratio",
-            step: 0.1,
-          },
-        ],
         configFields: [
           { type: "image", path: "image", label: "Image" },
           { type: "text", path: "imageAlt", label: "Image Alt Text" },
@@ -124,7 +94,7 @@ export const TEXT_IMAGE_SCHEMA: SectionSchema = {
       },
       body: {
         typescale: "body",
-        color: "$mutedDarkForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
       image: {

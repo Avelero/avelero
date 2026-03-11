@@ -150,9 +150,11 @@ export function JourneySection({
   wrapperClassName,
   modalContent,
   modalStyles,
+  forceModalType,
 }: SectionProps) {
   // Resolve styles and build the stage timeline for the sidebar card.
   const s = resolveStyles(section.styles, tokens);
+  const isForceOpen = forceModalType === "journey";
   const journey = transformJourney(data);
   const [isOperatorDialogOpen, setIsOperatorDialogOpen] = useState(false);
   const hapticTap = useHapticTap();
@@ -162,13 +164,9 @@ export function JourneySection({
   } | null>(null);
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const titleSelection = select("journey.title");
-  const cardSelection = select("journey.card");
   const typeSelection = select("journey.card.type");
   const operatorSelection = select("journey.card.operator");
   const locationSelection = select("journey.card.location");
-  const locationIconSelection = select("journey.card.locationIcon");
-  const lineSelection = select("journey.card.line");
-  const dotSelection = select("journey.card.dot");
 
   if (journey.length === 0) return null;
 
@@ -191,7 +189,11 @@ export function JourneySection({
   );
 
   return (
-    <Modal open={isOperatorDialogOpen} onOpenChange={setIsOperatorDialogOpen}>
+    <Modal
+      open={isOperatorDialogOpen || isForceOpen}
+      onOpenChange={setIsOperatorDialogOpen}
+      modal={!isForceOpen}
+    >
       <div
         className={["flex flex-col gap-xs w-full", wrapperClassName]
           .filter(Boolean)
@@ -201,7 +203,7 @@ export function JourneySection({
           Journey
         </h6>
 
-        <div {...cardSelection} className="overflow-hidden" style={s.card}>
+        <div className="overflow-hidden" style={s.card}>
           {journey.map((stage, stageIndex) => {
             const isFirstStage = stageIndex === 0;
             const isLastStage = stageIndex === journey.length - 1;
@@ -232,17 +234,12 @@ export function JourneySection({
               >
                 <div className="relative flex flex-col items-center px-md pt-md pb-md">
                   {/* Keep the rail separate from the content column so dividers stop at the text edge. */}
-                  <div
-                    {...lineSelection}
-                    className="absolute"
-                    style={timelineLineStyle}
-                  />
+                  <div className="absolute" style={timelineLineStyle} />
                   <div
                     className="flex w-full items-center justify-center"
                     style={{ minHeight: titleRowHeight }}
                   >
                     <div
-                      {...dotSelection}
                       className="relative z-10 rounded-full"
                       style={{
                         ...s["card.dot"],
@@ -289,7 +286,6 @@ export function JourneySection({
                             style={{ height: locationRowHeight }}
                           >
                             <MapPinIcon
-                              {...locationIconSelection}
                               style={s["card.locationIcon"]}
                               aria-hidden="true"
                             />
@@ -350,23 +346,31 @@ export function JourneySection({
         </div>
       </div>
 
-      {selectedOperator ? (
-        <OperatorModal
-          description={`This operator is responsible for the ${selectedOperator.stageName.toLowerCase()} step recorded in the product journey.`}
-          facts={buildOperatorModalFacts(
-            selectedOperator.stageName,
-            selectedOperator.company,
-          )}
-          mapQuery={buildOperatorMapQuery(
-            selectedOperator.company,
-            showExactLocation,
-          )}
-          select={modalSelect}
-          styles={modalStyles ?? {}}
-          subtitle="Supply chain operator"
-          title={selectedOperator.company.name}
-        />
-      ) : null}
+      {(() => {
+        const operator =
+          selectedOperator ??
+          (isForceOpen && journey[0]?.companies[0]
+            ? { company: journey[0].companies[0], stageName: journey[0].name }
+            : null);
+        if (!operator) return null;
+        return (
+          <OperatorModal
+            description={`This operator is responsible for the ${operator.stageName.toLowerCase()} step recorded in the product journey.`}
+            facts={buildOperatorModalFacts(
+              operator.stageName,
+              operator.company,
+            )}
+            mapQuery={buildOperatorMapQuery(
+              operator.company,
+              showExactLocation,
+            )}
+            select={modalSelect}
+            styles={modalStyles ?? {}}
+            subtitle="Supply chain operator"
+            title={operator.company.name}
+          />
+        );
+      })()}
     </Modal>
   );
 }

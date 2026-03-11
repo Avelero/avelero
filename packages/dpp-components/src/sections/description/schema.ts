@@ -13,13 +13,6 @@ export const DESCRIPTION_SCHEMA: SectionSchema = {
   editorTree: {
     id: "description",
     displayName: "Description",
-    styleFields: [
-      {
-        type: "color",
-        path: "header.borderColor",
-        label: "Border Color",
-      },
-    ],
     children: [
       {
         id: "description.heading",
@@ -83,14 +76,14 @@ export const DESCRIPTION_SCHEMA: SectionSchema = {
       },
       body: {
         typescale: "body",
-        color: "$mutedDarkForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
       showMore: {
         typescale: "body",
         typographyDetached: true,
         fontWeight: 600,
-        color: "$link",
+        color: "$foreground",
         textTransform: "none",
       },
     },

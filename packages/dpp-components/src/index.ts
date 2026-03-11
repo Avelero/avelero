@@ -14,4 +14,7 @@ export * from "./lib/token-utils";
 export * from "./lib/resolve-styles";
 export * from "./components";
 export * from "./sections/registry";
-export { COMPONENT_REGISTRY } from "./components/layout/registry";
+export {
+  COMPONENT_REGISTRY,
+  MODAL_SCHEMA_REGISTRY,
+} from "./components/layout/registry";

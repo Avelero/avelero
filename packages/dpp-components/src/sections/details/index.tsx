@@ -135,9 +135,11 @@ export function DetailsSection({
   wrapperClassName,
   modalContent,
   modalStyles,
+  forceModalType,
 }: SectionProps) {
   // Resolve styles and map the product metadata into detail rows.
   const s = resolveStyles(section.styles, tokens);
+  const isForceOpen = forceModalType === "details";
   const { productIdentifiers, productAttributes, manufacturing } = data;
   const manufacturer = manufacturing?.manufacturer;
   const manufacturerName =
@@ -148,9 +150,7 @@ export function DetailsSection({
   const borderColor =
     s.row?.borderColor ?? s.header?.borderColor ?? s.container?.borderColor;
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const headerSelection = select("details.header");
   const headingSelection = select("details.heading");
-  const rowSelection = select("details.row");
   const labelSelection = select("details.label");
   const valueSelection = select("details.value");
   const modalSelect = createDetailsModalSelectionGetter(select);
@@ -171,7 +171,6 @@ export function DetailsSection({
     key: string;
     label: string;
     labelProps: Record<string, string>;
-    rowProps: Record<string, string>;
     value: React.ReactNode;
     valueProps?: Record<string, string>;
   }> = [];
@@ -181,7 +180,6 @@ export function DetailsSection({
       key: "article-number",
       label: "Article Number",
       labelProps: labelSelection,
-      rowProps: rowSelection,
       value: (
         <span className="block truncate">
           {productIdentifiers.articleNumber}
@@ -196,7 +194,6 @@ export function DetailsSection({
       key: "manufacturer",
       label: "Manufacturer",
       labelProps: labelSelection,
-      rowProps: rowSelection,
       value: (
         <button
           {...valueSelection}
@@ -221,7 +218,6 @@ export function DetailsSection({
         key: "country-of-origin",
         label: "Country Of Origin",
         labelProps: labelSelection,
-        rowProps: rowSelection,
         value: <span className="block truncate">{countryName}</span>,
         valueProps: valueSelection,
       });
@@ -233,7 +229,6 @@ export function DetailsSection({
       key: "category",
       label: "Category",
       labelProps: labelSelection,
-      rowProps: rowSelection,
       value: (
         <span className="block truncate">
           {productAttributes.category.category}
@@ -251,7 +246,6 @@ export function DetailsSection({
         key: `attribute-${attr.name}-${index}`,
         label: toCapitalizedLabel(attr.name),
         labelProps: labelSelection,
-        rowProps: rowSelection,
         value: <span className="block truncate">{attr.value}</span>,
         valueProps: valueSelection,
       });
@@ -262,8 +256,9 @@ export function DetailsSection({
 
   return (
     <Modal
-      open={isManufacturerDialogOpen}
+      open={isManufacturerDialogOpen || isForceOpen}
       onOpenChange={setIsManufacturerDialogOpen}
+      modal={!isForceOpen}
     >
       <div
         className={["flex flex-col w-full", wrapperClassName]
@@ -271,7 +266,6 @@ export function DetailsSection({
           .join(" ")}
       >
         <div
-          {...headerSelection}
           className="w-full border-b pb-xs"
           style={{ ...s.header, borderColor }}
         >

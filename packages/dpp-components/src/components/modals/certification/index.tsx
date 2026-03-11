@@ -8,7 +8,7 @@ import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr/DownloadSimpl
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
   createInteractiveHoverStyle,
-} from "../../lib/interactive-hover";
+} from "../../../lib/interactive-hover";
 import {
   ModalBody,
   ModalContent,
@@ -20,12 +20,12 @@ import {
   ModalSubtitle,
   ModalTitle,
   getModalSelectionProps,
-} from "../modal";
+} from "../../modal";
 import type {
   ModalDataTableRow,
   ModalSelectionGetter,
   ModalStyles,
-} from "../modal";
+} from "../../modal";
 
 interface CertificationModalProps {
   certificateUrl?: string;

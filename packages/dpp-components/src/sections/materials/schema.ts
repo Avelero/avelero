@@ -32,31 +32,6 @@ export const MATERIALS_SCHEMA: SectionSchema = {
         ],
       },
       {
-        id: "materials.card",
-        displayName: "Card",
-        styleFields: [
-          { type: "color", path: "card.backgroundColor", label: "Background" },
-          {
-            type: "toggle",
-            path: "card.boxShadow",
-            label: "Shadow",
-          },
-          {
-            type: "toggle",
-            path: "card.borderWidth",
-            label: "Border",
-            enabledValue: 1,
-            disabledValue: 0,
-          },
-          {
-            type: "color",
-            path: "card.borderColor",
-            label: "Border / Divider Color",
-          },
-          { type: "radius", path: "card.borderRadius", label: "Border Radius" },
-        ],
-      },
-      {
         id: "materials.card.percentage",
         displayName: "Percentage",
         styleFields: [
@@ -65,12 +40,6 @@ export const MATERIALS_SCHEMA: SectionSchema = {
             type: "typescale",
             path: "card.percentage.typescale",
             label: "Typography",
-          },
-          {
-            type: "select",
-            path: "card.percentage.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
           },
         ],
       },
@@ -102,25 +71,6 @@ export const MATERIALS_SCHEMA: SectionSchema = {
             path: "card.origin.typescale",
             label: "Typography",
           },
-          {
-            type: "select",
-            path: "card.origin.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
-      },
-      {
-        id: "materials.card.locationIcon",
-        displayName: "Location Icon",
-        styleFields: [
-          { type: "color", path: "card.locationIcon.color", label: "Color" },
-          {
-            type: "number",
-            path: "card.locationIcon.size",
-            label: "Size",
-            unit: "px",
-          },
         ],
       },
       {
@@ -130,28 +80,12 @@ export const MATERIALS_SCHEMA: SectionSchema = {
           {
             type: "color",
             path: "card.certification.color",
-            label: "Text Color",
-          },
-          {
-            type: "color",
-            path: "card.certification.backgroundColor",
-            label: "Background",
-          },
-          {
-            type: "radius",
-            path: "card.certification.borderRadius",
-            label: "Border Radius",
+            label: "Color",
           },
           {
             type: "typescale",
             path: "card.certification.typescale",
             label: "Typography",
-          },
-          {
-            type: "select",
-            path: "card.certification.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
           },
         ],
         configFields: [
@@ -159,19 +93,6 @@ export const MATERIALS_SCHEMA: SectionSchema = {
             type: "toggle",
             path: "showCertificationCheckIcon",
             label: "Show Check Icon",
-          },
-        ],
-      },
-      {
-        id: "materials.card.certIcon",
-        displayName: "Cert Icon",
-        styleFields: [
-          { type: "color", path: "card.certIcon.color", label: "Color" },
-          {
-            type: "number",
-            path: "card.certIcon.size",
-            label: "Size",
-            unit: "px",
           },
         ],
       },
@@ -184,12 +105,6 @@ export const MATERIALS_SCHEMA: SectionSchema = {
             type: "typescale",
             path: "card.certText.typescale",
             label: "Typography",
-          },
-          {
-            type: "select",
-            path: "card.certText.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
           },
         ],
       },
@@ -217,16 +132,16 @@ export const MATERIALS_SCHEMA: SectionSchema = {
       },
       "card.origin": {
         typescale: "body",
-        color: "$mutedLightForeground",
+        color: "$mutedForeground",
         textTransform: "none",
       },
-      "card.locationIcon": { color: "$mutedLightForeground", size: 14 },
+      "card.locationIcon": { color: "$mutedForeground", size: 14 },
       "card.certification": {
         typescale: "body-sm",
         typographyDetached: true,
         lineHeight: 2,
         color: "$cardForeground",
-        backgroundColor: "$mutedDark",
+        backgroundColor: "$muted",
         borderRadius: 9999,
         textTransform: "none",
       },
@@ -235,7 +150,7 @@ export const MATERIALS_SCHEMA: SectionSchema = {
         typescale: "body",
         typographyDetached: true,
         fontWeight: 500,
-        color: "$cardForeground",
+        color: "$link",
         textTransform: "none",
       },
     },

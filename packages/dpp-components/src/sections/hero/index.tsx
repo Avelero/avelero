@@ -19,8 +19,7 @@ export function HeroSection({
   const s = resolveStyles(section.styles, tokens);
   const { productAttributes, productIdentifiers } = data;
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const titleSelection = select("hero.title");
-  const brandSelection = select("hero.brand");
+  const rootSelection = select("hero");
 
   const brand = productAttributes.brand;
   const title = productIdentifiers.productName;
@@ -29,20 +28,13 @@ export function HeroSection({
 
   return (
     <div
+      {...rootSelection}
       className={["flex flex-col w-full", wrapperClassName]
         .filter(Boolean)
         .join(" ")}
     >
-      {title ? (
-        <h1 {...titleSelection} style={s.title}>
-          {title}
-        </h1>
-      ) : null}
-      {brand ? (
-        <div {...brandSelection} style={s.brand}>
-          {brand}
-        </div>
-      ) : null}
+      {title ? <h1 style={s.title}>{title}</h1> : null}
+      {brand ? <div style={s.brand}>{brand}</div> : null}
     </div>
   );
 }

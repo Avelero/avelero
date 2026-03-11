@@ -11,6 +11,26 @@ export const PRODUCT_IMAGE_SCHEMA: FixedComponentSchema = {
   editorTree: {
     id: "productImage",
     displayName: "Product Image",
+    styleFields: [
+      {
+        type: "color",
+        path: "frame.borderColor",
+        label: "Border Color",
+        section: "Border",
+      },
+      {
+        type: "border",
+        path: "frame.borderWidth",
+        label: "Border Width",
+        section: "Border",
+      },
+      {
+        type: "radius",
+        path: "frame.borderRadius",
+        label: "Corner Radius",
+        section: "Border",
+      },
+    ],
   },
   defaults: {
     styles: {

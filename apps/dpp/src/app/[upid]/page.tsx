@@ -92,17 +92,12 @@ export default async function PassportDPPPage({ params }: PageProps) {
   // Use brand passport from API, fall back to demo passport
   const passport: Passport = data.brandPassport ?? createDemoPassport();
 
-  // Resolve theme assets even when the page falls back to the in-repo demo theme.
-  const googleFontsUrl =
-    data.googleFontsUrl ??
-    generateGoogleFontsUrlFromTypography(
-      passport.tokens.typography,
-      passport.tokens.fonts,
-    );
-  const stylesheetUrl = data.stylesheetUrl ?? undefined;
-  const inlineStylesheet = stylesheetUrl
-    ? ""
-    : buildPassportStylesheet(passport.tokens);
+  // Generate public styling directly from the stored passport tokens.
+  const googleFontsUrl = generateGoogleFontsUrlFromTypography(
+    passport.tokens.typography,
+    passport.tokens.fonts,
+  );
+  const inlineStylesheet = buildPassportStylesheet(passport.tokens);
 
   // Transform snapshot data to DppData format for components
   const productData = transformSnapshotToDppData(data.dppData);
@@ -125,8 +120,6 @@ export default async function PassportDPPPage({ params }: PageProps) {
         // biome-ignore lint/security/noDangerouslySetInnerHtml: CSS is generated server-side from trusted theme configuration
         <style dangerouslySetInnerHTML={{ __html: inlineStylesheet }} />
       )}
-
-      {stylesheetUrl && <link rel="stylesheet" href={stylesheetUrl} />}
 
       <div className="dpp-root min-h-screen flex flex-col @container">
         <div style={{ height: "var(--header-height)" }} />

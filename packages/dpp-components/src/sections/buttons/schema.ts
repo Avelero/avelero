@@ -23,43 +23,55 @@ export const BUTTONS_SCHEMA: SectionSchema = {
     ],
     styleFields: [
       {
+        type: "color",
+        path: "button.backgroundColor",
+        label: "Background Color",
+        section: "Background",
+      },
+      {
         type: "toggle",
         path: "button.boxShadow",
         label: "Shadow",
+        section: "Background",
         enabledValue: SURFACE_CARD_SHADOW,
         disabledValue: "",
+      },
+      {
+        type: "color",
+        path: "button.borderColor",
+        label: "Border Color",
+        section: "Border",
       },
       {
         type: "border",
         path: "button.borderWidth",
         label: "Border Width",
+        section: "Border",
       },
       {
         type: "radius",
         path: "button.borderRadius",
         label: "Corner Radius",
-      },
-    ],
-    children: [
-      {
-        id: "buttons.label",
-        displayName: "Label",
-        styleFields: [
-          { type: "typescale", path: "button.typescale", label: "Typography" },
-        ],
+        section: "Border",
       },
       {
-        id: "buttons.icon",
-        displayName: "Icon",
-        styleFields: [
-          { type: "color", path: "button.icon.color", label: "Color" },
-          {
-            type: "number",
-            path: "button.icon.size",
-            label: "Size",
-            unit: "px",
-          },
-        ],
+        type: "typescale",
+        path: "button.typescale",
+        label: "Typography",
+        section: "Label",
+      },
+      {
+        type: "color",
+        path: "button.icon.color",
+        label: "Color",
+        section: "Icon",
+      },
+      {
+        type: "number",
+        path: "button.icon.size",
+        label: "Size",
+        section: "Icon",
+        unit: "px",
       },
     ],
   },

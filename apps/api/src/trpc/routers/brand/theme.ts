@@ -34,7 +34,6 @@ const getThemeProcedure = brandReadProcedure.query(async ({ ctx }) => {
     if (!theme) {
       return {
         passport: {},
-        googleFontsUrl: null,
         updatedAt: null,
       };
     }
@@ -46,7 +45,6 @@ const getThemeProcedure = brandReadProcedure.query(async ({ ctx }) => {
 
     return {
       passport: resolvedPassport,
-      googleFontsUrl: theme.googleFontsUrl,
       updatedAt: theme.updatedAt,
     };
   } catch (error) {

@@ -16,13 +16,11 @@ import { DesignPanel } from "./panel";
 
 interface ThemeEditorPageProps {
   initialPassport?: Passport;
-  initialGoogleFontsUrl?: string | null;
   previewData?: DppData;
 }
 
 export function ThemeEditorPage({
   initialPassport,
-  initialGoogleFontsUrl,
   previewData,
 }: ThemeEditorPageProps = {}) {
   const { data: user } = useUserQuery();
@@ -30,13 +28,11 @@ export function ThemeEditorPage({
   const brandId = user?.brand_id ?? undefined;
 
   const passport = initialPassport ?? theme.passport;
-  const googleFontsUrl = initialGoogleFontsUrl ?? theme.googleFontsUrl;
   const data = previewData ?? DEMO_DATA;
 
   return (
     <DesignEditorProvider
       initialPassport={passport}
-      initialGoogleFontsUrl={googleFontsUrl}
       previewData={data}
       brandId={brandId}
     >

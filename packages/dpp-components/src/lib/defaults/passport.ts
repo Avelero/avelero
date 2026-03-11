@@ -33,7 +33,7 @@ function createSection(type: SectionType, id: string): Section {
 
 const headerDefaults = COMPONENT_REGISTRY.header!.schema.defaults;
 const productImageDefaults = COMPONENT_REGISTRY.productImage!.schema.defaults;
-const modalDefaults = MODAL_SCHEMA_REGISTRY.details!.schema.defaults;
+const modalDefaults = MODAL_SCHEMA_REGISTRY.modal!.schema.defaults;
 const footerDefaults = COMPONENT_REGISTRY.footer!.schema.defaults;
 
 export const DEFAULT_PASSPORT: Passport = {

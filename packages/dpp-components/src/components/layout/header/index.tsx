@@ -19,13 +19,12 @@ export function Header({
   brandName,
   position = "fixed",
 }: Props) {
-  // Resolve the fixed header styles once so the border and text logo stay theme-driven.
+  // Resolve the fixed header styles once and expose only the header shell for editor selection.
   const s = resolveStyles(header.styles, tokens);
   const logoUrl = header.logoUrl;
   const logoHeight = 24;
   const select = createFixedSelectionAttributes();
   const headerSelection = select("header");
-  const textLogoSelection = select("header.textLogo");
 
   const isLocalDev =
     logoUrl?.includes("127.0.0.1") || logoUrl?.includes("localhost:");
@@ -63,7 +62,6 @@ export function Header({
           />
         ) : (
           <span
-            {...textLogoSelection}
             style={{ fontSize: logoHeight, lineHeight: "100%", ...s.textLogo }}
           >
             {brandName}

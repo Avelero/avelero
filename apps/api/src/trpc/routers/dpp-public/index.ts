@@ -16,13 +16,13 @@ import { and, eq, inArray } from "drizzle-orm";
  * - Input validation on all parameters
  */
 import { z } from "zod";
-import { resolvePassportImageUrls } from "../../../utils/theme-config-images.js";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
 import { internalServerError } from "../../../utils/errors.js";
+import { resolvePassportImageUrls } from "../../../utils/theme-config-images.js";
 import {
+  type TRPCContext,
   createTRPCRouter,
   publicProcedure,
-  type TRPCContext,
 } from "../../init.js";
 
 const PRODUCTS_BUCKET = "products";
@@ -118,9 +118,6 @@ function buildPublicPassportResponse(
     return null;
   }
 
-  const stylesheetUrl = result.theme?.stylesheetPath
-    ? getPublicUrl(storageClient, "dpp-themes", result.theme.stylesheetPath)
-    : null;
   const productImageUrl = resolveSnapshotProductImageUrl(
     storageClient,
     result.snapshot.productAttributes?.image,
@@ -139,8 +136,6 @@ function buildPublicPassportResponse(
       },
     },
     brandPassport: resolvedBrandPassport,
-    stylesheetUrl,
-    googleFontsUrl: result.theme?.googleFontsUrl ?? null,
     passport: {
       upid: result.upid,
       isInactive: result.isInactive,
@@ -231,11 +226,6 @@ export const dppPublicRouter = createTRPCRouter({
       // Fetch brand theme
       const theme = await getBrandTheme(ctx.db, brand.id);
 
-      // Resolve stylesheet URL if present
-      const stylesheetUrl = theme?.stylesheetPath
-        ? getPublicUrl(ctx.supabase, "dpp-themes", theme.stylesheetPath)
-        : null;
-
       // Resolve image paths in passport to full URLs
       const resolvedBrandPassport = resolvePassportImageUrls(
         ctx.supabase,
@@ -245,8 +235,6 @@ export const dppPublicRouter = createTRPCRouter({
       return {
         brandName: brand.name,
         brandPassport: resolvedBrandPassport,
-        stylesheetUrl,
-        googleFontsUrl: theme?.googleFontsUrl ?? null,
       };
     }),
 

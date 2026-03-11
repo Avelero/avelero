@@ -59,13 +59,6 @@ function truncateDescriptionPreview(text: string, wordLimit: number) {
   };
 }
 
-function createDescriptionModalSelectionGetter(
-  select: ReturnType<typeof createSectionSelectionAttributes>,
-) {
-  // Scope modal slot ids to the description section namespace for editor selection.
-  return (slotId: string) => select(`description.${slotId}`);
-}
-
 export function DescriptionSection({
   section,
   tokens,
@@ -92,13 +85,10 @@ export function DescriptionSection({
     DESCRIPTION_PREVIEW_WORD_LIMIT,
   );
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const headingSelection = select("description.heading");
-  const bodySelection = select("description.body");
-  const showMoreSelection = select("description.showMore");
+  const rootSelection = select("description");
   const showMoreStyle = createInteractiveHoverStyle(s.showMore, {
     color: true,
   });
-  const modalSelect = createDescriptionModalSelectionGetter(select);
 
   if (!description) return null;
 
@@ -109,28 +99,24 @@ export function DescriptionSection({
       modal={!isForceOpen}
     >
       <div
+        {...rootSelection}
         className={["flex flex-col gap-xs w-full", wrapperClassName]
           .filter(Boolean)
           .join(" ")}
       >
         <div className="w-full border-b pb-xs" style={s.header}>
-          <h2 {...headingSelection} className="w-fit" style={s.heading}>
+          <h2 className="w-fit" style={s.heading}>
             Description
           </h2>
         </div>
 
         <div className="flex flex-col gap-xs">
-          <p
-            {...bodySelection}
-            className="line-clamp-3 whitespace-pre-line"
-            style={s.body}
-          >
+          <p className="line-clamp-3 whitespace-pre-line" style={s.body}>
             {preview.text}
           </p>
 
           {preview.isTruncated ? (
             <button
-              {...showMoreSelection}
               type="button"
               className={`appearance-none border-0 bg-transparent p-0 w-fit text-left ${INTERACTIVE_HOVER_CLASS_NAME}`}
               style={showMoreStyle}
@@ -149,7 +135,6 @@ export function DescriptionSection({
         description={description}
         manufacturerName={manufacturerName}
         productTitle={productTitle}
-        select={modalSelect}
         styles={modalStyles ?? {}}
       />
     </Modal>

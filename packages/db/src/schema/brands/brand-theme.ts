@@ -1,10 +1,15 @@
+/**
+ * Brand theme schema.
+ *
+ * Stores the brand-owned passport document that drives the public DPP layout.
+ */
+
 import { sql } from "drizzle-orm";
 import {
   index,
   jsonb,
   pgPolicy,
   pgTable,
-  text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -18,8 +23,6 @@ export const brandTheme = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     passport: jsonb("passport").notNull().default({}),
-    stylesheetPath: text("stylesheet_path"),
-    googleFontsUrl: text("google_fonts_url"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

@@ -22,9 +22,9 @@ import type {
 } from "@v1/dpp-components";
 import {
   COMPONENT_REGISTRY,
+  type ColorTokenKey,
   MODAL_SCHEMA_REGISTRY,
   SECTION_REGISTRY,
-  type ColorTokenKey,
   generateGoogleFontsUrlFromTypography,
   getTokenName,
   isTokenReference,
@@ -65,7 +65,7 @@ export type MenuItemEditState = {
 type ActiveTarget =
   | { type: "header" }
   | { type: "productImage" }
-  | { type: "modal" }
+  | { type: "modal"; modalEditorId: string }
   | { type: "footer" }
   | { type: "section"; zoneId: ZoneId; sectionId: string }
   | null;
@@ -129,10 +129,6 @@ type DesignEditorContextValue = {
   activeSectionId: string | null;
   activeZoneId: ZoneId | null;
 
-  // Layout tree expand/collapse state
-  expandedItems: Set<string>;
-  toggleExpanded: (componentId: string) => void;
-
   // Selection state (for preview hover/click)
   selectedNodeId: string | null;
   hoveredNodeId: string | null;
@@ -151,7 +147,6 @@ const DesignEditorContext = createContext<DesignEditorContextValue | null>(
 type ProviderProps = {
   children: React.ReactNode;
   initialPassport: Passport;
-  initialGoogleFontsUrl: string | null;
   previewData: DppData;
   brandId?: string;
 };
@@ -218,7 +213,7 @@ function ensurePassportHasModalMapStyles(passport: Passport): Passport {
   }
 
   const modalMapDefaults =
-    MODAL_SCHEMA_REGISTRY.details!.schema.defaults.styles["modal.map"] ?? {};
+    MODAL_SCHEMA_REGISTRY.modal!.schema.defaults.styles["modal.map"] ?? {};
 
   return {
     ...passport,
@@ -238,7 +233,7 @@ function ensurePassportHasModalContent(passport: Passport): Passport {
     return passport;
   }
 
-  const modalContentDefaults = MODAL_SCHEMA_REGISTRY.details!.schema.defaults
+  const modalContentDefaults = MODAL_SCHEMA_REGISTRY.modal!.schema.defaults
     .content as Passport["modal"]["content"] | undefined;
 
   return {
@@ -279,6 +274,13 @@ function splitStylePath(
   };
 }
 
+function findModalSchemaByEditorId(editorId: string) {
+  // Resolve the modal schema that owns the current editor view.
+  return Object.values(MODAL_SCHEMA_REGISTRY).find(
+    (entry) => entry.schema.editorTree.id === editorId,
+  );
+}
+
 // =============================================================================
 // PROVIDER
 // =============================================================================
@@ -286,7 +288,6 @@ function splitStylePath(
 export function DesignEditorProvider({
   children,
   initialPassport,
-  initialGoogleFontsUrl,
   previewData: initialPreviewData,
   brandId,
 }: ProviderProps) {
@@ -332,12 +333,8 @@ export function DesignEditorProvider({
       passportDraft?.tokens?.typography as Record<string, unknown> | undefined,
       passportDraft?.tokens?.fonts,
     );
-    return generatedUrl || initialGoogleFontsUrl || "";
-  }, [
-    passportDraft?.tokens?.fonts,
-    passportDraft?.tokens?.typography,
-    initialGoogleFontsUrl,
-  ]);
+    return generatedUrl || "";
+  }, [passportDraft?.tokens?.fonts, passportDraft?.tokens?.typography]);
 
   useEffect(() => {
     if (!previewGoogleFontsUrl) return;
@@ -577,7 +574,18 @@ export function DesignEditorProvider({
     (path: string): StyleValue | undefined => {
       if (!activeTarget) return undefined;
 
-      // Fixed components — look up defaults from COMPONENT_REGISTRY
+      // Modal schemas share one persisted style map, but defaults come from the active modal schema.
+      if (activeTarget.type === "modal") {
+        const modalEntry =
+          findModalSchemaByEditorId(activeTarget.modalEditorId) ??
+          MODAL_SCHEMA_REGISTRY.modal;
+        if (!modalEntry) return undefined;
+        return deepGet(modalEntry.schema.defaults.styles, path) as
+          | StyleValue
+          | undefined;
+      }
+
+      // Fixed components — look up defaults from COMPONENT_REGISTRY.
       if (activeTarget.type !== "section") {
         const fixedEntry = COMPONENT_REGISTRY[activeTarget.type];
         if (!fixedEntry) return undefined;
@@ -702,9 +710,10 @@ export function DesignEditorProvider({
   }, []);
 
   const navigateToComponent = useCallback((componentId: string) => {
+    // Route the detail panel to the matching fixed or modal editor target.
     setNavigation({ level: "component", section: "layout", componentId });
+    const modalEntry = findModalSchemaByEditorId(componentId);
 
-    // Set active target for fixed component child components.
     if (componentId === "header" || componentId.startsWith("header.")) {
       setActiveSectionId(null);
       setActiveZoneId(null);
@@ -716,10 +725,17 @@ export function DesignEditorProvider({
       setActiveSectionId(null);
       setActiveZoneId(null);
       setActiveTarget({ type: "productImage" });
-    } else if (componentId === "modal" || componentId.startsWith("modal.")) {
+    } else if (
+      componentId === "modal" ||
+      componentId.startsWith("modal.") ||
+      modalEntry
+    ) {
       setActiveSectionId(null);
       setActiveZoneId(null);
-      setActiveTarget({ type: "modal" });
+      setActiveTarget({
+        type: "modal",
+        modalEditorId: modalEntry?.schema.editorTree.id ?? componentId,
+      });
     } else if (componentId === "footer" || componentId.startsWith("footer.")) {
       setActiveSectionId(null);
       setActiveZoneId(null);
@@ -845,23 +861,6 @@ export function DesignEditorProvider({
   );
 
   // ---------------------------------------------------------------------------
-  // Layout Tree Expand/Collapse State
-  // ---------------------------------------------------------------------------
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-
-  const toggleExpanded = useCallback((componentId: string) => {
-    setExpandedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(componentId)) {
-        next.delete(componentId);
-      } else {
-        next.add(componentId);
-      }
-      return next;
-    });
-  }, []);
-
-  // ---------------------------------------------------------------------------
   // Selection State
   // ---------------------------------------------------------------------------
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -871,6 +870,23 @@ export function DesignEditorProvider({
   // Modal Preview Visibility (editor-only toggle)
   // ---------------------------------------------------------------------------
   const [previewModalType, setPreviewModalType] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Close the editor-only modal preview whenever the detail panel leaves the modal target.
+    const modalEntry = navigation.componentId
+      ? findModalSchemaByEditorId(navigation.componentId)
+      : null;
+    const isModalEditor =
+      navigation.level === "component" &&
+      !!navigation.componentId &&
+      (navigation.componentId === "modal" ||
+        navigation.componentId.startsWith("modal.") ||
+        !!modalEntry);
+
+    if (!isModalEditor && previewModalType) {
+      setPreviewModalType(null);
+    }
+  }, [navigation, previewModalType]);
 
   // ---------------------------------------------------------------------------
   // Context Value
@@ -911,8 +927,6 @@ export function DesignEditorProvider({
       navigateToSectionInstance,
       activeSectionId,
       activeZoneId,
-      expandedItems,
-      toggleExpanded,
       selectedNodeId,
       hoveredNodeId,
       setSelectedNodeId,
@@ -953,8 +967,6 @@ export function DesignEditorProvider({
       navigateToSectionInstance,
       activeSectionId,
       activeZoneId,
-      expandedItems,
-      toggleExpanded,
       selectedNodeId,
       hoveredNodeId,
       previewModalType,

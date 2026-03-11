@@ -8,21 +8,23 @@ import type { SectionSchema } from "../registry";
 
 export const SEPARATOR_SCHEMA: SectionSchema = {
   type: "separator",
-  displayName: "Separator",
+  displayName: "Divider",
   allowedZones: ["sidebar", "canvas"],
   editorTree: {
     id: "separator",
-    displayName: "Separator",
+    displayName: "Divider",
     styleFields: [
       {
         type: "color",
         path: "line.backgroundColor",
         label: "Color",
+        section: "Line",
       },
       {
         type: "number",
         path: "line.height",
         label: "Thickness",
+        section: "Line",
         unit: "px",
       },
     ],

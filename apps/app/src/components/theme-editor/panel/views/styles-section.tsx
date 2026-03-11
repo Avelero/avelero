@@ -16,9 +16,9 @@ import {
 import * as React from "react";
 import { type StyleField, resolveComponentForEditor } from "../../registry";
 import {
+  AccordionItem,
   BorderInput,
   ColorInput,
-  EditorSection,
   FieldWrapper,
   PixelInput,
   RadiusInput,
@@ -293,122 +293,26 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
 }
 
 // =============================================================================
-// GROUP FIELDS BY CATEGORY
+// GROUP FIELDS BY SECTION
 // =============================================================================
 
-type FieldCategory =
-  | "background"
-  | "stroke"
-  | "typography"
-  | "sizing"
-  | "spacing"
-  | "other";
-
-interface GroupedFields {
-  background: StyleField[];
-  stroke: StyleField[];
-  typography: StyleField[];
-  sizing: StyleField[];
-  spacing: StyleField[];
-  other: StyleField[];
-}
-
-function categorizeField(field: StyleField): FieldCategory {
-  const label = field.label.toLowerCase();
-  const path = field.path.toLowerCase();
-
-  if (
-    label.includes("background") ||
-    label.includes("shadow") ||
-    path.includes("background") ||
-    path.includes("boxshadow")
-  ) {
-    return "background";
-  }
-
-  if (
-    field.type === "radius" ||
-    field.type === "border" ||
-    label.includes("border") ||
-    label.includes("stroke") ||
-    label.includes("radius") ||
-    label.includes("rounding") ||
-    path.includes("border") ||
-    path.includes("radius")
-  ) {
-    return "stroke";
-  }
-
-  if (
-    field.type === "typescale" ||
-    label.includes("font") ||
-    label.includes("weight") ||
-    label.includes("transform") ||
-    label.includes("capitalization") ||
-    label.includes("typescale") ||
-    label.includes("color") ||
-    path.includes("font") ||
-    path.includes("color") ||
-    path.includes("typescale") ||
-    path.includes("texttransform")
-  ) {
-    return "typography";
-  }
-
-  // Size fields (e.g., icon size, width, height)
-  if (
-    label.includes("size") ||
-    label.includes("width") ||
-    label.includes("height") ||
-    label.includes("ratio")
-  ) {
-    return "sizing";
-  }
-
-  // Spacing fields (padding, margin, gap)
-  if (
-    label.includes("padding") ||
-    label.includes("margin") ||
-    label.includes("gap") ||
-    label.includes("spacing")
-  ) {
-    return "spacing";
-  }
-
-  return "other";
-}
-
 function organizeStyleFields(fields: StyleField[]): {
-  mainGroups: GroupedFields;
   sectionGroups: Record<string, StyleField[]>;
   sectionOrder: string[];
 } {
-  const mainGroups: GroupedFields = {
-    background: [],
-    stroke: [],
-    typography: [],
-    sizing: [],
-    spacing: [],
-    other: [],
-  };
   const sectionGroups: Record<string, StyleField[]> = {};
   const sectionOrder: string[] = [];
 
   for (const field of fields) {
-    if (field.section) {
-      const section = field.section;
-      if (!sectionGroups[section]) {
-        sectionGroups[section] = [];
-        sectionOrder.push(section);
-      }
-      sectionGroups[section]?.push(field);
-    } else {
-      const category = categorizeField(field);
-      mainGroups[category].push(field);
+    const section = field.section ?? "General";
+    if (!sectionGroups[section]) {
+      sectionGroups[section] = [];
+      sectionOrder.push(section);
     }
+    sectionGroups[section]?.push(field);
   }
 
-  return { mainGroups, sectionGroups, sectionOrder };
+  return { sectionGroups, sectionOrder };
 }
 
 // =============================================================================
@@ -422,6 +326,12 @@ interface StylesSectionProps {
 export function StylesSection({ componentId }: StylesSectionProps) {
   const { passportDraft } = useDesignEditor();
   const component = resolveComponentForEditor(componentId, passportDraft);
+  const [openSection, setOpenSection] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // Start each component detail view with every accordion section collapsed.
+    setOpenSection(null);
+  }, [componentId]);
 
   if (!component) {
     return (
@@ -432,8 +342,7 @@ export function StylesSection({ componentId }: StylesSectionProps) {
   }
 
   const styleFields = component.styleFields || [];
-  const { mainGroups, sectionGroups, sectionOrder } =
-    organizeStyleFields(styleFields);
+  const { sectionGroups, sectionOrder } = organizeStyleFields(styleFields);
 
   if (styleFields.length === 0) {
     return (
@@ -447,65 +356,26 @@ export function StylesSection({ componentId }: StylesSectionProps) {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto scrollbar-hide">
-      {/* Main field groups with section borders */}
-      {mainGroups.background.length > 0 && (
-        <EditorSection title="Background">
-          {mainGroups.background.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {mainGroups.stroke.length > 0 && (
-        <EditorSection title="Stroke">
-          {mainGroups.stroke.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {mainGroups.typography.length > 0 && (
-        <EditorSection title="Typography">
-          {mainGroups.typography.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {mainGroups.sizing.length > 0 && (
-        <EditorSection title="Sizing">
-          {mainGroups.sizing.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {mainGroups.spacing.length > 0 && (
-        <EditorSection title="Spacing">
-          {mainGroups.spacing.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {mainGroups.other.length > 0 && (
-        <EditorSection title="Other">
-          {mainGroups.other.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {/* Named section groups */}
       {sectionOrder.map((sectionName) => {
         const fields = sectionGroups[sectionName];
         if (!fields) return null;
         return (
-          <EditorSection key={sectionName} title={sectionName}>
-            {fields.map((field) => (
-              <StyleFieldRenderer key={field.path} field={field} />
-            ))}
-          </EditorSection>
+          <AccordionItem
+            key={sectionName}
+            label={sectionName}
+            isOpen={openSection === sectionName}
+            onToggle={() =>
+              setOpenSection((prev) =>
+                prev === sectionName ? null : sectionName,
+              )
+            }
+          >
+            <div className="flex flex-col gap-3">
+              {fields.map((field) => (
+                <StyleFieldRenderer key={field.path} field={field} />
+              ))}
+            </div>
+          </AccordionItem>
         );
       })}
     </div>

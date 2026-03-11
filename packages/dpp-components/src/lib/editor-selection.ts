@@ -16,7 +16,7 @@ export type DppSelectableNode =
       highlightMode?: DppSelectionHighlightMode;
     }
   | {
-      kind: "section-root" | "section-child";
+      kind: "section-root";
       editorId: string;
       sectionId: string;
       zoneId: ZoneId;
@@ -71,14 +71,13 @@ export function createFixedSelectionAttributes() {
 export function createSectionSelectionAttributes(
   sectionId: string,
   zoneId: ZoneId,
-  kind: "section-root" | "section-child" = "section-child",
 ) {
   return (
     editorId: string,
     highlightMode: DppSelectionHighlightMode = "outline",
   ) =>
     getDppSelectableAttributes({
-      kind,
+      kind: "section-root",
       editorId,
       sectionId,
       zoneId,

@@ -6,7 +6,6 @@ import type { Passport } from "@v1/dpp-components";
 
 export interface BrandTheme {
   passport: Passport;
-  googleFontsUrl: string | null;
   updatedAt: string | null;
 }
 
@@ -18,7 +17,6 @@ export function useThemeQuery() {
     ...query,
     data: {
       passport: (query.data.passport ?? {}) as Passport,
-      googleFontsUrl: query.data.googleFontsUrl ?? null,
       updatedAt: query.data.updatedAt,
     } satisfies BrandTheme,
   };

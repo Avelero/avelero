@@ -32,8 +32,6 @@ export function ButtonsSection({
   const menuItems = (section.content.menuItems as MenuItem[] | undefined) ?? [];
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const rootSelection = select("buttons");
-  const labelSelection = select("buttons.label");
-  const iconSelection = select("buttons.icon");
   const buttonStyle = createInteractiveHoverStyle(s.button, {
     background: true,
   });
@@ -43,6 +41,7 @@ export function ButtonsSection({
 
   return (
     <div
+      {...rootSelection}
       className={["flex flex-col gap-md w-full", wrapperClassName]
         .filter(Boolean)
         .join(" ")}
@@ -51,7 +50,6 @@ export function ButtonsSection({
         {menuItems.map((item, index) => (
           <a
             key={item.id || `menu-${index}`}
-            {...rootSelection}
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
@@ -59,12 +57,8 @@ export function ButtonsSection({
             style={buttonStyle}
             onClick={() => hapticTap()}
           >
-            <span {...labelSelection}>{item.label}</span>
-            <Icons.ChevronRight
-              {...iconSelection}
-              className="shrink-0"
-              style={s["button.icon"]}
-            />
+            <span>{item.label}</span>
+            <Icons.ChevronRight className="shrink-0" style={s["button.icon"]} />
           </a>
         ))}
       </div>

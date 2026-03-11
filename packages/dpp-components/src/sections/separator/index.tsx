@@ -19,11 +19,7 @@ export function SeparatorSection({
 }: SectionProps) {
   // Resolve the divider color and reuse the shared section shell spacing from the layout renderer.
   const s = resolveStyles(section.styles, tokens);
-  const select = createSectionSelectionAttributes(
-    section.id,
-    zoneId,
-    "section-root",
-  );
+  const select = createSectionSelectionAttributes(section.id, zoneId);
   const rootSelection = select("separator", "overlay");
   const rootClassName = wrapperClassName ?? "w-full";
   const innerClassName =

@@ -31,11 +31,24 @@ const ICON_MAP = {
 
 const IMPACT_MODAL_TRIGGER_LABEL = "What does this mean?";
 
-function createImpactModalSelectionGetter(
-  select: ReturnType<typeof createSectionSelectionAttributes>,
-) {
-  // Scope modal slot ids to the impact section namespace for editor selection.
-  return (slotId: string) => select(`impact.${slotId}`);
+function getMetricIconStyle(
+  metricIcon: string,
+  styles: Record<string, React.CSSProperties | undefined>,
+  fallbackColor?: string,
+): React.CSSProperties {
+  // Resolve the shared icon sizing plus the metric-specific color slot.
+  const specificStyle =
+    metricIcon === "leaf"
+      ? styles["card.carbonIcon"]
+      : metricIcon === "drop"
+        ? styles["card.waterIcon"]
+        : undefined;
+
+  return {
+    ...styles["card.icon"],
+    ...specificStyle,
+    color: specificStyle?.color ?? fallbackColor ?? styles["card.icon"]?.color,
+  };
 }
 
 export function ImpactSection({
@@ -54,16 +67,10 @@ export function ImpactSection({
   const isForceOpen = forceModalType === "impact";
   const hapticTap = useHapticTap();
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const titleSelection = select("impact.title");
-  const helpLinkSelection = select("impact.helpLink");
-  const cardTypeSelection = select("impact.card.type");
-  const cardValueSelection = select("impact.card.value");
-  const cardUnitSelection = select("impact.card.unit");
-  const cardIconSelection = select("impact.card.icon");
+  const rootSelection = select("impact");
   const helpLinkStyle = createInteractiveHoverStyle(s.helpLink, {
     color: true,
   });
-  const modalSelect = createImpactModalSelectionGetter(select);
 
   if (metrics.length === 0) return null;
 
@@ -74,16 +81,14 @@ export function ImpactSection({
       modal={!isForceOpen}
     >
       <div
+        {...rootSelection}
         className={["flex flex-col gap-xs w-full", wrapperClassName]
           .filter(Boolean)
           .join(" ")}
       >
         <div className="flex flex-wrap items-end justify-between gap-md">
-          <h6 {...titleSelection} style={s.title}>
-            Impact
-          </h6>
+          <h6 style={s.title}>Impact</h6>
           <button
-            {...helpLinkSelection}
             type="button"
             className={`appearance-none border-0 bg-transparent p-0 underline underline-offset-4 cursor-pointer text-right ${INTERACTIVE_HOVER_CLASS_NAME}`}
             style={helpLinkStyle}
@@ -99,10 +104,11 @@ export function ImpactSection({
         <div className="flex flex-col gap-md">
           {metrics.map((metric) => {
             const IconComponent = ICON_MAP[metric.icon] ?? LeafIcon;
-            const iconStyle: React.CSSProperties = {
-              ...s["card.icon"],
-              color: metric.iconColor ?? s["card.icon"]?.color,
-            };
+            const iconStyle = getMetricIconStyle(
+              metric.icon,
+              s,
+              metric.iconColor,
+            );
             return (
               <div
                 key={metric.type}
@@ -110,20 +116,13 @@ export function ImpactSection({
                 style={s.card}
               >
                 <div className="flex-1 min-w-0 flex flex-col gap-micro">
-                  <div {...cardTypeSelection} style={s["card.type"]}>
-                    {metric.type}
-                  </div>
+                  <div style={s["card.type"]}>{metric.type}</div>
                   <div className="flex flex-wrap items-baseline gap-micro">
-                    <div {...cardValueSelection} style={s["card.value"]}>
-                      {metric.value}
-                    </div>
-                    <div {...cardUnitSelection} style={s["card.unit"]}>
-                      {metric.unit}
-                    </div>
+                    <div style={s["card.value"]}>{metric.value}</div>
+                    <div style={s["card.unit"]}>{metric.unit}</div>
                   </div>
                 </div>
                 <IconComponent
-                  {...cardIconSelection}
                   className="shrink-0"
                   style={iconStyle}
                   weight="fill"
@@ -146,7 +145,6 @@ export function ImpactSection({
           value: Number(m.value),
           unit: m.unit,
         }))}
-        select={modalSelect}
         styles={modalStyles ?? {}}
       />
     </Modal>

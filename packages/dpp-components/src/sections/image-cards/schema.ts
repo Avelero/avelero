@@ -5,7 +5,10 @@
  */
 
 import { CAPITALIZATION_STYLE_OPTIONS } from "../editor-options";
-import type { ComponentDefinition, SectionSchema } from "../registry";
+import type { SectionSchema } from "../registry";
+
+const DEFAULT_IMAGE_CARD_BODY =
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt.";
 
 interface ImageCardSlotConfig {
   id: "cardOne" | "cardTwo" | "cardThree";
@@ -15,6 +18,7 @@ interface ImageCardSlotConfig {
   headingPath: string;
   bodyPath: string;
   urlPath: string;
+  defaultHeading: string;
 }
 
 const IMAGE_CARD_SLOTS: ImageCardSlotConfig[] = [
@@ -26,6 +30,7 @@ const IMAGE_CARD_SLOTS: ImageCardSlotConfig[] = [
     headingPath: "cardOneHeading",
     bodyPath: "cardOneBody",
     urlPath: "cardOneUrl",
+    defaultHeading: "Heading",
   },
   {
     id: "cardTwo",
@@ -35,6 +40,7 @@ const IMAGE_CARD_SLOTS: ImageCardSlotConfig[] = [
     headingPath: "cardTwoHeading",
     bodyPath: "cardTwoBody",
     urlPath: "cardTwoUrl",
+    defaultHeading: "Heading",
   },
   {
     id: "cardThree",
@@ -44,133 +50,163 @@ const IMAGE_CARD_SLOTS: ImageCardSlotConfig[] = [
     headingPath: "cardThreeHeading",
     bodyPath: "cardThreeBody",
     urlPath: "cardThreeUrl",
+    defaultHeading: "Heading",
   },
 ] as const;
 
 /**
- * Build the repeated editor subtree for a single image card slot.
- */
-function createImageCardNode(slot: ImageCardSlotConfig): ComponentDefinition {
-  return {
-    id: `imageCards.${slot.id}`,
-    displayName: slot.displayName,
-    isGrouping: true,
-    children: [
-      {
-        id: `imageCards.${slot.id}.image`,
-        displayName: "Image",
-        configFields: [
-          { type: "image", path: slot.imagePath, label: "Image" },
-          { type: "text", path: slot.imageAltPath, label: "Image Alt Text" },
-        ],
-      },
-      {
-        id: `imageCards.${slot.id}.heading`,
-        displayName: "Heading",
-        styleFields: [
-          { type: "color", path: "cardHeading.color", label: "Color" },
-          {
-            type: "typescale",
-            path: "cardHeading.typescale",
-            label: "Typography",
-          },
-          {
-            type: "select",
-            path: "cardHeading.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
-        configFields: [
-          { type: "text", path: slot.headingPath, label: "Heading Text" },
-        ],
-      },
-      {
-        id: `imageCards.${slot.id}.body`,
-        displayName: "Body",
-        styleFields: [
-          { type: "color", path: "cardBody.color", label: "Color" },
-          {
-            type: "typescale",
-            path: "cardBody.typescale",
-            label: "Typography",
-          },
-          {
-            type: "select",
-            path: "cardBody.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
-        configFields: [
-          { type: "textarea", path: slot.bodyPath, label: "Body Text" },
-        ],
-      },
-      {
-        id: `imageCards.${slot.id}.button`,
-        displayName: "Button",
-        styleFields: [
-          { type: "color", path: "cardButton.color", label: "Color" },
-          {
-            type: "typescale",
-            path: "cardButton.typescale",
-            label: "Typography",
-          },
-          {
-            type: "select",
-            path: "cardButton.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
-        configFields: [{ type: "url", path: slot.urlPath, label: "URL" }],
-      },
-    ],
-  };
-}
-
-/**
- * Seed blank content defaults for all three image card slots.
+ * Seed mock content defaults for all three image card slots.
  */
 function createImageCardContentDefaults(): Record<string, string> {
   return IMAGE_CARD_SLOTS.reduce<Record<string, string>>((defaults, slot) => {
     defaults[slot.imagePath] = "";
-    defaults[slot.imageAltPath] = "";
-    defaults[slot.headingPath] = "";
-    defaults[slot.bodyPath] = "";
+    defaults[slot.imageAltPath] = "Placeholder image";
+    defaults[slot.headingPath] = slot.defaultHeading;
+    defaults[slot.bodyPath] = DEFAULT_IMAGE_CARD_BODY;
     defaults[slot.urlPath] = "";
     return defaults;
   }, {});
 }
 
+/**
+ * Build per-card content fields with section grouping.
+ */
+function createImageCardContentFields() {
+  return IMAGE_CARD_SLOTS.flatMap((slot) => [
+    {
+      type: "image" as const,
+      path: slot.imagePath,
+      label: "Image",
+      section: slot.displayName,
+    },
+    {
+      type: "text" as const,
+      path: slot.imageAltPath,
+      label: "Image Alt Text",
+      section: slot.displayName,
+    },
+    {
+      type: "text" as const,
+      path: slot.headingPath,
+      label: "Heading Text",
+      section: slot.displayName,
+    },
+    {
+      type: "textarea" as const,
+      path: slot.bodyPath,
+      label: "Body Text",
+      section: slot.displayName,
+    },
+    {
+      type: "url" as const,
+      path: slot.urlPath,
+      label: "URL",
+      section: slot.displayName,
+    },
+  ]);
+}
+
 export const IMAGE_CARDS_SCHEMA: SectionSchema = {
   type: "imageCards",
-  displayName: "Image Cards",
+  displayName: "Cards",
   allowedZones: ["canvas"],
   editorTree: {
     id: "imageCards",
-    displayName: "Image Cards",
-    children: [
+    displayName: "Cards",
+    styleFields: [
+      { type: "color", path: "title.color", label: "Color", section: "Title" },
       {
-        id: "imageCards.container",
-        displayName: "Container",
+        type: "typescale",
+        path: "title.typescale",
+        label: "Typography",
+        section: "Title",
       },
       {
-        id: "imageCards.title",
-        displayName: "Title",
-        styleFields: [
-          { type: "color", path: "title.color", label: "Color" },
-          { type: "typescale", path: "title.typescale", label: "Typography" },
-          {
-            type: "select",
-            path: "title.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
-        configFields: [{ type: "text", path: "title", label: "Title Text" }],
+        type: "select",
+        path: "title.textTransform",
+        label: "Capitalization",
+        section: "Title",
+        options: [...CAPITALIZATION_STYLE_OPTIONS],
       },
-      ...IMAGE_CARD_SLOTS.map(createImageCardNode),
+      {
+        type: "color",
+        path: "cardHeading.color",
+        label: "Color",
+        section: "Card Heading",
+      },
+      {
+        type: "typescale",
+        path: "cardHeading.typescale",
+        label: "Typography",
+        section: "Card Heading",
+      },
+      {
+        type: "select",
+        path: "cardHeading.textTransform",
+        label: "Capitalization",
+        section: "Card Heading",
+        options: [...CAPITALIZATION_STYLE_OPTIONS],
+      },
+      {
+        type: "color",
+        path: "cardBody.color",
+        label: "Color",
+        section: "Card Body",
+      },
+      {
+        type: "typescale",
+        path: "cardBody.typescale",
+        label: "Typography",
+        section: "Card Body",
+      },
+      {
+        type: "select",
+        path: "cardBody.textTransform",
+        label: "Capitalization",
+        section: "Card Body",
+        options: [...CAPITALIZATION_STYLE_OPTIONS],
+      },
+      {
+        type: "color",
+        path: "cardButton.color",
+        label: "Color",
+        section: "Card Button",
+      },
+      {
+        type: "typescale",
+        path: "cardButton.typescale",
+        label: "Typography",
+        section: "Card Button",
+      },
+      {
+        type: "select",
+        path: "cardButton.textTransform",
+        label: "Capitalization",
+        section: "Card Button",
+        options: [...CAPITALIZATION_STYLE_OPTIONS],
+      },
+      {
+        type: "color",
+        path: "cardImage.borderColor",
+        label: "Border Color",
+        section: "Card Image Border",
+      },
+      {
+        type: "border",
+        path: "cardImage.borderWidth",
+        label: "Border Width",
+        section: "Card Image Border",
+      },
+      {
+        type: "radius",
+        path: "cardImage.borderRadius",
+        label: "Corner Radius",
+        section: "Card Image Border",
+      },
+    ],
+    configFields: [
+      { type: "text", path: "title", label: "Title Text" },
+      ...createImageCardContentFields(),
     ],
   },
   defaults: {
@@ -183,7 +219,9 @@ export const IMAGE_CARDS_SCHEMA: SectionSchema = {
       },
       cardImage: {
         aspectRatio: 1,
+        borderColor: "$border",
         borderRadius: 4,
+        borderWidth: 0,
       },
       cardHeading: {
         typescale: "h6",
@@ -202,7 +240,7 @@ export const IMAGE_CARDS_SCHEMA: SectionSchema = {
       },
     },
     content: {
-      title: "",
+      title: "Heading",
       ...createImageCardContentDefaults(),
     },
   },

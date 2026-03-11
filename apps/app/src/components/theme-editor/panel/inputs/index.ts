@@ -1,6 +1,6 @@
 // Core utilities
 export { FieldWrapper } from "./field-wrapper";
-export { EditorSection } from "./editor-section";
+export { AccordionItem } from "./accordion-item";
 
 // Style input components
 export {

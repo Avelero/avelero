@@ -107,6 +107,7 @@ export function ImageCardsSection({
   zoneId,
   wrapperClassName,
 }: SectionProps) {
+  // Filter the configured cards down to visible content and expose only the section root to the editor.
   const s = resolveStyles(section.styles, tokens);
   const content = getImageCardsContent(section.content);
   const visibleCards = content.cards.filter(
@@ -117,8 +118,7 @@ export function ImageCardsSection({
       card.url.trim(),
   );
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const containerSelection = select("imageCards.container", "overlay");
-  const titleSelection = select("imageCards.title");
+  const rootSelection = select("imageCards", "overlay");
   const buttonStyle = createInteractiveHoverStyle(s.cardButton, {
     color: true,
   });
@@ -128,11 +128,11 @@ export function ImageCardsSection({
   }
 
   return (
-    <div className={wrapperClassName ?? "w-full"}>
-      <div {...containerSelection} className="w-full" style={s.container}>
+    <div {...rootSelection} className={wrapperClassName ?? "w-full"}>
+      <div className="w-full" style={s.container}>
         <div className="flex flex-col gap-md">
           {content.title ? (
-            <h3 {...titleSelection} className="px-md @md:px-0" style={s.title}>
+            <h3 className="px-md @md:px-0" style={s.title}>
               {content.title}
             </h3>
           ) : null}
@@ -140,23 +140,12 @@ export function ImageCardsSection({
           {visibleCards.length > 0 ? (
             <div className="scrollbar-none flex snap-x snap-mandatory gap-sm overflow-x-auto px-md scroll-pl-md @md:grid @md:grid-cols-3 @md:overflow-visible @md:px-0 @md:scroll-pl-0">
               {visibleCards.map((card) => {
-                const imageSelection = select(
-                  `imageCards.${card.id}.image`,
-                  "overlay",
-                );
-                const headingSelection = select(
-                  `imageCards.${card.id}.heading`,
-                );
-                const bodySelection = select(`imageCards.${card.id}.body`);
-                const buttonSelection = select(`imageCards.${card.id}.button`);
-
                 return (
                   <article
                     key={card.id}
                     className="flex w-[calc((100vw-2rem-0.75rem)/1.5)] min-w-[14rem] max-w-[19rem] shrink-0 snap-start flex-col gap-md @md:w-auto @md:min-w-0 @md:max-w-none"
                   >
                     <div
-                      {...imageSelection}
                       className="relative w-full overflow-hidden"
                       style={s.cardImage}
                     >
@@ -178,24 +167,17 @@ export function ImageCardsSection({
 
                     <div className="flex flex-col gap-xs">
                       {card.heading ? (
-                        <h6 {...headingSelection} style={s.cardHeading}>
-                          {card.heading}
-                        </h6>
+                        <h6 style={s.cardHeading}>{card.heading}</h6>
                       ) : null}
 
                       {card.body ? (
-                        <p
-                          {...bodySelection}
-                          className="whitespace-pre-line"
-                          style={s.cardBody}
-                        >
+                        <p className="whitespace-pre-line" style={s.cardBody}>
                           {card.body}
                         </p>
                       ) : null}
 
                       {card.url ? (
                         <a
-                          {...buttonSelection}
                           href={card.url}
                           target="_blank"
                           rel="noopener noreferrer"

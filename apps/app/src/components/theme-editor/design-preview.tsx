@@ -1,23 +1,39 @@
 "use client";
 
+/**
+ * Live preview surface for the theme editor.
+ */
+
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { useSelectableDetection } from "@/hooks/use-selectable-detection";
 import { resolvePassportImageUrls } from "@/utils/storage-urls";
-import { ContentFrame, Footer, Header } from "@v1/dpp-components";
-import type { Passport } from "@v1/dpp-components";
+import {
+  ContentFrame,
+  Footer,
+  Header,
+  resolveStyles,
+} from "@v1/dpp-components";
 import { useCallback, useMemo, useRef } from "react";
 import { PreviewThemeInjector } from "./preview-theme-injector";
 import { SaveBar } from "./save-bar";
+import { ThemeEditorModalPreview } from "./theme-editor-modal-preview";
 
 export function DesignPreview() {
-  const { previewData, passportDraft, previewModalType } = useDesignEditor();
+  // Render the editable passport preview and keep modal previews inside the DPP root.
+  const { previewData, passportDraft, previewModalType, setPreviewModalType } =
+    useDesignEditor();
   const containerRef = useRef<HTMLDivElement>(null);
+  const modalPortalRef = useRef<HTMLDivElement>(null);
   const brandName = previewData.productAttributes.brand;
 
   // Resolve storage paths to full URLs for preview display
   const resolvedPassport = useMemo(
     () => resolvePassportImageUrls(passportDraft),
     [passportDraft],
+  );
+  const modalStyles = useMemo(
+    () => resolveStyles(passportDraft.modal.styles, passportDraft.tokens),
+    [passportDraft.modal.styles, passportDraft.tokens],
   );
 
   const { handleMouseMove, handleMouseLeave, handleClick } =
@@ -52,23 +68,26 @@ export function DesignPreview() {
             brandName={brandName}
             position="sticky"
           />
-          <ContentFrame
-            passport={resolvedPassport}
-            data={previewData}
-            forceModalType={previewModalType}
-          />
+          <ContentFrame passport={resolvedPassport} data={previewData} />
           <Footer
             footer={resolvedPassport.footer}
             tokens={resolvedPassport.tokens}
             brandName={brandName}
           />
-          {/* Backdrop overlay when previewing a modal — pointer-events block
-              interaction with elements beneath while modal content (z-91)
-              remains interactive above this layer (z-90). */}
-          {previewModalType && (
+          {previewModalType === "modal" && (
             <div
-              className="fixed inset-0 z-[90]"
+              aria-hidden
+              className="absolute inset-0 z-[90]"
               style={{ background: "rgba(0, 0, 0, 0.247)" }}
+            />
+          )}
+          <div ref={modalPortalRef} />
+          {previewModalType === "modal" && (
+            <ThemeEditorModalPreview
+              data={previewData}
+              modal={passportDraft.modal}
+              modalStyles={modalStyles}
+              portalContainer={modalPortalRef.current}
             />
           )}
         </div>

@@ -12,6 +12,57 @@ export const FOOTER_SCHEMA: FixedComponentSchema = {
   editorTree: {
     id: "footer",
     displayName: "Footer",
+    styleFields: [
+      {
+        type: "color",
+        path: "container.backgroundColor",
+        label: "Background Color",
+        section: "Background",
+      },
+      {
+        type: "color",
+        path: "container.borderColor",
+        label: "Border Color",
+        section: "Border",
+      },
+      {
+        type: "border",
+        path: "container.borderWidth",
+        label: "Border Width",
+        section: "Border",
+      },
+      {
+        type: "color",
+        path: "socialIcon.color",
+        label: "Color",
+        section: "Social Media",
+      },
+      {
+        type: "typescale",
+        path: "socialIcon.typescale",
+        label: "Typography",
+        section: "Social Media",
+      },
+      {
+        type: "color",
+        path: "brandName.color",
+        label: "Color",
+        section: "Brand",
+      },
+      {
+        type: "typescale",
+        path: "brandName.typescale",
+        label: "Typography",
+        section: "Brand",
+      },
+      {
+        type: "select",
+        path: "brandName.textTransform",
+        label: "Capitalization",
+        section: "Brand",
+        options: [...CAPITALIZATION_STYLE_OPTIONS],
+      },
+    ],
     configFields: [
       {
         type: "url",
@@ -63,37 +114,14 @@ export const FOOTER_SCHEMA: FixedComponentSchema = {
         section: "Social Links",
       },
     ],
-    children: [
-      {
-        id: "footer.brandName",
-        displayName: "Brand",
-        styleFields: [
-          { type: "color", path: "brandName.color", label: "Color" },
-          {
-            type: "typescale",
-            path: "brandName.typescale",
-            label: "Typography",
-          },
-          {
-            type: "select",
-            path: "brandName.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
-      },
-      {
-        id: "footer.socialIcon",
-        displayName: "Socials",
-        styleFields: [
-          { type: "color", path: "socialIcon.color", label: "Color" },
-        ],
-      },
-    ],
   },
   defaults: {
     styles: {
-      container: { backgroundColor: "$background", borderColor: "$border" },
+      container: {
+        backgroundColor: "$background",
+        borderColor: "$border",
+        borderWidth: 0,
+      },
       brandName: {
         typescale: "body-sm",
         color: "$mutedForeground",

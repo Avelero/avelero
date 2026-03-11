@@ -172,8 +172,6 @@ export interface PassportDppApiResponse {
     };
   };
   brandPassport: Passport | null;
-  stylesheetUrl: string | null;
-  googleFontsUrl: string | null;
   passport: {
     upid: string;
     isInactive: boolean;

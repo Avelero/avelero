@@ -13,34 +13,39 @@ export const HERO_SCHEMA: SectionSchema = {
   editorTree: {
     id: "hero",
     displayName: "Hero",
-    children: [
+    styleFields: [
       {
-        id: "hero.title",
-        displayName: "Title",
-        styleFields: [
-          { type: "color", path: "title.color", label: "Color" },
-          { type: "typescale", path: "title.typescale", label: "Typography" },
-          {
-            type: "select",
-            path: "title.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
+        type: "color",
+        path: "title.color",
+        label: "Color",
+        section: "Product Title",
       },
       {
-        id: "hero.brand",
-        displayName: "Brand",
-        styleFields: [
-          { type: "color", path: "brand.color", label: "Color" },
-          { type: "typescale", path: "brand.typescale", label: "Typography" },
-          {
-            type: "select",
-            path: "brand.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
+        type: "typescale",
+        path: "title.typescale",
+        label: "Typography",
+        section: "Product Title",
+      },
+      {
+        type: "select",
+        path: "title.textTransform",
+        label: "Capitalization",
+        section: "Product Title",
+        options: [...CAPITALIZATION_STYLE_OPTIONS],
+      },
+      { type: "color", path: "brand.color", label: "Color", section: "Brand" },
+      {
+        type: "typescale",
+        path: "brand.typescale",
+        label: "Typography",
+        section: "Brand",
+      },
+      {
+        type: "select",
+        path: "brand.textTransform",
+        label: "Capitalization",
+        section: "Brand",
+        options: [...CAPITALIZATION_STYLE_OPTIONS],
       },
     ],
   },

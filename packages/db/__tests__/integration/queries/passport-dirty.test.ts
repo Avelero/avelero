@@ -10,8 +10,6 @@
 import "../../setup";
 
 import { beforeEach, describe, expect, it } from "bun:test";
-import { inArray } from "drizzle-orm";
-import * as schema from "@v1/db/schema";
 import {
   batchClearDirtyFlags,
   batchCreatePassportsForVariants,
@@ -22,6 +20,7 @@ import {
   markPassportsDirtyByProductIds,
   markPassportsDirtyByVariantIds,
 } from "@v1/db/queries/products";
+import * as schema from "@v1/db/schema";
 import {
   cleanupTables,
   createTestBrand,
@@ -29,6 +28,7 @@ import {
   createTestVariant,
   testDb,
 } from "@v1/db/testing";
+import { eq, inArray } from "drizzle-orm";
 
 /**
  * Create a product, variant, and passport fixture for dirty-flag tests.
@@ -198,6 +198,37 @@ describe("Passport dirty infrastructure", () => {
     expect(
       rows.find((row) => row.id === unpublishedFixture.passport.id)?.dirty,
     ).toBe(false);
+  });
+
+  it("creates and dirties missing passports for published product targets", async () => {
+    const brandId = await createTestBrand("Ensure Dirty Brand");
+    const product = await createTestProduct(brandId, {
+      status: "published",
+      productHandle: `ensure-dirty-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    const variant = await createTestVariant(product.id, {
+      upid: `ENSURE${Math.random().toString(36).slice(2, 10)}`,
+      sku: "ENSURE-SKU",
+      barcode: "5555555555555",
+    });
+
+    const marked = await markPassportsDirtyByProductIds(testDb, brandId, [
+      product.id,
+    ]);
+    const [passport] = await testDb
+      .select({
+        id: schema.productPassports.id,
+        workingVariantId: schema.productPassports.workingVariantId,
+        dirty: schema.productPassports.dirty,
+      })
+      .from(schema.productPassports)
+      .where(eq(schema.productPassports.workingVariantId, variant.id))
+      .limit(1);
+
+    expect(passport?.workingVariantId).toBe(variant.id);
+    expect(passport?.dirty).toBe(true);
+    expect(marked.marked).toBe(1);
+    expect(marked.passportIds).toEqual(passport ? [passport.id] : []);
   });
 
   it("marks product passports dirty and clears them again", async () => {

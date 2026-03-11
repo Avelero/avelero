@@ -21,6 +21,7 @@ export function BannerSection({
   zoneId,
   wrapperClassName,
 }: SectionProps) {
+  // Resolve the banner content once and expose only the section root for editor selection.
   const s = resolveStyles(section.styles, tokens);
   const { headline, subline, ctaText, ctaUrl, backgroundImage } =
     section.content as {
@@ -31,10 +32,7 @@ export function BannerSection({
       backgroundImage?: string;
     };
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const containerSelection = select("banner.container", "overlay");
-  const headlineSelection = select("banner.headline");
-  const sublineSelection = select("banner.subline");
-  const buttonSelection = select("banner.button");
+  const rootSelection = select("banner", "overlay");
 
   const isLocalDev =
     backgroundImage?.includes("127.0.0.1") ||
@@ -48,9 +46,8 @@ export function BannerSection({
   containerStyle.borderRadius = undefined;
 
   return (
-    <div className={wrapperClassName ?? "w-full"}>
+    <div {...rootSelection} className={wrapperClassName ?? "w-full"}>
       <div
-        {...containerSelection}
         className="relative w-full flex flex-col items-center justify-center py-3x px-lg @md:px-3x overflow-hidden @md:[border-radius:var(--dpp-banner-radius,0px)]"
         style={{
           ...containerStyle,
@@ -78,7 +75,6 @@ export function BannerSection({
           <div className="flex flex-col gap-lg">
             {headline && (
               <h2
-                {...headlineSelection}
                 className="max-w-[600px] whitespace-pre-line"
                 style={s.headline}
               >
@@ -87,7 +83,6 @@ export function BannerSection({
             )}
             {subline && (
               <p
-                {...sublineSelection}
                 className="max-w-[600px] whitespace-pre-line"
                 style={s.subline}
               >
@@ -98,7 +93,6 @@ export function BannerSection({
 
           {ctaUrl && ctaText && (
             <a
-              {...buttonSelection}
               href={ctaUrl}
               target="_blank"
               rel="noopener noreferrer"

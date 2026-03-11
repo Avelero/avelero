@@ -1,16 +1,15 @@
 "use server";
 
-import { authActionClient } from "@/actions/safe-action";
-import {
-  type Passport,
-  buildPassportStylesheet,
-  generateGoogleFontsUrlFromTypography,
-} from "@v1/dpp-components";
-import type { Json } from "@v1/supabase/types";
-import { normalizePassportImagePathsForStorage } from "@v1/api/src/utils/theme-config-images";
-import { z } from "zod";
+/**
+ * Persist the brand passport draft from the theme editor.
+ */
 
-const BUCKET_NAME = "dpp-themes";
+import { authActionClient } from "@/actions/safe-action";
+import { revalidateBrand } from "@v1/api/src/lib/dpp-revalidation";
+import { normalizePassportImagePathsForStorage } from "@v1/api/src/utils/theme-config-images";
+import type { Passport } from "@v1/dpp-components";
+import type { Json } from "@v1/supabase/types";
+import { z } from "zod";
 
 const schema = z.object({
   brandId: z.string().uuid(),
@@ -23,38 +22,7 @@ export const saveThemeAction = authActionClient
   .action(async ({ parsedInput, ctx }) => {
     const { brandId, passport } = parsedInput;
     const supabase = ctx.supabase;
-
-    // Generate Google Fonts URL from typography settings
-    const googleFontsUrl = generateGoogleFontsUrlFromTypography(
-      passport?.tokens?.typography as Record<string, unknown> | undefined,
-      passport?.tokens?.fonts,
-    );
-
-    // Build CSS stylesheet from passport tokens
-    if (!passport?.tokens) {
-      throw new Error("Invalid passport: missing tokens");
-    }
-    const stylesheetContent = buildPassportStylesheet(passport.tokens);
-
-    const stylesheetPath = `${brandId}/theme.css`;
     const now = new Date().toISOString();
-
-    // Upload CSS to Supabase storage
-    if (stylesheetContent) {
-      const file = new Blob([stylesheetContent], { type: "text/css" });
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(stylesheetPath, file, {
-          upsert: true,
-          contentType: "text/css",
-        });
-
-      if (uploadError) {
-        throw new Error(
-          `Failed to upload theme stylesheet: ${uploadError.message}`,
-        );
-      }
-    }
 
     // Normalize image URLs to storage paths before persisting
     const normalizedPassport = normalizePassportImagePathsForStorage(
@@ -66,8 +34,6 @@ export const saveThemeAction = authActionClient
       .from("brand_theme")
       .update({
         passport: normalizedPassport as unknown as Json,
-        stylesheet_path: stylesheetPath,
-        google_fonts_url: googleFontsUrl || null,
         updated_at: now,
       })
       .eq("brand_id", brandId);
@@ -76,10 +42,25 @@ export const saveThemeAction = authActionClient
       throw new Error(dbError.message || "Unable to save passport for brand");
     }
 
+    // Revalidate public DPP pages after the editor saves a new passport.
+    const { data: brand, error: brandError } = await supabase
+      .from("brands")
+      .select("slug")
+      .eq("id", brandId)
+      .single();
+
+    if (brandError) {
+      throw new Error(brandError.message || "Unable to load brand slug");
+    }
+
+    if (!brand?.slug) {
+      throw new Error("Unable to revalidate brand without a slug");
+    }
+
+    await revalidateBrand(brand.slug);
+
     return {
       brandId,
-      stylesheetPath,
-      googleFontsUrl,
       updatedAt: now,
     };
   });

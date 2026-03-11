@@ -1,16 +1,19 @@
 /**
- * Manufacturer modal schema.
+ * Shared modal schema.
  *
- * Defines the editable building blocks for the manufacturer overview modal.
+ * Defines the single editable modal target used by the theme editor.
+ * It exposes the union of the shared modal slots used across the
+ * description, impact, manufacturer, certification, and operator modals.
  */
 
 import {
   CAPITALIZATION_STYLE_OPTIONS,
   SURFACE_CARD_SHADOW,
-} from "../../../sections/editor-options";
-import type { FixedComponentSchema, StyleField } from "../../../types/editor";
+} from "../../sections/editor-options";
+import type { FixedComponentSchema, StyleField } from "../../types/editor";
 
 function createTypographyFields(path: string, section: string): StyleField[] {
+  // Reuse the shared typography controls for each modal text slot.
   return [
     { type: "color", path: `${path}.color`, label: "Color", section },
     {
@@ -29,12 +32,12 @@ function createTypographyFields(path: string, section: string): StyleField[] {
   ];
 }
 
-export const MANUFACTURER_MODAL_SCHEMA: FixedComponentSchema = {
-  id: "manufacturerModal",
-  displayName: "Manufacturer",
+export const SHARED_MODAL_SCHEMA: FixedComponentSchema = {
+  id: "modal",
+  displayName: "Modal",
   editorTree: {
-    id: "manufacturerModal",
-    displayName: "Manufacturer Modal",
+    id: "modal",
+    displayName: "Modal",
     styleFields: [
       {
         type: "color",

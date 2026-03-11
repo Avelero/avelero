@@ -8,6 +8,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { DatabaseOrTransaction } from "../../client";
 import { productPassports, productVariants, products } from "../../schema";
+import { batchCreatePassportsForVariants } from "./passports";
 
 /**
  * Result of a dirty-marking operation.
@@ -15,6 +16,18 @@ import { productPassports, productVariants, products } from "../../schema";
 export interface MarkDirtyResult {
   marked: number;
   passportIds: string[];
+}
+
+/**
+ * Published working variant plus any existing passport row.
+ */
+interface PublishedVariantPassportRow {
+  brandId: string;
+  variantId: string;
+  upid: string | null;
+  sku: string | null;
+  barcode: string | null;
+  passportId: string | null;
 }
 
 /**
@@ -56,6 +69,107 @@ async function markDirtyByPassportIds(
 }
 
 /**
+ * Load published variants alongside any existing passport rows.
+ *
+ * @param db - Database instance or transaction
+ * @param filters - Variant/product/brand scope to inspect
+ * @returns Published variants with nullable passport IDs
+ */
+async function loadPublishedVariantPassports(
+  db: DatabaseOrTransaction,
+  filters: {
+    brandId?: string;
+    productIds?: string[];
+    variantIds?: string[];
+  },
+): Promise<PublishedVariantPassportRow[]> {
+  // Build a narrow published-variant scope so dirty-marking never touches drafts.
+  const conditions = [eq(products.status, "published")];
+
+  if (filters.brandId) {
+    conditions.push(eq(products.brandId, filters.brandId));
+  }
+
+  if (filters.productIds && filters.productIds.length > 0) {
+    conditions.push(inArray(products.id, filters.productIds));
+  }
+
+  if (filters.variantIds && filters.variantIds.length > 0) {
+    conditions.push(inArray(productVariants.id, filters.variantIds));
+  }
+
+  return db
+    .select({
+      brandId: products.brandId,
+      variantId: productVariants.id,
+      upid: productVariants.upid,
+      sku: productVariants.sku,
+      barcode: productVariants.barcode,
+      passportId: productPassports.id,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .leftJoin(
+      productPassports,
+      eq(productPassports.workingVariantId, productVariants.id),
+    )
+    .where(and(...conditions));
+}
+
+/**
+ * Ensure each published variant has a passport row before dirty-marking.
+ *
+ * @param db - Database instance or transaction
+ * @param variants - Published variants in scope
+ * @returns Passport IDs covering both existing and newly created passports
+ */
+async function ensurePassportsForPublishedVariants(
+  db: DatabaseOrTransaction,
+  variants: PublishedVariantPassportRow[],
+): Promise<string[]> {
+  // Preserve existing passport IDs and only create rows for missing variants.
+  const passportIds = variants.flatMap((variant) =>
+    variant.passportId ? [variant.passportId] : [],
+  );
+  const variantsByBrandId = new Map<
+    string,
+    Array<{
+      variantId: string;
+      upid: string;
+      sku: string | null;
+      barcode: string | null;
+    }>
+  >();
+
+  for (const variant of variants) {
+    if (variant.passportId || !variant.upid) {
+      continue;
+    }
+
+    const brandVariants = variantsByBrandId.get(variant.brandId) ?? [];
+    brandVariants.push({
+      variantId: variant.variantId,
+      upid: variant.upid,
+      sku: variant.sku,
+      barcode: variant.barcode,
+    });
+    variantsByBrandId.set(variant.brandId, brandVariants);
+  }
+
+  for (const [brandId, brandVariants] of variantsByBrandId) {
+    const createdPassports = await batchCreatePassportsForVariants(
+      db,
+      brandId,
+      brandVariants,
+    );
+
+    passportIds.push(...createdPassports.map((passport) => passport.id));
+  }
+
+  return passportIds;
+}
+
+/**
  * Mark a single passport dirty.
  *
  * @param db - Database instance or transaction
@@ -86,26 +200,15 @@ export async function markPassportsDirtyByVariantIds(
     return { marked: 0, passportIds: [] };
   }
 
-  const passports = await db
-    .select({ id: productPassports.id })
-    .from(productPassports)
-    .innerJoin(
-      productVariants,
-      eq(productVariants.id, productPassports.workingVariantId),
-    )
-    .innerJoin(products, eq(products.id, productVariants.productId))
-    .where(
-      and(
-        inArray(productVariants.id, variantIds),
-        eq(products.status, "published"),
-        eq(productPassports.dirty, false),
-      ),
-    );
-
-  return markDirtyByPassportIds(
+  const publishedVariants = await loadPublishedVariantPassports(db, {
+    variantIds: [...new Set(variantIds)],
+  });
+  const passportIds = await ensurePassportsForPublishedVariants(
     db,
-    passports.map((passport) => passport.id),
+    publishedVariants,
   );
+
+  return markDirtyByPassportIds(db, passportIds);
 }
 
 /**
@@ -126,27 +229,16 @@ export async function markPassportsDirtyByProductIds(
     return { marked: 0, passportIds: [] };
   }
 
-  const passports = await db
-    .select({ id: productPassports.id })
-    .from(productPassports)
-    .innerJoin(
-      productVariants,
-      eq(productVariants.id, productPassports.workingVariantId),
-    )
-    .innerJoin(products, eq(products.id, productVariants.productId))
-    .where(
-      and(
-        eq(products.brandId, brandId),
-        inArray(products.id, productIds),
-        eq(products.status, "published"),
-        eq(productPassports.dirty, false),
-      ),
-    );
-
-  return markDirtyByPassportIds(
+  const publishedVariants = await loadPublishedVariantPassports(db, {
+    brandId,
+    productIds: [...new Set(productIds)],
+  });
+  const passportIds = await ensurePassportsForPublishedVariants(
     db,
-    passports.map((passport) => passport.id),
+    publishedVariants,
   );
+
+  return markDirtyByPassportIds(db, passportIds);
 }
 
 /**
@@ -161,24 +253,13 @@ export async function markAllBrandPassportsDirty(
   brandId: string,
 ): Promise<MarkDirtyResult> {
   // Scope the lookup to published products so unpublished data stays cold.
-  const passports = await db
-    .select({ id: productPassports.id })
-    .from(productPassports)
-    .innerJoin(
-      productVariants,
-      eq(productVariants.id, productPassports.workingVariantId),
-    )
-    .innerJoin(products, eq(products.id, productVariants.productId))
-    .where(
-      and(
-        eq(products.brandId, brandId),
-        eq(products.status, "published"),
-        eq(productPassports.dirty, false),
-      ),
-    );
-
-  return markDirtyByPassportIds(
+  const publishedVariants = await loadPublishedVariantPassports(db, {
+    brandId,
+  });
+  const passportIds = await ensurePassportsForPublishedVariants(
     db,
-    passports.map((passport) => passport.id),
+    publishedVariants,
   );
+
+  return markDirtyByPassportIds(db, passportIds);
 }

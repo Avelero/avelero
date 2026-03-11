@@ -12,31 +12,54 @@ export const HEADER_SCHEMA: FixedComponentSchema = {
   editorTree: {
     id: "header",
     displayName: "Header",
-    configFields: [{ type: "image", path: "logoUrl", label: "Logo" }],
-    children: [
+    styleFields: [
       {
-        id: "header.textLogo",
-        displayName: "Text Logo",
-        styleFields: [
-          { type: "color", path: "textLogo.color", label: "Color" },
-          {
-            type: "typescale",
-            path: "textLogo.typescale",
-            label: "Typography",
-          },
-          {
-            type: "select",
-            path: "textLogo.textTransform",
-            label: "Capitalization",
-            options: [...CAPITALIZATION_STYLE_OPTIONS],
-          },
-        ],
+        type: "color",
+        path: "container.backgroundColor",
+        label: "Background Color",
+        section: "Background",
+      },
+      {
+        type: "color",
+        path: "container.borderColor",
+        label: "Border Color",
+        section: "Border",
+      },
+      {
+        type: "border",
+        path: "container.borderWidth",
+        label: "Border Width",
+        section: "Border",
+      },
+      {
+        type: "color",
+        path: "textLogo.color",
+        label: "Color",
+        section: "Text Logo",
+      },
+      {
+        type: "typescale",
+        path: "textLogo.typescale",
+        label: "Typography",
+        section: "Text Logo",
+      },
+      {
+        type: "select",
+        path: "textLogo.textTransform",
+        label: "Capitalization",
+        section: "Text Logo",
+        options: [...CAPITALIZATION_STYLE_OPTIONS],
       },
     ],
+    configFields: [{ type: "image", path: "logoUrl", label: "Logo" }],
   },
   defaults: {
     styles: {
-      container: { backgroundColor: "$background", borderColor: "$border" },
+      container: {
+        backgroundColor: "$background",
+        borderColor: "$border",
+        borderWidth: 0,
+      },
       textLogo: { color: "$foreground", textTransform: "none" },
     },
     content: {

@@ -3,15 +3,14 @@
 /**
  * Preview selection detection for the theme editor.
  *
- * The shared DPP renderer now emits explicit selection metadata, so the editor
- * can resolve hover and click targets without inferring anything from CSS
- * classes or legacy DOM structure.
+ * Only section-root and fixed nodes are selectable. Clicking a section
+ * navigates to its detail page; clicking a fixed component navigates to
+ * its editor view.
  */
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import type { ZoneId } from "@v1/dpp-components";
 import { useCallback, useEffect, useRef } from "react";
-
 
 type SelectableNodeTarget =
   | {
@@ -21,7 +20,7 @@ type SelectableNodeTarget =
     }
   | {
       nodeId: string;
-      kind: "section-root" | "section-child";
+      kind: "section-root";
       editorId: string;
       sectionId: string;
       zoneId: ZoneId;
@@ -106,7 +105,7 @@ function parseSelectableTarget(
     return null;
   }
 
-  if (kind === "section-root" || kind === "section-child") {
+  if (kind === "section-root") {
     return { nodeId, kind, editorId, sectionId, zoneId };
   }
 
@@ -114,7 +113,7 @@ function parseSelectableTarget(
 }
 
 /**
- * Find the deepest selectable preview node under the current event target.
+ * Find the nearest selectable preview node above the current event target.
  */
 function findSelectableTarget(
   target: EventTarget | null,
@@ -235,11 +234,8 @@ export function useSelectableDetection(
         return;
       }
 
+      // Section-root: navigate to the section's detail page.
       navigateToSectionInstance(target.zoneId, target.sectionId);
-
-      if (target.kind === "section-child") {
-        navigateToComponent(target.editorId);
-      }
     },
     [
       navigateBack,

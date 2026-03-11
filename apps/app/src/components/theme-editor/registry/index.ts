@@ -20,9 +20,7 @@ export {
 
 // Utility functions
 export {
-  findComponentById,
   hasEditableContent,
-  isSelectableComponent,
   hasConfigContent,
   resolveComponentForEditor,
 } from "./utils";

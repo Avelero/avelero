@@ -33,12 +33,10 @@ const SOCIAL_LABELS: Array<{ key: keyof SocialLinks; text: string }> = [
 ];
 
 export function Footer({ footer, tokens, brandName }: Props) {
-  // Resolve the footer styles once so the stored defaults drive the rendered chrome.
+  // Resolve the footer styles once and expose only the footer shell for editor selection.
   const s = resolveStyles(footer.styles, tokens);
   const select = createFixedSelectionAttributes();
   const footerSelection = select("footer");
-  const brandNameSelection = select("footer.brandName");
-  const socialIconSelection = select("footer.socialIcon");
 
   const socialMedia = SOCIAL_LABELS.map((item) => ({
     text: item.text,
@@ -51,14 +49,11 @@ export function Footer({ footer, tokens, brandName }: Props) {
         className="flex justify-between items-center p-sm border-t"
         style={{ borderColor: s.container?.borderColor }}
       >
-        <div {...brandNameSelection} style={s.brandName}>
-          {brandName}
-        </div>
+        <div style={s.brandName}>{brandName}</div>
         <div className="flex items-center gap-md">
           {socialMedia.map((item) => (
             <a
               key={item.text}
-              {...socialIconSelection}
               href={item.url}
               className="cursor-pointer"
               style={s.socialIcon}

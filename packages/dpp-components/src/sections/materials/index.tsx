@@ -10,6 +10,11 @@ import { MapPinIcon } from "@phosphor-icons/react/dist/ssr/MapPin";
 import { Icons } from "@v1/ui/icons";
 import { Fragment, useState } from "react";
 import { CertificationModal, Modal } from "../../components";
+import {
+  buildCertificationModalDescription,
+  buildCertificationModalFacts,
+  buildCertificationModalMapQuery,
+} from "../../components/modals/certification/helpers";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { useHapticTap } from "../../lib/haptics";
 import {
@@ -20,150 +25,7 @@ import { resolveStyles } from "../../lib/resolve-styles";
 import { getResolvedTextLineHeight } from "../../lib/text-line-height";
 import { toExternalHref } from "../../lib/url-utils";
 import type { SectionProps } from "../registry";
-import { getCountryName, transformMaterials } from "../transforms";
-
-function createMaterialsModalSelectionGetter(
-  select: ReturnType<typeof createSectionSelectionAttributes>,
-) {
-  // Scope modal slot ids to the materials section namespace for editor selection.
-  return (slotId: string) => select(`materials.${slotId}`);
-}
-
-function buildCertificationModalFacts(
-  material: ReturnType<typeof transformMaterials>[number],
-) {
-  // Gather the available certification facts into label/value rows for the modal.
-  const facts: Array<{
-    key: string;
-    label: string;
-    value: React.ReactNode;
-  }> = [];
-  const certification = material.certification;
-  const institute = certification?.testingInstitute;
-
-  if (!certification) {
-    return facts;
-  }
-
-  if (certification.code) {
-    facts.push({
-      key: "Certification code",
-      label: "Certification code",
-      value: certification.code,
-    });
-  }
-
-  if (certification.issueDate) {
-    facts.push({
-      key: "Issue date",
-      label: "Issue date",
-      value: formatDateFactValue(certification.issueDate),
-    });
-  }
-
-  if (certification.expiryDate) {
-    facts.push({
-      key: "Expiry date",
-      label: "Expiry date",
-      value: formatDateFactValue(certification.expiryDate),
-    });
-  }
-
-  if (institute?.legalName) {
-    facts.push({
-      key: "Institute name",
-      label: "Institute name",
-      value: institute.legalName,
-    });
-  }
-
-  if (institute?.website) {
-    const certificationHref = toExternalHref(institute.website);
-
-    facts.push({
-      key: "Institute website",
-      label: "Institute website",
-      value: certificationHref ? (
-        <a
-          className="underline underline-offset-4"
-          href={certificationHref}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          {institute.website}
-        </a>
-      ) : (
-        institute.website
-      ),
-    });
-  }
-
-  if (institute?.email) {
-    facts.push({
-      key: "Institute email",
-      label: "Institute email",
-      value: institute.email,
-    });
-  }
-
-  if (institute?.phone) {
-    facts.push({
-      key: "Institute phone",
-      label: "Institute phone",
-      value: institute.phone,
-    });
-  }
-
-  if (institute?.city) {
-    facts.push({ key: "City", label: "City", value: institute.city });
-  }
-
-  if (institute?.country) {
-    facts.push({
-      key: "Country",
-      label: "Country",
-      value: getCountryName(institute.country) || institute.country,
-    });
-  }
-
-  return facts;
-}
-
-function buildCertificationMapQuery(
-  material: ReturnType<typeof transformMaterials>[number],
-  showExactLocation: boolean,
-): string | null {
-  // Collapse the testing institute address into either an exact or city-level Google Maps query.
-  const institute = material.certification?.testingInstitute;
-  const country = institute?.country
-    ? getCountryName(institute.country) || institute.country
-    : undefined;
-  const queryParts = (
-    showExactLocation
-      ? [
-          institute?.addressLine1,
-          institute?.city,
-          institute?.state,
-          institute?.postalCode,
-          country,
-        ]
-      : [institute?.city, country]
-  )
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value));
-
-  if (queryParts.length === 0) {
-    return null;
-  }
-
-  return queryParts.join(", ");
-}
-
-function formatDateFactValue(value: string) {
-  // Collapse persisted timestamps to a stable calendar-date label in the modal.
-  const isoDate = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
-  return isoDate ?? value;
-}
+import { transformMaterials } from "../transforms";
 
 export function MaterialsSection({
   section,
@@ -187,12 +49,7 @@ export function MaterialsSection({
   >(null);
   const showCheckIcon = section.content.showCertificationCheckIcon !== false;
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const titleSelection = select("materials.title");
-  const percentageSelection = select("materials.card.percentage");
-  const typeSelection = select("materials.card.type");
-  const originSelection = select("materials.card.origin");
-  const certificationSelection = select("materials.card.certification");
-  const certTextSelection = select("materials.card.certText");
+  const rootSelection = select("materials");
   const percentageStyle: React.CSSProperties = {
     ...s["card.percentage"],
     fontVariantNumeric: "tabular-nums",
@@ -201,7 +58,6 @@ export function MaterialsSection({
     color: true,
   });
   const dividerColor = s.card?.borderColor ?? "var(--border)";
-  const modalSelect = createMaterialsModalSelectionGetter(select);
   const showExactLocation = modalContent?.showExactLocation !== false;
   const originRowHeight = getResolvedTextLineHeight(
     s["card.origin"],
@@ -217,13 +73,12 @@ export function MaterialsSection({
       modal={!isForceOpen}
     >
       <div
+        {...rootSelection}
         className={["flex flex-col gap-xs w-full", wrapperClassName]
           .filter(Boolean)
           .join(" ")}
       >
-        <h6 {...titleSelection} style={s.title}>
-          Materials
-        </h6>
+        <h6 style={s.title}>Materials</h6>
 
         <div
           className="grid grid-cols-[max-content_minmax(0,1fr)] overflow-hidden"
@@ -236,7 +91,6 @@ export function MaterialsSection({
               >
                 <div className="flex items-start p-md">
                   <span
-                    {...percentageSelection}
                     className="inline-grid place-items-center"
                     style={percentageStyle}
                   >
@@ -263,16 +117,11 @@ export function MaterialsSection({
                   }
                 >
                   <div className="grid grid-cols-[minmax(0,1fr)_max-content] items-start gap-xs">
-                    <span
-                      {...typeSelection}
-                      className="block min-w-0"
-                      style={s["card.type"]}
-                    >
+                    <span className="block min-w-0" style={s["card.type"]}>
                       {material.type}
                     </span>
                     {material.certification && (
                       <span
-                        {...certificationSelection}
                         className="inline-flex items-center gap-micro px-xs"
                         style={s["card.certification"]}
                       >
@@ -303,7 +152,6 @@ export function MaterialsSection({
                         }}
                       >
                         <span
-                          {...originSelection}
                           className="inline-flex items-center"
                           style={{
                             ...s["card.origin"],
@@ -318,7 +166,6 @@ export function MaterialsSection({
 
                   {material.certification && (
                     <button
-                      {...certTextSelection}
                       type="button"
                       className={`appearance-none border-0 bg-transparent p-0 w-fit cursor-pointer text-left underline underline-offset-4 ${INTERACTIVE_HOVER_CLASS_NAME}`}
                       style={certTextStyle}
@@ -352,13 +199,12 @@ export function MaterialsSection({
                   undefined
                 : undefined
             }
-            description={`This certification applies to ${certMaterial.type.toLowerCase()} and is reported as part of this product passport.`}
-            facts={buildCertificationModalFacts(certMaterial)}
-            mapQuery={buildCertificationMapQuery(
-              certMaterial,
+            description={buildCertificationModalDescription(certMaterial.type)}
+            facts={buildCertificationModalFacts(certMaterial.certification)}
+            mapQuery={buildCertificationModalMapQuery(
+              certMaterial.certification,
               showExactLocation,
             )}
-            select={modalSelect}
             styles={modalStyles ?? {}}
             subtitle="Certification overview"
             title={certMaterial.certification?.type ?? "Certification"}

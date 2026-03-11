@@ -10,7 +10,11 @@ import type {
   Passport,
   SectionType,
 } from "@v1/dpp-components";
-import { COMPONENT_REGISTRY, SECTION_REGISTRY } from "@v1/dpp-components";
+import {
+  COMPONENT_REGISTRY,
+  MODAL_SCHEMA_REGISTRY,
+  SECTION_REGISTRY,
+} from "@v1/dpp-components";
 
 /**
  * Recursively search a ComponentDefinition tree for a matching ID.
@@ -31,9 +35,9 @@ function findInTree(
 
 /**
  * Find a component definition by its ID.
- * Searches COMPONENT_REGISTRY first, then SECTION_REGISTRY editorTrees.
+ * Searches fixed components, modal schemas, then section editor trees.
  */
-export function findComponentById(
+function findComponentById(
   id: string,
   tree?: ComponentDefinition[],
 ): ComponentDefinition | null {
@@ -51,6 +55,13 @@ export function findComponentById(
 
   // Search COMPONENT_REGISTRY editor trees (header, productImage, modal, footer)
   for (const entry of Object.values(COMPONENT_REGISTRY)) {
+    if (!entry) continue;
+    const found = findInTree(id, entry.schema.editorTree);
+    if (found) return found;
+  }
+
+  // Search modal editor trees.
+  for (const entry of Object.values(MODAL_SCHEMA_REGISTRY)) {
     if (!entry) continue;
     const found = findInTree(id, entry.schema.editorTree);
     if (found) return found;
@@ -84,25 +95,16 @@ export function hasConfigContent(component: ComponentDefinition): boolean {
 }
 
 /**
- * Check if a CSS class name is a selectable component in the preview.
- */
-export function isSelectableComponent(className: string): boolean {
-  const component = findComponentById(className);
-  if (!component) return false;
-  return !component.isGrouping;
-}
-
-/**
  * Resolve a component definition for the editor by ID.
  *
- * Checks COMPONENT_REGISTRY first, then SECTION_REGISTRY editorTrees,
+ * Checks fixed components and modal schemas first, then section editor trees,
  * then passport sections by instance ID.
  */
 export function resolveComponentForEditor(
   componentId: string,
   passport: Passport,
 ): ComponentDefinition | null {
-  // Try COMPONENT_REGISTRY and SECTION_REGISTRY editorTrees
+  // Try fixed components, modal schemas, and section editor trees.
   const component = findComponentById(componentId);
   if (component) return component;
 

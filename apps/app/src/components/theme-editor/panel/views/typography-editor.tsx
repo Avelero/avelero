@@ -24,7 +24,7 @@ import {
   SelectTrigger,
 } from "@v1/ui/select";
 import * as React from "react";
-import { FieldWrapper, PixelInput } from "../inputs";
+import { AccordionItem, FieldWrapper, PixelInput } from "../inputs";
 
 // Typography scale configuration
 const TYPOGRAPHY_SCALES = [
@@ -279,40 +279,6 @@ function TypographySelect({
         </SelectList>
       </SelectContent>
     </Select>
-  );
-}
-
-// Simple accordion item component
-interface AccordionItemProps {
-  label: string;
-  isOpen: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}
-
-function AccordionItem({
-  label,
-  isOpen,
-  onToggle,
-  children,
-}: AccordionItemProps) {
-  return (
-    <div className="border-b border-border">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 hover:bg-accent transition-colors"
-      >
-        <span className="type-p text-foreground">{label}</span>
-        <Icons.ChevronDown
-          className={cn(
-            "h-4 w-4 text-secondary transition-transform duration-200",
-            isOpen && "rotate-180",
-          )}
-        />
-      </button>
-      {isOpen && <div className="px-4 pb-4">{children}</div>}
-    </div>
   );
 }
 

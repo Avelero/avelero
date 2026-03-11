@@ -31,13 +31,6 @@ type JourneyCompany = ReturnType<
   typeof transformJourney
 >[number]["companies"][number];
 
-function createJourneyModalSelectionGetter(
-  select: ReturnType<typeof createSectionSelectionAttributes>,
-) {
-  // Scope modal slot ids to the journey section namespace for editor selection.
-  return (slotId: string) => select(`journey.${slotId}`);
-}
-
 function buildOperatorModalFacts(stageName: string, company: JourneyCompany) {
   // Gather the operator details that should appear in the quick overview modal.
   const facts: Array<{
@@ -163,10 +156,7 @@ export function JourneySection({
     stageName: string;
   } | null>(null);
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const titleSelection = select("journey.title");
-  const typeSelection = select("journey.card.type");
-  const operatorSelection = select("journey.card.operator");
-  const locationSelection = select("journey.card.location");
+  const rootSelection = select("journey");
 
   if (journey.length === 0) return null;
 
@@ -177,7 +167,6 @@ export function JourneySection({
   const operatorStyle = createInteractiveHoverStyle(s["card.operator"], {
     color: true,
   });
-  const modalSelect = createJourneyModalSelectionGetter(select);
   const showExactLocation = modalContent?.showExactLocation !== false;
   const titleRowHeight = getResolvedTextLineHeight(
     s["card.type"],
@@ -195,13 +184,12 @@ export function JourneySection({
       modal={!isForceOpen}
     >
       <div
+        {...rootSelection}
         className={["flex flex-col gap-xs w-full", wrapperClassName]
           .filter(Boolean)
           .join(" ")}
       >
-        <h6 {...titleSelection} style={s.title}>
-          Journey
-        </h6>
+        <h6 style={s.title}>Journey</h6>
 
         <div className="overflow-hidden" style={s.card}>
           {journey.map((stage, stageIndex) => {
@@ -265,11 +253,7 @@ export function JourneySection({
                     className="flex items-center"
                     style={{ minHeight: titleRowHeight }}
                   >
-                    <span
-                      {...typeSelection}
-                      className="block"
-                      style={s["card.type"]}
-                    >
+                    <span className="block" style={s["card.type"]}>
                       {stage.name}
                     </span>
                   </div>
@@ -300,7 +284,6 @@ export function JourneySection({
                             {/* Keep operator, separator, and location in one text flow so the location can wrap naturally. */}
                             <span className="min-w-0 break-words">
                               <button
-                                {...operatorSelection}
                                 type="button"
                                 className={`inline cursor-pointer appearance-none border-0 bg-transparent p-0 align-baseline underline underline-offset-4 ${INTERACTIVE_HOVER_CLASS_NAME}`}
                                 style={operatorStyle}
@@ -326,7 +309,6 @@ export function JourneySection({
                               )}
                               {company.location && (
                                 <span
-                                  {...locationSelection}
                                   className="break-words"
                                   style={s["card.location"]}
                                 >
@@ -364,7 +346,6 @@ export function JourneySection({
               operator.company,
               showExactLocation,
             )}
-            select={modalSelect}
             styles={modalStyles ?? {}}
             subtitle="Supply chain operator"
             title={operator.company.name}

@@ -23,7 +23,7 @@ import {
   productVariants,
   products,
 } from "../../schema";
-import { getVersionSnapshot, type DppSnapshot } from "../products/dpp-versions";
+import { type DppSnapshot, getVersionSnapshot } from "../products/dpp-versions";
 
 // =============================================================================
 // TYPES
@@ -70,8 +70,6 @@ export interface PublicDppResult {
   theme: {
     brandSlug: string | null;
     passport: BrandPassport | null;
-    stylesheetPath: string | null;
-    googleFontsUrl: string | null;
   } | null;
   /** Error message if fetch failed */
   error?: string;
@@ -215,8 +213,6 @@ async function fetchBrandTheme(db: Database, brandId: string | null) {
     return {
       brandSlug: null,
       passport: null,
-      stylesheetPath: null,
-      googleFontsUrl: null,
     };
   }
 
@@ -224,8 +220,6 @@ async function fetchBrandTheme(db: Database, brandId: string | null) {
     .select({
       slug: brands.slug,
       passport: brandTheme.passport,
-      stylesheetPath: brandTheme.stylesheetPath,
-      googleFontsUrl: brandTheme.googleFontsUrl,
     })
     .from(brands)
     .leftJoin(brandTheme, eq(brandTheme.brandId, brands.id))
@@ -236,16 +230,12 @@ async function fetchBrandTheme(db: Database, brandId: string | null) {
     return {
       brandSlug: null,
       passport: null,
-      stylesheetPath: null,
-      googleFontsUrl: null,
     };
   }
 
   return {
     brandSlug: result.slug,
     passport: result.passport as BrandPassport | null,
-    stylesheetPath: result.stylesheetPath,
-    googleFontsUrl: result.googleFontsUrl,
   };
 }
 

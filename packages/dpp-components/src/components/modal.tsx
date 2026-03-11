@@ -96,7 +96,13 @@ const ModalOverlay = React.forwardRef<
 
 interface ModalContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  closeButtonProps?: Omit<
+    React.ComponentPropsWithoutRef<typeof ModalClose>,
+    "children" | "className" | "style"
+  >;
+  disableCloseButtonInteraction?: boolean;
   hideClose?: boolean;
+  portalContainer?: ModalPortalProps["container"];
   styles?: ModalStyles;
 }
 
@@ -104,7 +110,17 @@ const ModalContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   ModalContentProps
 >(function ModalContent(
-  { children, className, hideClose = false, style, styles, ...props },
+  {
+    children,
+    className,
+    closeButtonProps,
+    disableCloseButtonInteraction = false,
+    hideClose = false,
+    portalContainer,
+    style,
+    styles,
+    ...props
+  },
   ref,
 ) {
   // Render the modal shell: portal, overlay, dialog chrome, and close button.
@@ -113,7 +129,7 @@ const ModalContent = React.forwardRef<
   const { borderRadius: themeRadius, ...restContentStyle } = contentStyle;
 
   return (
-    <ModalPortal>
+    <ModalPortal container={portalContainer}>
       <ModalOverlay />
       <DialogPrimitive.Content
         ref={ref}
@@ -140,15 +156,25 @@ const ModalContent = React.forwardRef<
         {...props}
       >
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
-          {!hideClose && (
-            <ModalClose
-              className="absolute right-4 top-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-100 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 bg-[var(--background,#FFFFFF)] hover:bg-[var(--muted-dark,#E0E0E0)]"
-              style={{ color: "var(--muted-dark-foreground, #808080)" }}
-            >
-              <Icons.X aria-hidden className="h-4 w-4 shrink-0" />
-              <span className="sr-only">Close</span>
-            </ModalClose>
-          )}
+          {!hideClose &&
+            (disableCloseButtonInteraction ? (
+              <div
+                aria-hidden
+                className="absolute right-4 top-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--background,#FFFFFF)]"
+                style={{ color: "var(--muted-dark-foreground, #808080)" }}
+              >
+                <Icons.X aria-hidden className="h-4 w-4 shrink-0" />
+              </div>
+            ) : (
+              <ModalClose
+                className="absolute right-4 top-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-100 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 bg-[var(--background,#FFFFFF)] hover:bg-[var(--muted-dark,#E0E0E0)]"
+                style={{ color: "var(--muted-dark-foreground, #808080)" }}
+                {...closeButtonProps}
+              >
+                <Icons.X aria-hidden className="h-4 w-4 shrink-0" />
+                <span className="sr-only">Close</span>
+              </ModalClose>
+            ))}
 
           {children}
         </div>

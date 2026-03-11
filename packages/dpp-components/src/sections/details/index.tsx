@@ -31,13 +31,6 @@ function toCapitalizedLabel(value: string): string {
     .join(" ");
 }
 
-function createDetailsModalSelectionGetter(
-  select: ReturnType<typeof createSectionSelectionAttributes>,
-) {
-  // Scope modal slot ids to the details section namespace for editor selection.
-  return (slotId: string) => select(`details.${slotId}`);
-}
-
 function buildManufacturerModalFacts(manufacturer: Manufacturer) {
   // Gather the available manufacturer facts into reusable modal field rows.
   const facts: Array<{ key: string; label: string; value: React.ReactNode }> =
@@ -150,10 +143,7 @@ export function DetailsSection({
   const borderColor =
     s.row?.borderColor ?? s.header?.borderColor ?? s.container?.borderColor;
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const headingSelection = select("details.heading");
-  const labelSelection = select("details.label");
-  const valueSelection = select("details.value");
-  const modalSelect = createDetailsModalSelectionGetter(select);
+  const rootSelection = select("details");
   const showExactLocation = modalContent?.showExactLocation !== false;
   const manufacturerValueStyle = createInteractiveHoverStyle(
     {
@@ -170,22 +160,18 @@ export function DetailsSection({
   const rows: Array<{
     key: string;
     label: string;
-    labelProps: Record<string, string>;
     value: React.ReactNode;
-    valueProps?: Record<string, string>;
   }> = [];
 
   if (productIdentifiers.articleNumber) {
     rows.push({
       key: "article-number",
       label: "Article Number",
-      labelProps: labelSelection,
       value: (
         <span className="block truncate">
           {productIdentifiers.articleNumber}
         </span>
       ),
-      valueProps: valueSelection,
     });
   }
 
@@ -193,10 +179,8 @@ export function DetailsSection({
     rows.push({
       key: "manufacturer",
       label: "Manufacturer",
-      labelProps: labelSelection,
       value: (
         <button
-          {...valueSelection}
           type="button"
           className={`block w-full appearance-none cursor-pointer overflow-hidden truncate border-0 bg-transparent p-0 text-left ${INTERACTIVE_HOVER_CLASS_NAME}`}
           style={manufacturerValueStyle}
@@ -217,9 +201,7 @@ export function DetailsSection({
       rows.push({
         key: "country-of-origin",
         label: "Country Of Origin",
-        labelProps: labelSelection,
         value: <span className="block truncate">{countryName}</span>,
-        valueProps: valueSelection,
       });
     }
   }
@@ -228,13 +210,11 @@ export function DetailsSection({
     rows.push({
       key: "category",
       label: "Category",
-      labelProps: labelSelection,
       value: (
         <span className="block truncate">
           {productAttributes.category.category}
         </span>
       ),
-      valueProps: valueSelection,
     });
   }
 
@@ -245,9 +225,7 @@ export function DetailsSection({
       rows.push({
         key: `attribute-${attr.name}-${index}`,
         label: toCapitalizedLabel(attr.name),
-        labelProps: labelSelection,
         value: <span className="block truncate">{attr.value}</span>,
-        valueProps: valueSelection,
       });
     }
   }
@@ -261,6 +239,7 @@ export function DetailsSection({
       modal={!isForceOpen}
     >
       <div
+        {...rootSelection}
         className={["flex flex-col w-full", wrapperClassName]
           .filter(Boolean)
           .join(" ")}
@@ -269,7 +248,7 @@ export function DetailsSection({
           className="w-full border-b pb-xs"
           style={{ ...s.header, borderColor }}
         >
-          <h2 {...headingSelection} className="w-fit" style={s.heading}>
+          <h2 className="w-fit" style={s.heading}>
             Details
           </h2>
         </div>
@@ -288,7 +267,6 @@ export function DetailsSection({
           description="This manufacturer is listed as the responsible producer for this product passport."
           facts={buildManufacturerModalFacts(manufacturer)}
           mapQuery={buildManufacturerMapQuery(manufacturer, showExactLocation)}
-          select={modalSelect}
           styles={modalStyles ?? {}}
           subtitle="Manufacturer overview"
           title={manufacturerName}

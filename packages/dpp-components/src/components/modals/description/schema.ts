@@ -2,7 +2,6 @@
  * Description modal schema.
  *
  * Defines the editable building blocks for the product description modal.
- * Uses: container, subtitle, title, description.
  */
 
 import {
@@ -11,14 +10,20 @@ import {
 } from "../../../sections/editor-options";
 import type { FixedComponentSchema, StyleField } from "../../../types/editor";
 
-function createTypographyFields(path: string): StyleField[] {
+function createTypographyFields(path: string, section: string): StyleField[] {
   return [
-    { type: "color", path: `${path}.color`, label: "Color" },
-    { type: "typescale", path: `${path}.typescale`, label: "Typography" },
+    { type: "color", path: `${path}.color`, label: "Color", section },
+    {
+      type: "typescale",
+      path: `${path}.typescale`,
+      label: "Typography",
+      section,
+    },
     {
       type: "select",
       path: `${path}.textTransform`,
       label: "Capitalization",
+      section,
       options: [...CAPITALIZATION_STYLE_OPTIONS],
     },
   ];
@@ -30,22 +35,42 @@ export const DESCRIPTION_MODAL_SCHEMA: FixedComponentSchema = {
   editorTree: {
     id: "descriptionModal",
     displayName: "Description Modal",
-    children: [
+    styleFields: [
       {
-        id: "modal.title",
-        displayName: "Title",
-        styleFields: createTypographyFields("modal.title"),
+        type: "color",
+        path: "modal.container.backgroundColor",
+        label: "Background Color",
+        section: "Background",
       },
       {
-        id: "modal.subtitle",
-        displayName: "Subtitle",
-        styleFields: createTypographyFields("modal.subtitle"),
+        type: "toggle",
+        path: "modal.container.boxShadow",
+        label: "Shadow",
+        section: "Background",
+        enabledValue: SURFACE_CARD_SHADOW,
+        disabledValue: "",
       },
       {
-        id: "modal.description",
-        displayName: "Description",
-        styleFields: createTypographyFields("modal.description"),
+        type: "color",
+        path: "modal.container.borderColor",
+        label: "Border Color",
+        section: "Border",
       },
+      {
+        type: "border",
+        path: "modal.container.borderWidth",
+        label: "Border Width",
+        section: "Border",
+      },
+      {
+        type: "radius",
+        path: "modal.container.borderRadius",
+        label: "Corner Radius",
+        section: "Border",
+      },
+      ...createTypographyFields("modal.title", "Title"),
+      ...createTypographyFields("modal.subtitle", "Subtitle"),
+      ...createTypographyFields("modal.description", "Description"),
     ],
   },
   defaults: {

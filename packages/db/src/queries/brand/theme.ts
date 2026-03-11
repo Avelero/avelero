@@ -1,3 +1,9 @@
+/**
+ * Brand theme queries.
+ *
+ * Reads and writes the brand-owned passport document.
+ */
+
 import { eq } from "drizzle-orm";
 import type { Database } from "../../client";
 import { brandTheme } from "../../schema";
@@ -5,8 +11,6 @@ import { brandTheme } from "../../schema";
 export type BrandThemeRow = {
   brandId: string;
   passport: unknown;
-  stylesheetPath: string | null;
-  googleFontsUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -22,8 +26,6 @@ export async function getBrandTheme(
     .select({
       brandId: brandTheme.brandId,
       passport: brandTheme.passport,
-      stylesheetPath: brandTheme.stylesheetPath,
-      googleFontsUrl: brandTheme.googleFontsUrl,
       createdAt: brandTheme.createdAt,
       updatedAt: brandTheme.updatedAt,
     })

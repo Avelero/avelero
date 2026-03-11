@@ -29,9 +29,21 @@ import type {
 
 interface CertificationModalProps {
   certificateUrl?: string;
+  contentProps?: Omit<
+    React.ComponentPropsWithoutRef<typeof ModalContent>,
+    "children" | "styles"
+  >;
   description?: string;
   facts?: ModalDataTableRow[];
+  footerLinkProps?: Omit<
+    React.ComponentPropsWithoutRef<"a">,
+    "children" | "className" | "download" | "href" | "rel" | "style" | "target"
+  >;
   mapQuery?: string | null;
+  mapProps?: Omit<
+    React.ComponentPropsWithoutRef<typeof ModalStaticMap>,
+    "alt" | "query" | "select" | "styles"
+  >;
   select?: ModalSelectionGetter;
   styles: ModalStyles;
   subtitle?: string;
@@ -83,9 +95,12 @@ function getCertificateDownloadButtonStyle(styles: ModalStyles) {
 
 export function CertificationModal({
   certificateUrl,
+  contentProps,
   description = "This certification is recorded as part of the material traceability information for this product passport.",
   facts = DEFAULT_CERTIFICATION_FACTS,
+  footerLinkProps,
   mapQuery,
+  mapProps,
   select,
   styles,
   subtitle = "Certification overview",
@@ -96,7 +111,7 @@ export function CertificationModal({
     getCertificateDownloadButtonStyle(styles);
 
   return (
-    <ModalContent styles={styles}>
+    <ModalContent styles={styles} {...contentProps}>
       <ModalBody>
         <ModalSection>
           <ModalSubtitle
@@ -128,6 +143,7 @@ export function CertificationModal({
           <ModalSection>
             <ModalStaticMap
               alt={`${title} location map`}
+              {...mapProps}
               query={mapQuery}
               select={select}
               styles={styles}
@@ -145,6 +161,7 @@ export function CertificationModal({
             rel="noopener noreferrer"
             style={certificateDownloadButtonStyle}
             target="_blank"
+            {...footerLinkProps}
           >
             <DownloadSimpleIcon aria-hidden className="h-4 w-4 shrink-0" />
             Download certificate

@@ -93,13 +93,11 @@ export function TextImageSection({
   zoneId,
   wrapperClassName,
 }: SectionProps) {
+  // Normalize the configured copy and media, then expose only the section root to the editor.
   const s = resolveStyles(section.styles, tokens);
   const content = getTextImageContent(section.content);
   const select = createSectionSelectionAttributes(section.id, zoneId);
-  const containerSelection = select("textImage.container", "overlay");
-  const headingSelection = select("textImage.heading");
-  const imageSelection = select("textImage.image", "overlay");
-  const bodySelection = select("textImage.body");
+  const rootSelection = select("textImage", "overlay");
   const mobileOrderClassNames = getMobileOrderClassNames(content.mobileLayout);
   const imageOnLeft = content.imagePosition === "left";
   const hasContent = Boolean(
@@ -119,7 +117,6 @@ export function TextImageSection({
     >
       {content.headline ? (
         <h2
-          {...headingSelection}
           className={[
             "whitespace-pre-line",
             mobileOrderClassNames.heading,
@@ -132,7 +129,6 @@ export function TextImageSection({
 
       {content.body ? (
         <p
-          {...bodySelection}
           className={["whitespace-pre-line", mobileOrderClassNames.body].join(
             " ",
           )}
@@ -146,7 +142,6 @@ export function TextImageSection({
 
   const imageContent = (
     <div
-      {...imageSelection}
       className={[
         "relative w-full overflow-hidden",
         mobileOrderClassNames.image,
@@ -171,12 +166,8 @@ export function TextImageSection({
   );
 
   return (
-    <div className={wrapperClassName ?? "w-full"}>
-      <div
-        {...containerSelection}
-        className="w-full px-md @md:px-0"
-        style={s.container}
-      >
+    <div {...rootSelection} className={wrapperClassName ?? "w-full"}>
+      <div className="w-full px-md @md:px-0" style={s.container}>
         <div className="grid grid-cols-1 gap-y-lg @md:grid-cols-2 @md:items-stretch @md:gap-y-0">
           {imageOnLeft ? imageContent : textContent}
           {imageOnLeft ? textContent : imageContent}

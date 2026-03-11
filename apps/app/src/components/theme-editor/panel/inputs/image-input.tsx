@@ -64,10 +64,18 @@ export function ImageInput({
 
   // Determine the folder based on the field path
   const getStorageFolder = (fieldPath: string): string => {
-    if (fieldPath.includes("headerLogo") || fieldPath.includes("branding")) {
+    if (
+      fieldPath === "logoUrl" ||
+      fieldPath.includes("headerLogo") ||
+      fieldPath.includes("branding")
+    ) {
       return "header-logo";
     }
-    if (fieldPath.includes("banner") || fieldPath.includes("cta")) {
+    if (
+      fieldPath === "backgroundImage" ||
+      fieldPath.includes("banner") ||
+      fieldPath.includes("cta")
+    ) {
       return "banner";
     }
     if (
@@ -87,10 +95,18 @@ export function ImageInput({
   const getDimensions = (
     fieldPath: string,
   ): { width: number; height: number } => {
-    if (fieldPath.includes("headerLogo") || fieldPath.includes("branding")) {
+    if (
+      fieldPath === "logoUrl" ||
+      fieldPath.includes("headerLogo") ||
+      fieldPath.includes("branding")
+    ) {
       return { width: 250, height: 50 };
     }
-    if (fieldPath.includes("banner") || fieldPath.includes("cta")) {
+    if (
+      fieldPath === "backgroundImage" ||
+      fieldPath.includes("banner") ||
+      fieldPath.includes("cta")
+    ) {
       return { width: 250, height: 100 };
     }
     return { width: 250, height: 100 };

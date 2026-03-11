@@ -22,6 +22,8 @@ import {
   DEFAULT_TYPOGRAPHY,
 } from "../defaults/tokens";
 
+const bannerDemoDefaults = structuredClone(SECTION_REGISTRY.banner.schema.defaults);
+
 /** Create a demo section: styles from schema defaults, custom inline content. */
 function demoSection(
   type: SectionType,
@@ -146,6 +148,18 @@ export const DEMO_PASSPORT: Passport = {
         "https://storage.avelero.com/storage/v1/object/public/dpp-assets/system/banner/banner-demo.webp",
     }),
   ],
+};
+
+DEMO_PASSPORT.canvas[DEMO_PASSPORT.canvas.length - 1]!.styles = {
+  ...bannerDemoDefaults.styles,
+  headline: {
+    ...(bannerDemoDefaults.styles.headline as Record<string, unknown>),
+    color: "#FFFFFF",
+  },
+  subline: {
+    ...(bannerDemoDefaults.styles.subline as Record<string, unknown>),
+    color: "#FFFFFF",
+  },
 };
 
 export function createDemoPassport(): Passport {

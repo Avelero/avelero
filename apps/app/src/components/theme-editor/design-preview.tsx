@@ -23,6 +23,7 @@ export function DesignPreview() {
   const { previewData, passportDraft, previewModalType, setPreviewModalType } =
     useDesignEditor();
   const containerRef = useRef<HTMLDivElement>(null);
+  const dppRootRef = useRef<HTMLDivElement>(null);
   const brandName = previewData.productAttributes.brand;
 
   // Resolve storage paths to full URLs for preview display
@@ -63,7 +64,7 @@ export function DesignPreview() {
           className={`relative h-full w-full bg-white border border-border scrollbar-hide cursor-default [&_*]:!cursor-default ${previewModalType ? "overflow-hidden" : "overflow-auto"}`}
         >
           <PreviewThemeInjector tokens={passportDraft.tokens} />
-          <div className="dpp-root min-h-full flex flex-col @container">
+          <div ref={dppRootRef} className="dpp-root min-h-full flex flex-col @container">
             <Header
               header={resolvedPassport.header}
               tokens={resolvedPassport.tokens}
@@ -91,7 +92,7 @@ export function DesignPreview() {
             data={previewData}
             modal={passportDraft.modal}
             modalStyles={modalStyles}
-            portalContainer={containerRef.current ?? undefined}
+            portalContainer={dppRootRef.current ?? undefined}
           />
         )}
       </div>

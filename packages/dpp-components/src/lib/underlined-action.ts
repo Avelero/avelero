@@ -6,6 +6,7 @@
  */
 
 import type { CustomFont } from "../types/passport";
+import { getRequestedFontWeight } from "./font-weight";
 import { resolveClosestAvailableFontWeight } from "./google-fonts";
 import { createInteractiveHoverStyle } from "./interactive-hover";
 import { getResolvedTextLineHeight } from "./text-line-height";
@@ -41,26 +42,6 @@ function parseFontSizePx(
   }
 
   return undefined;
-}
-
-/**
- * Normalize font-weight values so unavailable medium weights can snap safely.
- */
-function getRequestedFontWeight(
-  value: React.CSSProperties["fontWeight"],
-): number {
-  if (typeof value === "number") {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    const parsedValue = Number.parseInt(value, 10);
-    if (!Number.isNaN(parsedValue)) {
-      return parsedValue;
-    }
-  }
-
-  return 500;
 }
 
 /**

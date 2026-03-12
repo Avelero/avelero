@@ -69,6 +69,22 @@ const BASE_IMAGE_STYLE: CSSProperties = {
   width: "100%",
 };
 
+/**
+ * Scale resolved pixel border radii so product images match editor corner sizes.
+ */
+function scaleProductImageBorderRadius(
+  value: CSSProperties["borderRadius"],
+): CSSProperties["borderRadius"] {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  return value.replace(/(-?\d*\.?\d+)px/g, (_match, rawValue: string) => {
+    const parsedValue = Number.parseFloat(rawValue);
+    return Number.isNaN(parsedValue) ? `${rawValue}px` : `${parsedValue * 2}px`;
+  });
+}
+
 // --- Utility functions (1:1 from Foundation.app) ---
 
 // utils/numbers.ts → clampRatio
@@ -546,20 +562,24 @@ export function ProductImage({ productImage, tokens, image, alt }: Props) {
    */
   const mediaRootStyle: CSSProperties =
     mediaShape === "wider" ? {} : { maxHeight: "100%" };
+  const frameBorderRadius = scaleProductImageBorderRadius(
+    s.frame?.borderRadius,
+  );
 
   const imageStyle: CSSProperties =
     mediaShape === "wider"
       ? {
           ...BASE_IMAGE_STYLE,
           height: "auto",
-          borderRadius: s.frame?.borderRadius,
+          borderRadius: frameBorderRadius,
         }
-      : { ...BASE_IMAGE_STYLE, borderRadius: s.frame?.borderRadius };
+      : { ...BASE_IMAGE_STYLE, borderRadius: frameBorderRadius };
   const imageFrameStyle: CSSProperties = {
     boxSizing: "border-box",
     display: "block",
     overflow: "hidden",
     ...s.frame,
+    borderRadius: frameBorderRadius,
   };
 
   const transform = isMediaLoaded

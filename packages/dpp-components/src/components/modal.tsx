@@ -8,6 +8,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import * as React from "react";
+import { getRequestedFontWeight } from "../lib/font-weight";
 import { resolveClosestAvailableFontWeight } from "../lib/google-fonts";
 import {
   INTERACTIVE_HOVER_CLASS_NAME,
@@ -57,24 +58,6 @@ function formatModalBorderRadius(
   }
 
   return undefined;
-}
-
-function getRequestedFontWeight(
-  value: React.CSSProperties["fontWeight"],
-): number {
-  // Normalize modal action weights before snapping them to an available font weight.
-  if (typeof value === "number") {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    const parsedValue = Number.parseInt(value, 10);
-    if (!Number.isNaN(parsedValue)) {
-      return parsedValue;
-    }
-  }
-
-  return 500;
 }
 
 interface ModalPortalProps

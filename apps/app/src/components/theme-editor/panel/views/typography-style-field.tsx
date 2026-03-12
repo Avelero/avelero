@@ -221,6 +221,7 @@ export function TypographyStyleField({ field }: { field: StyleField }) {
     writeStyleValue("fontWeight", undefined);
     writeStyleValue("lineHeight", undefined);
     writeStyleValue("letterSpacing", undefined);
+    writeStyleValue("textTransform", undefined);
   }, [pathParts, writeStyleValue]);
 
   /**

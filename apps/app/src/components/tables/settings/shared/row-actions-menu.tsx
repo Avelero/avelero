@@ -51,7 +51,11 @@ export function RowActionsMenu({
           <DropdownMenuItem
             key={action.label}
             disabled={action.disabled}
-            className={action.destructive ? "text-destructive focus:text-destructive" : undefined}
+            className={
+              action.destructive
+                ? "text-destructive focus:text-destructive"
+                : undefined
+            }
             onSelect={() => {
               suppressCloseAutoFocusRef.current = true;
               setOpen(false);
@@ -62,10 +66,10 @@ export function RowActionsMenu({
           >
             <span className="inline-flex items-center gap-2">
               {action.icon}
-                <span>{action.label}</span>
-              </span>
-            </DropdownMenuItem>
-          ))}
+              <span>{action.label}</span>
+            </span>
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );

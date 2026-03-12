@@ -462,7 +462,13 @@ export function getAdvancedFieldsByCategoryForUI(): Array<{
   fields: FilterFieldConfig[];
 }> {
   // Fields that should be available in advanced filters even though they're Tier 1
-  const tier1FieldsInAdvanced = ["status", "categoryId", "tagId", "season", "barcodeStatus"];
+  const tier1FieldsInAdvanced = [
+    "status",
+    "categoryId",
+    "tagId",
+    "season",
+    "barcodeStatus",
+  ];
 
   return Object.entries(FIELD_CATEGORIES)
     .map(([category, config]) => ({

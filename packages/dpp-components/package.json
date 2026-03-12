@@ -13,9 +13,11 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@v1/selections": "workspace:*",
     "@v1/ui": "workspace:*",
-    "react": "19.2.1"
+    "react": "19.2.1",
+    "web-haptics": "^0.0.6"
   },
   "devDependencies": {
     "@types/node": "^24.0.1",
@@ -29,8 +31,6 @@
     ".": "./src/index.ts",
     "./types": "./src/types/index.ts",
     "./types/dpp-data": "./src/types/dpp-data.ts",
-    "./types/theme-config": "./src/types/theme-config.ts",
-    "./types/theme-styles": "./src/types/theme-styles.ts",
     "./lib/css-generator": "./src/lib/css-generator.ts",
     "./lib/google-fonts": "./src/lib/google-fonts.ts",
     "./components": "./src/components/index.ts",

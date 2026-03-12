@@ -1,13 +1,14 @@
 "use client";
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { type ContentField, findComponentById } from "../../registry";
+import * as React from "react";
+import { type ContentField, resolveComponentForEditor } from "../../registry";
 import {
   CarouselInput,
-  EditorSection,
   ImageInput,
   MenuInput,
   NumberInput,
+  SelectInput,
   TextInput,
   TextareaInput,
   ToggleInput,
@@ -96,6 +97,15 @@ function ContentFieldRenderer({ field, brandId }: ContentFieldRendererProps) {
       );
     }
 
+    case "select":
+      return (
+        <SelectInput
+          field={field}
+          value={value}
+          onChange={(v) => updateConfigValue(field.path, v)}
+        />
+      );
+
     case "toggle":
       return (
         <ToggleInput
@@ -127,27 +137,22 @@ function ContentFieldRenderer({ field, brandId }: ContentFieldRendererProps) {
 // =============================================================================
 
 function organizeContentFields(fields: ContentField[]): {
-  ungrouped: ContentField[];
   sectionGroups: Record<string, ContentField[]>;
   sectionOrder: string[];
 } {
-  const ungrouped: ContentField[] = [];
   const sectionGroups: Record<string, ContentField[]> = {};
   const sectionOrder: string[] = [];
 
   for (const field of fields) {
-    if (field.section) {
-      if (!sectionGroups[field.section]) {
-        sectionGroups[field.section] = [];
-        sectionOrder.push(field.section);
-      }
-      sectionGroups[field.section]?.push(field);
-    } else {
-      ungrouped.push(field);
+    const section = field.section ?? "Content";
+    if (!sectionGroups[section]) {
+      sectionGroups[section] = [];
+      sectionOrder.push(section);
     }
+    sectionGroups[section]?.push(field);
   }
 
-  return { ungrouped, sectionGroups, sectionOrder };
+  return { sectionGroups, sectionOrder };
 }
 
 // =============================================================================
@@ -159,8 +164,8 @@ interface ContentSectionProps {
 }
 
 export function ContentSection({ componentId }: ContentSectionProps) {
-  const { brandId } = useDesignEditor();
-  const component = findComponentById(componentId);
+  const { brandId, passportDraft } = useDesignEditor();
+  const component = resolveComponentForEditor(componentId, passportDraft);
 
   if (!component) {
     return (
@@ -182,38 +187,28 @@ export function ContentSection({ componentId }: ContentSectionProps) {
     );
   }
 
-  const { ungrouped, sectionGroups, sectionOrder } =
-    organizeContentFields(configFields);
+  const { sectionGroups, sectionOrder } = organizeContentFields(configFields);
 
   return (
     <div className="flex flex-col h-full overflow-y-auto scrollbar-hide">
-      {/* Ungrouped fields */}
-      {ungrouped.length > 0 && (
-        <EditorSection title="Content">
-          {ungrouped.map((field) => (
-            <ContentFieldRenderer
-              key={field.path}
-              field={field}
-              brandId={brandId}
-            />
-          ))}
-        </EditorSection>
-      )}
-
-      {/* Named section groups */}
       {sectionOrder.map((sectionName) => {
         const fields = sectionGroups[sectionName];
         if (!fields) return null;
         return (
-          <EditorSection key={sectionName} title={sectionName}>
-            {fields.map((field) => (
-              <ContentFieldRenderer
-                key={field.path}
-                field={field}
-                brandId={brandId}
-              />
-            ))}
-          </EditorSection>
+          <div key={sectionName} className="border-b border-border">
+            <div className="px-4 py-3">
+              <span className="type-p text-foreground">{sectionName}</span>
+            </div>
+            <div className="flex flex-col gap-3 px-4 pb-4">
+              {fields.map((field) => (
+                <ContentFieldRenderer
+                  key={field.path}
+                  field={field}
+                  brandId={brandId}
+                />
+              ))}
+            </div>
+          </div>
         );
       })}
     </div>

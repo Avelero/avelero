@@ -651,6 +651,7 @@ jobs:
           set +a
           export NEXT_PUBLIC_API_URL="${{ steps.api-url.outputs.url }}"
           export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+          export NEXT_PUBLIC_STORAGE_URL="$SUPABASE_URL"
           export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
           export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
           bunx vercel@${{ env.VERCEL_CLI_VERSION }} build --token=${{ secrets.VERCEL_TOKEN }} --debug
@@ -663,6 +664,7 @@ jobs:
           DEPLOYMENT_URL=$(bunx vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt --archive=tgz \
             --env NEXT_PUBLIC_API_URL="${{ steps.api-url.outputs.url }}" \
             --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --env NEXT_PUBLIC_STORAGE_URL="$SUPABASE_URL" \
             --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
             --env SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
             --token=${{ secrets.VERCEL_TOKEN }} --debug)
@@ -742,6 +744,7 @@ jobs:
           set +a
           export NEXT_PUBLIC_API_URL="${{ steps.api-url.outputs.url }}"
           export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+          export NEXT_PUBLIC_STORAGE_URL="$SUPABASE_URL"
           export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
           export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
           # Set DPP URL for passport links (from deploy-dpp output or empty if not deployed)
@@ -756,6 +759,7 @@ jobs:
           DEPLOYMENT_URL=$(bunx vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt --archive=tgz \
             --env NEXT_PUBLIC_API_URL="${{ steps.api-url.outputs.url }}" \
             --env NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            --env NEXT_PUBLIC_STORAGE_URL="$SUPABASE_URL" \
             --env NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
             --env SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
             --env NEXT_PUBLIC_DPP_URL="${{ needs.deploy-dpp.outputs.url }}" \
@@ -1098,6 +1102,8 @@ jobs:
           set +a
           export DATABASE_URL
           export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+          export SUPABASE_STORAGE_URL="$SUPABASE_URL"
+          export NEXT_PUBLIC_STORAGE_URL="$SUPABASE_URL"
           export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
           export BRANCH_NAME="${{ github.head_ref }}"
           export TRIGGER_ACCESS_TOKEN="${{ secrets.TRIGGER_ACCESS_TOKEN }}"

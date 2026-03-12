@@ -4,11 +4,7 @@ import { describe, expect, it } from "bun:test";
 import { and, eq, sql } from "drizzle-orm";
 import { createBrand } from "@v1/db/queries/brand";
 import * as schema from "@v1/db/schema";
-import {
-  createTestBrand,
-  createTestUser,
-  testDb,
-} from "@v1/db/testing";
+import { createTestBrand, createTestUser, testDb } from "@v1/db/testing";
 import { backfillBrandSubscriptionFoundations } from "../../../src/scripts/backfill-brand-subscription-foundations";
 
 describe("Brand subscription foundations", () => {
@@ -82,7 +78,10 @@ describe("Brand subscription foundations", () => {
     expect(firstRun.inserted.billing).toBeGreaterThanOrEqual(1);
 
     const [lifecycle] = await testDb
-      .select({ id: schema.brandLifecycle.id, phase: schema.brandLifecycle.phase })
+      .select({
+        id: schema.brandLifecycle.id,
+        phase: schema.brandLifecycle.phase,
+      })
       .from(schema.brandLifecycle)
       .where(eq(schema.brandLifecycle.brandId, legacyBrandId))
       .limit(1);
@@ -180,7 +179,9 @@ describe("Brand subscription foundations", () => {
     expect(error).not.toBeNull();
     const pgError = (error as any)?.cause;
     expect(pgError?.code).toBe("23514");
-    expect(pgError?.constraint_name).toBe("brand_billing_access_override_check");
+    expect(pgError?.constraint_name).toBe(
+      "brand_billing_access_override_check",
+    );
   });
 
   it("enforces unique stripe event id for webhook idempotency", async () => {
@@ -235,7 +236,9 @@ describe("Brand subscription foundations", () => {
 
   it("cascades deletes from brands to new brand-scoped tables", async () => {
     const userId = await createTestUser("cascade-check-owner@example.com");
-    const created = await createBrand(testDb, userId, { name: "Cascade Brand" });
+    const created = await createBrand(testDb, userId, {
+      name: "Cascade Brand",
+    });
 
     const brandId = created.id;
     await testDb.delete(schema.brands).where(eq(schema.brands.id, brandId));

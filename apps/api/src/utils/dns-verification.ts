@@ -234,7 +234,10 @@ export async function verifyDomainDns(
     if (options?.nameserverIPs) {
       nameserverIPs = options.nameserverIPs;
     } else {
-      nameserverIPs = await resolveNameserverIPs(nameservers, options?.resolver);
+      nameserverIPs = await resolveNameserverIPs(
+        nameservers,
+        options?.resolver,
+      );
       console.log("[DNS] Resolved nameserver IPs:", nameserverIPs);
     }
 
@@ -293,7 +296,10 @@ export async function verifyDomainDns(
     }
 
     // Handle timeout
-    if (error.message === "DNS query timed out" || error.name === "AbortError") {
+    if (
+      error.message === "DNS query timed out" ||
+      error.name === "AbortError"
+    ) {
       return {
         success: false,
         error: "DNS lookup timed out. Please try again.",

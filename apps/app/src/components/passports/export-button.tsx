@@ -117,7 +117,12 @@ export function ExportButton() {
         prefetchTimerRef.current = null;
       }
     };
-  }, [selectionSignature, hasSelection, hasVerifiedCustomDomain, prefetchQrCounts]);
+  }, [
+    selectionSignature,
+    hasSelection,
+    hasVerifiedCustomDomain,
+    prefetchQrCounts,
+  ]);
 
   const buttonElement = (
     <Button
@@ -171,7 +176,9 @@ export function ExportButton() {
               <TooltipTrigger asChild>
                 <span className="inline-block">{buttonElement}</span>
               </TooltipTrigger>
-              <TooltipContent side="top">Select products to export</TooltipContent>
+              <TooltipContent side="top">
+                Select products to export
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : (

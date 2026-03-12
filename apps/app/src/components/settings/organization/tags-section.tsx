@@ -8,7 +8,11 @@ import {
 } from "@/components/tables/settings/shared";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
@@ -29,13 +33,24 @@ export function TagsSection() {
   const queryClient = useQueryClient();
   const [searchValue, setSearchValue] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
-  const [createDraftRequestNonce, setCreateDraftRequestNonce] = React.useState<number | null>(null);
-  const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
+  const [createDraftRequestNonce, setCreateDraftRequestNonce] = React.useState<
+    number | null
+  >(null);
+  const [deleteDialog, setDeleteDialog] =
+    React.useState<DeleteDialogState>(null);
 
-  const tagsQuery = useSuspenseQuery(trpc.catalog.tags.list.queryOptions(undefined));
-  const createTagMutation = useMutation(trpc.catalog.tags.create.mutationOptions());
-  const deleteTagMutation = useMutation(trpc.catalog.tags.delete.mutationOptions());
-  const updateTagMutation = useMutation(trpc.catalog.tags.update.mutationOptions());
+  const tagsQuery = useSuspenseQuery(
+    trpc.catalog.tags.list.queryOptions(undefined),
+  );
+  const createTagMutation = useMutation(
+    trpc.catalog.tags.create.mutationOptions(),
+  );
+  const deleteTagMutation = useMutation(
+    trpc.catalog.tags.delete.mutationOptions(),
+  );
+  const updateTagMutation = useMutation(
+    trpc.catalog.tags.update.mutationOptions(),
+  );
 
   const allRows = React.useMemo(
     () =>
@@ -65,7 +80,10 @@ export function TagsSection() {
     const allowed = new Set(allRows.map((row) => row.id));
     setSelectedIds((prev) => {
       const next = prev.filter((id) => allowed.has(id));
-      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+      if (
+        next.length === prev.length &&
+        next.every((id, index) => id === prev[index])
+      ) {
         return prev;
       }
       return next;
@@ -88,50 +106,56 @@ export function TagsSection() {
         setSelectedIds((prev) => prev.filter((id) => id !== tag.id));
         await invalidateLists();
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to delete tag";
+        const message =
+          error instanceof Error ? error.message : "Failed to delete tag";
         toast.error(message);
       }
     },
     [deleteTagMutation, invalidateLists],
   );
 
-  const deleteSelectedNow = React.useCallback(async (ids: string[]) => {
-    if (ids.length === 0) return;
+  const deleteSelectedNow = React.useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
 
-    const currentIds = [...ids];
-    const results = await Promise.allSettled(
-      currentIds.map((id) => deleteTagMutation.mutateAsync({ id })),
-    );
+      const currentIds = [...ids];
+      const results = await Promise.allSettled(
+        currentIds.map((id) => deleteTagMutation.mutateAsync({ id })),
+      );
 
-    const failures = results.filter((result) => result.status === "rejected");
-    const failedIds = results.flatMap((result, index) =>
-      result.status === "rejected" ? [currentIds[index]!] : [],
-    );
-    const successes = results.length - failures.length;
+      const failures = results.filter((result) => result.status === "rejected");
+      const failedIds = results.flatMap((result, index) =>
+        result.status === "rejected" ? [currentIds[index]!] : [],
+      );
+      const successes = results.length - failures.length;
 
-    if (successes > 0) {
-      setSelectedIds(failedIds);
-      await invalidateLists();
-    }
+      if (successes > 0) {
+        setSelectedIds(failedIds);
+        await invalidateLists();
+      }
 
-    if (failures.length === 0) {
-      setSelectedIds([]);
-      toast.success(`${successes} tag${successes === 1 ? "" : "s"} deleted`);
-      return;
-    }
+      if (failures.length === 0) {
+        setSelectedIds([]);
+        toast.success(`${successes} tag${successes === 1 ? "" : "s"} deleted`);
+        return;
+      }
 
-    if (successes > 0) {
-      toast.error(`${failures.length} delete${failures.length === 1 ? "" : "s"} failed`);
-      return;
-    }
+      if (successes > 0) {
+        toast.error(
+          `${failures.length} delete${failures.length === 1 ? "" : "s"} failed`,
+        );
+        return;
+      }
 
-    const reason = failures[0];
-    toast.error(
-      reason && reason.status === "rejected" && reason.reason instanceof Error
-        ? reason.reason.message
-        : "Failed to delete selected tags",
-    );
-  }, [deleteTagMutation, invalidateLists]);
+      const reason = failures[0];
+      toast.error(
+        reason && reason.status === "rejected" && reason.reason instanceof Error
+          ? reason.reason.message
+          : "Failed to delete selected tags",
+      );
+    },
+    [deleteTagMutation, invalidateLists],
+  );
 
   const handleDeleteTag = React.useCallback((tag: TagListItem) => {
     setDeleteDialog({ mode: "single", tag });
@@ -249,7 +273,8 @@ export function TagsSection() {
       } catch (error) {
         queryClient.setQueryData(listQueryKey, previousList);
         queryClient.setQueryData(compositeQueryKey, previousComposite);
-        const message = error instanceof Error ? error.message : "Failed to update tag";
+        const message =
+          error instanceof Error ? error.message : "Failed to update tag";
         toast.error(message);
         throw error;
       }

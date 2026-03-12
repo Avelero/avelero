@@ -1,16 +1,30 @@
 "use client";
 
+/**
+ * Design editor provider for the passport theme editor.
+ *
+ * Owns the draft passport state, active editor target, and preview selection state.
+ */
+
 import { saveThemeAction } from "@/actions/design/save-theme-action";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import type {
+  CustomFont,
   DppData,
-  ThemeConfig,
-  ThemeStyles,
+  Passport,
+  Section,
+  SectionType,
+  Styles,
+  TypeScale,
   TypographyScale,
+  ZoneId,
 } from "@v1/dpp-components";
 import {
+  COMPONENT_REGISTRY,
   type ColorTokenKey,
+  MODAL_SCHEMA_REGISTRY,
+  SECTION_REGISTRY,
   generateGoogleFontsUrlFromTypography,
   getTokenName,
   isTokenReference,
@@ -29,118 +43,61 @@ import {
 // TYPES
 // =============================================================================
 
-type TypographyScaleKey =
-  | "h1"
-  | "h2"
-  | "h3"
-  | "h4"
-  | "h5"
-  | "h6"
-  | "body"
-  | "body-sm"
-  | "body-xs";
+type StyleValue = string | number | boolean | Record<string, number>;
 
-/**
- * Style value types - supports primitives, radius objects, and border objects
- */
-type RadiusValue = {
-  topLeft: number;
-  topRight: number;
-  bottomLeft: number;
-  bottomRight: number;
-};
-
-type BorderValue = {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-};
-
-type StyleValue = string | number | RadiusValue | BorderValue;
-
-/**
- * Navigation section types for the left panel
- */
 export type NavigationSection = "layout" | "typography" | "colors";
 
-/**
- * Navigation state for the left panel
- * - root: Shows the three main buttons (Layout, Typography, Colors)
- * - section: Shows content of a section (e.g., typography accordions)
- * - component: Shows fields for a specific component in Layout
- */
 export type NavigationState = {
   level: "root" | "section" | "component";
   section?: NavigationSection;
   componentId?: string;
 };
 
-/**
- * State for editing a menu item (navigates to a sub-editor view)
- */
 export type MenuItemEditState = {
   menuType: "primary" | "secondary";
-  configPath: string;
+  contentPath: string;
   itemIndex: number;
 } | null;
 
+/**
+ * Tracks which part of the passport the style/content editors are targeting.
+ */
+type ActiveTarget =
+  | { type: "header" }
+  | { type: "productImage" }
+  | { type: "modal"; modalEditorId: string }
+  | { type: "footer" }
+  | { type: "section"; zoneId: ZoneId; sectionId: string }
+  | null;
+
 type DesignEditorContextValue = {
-  // Theme state
-  themeStylesDraft: ThemeStyles;
-  themeConfigDraft: ThemeConfig;
-  initialThemeStyles: ThemeStyles;
-  initialThemeConfig: ThemeConfig;
+  // Passport state
+  passportDraft: Passport;
   brandId?: string;
   hasUnsavedChanges: boolean;
   isSaving: boolean;
-  setThemeStylesDraft: (next: ThemeStyles) => void;
-  setThemeConfigDraft: (next: ThemeConfig) => void;
   resetDrafts: () => void;
   saveDrafts: () => Promise<void>;
   previewData: DppData;
   setPreviewData: (data: DppData) => void;
+  dataSource: "mock" | "real";
+  setDataSource: (source: "mock" | "real") => void;
 
-  // Helper setters for nested updates (ThemeStyles)
-  updateTypographyScale: (
-    scale: TypographyScaleKey,
-    value: TypographyScale,
-  ) => void;
+  // Token updates
+  updateTypographyScale: (scale: TypeScale, value: TypographyScale) => void;
   updateColor: (colorKey: string, value: string) => void;
-  updateComponentStyle: (path: string, value: StyleValue) => void;
-  /**
-   * Gets the resolved value for display in input fields.
-   * If the stored value is a token reference (e.g., "$foreground"),
-   * returns the actual color value from the design tokens.
-   */
+  updateCustomFonts: (fonts: CustomFont[]) => void;
+
+  // Style helpers (operate on active target: header/productImage/footer/section)
+  updateComponentStyle: (path: string, value: StyleValue | undefined) => void;
   getComponentStyleValue: (path: string) => StyleValue | undefined;
-  /**
-   * Gets the raw stored value, including token references.
-   * Use this to check if a field is using a design token.
-   */
   getRawComponentStyleValue: (path: string) => StyleValue | undefined;
-  /**
-   * Checks if a component style is using a design token reference.
-   * Returns the token name (without $) if true, null otherwise.
-   */
+  getDefaultComponentStyleValue: (path: string) => StyleValue | undefined;
   getComponentStyleTokenRef: (path: string) => string | null;
 
-  // Helper setters for nested updates (ThemeConfig)
-  /**
-   * Update a config value using dot-notation path
-   * e.g., updateConfigValue("cta.bannerHeadline", "Welcome!")
-   */
+  // Content helpers (operate on active target)
   updateConfigValue: (path: string, value: unknown) => void;
-  /**
-   * Get a config value using dot-notation path
-   * e.g., getConfigValue("cta.bannerHeadline")
-   */
   getConfigValue: (path: string) => unknown;
-  /**
-   * Toggle a section visibility flag
-   * e.g., toggleSectionVisibility("showCTABanner")
-   */
-  toggleSectionVisibility: (key: keyof ThemeConfig["sections"]) => void;
 
   // Navigation state
   navigation: NavigationState;
@@ -153,20 +110,34 @@ type DesignEditorContextValue = {
   menuItemEdit: MenuItemEditState;
   navigateToMenuItemEdit: (
     menuType: "primary" | "secondary",
-    configPath: string,
+    contentPath: string,
     itemIndex: number,
   ) => void;
   clearMenuItemEdit: () => void;
 
-  // Layout tree expand/collapse state
-  expandedItems: Set<string>;
-  toggleExpanded: (componentId: string) => void;
+  // Section operations
+  addSection: (
+    zoneId: ZoneId,
+    sectionType: SectionType,
+    position: number,
+  ) => string;
+  deleteSection: (zoneId: ZoneId, sectionId: string) => void;
+  moveSection: (zoneId: ZoneId, sectionId: string, newPosition: number) => void;
+
+  // Section instance navigation
+  navigateToSectionInstance: (zoneId: ZoneId, sectionId: string) => void;
+  activeSectionId: string | null;
+  activeZoneId: ZoneId | null;
 
   // Selection state (for preview hover/click)
-  selectedComponentId: string | null;
-  hoveredComponentId: string | null;
-  setSelectedComponentId: (id: string | null) => void;
-  setHoveredComponentId: (id: string | null) => void;
+  selectedNodeId: string | null;
+  hoveredNodeId: string | null;
+  setSelectedNodeId: (id: string | null) => void;
+  setHoveredNodeId: (id: string | null) => void;
+
+  // Modal preview — which modal type is being previewed (editor-only, not persisted)
+  previewModalType: string | null;
+  setPreviewModalType: (type: string | null) => void;
 };
 
 const DesignEditorContext = createContext<DesignEditorContextValue | null>(
@@ -175,18 +146,148 @@ const DesignEditorContext = createContext<DesignEditorContextValue | null>(
 
 type ProviderProps = {
   children: React.ReactNode;
-  initialThemeConfig: ThemeConfig;
-  initialThemeStyles: ThemeStyles;
-  initialGoogleFontsUrl: string | null;
+  initialPassport: Passport;
   previewData: DppData;
   brandId?: string;
 };
 
+// =============================================================================
+// HELPERS
+// =============================================================================
+
+function deepGet(obj: unknown, path: string): unknown {
+  const parts = path.split(".");
+  let current: unknown = obj;
+  for (const key of parts) {
+    if (current && typeof current === "object" && key in current) {
+      current = (current as Record<string, unknown>)[key];
+    } else {
+      return undefined;
+    }
+  }
+  return current;
+}
+
+function deepSet(
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): void {
+  const parts = path.split(".");
+  let current: Record<string, unknown> = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i]!;
+    if (!current[key] || typeof current[key] !== "object") {
+      current[key] = {};
+    }
+    current = current[key] as Record<string, unknown>;
+  }
+  const lastKey = parts[parts.length - 1];
+  if (lastKey) current[lastKey] = value;
+}
+
+function generateSectionId(): string {
+  return `sec_${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function ensurePassportHasProductImage(passport: Passport): Passport {
+  // Hydrate the fixed product image config for passports saved before this field existed.
+  if (passport.productImage) {
+    return passport;
+  }
+
+  return {
+    ...passport,
+    productImage: {
+      styles: structuredClone(
+        COMPONENT_REGISTRY.productImage!.schema.defaults.styles,
+      ),
+    },
+  };
+}
+
+function ensurePassportHasModalMapStyles(passport: Passport): Passport {
+  // Seed the modal map slot for passports saved before the location preview existed.
+  if (passport.modal.styles["modal.map"]) {
+    return passport;
+  }
+
+  const modalMapDefaults =
+    MODAL_SCHEMA_REGISTRY.modal!.schema.defaults.styles["modal.map"] ?? {};
+
+  return {
+    ...passport,
+    modal: {
+      ...passport.modal,
+      styles: {
+        ...passport.modal.styles,
+        "modal.map": structuredClone(modalMapDefaults),
+      },
+    },
+  };
+}
+
+function ensurePassportHasModalContent(passport: Passport): Passport {
+  // Seed the modal content settings for passports saved before privacy controls existed.
+  if (passport.modal.content?.showExactLocation !== undefined) {
+    return passport;
+  }
+
+  const modalContentDefaults = MODAL_SCHEMA_REGISTRY.modal!.schema.defaults
+    .content as Passport["modal"]["content"] | undefined;
+
+  return {
+    ...passport,
+    modal: {
+      ...passport.modal,
+      content: structuredClone(
+        modalContentDefaults ?? { showExactLocation: true },
+      ),
+    },
+  };
+}
+
+function ensurePassportHasFixedComponentDefaults(passport: Passport): Passport {
+  // Apply all fixed-component compatibility hydrations before the editor reads the draft.
+  return ensurePassportHasModalContent(
+    ensurePassportHasModalMapStyles(ensurePassportHasProductImage(passport)),
+  );
+}
+
+/**
+ * Split a style path into the style key and final property segment.
+ *
+ * Style keys can contain dots (for example "card.certification"), so we split
+ * on the final dot rather than the first one.
+ */
+function splitStylePath(
+  path: string,
+): { styleKey: string; property: string } | null {
+  const separatorIndex = path.lastIndexOf(".");
+  if (separatorIndex <= 0 || separatorIndex >= path.length - 1) {
+    return null;
+  }
+
+  return {
+    styleKey: path.slice(0, separatorIndex),
+    property: path.slice(separatorIndex + 1),
+  };
+}
+
+function findModalSchemaByEditorId(editorId: string) {
+  // Resolve the modal schema that owns the current editor view.
+  return Object.values(MODAL_SCHEMA_REGISTRY).find(
+    (entry) => entry.schema.editorTree.id === editorId,
+  );
+}
+
+// =============================================================================
+// PROVIDER
+// =============================================================================
+
 export function DesignEditorProvider({
   children,
-  initialThemeConfig,
-  initialThemeStyles,
-  initialGoogleFontsUrl,
+  initialPassport,
   previewData: initialPreviewData,
   brandId,
 }: ProviderProps) {
@@ -194,70 +295,55 @@ export function DesignEditorProvider({
   // Preview Data State
   // ---------------------------------------------------------------------------
   const [previewData, setPreviewData] = useState<DppData>(initialPreviewData);
+  const [dataSource, setDataSource] = useState<"mock" | "real">("mock");
 
-  // Sync preview data when initial prop changes (e.g., brand switch)
   useEffect(() => {
     setPreviewData(initialPreviewData);
   }, [initialPreviewData]);
 
   // ---------------------------------------------------------------------------
-  // Theme Styles State
+  // Passport State
   // ---------------------------------------------------------------------------
-  const [themeStylesDraft, setThemeStylesDraft] =
-    useState<ThemeStyles>(initialThemeStyles);
-  const [savedThemeStyles, setSavedThemeStyles] =
-    useState<ThemeStyles>(initialThemeStyles);
-
-  // ---------------------------------------------------------------------------
-  // Theme Config State
-  // ---------------------------------------------------------------------------
-  const [themeConfigDraft, setThemeConfigDraft] =
-    useState<ThemeConfig>(initialThemeConfig);
-  const [savedThemeConfig, setSavedThemeConfig] =
-    useState<ThemeConfig>(initialThemeConfig);
+  const [passportDraft, setPassportDraft] = useState<Passport>(() =>
+    ensurePassportHasFixedComponentDefaults(initialPassport),
+  );
+  const [savedPassport, setSavedPassport] = useState<Passport>(() =>
+    ensurePassportHasFixedComponentDefaults(initialPassport),
+  );
 
   // ---------------------------------------------------------------------------
   // Saving State
   // ---------------------------------------------------------------------------
   const [isSaving, setIsSaving] = useState(false);
 
-  // tRPC client for config updates
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const updateConfigMutation = useMutation(
-    trpc.brand.theme.update.mutationOptions(),
-  );
 
-  // Reset draft and saved states when initial values change (e.g., brand switch)
+  // Reset when initial values change (e.g., brand switch)
   useEffect(() => {
-    setThemeStylesDraft(initialThemeStyles);
-    setSavedThemeStyles(initialThemeStyles);
-  }, [initialThemeStyles]);
+    const nextPassport =
+      ensurePassportHasFixedComponentDefaults(initialPassport);
+    setPassportDraft(nextPassport);
+    setSavedPassport(nextPassport);
+  }, [initialPassport]);
 
-  useEffect(() => {
-    setThemeConfigDraft(initialThemeConfig);
-    setSavedThemeConfig(initialThemeConfig);
-  }, [initialThemeConfig]);
-
+  // Google Fonts for preview
   const previewGoogleFontsUrl = useMemo(() => {
-    // Always prefer a canonical weighted URL generated from current typography.
     const generatedUrl = generateGoogleFontsUrlFromTypography(
-      themeStylesDraft?.typography as Record<string, unknown> | undefined,
+      passportDraft?.tokens?.typography as Record<string, unknown> | undefined,
+      passportDraft?.tokens?.fonts,
     );
-    return generatedUrl || initialGoogleFontsUrl || "";
-  }, [themeStylesDraft?.typography, initialGoogleFontsUrl]);
+    return generatedUrl || "";
+  }, [passportDraft?.tokens?.fonts, passportDraft?.tokens?.typography]);
 
-  // Load Google Fonts in preview to match current typography settings
   useEffect(() => {
     if (!previewGoogleFontsUrl) return;
 
-    // Check if this font link already exists
     const existingLink = document.querySelector(
       `link[href="${previewGoogleFontsUrl}"]`,
     );
     if (existingLink) return;
 
-    // Ensure preconnects exist (reuse if already present)
     let preconnect1: HTMLLinkElement | null = document.querySelector(
       'link[rel="preconnect"][href="https://fonts.googleapis.com"]',
     );
@@ -267,14 +353,12 @@ export function DesignEditorProvider({
     const createdPreconnect1 = !preconnect1;
     const createdPreconnect2 = !preconnect2;
 
-    // Add preconnect for faster font loading
     if (!preconnect1) {
       preconnect1 = document.createElement("link");
       preconnect1.rel = "preconnect";
       preconnect1.href = "https://fonts.googleapis.com";
       document.head.appendChild(preconnect1);
     }
-
     if (!preconnect2) {
       preconnect2 = document.createElement("link");
       preconnect2.rel = "preconnect";
@@ -283,17 +367,13 @@ export function DesignEditorProvider({
       document.head.appendChild(preconnect2);
     }
 
-    // Add the font stylesheet
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = previewGoogleFontsUrl;
     document.head.appendChild(link);
 
     return () => {
-      // Cleanup on unmount or URL change
       link.remove();
-
-      // Remove preconnects only if they were created by this effect and unused
       if (
         !document.querySelector('link[href*="fonts.googleapis.com/css"]') &&
         createdPreconnect1
@@ -312,59 +392,31 @@ export function DesignEditorProvider({
   // ---------------------------------------------------------------------------
   // Unsaved Changes Detection
   // ---------------------------------------------------------------------------
-  const hasUnsavedStyleChanges =
-    JSON.stringify(themeStylesDraft) !== JSON.stringify(savedThemeStyles);
-  const hasUnsavedConfigChanges =
-    JSON.stringify(themeConfigDraft) !== JSON.stringify(savedThemeConfig);
-  const hasUnsavedChanges = hasUnsavedStyleChanges || hasUnsavedConfigChanges;
+  const hasUnsavedChanges =
+    JSON.stringify(passportDraft) !== JSON.stringify(savedPassport);
 
   // ---------------------------------------------------------------------------
   // Reset & Save
   // ---------------------------------------------------------------------------
   const resetDrafts = useCallback(() => {
-    setThemeStylesDraft(savedThemeStyles);
-    setThemeConfigDraft(savedThemeConfig);
-  }, [savedThemeStyles, savedThemeConfig]);
+    setPassportDraft(savedPassport);
+  }, [savedPassport]);
 
   const saveDrafts = useCallback(async () => {
     if (!brandId) return;
     setIsSaving(true);
 
     try {
-      const promises: Promise<unknown>[] = [];
+      const result = await saveThemeAction({
+        brandId,
+        passport: passportDraft,
+      });
 
-      // Save styles if changed
-      if (hasUnsavedStyleChanges) {
-        promises.push(
-          saveThemeAction({
-            brandId,
-            themeStyles: themeStylesDraft,
-          }).then((result) => {
-            if (result?.serverError) {
-              throw new Error(
-                result.serverError || "Failed to save theme styles",
-              );
-            }
-            setSavedThemeStyles(themeStylesDraft);
-          }),
-        );
+      if (result?.serverError) {
+        throw new Error(result.serverError || "Failed to save");
       }
 
-      // Save config if changed
-      if (hasUnsavedConfigChanges) {
-        promises.push(
-          updateConfigMutation
-            .mutateAsync({
-              config: themeConfigDraft as unknown as Record<string, unknown>,
-            })
-            .then(() => {
-              setSavedThemeConfig(themeConfigDraft);
-            }),
-        );
-      }
-
-      await Promise.all(promises);
-      // Invalidate theme cache so re-entering the editor fetches fresh data
+      setSavedPassport(passportDraft);
       await queryClient.invalidateQueries({
         queryKey: trpc.brand.theme.get.queryKey(),
       });
@@ -376,24 +428,21 @@ export function DesignEditorProvider({
     } finally {
       setIsSaving(false);
     }
-  }, [
-    brandId,
-    themeStylesDraft,
-    themeConfigDraft,
-    hasUnsavedStyleChanges,
-    hasUnsavedConfigChanges,
-    updateConfigMutation,
-    queryClient,
-    trpc,
-  ]);
+  }, [brandId, passportDraft, queryClient, trpc]);
 
+  // ---------------------------------------------------------------------------
+  // Token Updates
+  // ---------------------------------------------------------------------------
   const updateTypographyScale = useCallback(
-    (scale: TypographyScaleKey, value: TypographyScale) => {
-      setThemeStylesDraft((prev) => ({
+    (scale: TypeScale, value: TypographyScale) => {
+      setPassportDraft((prev) => ({
         ...prev,
-        typography: {
-          ...prev.typography,
-          [scale]: value,
+        tokens: {
+          ...prev.tokens,
+          typography: {
+            ...prev.tokens.typography,
+            [scale]: value,
+          },
         },
       }));
     },
@@ -401,92 +450,165 @@ export function DesignEditorProvider({
   );
 
   const updateColor = useCallback((colorKey: string, value: string) => {
-    setThemeStylesDraft((prev) => ({
+    setPassportDraft((prev) => ({
       ...prev,
-      colors: {
-        ...prev.colors,
-        [colorKey]: value,
+      tokens: {
+        ...prev.tokens,
+        colors: {
+          ...prev.tokens.colors,
+          [colorKey]: value,
+        },
       },
     }));
   }, []);
 
+  const updateCustomFonts = useCallback((fonts: CustomFont[]) => {
+    setPassportDraft((prev) => ({
+      ...prev,
+      tokens: {
+        ...prev.tokens,
+        fonts,
+      },
+    }));
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Active Target Tracking
+  // ---------------------------------------------------------------------------
+  const [activeTarget, setActiveTarget] = useState<ActiveTarget>(null);
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [activeZoneId, setActiveZoneId] = useState<ZoneId | null>(null);
+
   /**
-   * Update a component style property using dot-notation path
-   * e.g., updateComponentStyle("journey-card.borderColor", "#FF0000")
+   * Get the styles object for the current active target.
    */
+  const getActiveStyles = useCallback((): Styles | undefined => {
+    if (!activeTarget) return undefined;
+    if (activeTarget.type === "header") return passportDraft.header.styles;
+    if (activeTarget.type === "productImage") {
+      return passportDraft.productImage?.styles;
+    }
+    if (activeTarget.type === "modal") return passportDraft.modal.styles;
+    if (activeTarget.type === "footer") return passportDraft.footer.styles;
+
+    const zone = passportDraft[activeTarget.zoneId];
+    const section = zone?.find((s: Section) => s.id === activeTarget.sectionId);
+    return section?.styles;
+  }, [activeTarget, passportDraft]);
+
+  // ---------------------------------------------------------------------------
+  // Style Helpers
+  // ---------------------------------------------------------------------------
+
   const updateComponentStyle = useCallback(
-    (path: string, value: StyleValue) => {
-      const parts = path.split(".");
-      const componentKey = parts[0];
-      const propertyKey = parts.slice(1).join(".");
+    (path: string, value: StyleValue | undefined) => {
+      if (!activeTarget) return;
+      const parts = splitStylePath(path);
+      if (!parts) return;
 
-      if (!componentKey || !propertyKey) return;
+      setPassportDraft((prev) => {
+        const next = structuredClone(prev);
 
-      setThemeStylesDraft((prev) => {
-        const currentComponent = (prev as Record<string, unknown>)[
-          componentKey
-        ] as Record<string, unknown> | undefined;
-        return {
-          ...prev,
-          [componentKey]: {
-            ...currentComponent,
-            [propertyKey]: value,
-          },
-        };
+        let styles: Styles;
+        if (activeTarget.type === "header") {
+          styles = next.header.styles;
+        } else if (activeTarget.type === "productImage") {
+          styles = next.productImage.styles;
+        } else if (activeTarget.type === "modal") {
+          styles = next.modal.styles;
+        } else if (activeTarget.type === "footer") {
+          styles = next.footer.styles;
+        } else {
+          const zone = next[activeTarget.zoneId];
+          const section = zone?.find(
+            (s: Section) => s.id === activeTarget.sectionId,
+          );
+          if (!section) return prev;
+          styles = section.styles;
+        }
+
+        if (!styles[parts.styleKey]) {
+          styles[parts.styleKey] = {};
+        }
+
+        const styleObject = styles[parts.styleKey] as Record<string, unknown>;
+        if (value === undefined) {
+          delete styleObject[parts.property];
+        } else {
+          styleObject[parts.property] = value;
+        }
+
+        return next;
       });
     },
-    [],
+    [activeTarget],
   );
 
-  /**
-   * Get the raw stored value for a component style (including token references)
-   */
   const getRawComponentStyleValue = useCallback(
     (path: string): StyleValue | undefined => {
-      const parts = path.split(".");
-      const componentKey = parts[0];
-      const propertyKey = parts.slice(1).join(".");
-
-      if (!componentKey || !propertyKey) return undefined;
-
-      const component = (themeStylesDraft as Record<string, unknown>)[
-        componentKey
-      ] as Record<string, unknown> | undefined;
-      return component?.[propertyKey] as StyleValue | undefined;
+      const styles = getActiveStyles();
+      if (!styles) return undefined;
+      const parts = splitStylePath(path);
+      if (!parts) return undefined;
+      return (styles[parts.styleKey] as Record<string, unknown> | undefined)?.[
+        parts.property
+      ] as StyleValue | undefined;
     },
-    [themeStylesDraft],
+    [getActiveStyles],
   );
 
-  /**
-   * Get a component style value using dot-notation path
-   * e.g., getComponentStyleValue("journey-card.borderColor")
-   *
-   * If the stored value is a token reference (e.g., "$foreground"),
-   * it resolves to the actual color value from themeStylesDraft.colors
-   * for display in input fields.
-   */
   const getComponentStyleValue = useCallback(
     (path: string): StyleValue | undefined => {
       const storedValue = getRawComponentStyleValue(path);
-
-      // If it's a token reference, resolve to the actual color value
       if (isTokenReference(storedValue)) {
         const tokenName = getTokenName(storedValue) as ColorTokenKey;
-        const colors = themeStylesDraft.colors as
-          | Record<string, string>
-          | undefined;
-        return colors?.[tokenName];
+        return passportDraft.tokens.colors[tokenName];
       }
-
       return storedValue;
     },
-    [getRawComponentStyleValue, themeStylesDraft.colors],
+    [getRawComponentStyleValue, passportDraft.tokens.colors],
   );
 
-  /**
-   * Check if a component style is using a design token reference
-   * Returns the token name (without $) if true, null otherwise
-   */
+  // Resolve the canonical default style value for the current editor target.
+  const getDefaultComponentStyleValue = useCallback(
+    (path: string): StyleValue | undefined => {
+      if (!activeTarget) return undefined;
+
+      // Modal schemas share one persisted style map, but defaults come from the active modal schema.
+      if (activeTarget.type === "modal") {
+        const modalEntry =
+          findModalSchemaByEditorId(activeTarget.modalEditorId) ??
+          MODAL_SCHEMA_REGISTRY.modal;
+        if (!modalEntry) return undefined;
+        return deepGet(modalEntry.schema.defaults.styles, path) as
+          | StyleValue
+          | undefined;
+      }
+
+      // Fixed components — look up defaults from COMPONENT_REGISTRY.
+      if (activeTarget.type !== "section") {
+        const fixedEntry = COMPONENT_REGISTRY[activeTarget.type];
+        if (!fixedEntry) return undefined;
+        return deepGet(fixedEntry.schema.defaults.styles, path) as
+          | StyleValue
+          | undefined;
+      }
+
+      // Sections — look up defaults from SECTION_REGISTRY
+      const zone = passportDraft[activeTarget.zoneId];
+      const section = zone?.find(
+        (s: Section) => s.id === activeTarget.sectionId,
+      );
+      if (!section) return undefined;
+
+      return deepGet(
+        SECTION_REGISTRY[section.type].schema.defaults.styles,
+        path,
+      ) as StyleValue | undefined;
+    },
+    [activeTarget, passportDraft],
+  );
+
   const getComponentStyleTokenRef = useCallback(
     (path: string): string | null => {
       const storedValue = getRawComponentStyleValue(path);
@@ -499,84 +621,79 @@ export function DesignEditorProvider({
   );
 
   // ---------------------------------------------------------------------------
-  // Theme Config Helpers
+  // Content Helpers
   // ---------------------------------------------------------------------------
 
-  /**
-   * Update a config value using dot-notation path
-   * e.g., updateConfigValue("cta.bannerHeadline", "Welcome!")
-   */
-  const updateConfigValue = useCallback((path: string, value: unknown) => {
-    const parts = path.split(".");
+  const updateConfigValue = useCallback(
+    (path: string, value: unknown) => {
+      if (!activeTarget) return;
 
-    setThemeConfigDraft((prev) => {
-      // Deep clone to avoid mutations
-      const next = JSON.parse(JSON.stringify(prev)) as ThemeConfig;
+      setPassportDraft((prev) => {
+        const next = structuredClone(prev);
 
-      // Navigate to the parent and set the value
-      let current: Record<string, unknown> = next as unknown as Record<
-        string,
-        unknown
-      >;
-      for (let i = 0; i < parts.length - 1; i++) {
-        const key = parts[i];
-        if (key && current[key] !== undefined) {
-          current = current[key] as Record<string, unknown>;
+        if (activeTarget.type === "header") {
+          deepSet(
+            next.header as unknown as Record<string, unknown>,
+            path,
+            value,
+          );
+        } else if (activeTarget.type === "productImage") {
+          deepSet(
+            next.productImage as unknown as Record<string, unknown>,
+            path,
+            value,
+          );
+        } else if (activeTarget.type === "modal") {
+          deepSet(
+            next.modal as unknown as Record<string, unknown>,
+            path,
+            value,
+          );
+        } else if (activeTarget.type === "footer") {
+          deepSet(
+            next.footer as unknown as Record<string, unknown>,
+            path,
+            value,
+          );
         } else {
-          // Path doesn't exist, create it
-          if (key) {
-            current[key] = {};
-            current = current[key] as Record<string, unknown>;
-          }
+          const zone = next[activeTarget.zoneId];
+          const section = zone?.find(
+            (s: Section) => s.id === activeTarget.sectionId,
+          );
+          if (!section) return prev;
+          deepSet(section.content as Record<string, unknown>, path, value);
         }
-      }
 
-      const lastKey = parts[parts.length - 1];
-      if (lastKey) {
-        current[lastKey] = value;
-      }
-
-      return next;
-    });
-  }, []);
-
-  /**
-   * Get a config value using dot-notation path
-   * e.g., getConfigValue("cta.bannerHeadline")
-   */
-  const getConfigValue = useCallback(
-    (path: string): unknown => {
-      const parts = path.split(".");
-      let current: unknown = themeConfigDraft;
-
-      for (const key of parts) {
-        if (current && typeof current === "object" && key in current) {
-          current = (current as Record<string, unknown>)[key];
-        } else {
-          return undefined;
-        }
-      }
-
-      return current;
+        return next;
+      });
     },
-    [themeConfigDraft],
+    [activeTarget],
   );
 
-  /**
-   * Toggle a section visibility flag
-   * e.g., toggleSectionVisibility("showCTABanner")
-   */
-  const toggleSectionVisibility = useCallback(
-    (key: keyof ThemeConfig["sections"]) => {
-      setThemeConfigDraft((prev) => ({
-        ...prev,
-        sections: {
-          ...prev.sections,
-          [key]: !prev.sections[key],
-        },
-      }));
+  const getConfigValue = useCallback(
+    (path: string): unknown => {
+      if (!activeTarget) return undefined;
+
+      if (activeTarget.type === "header") {
+        return deepGet(passportDraft.header, path);
+      }
+      if (activeTarget.type === "productImage") {
+        return deepGet(passportDraft.productImage, path);
+      }
+      if (activeTarget.type === "modal") {
+        return deepGet(passportDraft.modal, path);
+      }
+      if (activeTarget.type === "footer") {
+        return deepGet(passportDraft.footer, path);
+      }
+
+      const zone = passportDraft[activeTarget.zoneId];
+      const section = zone?.find(
+        (s: Section) => s.id === activeTarget.sectionId,
+      );
+      return section ? deepGet(section.content, path) : undefined;
     },
-    [],
+    [activeTarget, passportDraft],
   );
 
   // ---------------------------------------------------------------------------
@@ -587,26 +704,65 @@ export function DesignEditorProvider({
     section: "layout",
   });
 
+  /**
+   * Clear transient layout selection and preview state when leaving the tree.
+   */
   const navigateToSection = useCallback((section: NavigationSection) => {
     setNavigation({ level: "section", section });
-    // Clear component selection when switching sections
-    setSelectedComponentId(null);
+    setSelectedNodeId(null);
+    setHoveredNodeId(null);
+    setActiveSectionId(null);
+    setActiveZoneId(null);
+    setActiveTarget(null);
+    setPreviewModalType(null);
   }, []);
 
   const navigateToComponent = useCallback((componentId: string) => {
+    // Route the detail panel to the matching fixed or modal editor target.
     setNavigation({ level: "component", section: "layout", componentId });
-    setSelectedComponentId(componentId);
+    const modalEntry = findModalSchemaByEditorId(componentId);
+
+    if (componentId === "header" || componentId.startsWith("header.")) {
+      setActiveSectionId(null);
+      setActiveZoneId(null);
+      setActiveTarget({ type: "header" });
+    } else if (
+      componentId === "productImage" ||
+      componentId.startsWith("productImage.")
+    ) {
+      setActiveSectionId(null);
+      setActiveZoneId(null);
+      setActiveTarget({ type: "productImage" });
+    } else if (
+      componentId === "modal" ||
+      componentId.startsWith("modal.") ||
+      modalEntry
+    ) {
+      setActiveSectionId(null);
+      setActiveZoneId(null);
+      setActiveTarget({
+        type: "modal",
+        modalEditorId: modalEntry?.schema.editorTree.id ?? componentId,
+      });
+    } else if (componentId === "footer" || componentId.startsWith("footer.")) {
+      setActiveSectionId(null);
+      setActiveZoneId(null);
+      setActiveTarget({ type: "footer" });
+    }
   }, []);
 
   const navigateBack = useCallback(() => {
     setNavigation((prev) => {
       if (prev.level === "component") {
-        // Go back to layout section and clear selection
-        setSelectedComponentId(null);
+        setSelectedNodeId(null);
+        setHoveredNodeId(null);
+        setActiveSectionId(null);
+        setActiveZoneId(null);
+        setActiveTarget(null);
+        setPreviewModalType(null);
         return { level: "section", section: "layout" };
       }
       if (prev.level === "section") {
-        // Go back to root
         return { level: "root" };
       }
       return prev;
@@ -615,6 +771,12 @@ export function DesignEditorProvider({
 
   const navigateToRoot = useCallback(() => {
     setNavigation({ level: "root" });
+    setSelectedNodeId(null);
+    setHoveredNodeId(null);
+    setActiveSectionId(null);
+    setActiveZoneId(null);
+    setActiveTarget(null);
+    setPreviewModalType(null);
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -625,10 +787,10 @@ export function DesignEditorProvider({
   const navigateToMenuItemEdit = useCallback(
     (
       menuType: "primary" | "secondary",
-      configPath: string,
+      contentPath: string,
       itemIndex: number,
     ) => {
-      setMenuItemEdit({ menuType, configPath, itemIndex });
+      setMenuItemEdit({ menuType, contentPath, itemIndex });
     },
     [],
   );
@@ -638,101 +800,175 @@ export function DesignEditorProvider({
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Layout Tree Expand/Collapse State
+  // Section Operations
   // ---------------------------------------------------------------------------
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  const toggleExpanded = useCallback((componentId: string) => {
-    setExpandedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(componentId)) {
-        next.delete(componentId);
-      } else {
-        next.add(componentId);
+  const addSection = useCallback(
+    (zoneId: ZoneId, sectionType: SectionType, position: number) => {
+      const id = generateSectionId();
+      const { defaults } = SECTION_REGISTRY[sectionType].schema;
+
+      const newSection: Section = {
+        id,
+        type: sectionType,
+        content: structuredClone(defaults.content),
+        styles: structuredClone(defaults.styles),
+      };
+
+      setPassportDraft((prev) => {
+        const next = structuredClone(prev);
+        const zone = next[zoneId];
+        zone.splice(position, 0, newSection);
+        return next;
+      });
+
+      return id;
+    },
+    [],
+  );
+
+  const deleteSection = useCallback(
+    (zoneId: ZoneId, sectionId: string) => {
+      setPassportDraft((prev) => {
+        const next = structuredClone(prev);
+        next[zoneId] = next[zoneId].filter((s: Section) => s.id !== sectionId);
+        return next;
+      });
+
+      if (activeSectionId === sectionId) {
+        setActiveSectionId(null);
+        setActiveZoneId(null);
+        setActiveTarget(null);
+        setNavigation({ level: "section", section: "layout" });
+        setSelectedNodeId(null);
       }
-      return next;
-    });
-  }, []);
+    },
+    [activeSectionId],
+  );
+
+  const moveSection = useCallback(
+    (zoneId: ZoneId, sectionId: string, newPosition: number) => {
+      setPassportDraft((prev) => {
+        const next = structuredClone(prev);
+        const zone = next[zoneId];
+        const currentIndex = zone.findIndex((s: Section) => s.id === sectionId);
+        if (currentIndex === -1) return prev;
+
+        const [item] = zone.splice(currentIndex, 1);
+        if (item) zone.splice(newPosition, 0, item);
+        return next;
+      });
+    },
+    [],
+  );
+
+  const navigateToSectionInstance = useCallback(
+    (zoneId: ZoneId, sectionId: string) => {
+      setActiveSectionId(sectionId);
+      setActiveZoneId(zoneId);
+      setActiveTarget({ type: "section", zoneId, sectionId });
+      setNavigation({
+        level: "component",
+        section: "layout",
+        componentId: sectionId,
+      });
+    },
+    [],
+  );
 
   // ---------------------------------------------------------------------------
-  // Selection State (for preview interaction)
+  // Selection State
   // ---------------------------------------------------------------------------
-  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(
-    null,
-  );
-  const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(
-    null,
-  );
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Modal Preview Visibility (editor-only toggle)
+  // ---------------------------------------------------------------------------
+  const [previewModalType, setPreviewModalType] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Close the editor-only modal preview whenever the detail panel leaves the modal target.
+    const modalEntry = navigation.componentId
+      ? findModalSchemaByEditorId(navigation.componentId)
+      : null;
+    const isModalEditor =
+      navigation.level === "component" &&
+      !!navigation.componentId &&
+      (navigation.componentId === "modal" ||
+        navigation.componentId.startsWith("modal.") ||
+        !!modalEntry);
+
+    if (!isModalEditor && previewModalType) {
+      setPreviewModalType(null);
+    }
+  }, [navigation, previewModalType]);
 
   // ---------------------------------------------------------------------------
   // Context Value
   // ---------------------------------------------------------------------------
   const value = useMemo(
     () => ({
-      // Theme state
-      themeStylesDraft,
-      themeConfigDraft,
-      initialThemeStyles,
-      initialThemeConfig,
+      passportDraft,
       brandId,
       hasUnsavedChanges,
       isSaving,
-      setThemeStylesDraft,
-      setThemeConfigDraft,
       resetDrafts,
       saveDrafts,
       previewData,
       setPreviewData,
-      // Style helpers
+      dataSource,
+      setDataSource,
       updateTypographyScale,
       updateColor,
+      updateCustomFonts,
       updateComponentStyle,
       getComponentStyleValue,
       getRawComponentStyleValue,
+      getDefaultComponentStyleValue,
       getComponentStyleTokenRef,
-      // Config helpers
       updateConfigValue,
       getConfigValue,
-      toggleSectionVisibility,
-      // Navigation state
       navigation,
       navigateToSection,
       navigateToComponent,
       navigateBack,
       navigateToRoot,
-      // Menu item editing
       menuItemEdit,
       navigateToMenuItemEdit,
       clearMenuItemEdit,
-      // Expand/collapse
-      expandedItems,
-      toggleExpanded,
-      // Selection
-      selectedComponentId,
-      hoveredComponentId,
-      setSelectedComponentId,
-      setHoveredComponentId,
+      addSection,
+      deleteSection,
+      moveSection,
+      navigateToSectionInstance,
+      activeSectionId,
+      activeZoneId,
+      selectedNodeId,
+      hoveredNodeId,
+      setSelectedNodeId,
+      setHoveredNodeId,
+      previewModalType,
+      setPreviewModalType,
     }),
     [
-      themeStylesDraft,
-      themeConfigDraft,
-      initialThemeStyles,
-      initialThemeConfig,
+      passportDraft,
       brandId,
       hasUnsavedChanges,
       isSaving,
-      previewData,
       resetDrafts,
       saveDrafts,
+      previewData,
+      dataSource,
       updateTypographyScale,
       updateColor,
+      updateCustomFonts,
       updateComponentStyle,
       getComponentStyleValue,
       getRawComponentStyleValue,
+      getDefaultComponentStyleValue,
       getComponentStyleTokenRef,
       updateConfigValue,
       getConfigValue,
-      toggleSectionVisibility,
       navigation,
       navigateToSection,
       navigateToComponent,
@@ -741,10 +977,15 @@ export function DesignEditorProvider({
       menuItemEdit,
       navigateToMenuItemEdit,
       clearMenuItemEdit,
-      expandedItems,
-      toggleExpanded,
-      selectedComponentId,
-      hoveredComponentId,
+      addSection,
+      deleteSection,
+      moveSection,
+      navigateToSectionInstance,
+      activeSectionId,
+      activeZoneId,
+      selectedNodeId,
+      hoveredNodeId,
+      previewModalType,
     ],
   );
 

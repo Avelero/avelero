@@ -1,6 +1,9 @@
 "use client";
 
-import { FlatDataTable, SettingsTableEmptyState } from "@/components/tables/settings/shared";
+import {
+  FlatDataTable,
+  SettingsTableEmptyState,
+} from "@/components/tables/settings/shared";
 import { Icons } from "@v1/ui/icons";
 import { seasonColumns } from "./columns";
 import type { SeasonListItem } from "./types";

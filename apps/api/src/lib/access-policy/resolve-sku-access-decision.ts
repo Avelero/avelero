@@ -50,7 +50,9 @@ export function resolveSkuAccessDecision(
   const intendedCreateCount = sanitizeCount(input.intendedCreateCount);
   const plan = input.snapshot.plan;
 
-  const annualLimit = sanitizeLimit(plan?.skuLimitOverride ?? plan?.skuAnnualLimit);
+  const annualLimit = sanitizeLimit(
+    plan?.skuLimitOverride ?? plan?.skuAnnualLimit,
+  );
   const onboardingLimit = sanitizeLimit(plan?.skuOnboardingLimit);
   const annualUsed = sanitizeCount(plan?.skusCreatedThisYear);
   const onboardingUsed = sanitizeCount(plan?.skusCreatedOnboarding);
@@ -70,7 +72,8 @@ export function resolveSkuAccessDecision(
   ]);
 
   const wouldExceedIntendedCreateCount =
-    remainingCreateBudget !== null && intendedCreateCount > remainingCreateBudget;
+    remainingCreateBudget !== null &&
+    intendedCreateCount > remainingCreateBudget;
 
   const maxUtilization = Math.max(
     annual.utilization ?? 0,

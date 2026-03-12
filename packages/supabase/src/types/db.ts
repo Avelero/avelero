@@ -857,28 +857,19 @@ export type Database = {
         Row: {
           brand_id: string;
           created_at: string;
-          google_fonts_url: string | null;
-          stylesheet_path: string | null;
-          theme_config: Json;
-          theme_styles: Json;
+          passport: Json;
           updated_at: string;
         };
         Insert: {
           brand_id: string;
           created_at?: string;
-          google_fonts_url?: string | null;
-          stylesheet_path?: string | null;
-          theme_config?: Json;
-          theme_styles?: Json;
+          passport?: Json;
           updated_at?: string;
         };
         Update: {
           brand_id?: string;
           created_at?: string;
-          google_fonts_url?: string | null;
-          stylesheet_path?: string | null;
-          theme_config?: Json;
-          theme_styles?: Json;
+          passport?: Json;
           updated_at?: string;
         };
         Relationships: [

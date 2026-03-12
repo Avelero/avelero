@@ -23,29 +23,16 @@ import {
   productVariants,
   products,
 } from "../../schema";
-import { getVersionSnapshot, type DppSnapshot } from "../products/dpp-versions";
+import { type DppSnapshot, getVersionSnapshot } from "../products/dpp-versions";
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
 /**
- * Theme configuration structure (brand-level).
+ * Brand passport structure (brand-level theme/layout).
  */
-export interface ThemeConfig {
-  primaryColor?: string;
-  secondaryColor?: string;
-  accentColor?: string;
-  backgroundColor?: string;
-  textColor?: string;
-  fontFamily?: string;
-  [key: string]: unknown;
-}
-
-/**
- * Theme styles structure (brand-level).
- */
-export interface ThemeStyles {
+export interface BrandPassport {
   [key: string]: unknown;
 }
 
@@ -82,10 +69,7 @@ export interface PublicDppResult {
   /** Brand theme configuration */
   theme: {
     brandSlug: string | null;
-    config: ThemeConfig | null;
-    styles: ThemeStyles | null;
-    stylesheetPath: string | null;
-    googleFontsUrl: string | null;
+    passport: BrandPassport | null;
   } | null;
   /** Error message if fetch failed */
   error?: string;
@@ -192,8 +176,11 @@ export async function getPublicDppByUpid(
       dirty: passport.dirty,
     },
     productStatus:
-      (passport.productStatus as "published" | "unpublished" | "scheduled" | null) ??
-      null,
+      (passport.productStatus as
+        | "published"
+        | "unpublished"
+        | "scheduled"
+        | null) ?? null,
     snapshot,
     version: version
       ? {
@@ -225,20 +212,14 @@ async function fetchBrandTheme(db: Database, brandId: string | null) {
   if (!brandId) {
     return {
       brandSlug: null,
-      config: null,
-      styles: null,
-      stylesheetPath: null,
-      googleFontsUrl: null,
+      passport: null,
     };
   }
 
   const [result] = await db
     .select({
       slug: brands.slug,
-      themeConfig: brandTheme.themeConfig,
-      themeStyles: brandTheme.themeStyles,
-      stylesheetPath: brandTheme.stylesheetPath,
-      googleFontsUrl: brandTheme.googleFontsUrl,
+      passport: brandTheme.passport,
     })
     .from(brands)
     .leftJoin(brandTheme, eq(brandTheme.brandId, brands.id))
@@ -248,19 +229,13 @@ async function fetchBrandTheme(db: Database, brandId: string | null) {
   if (!result) {
     return {
       brandSlug: null,
-      config: null,
-      styles: null,
-      stylesheetPath: null,
-      googleFontsUrl: null,
+      passport: null,
     };
   }
 
   return {
     brandSlug: result.slug,
-    config: result.themeConfig as ThemeConfig | null,
-    styles: result.themeStyles as ThemeStyles | null,
-    stylesheetPath: result.stylesheetPath,
-    googleFontsUrl: result.googleFontsUrl,
+    passport: result.passport as BrandPassport | null,
   };
 }
 

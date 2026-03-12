@@ -3,6 +3,11 @@ import { getPublicUrl } from "@v1/supabase/storage";
 
 const DPP_ASSETS_BUCKET = "dpp-assets";
 const MAX_NORMALIZE_PASSES = 3;
+const PASSPORT_SECTION_IMAGE_FIELDS = {
+  banner: ["backgroundImage"],
+  imageCards: ["cardOneImage", "cardTwoImage", "cardThreeImage"],
+  textImage: ["image"],
+} as const;
 
 function isFullUrl(value: string): boolean {
   return /^(https?:|data:|blob:|\/api\/|\/storage\/)/.test(value);
@@ -25,10 +30,7 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function extractBucketPath(
-  value: string,
-  bucket: string,
-): string | null {
+function extractBucketPath(value: string, bucket: string): string | null {
   const escapedBucket = escapeRegExp(bucket);
   const pattern = new RegExp(
     `(?:https?:\\/\\/[^/]+)?\\/storage\\/v1\\/object\\/(?:public|sign)\\/${escapedBucket}\\/(.+?)(?:[?#].*)?$`,
@@ -77,93 +79,96 @@ function toStoragePath(bucket: string, value: string): string {
 }
 
 /**
- * Convert themeConfig image paths to fully qualified public URLs for response payloads.
+ * Resolve section image paths for known canvas and sidebar marketing blocks.
  */
-export function resolveThemeConfigImageUrls<
+function mapSectionImageFields(
+  passport: Record<string, unknown>,
+  mapper: (value: string) => string,
+): void {
+  for (const zoneKey of ["sidebar", "canvas"]) {
+    const zone = passport[zoneKey];
+    if (!Array.isArray(zone)) continue;
+
+    for (const section of zone) {
+      if (typeof section !== "object" || section === null) continue;
+      const sec = section as Record<string, unknown>;
+      const imageFields =
+        PASSPORT_SECTION_IMAGE_FIELDS[
+          sec.type as keyof typeof PASSPORT_SECTION_IMAGE_FIELDS
+        ];
+
+      if (!imageFields) continue;
+
+      const content = sec.content as Record<string, unknown> | undefined;
+      if (!content) continue;
+
+      for (const imageField of imageFields) {
+        const imageValue = content[imageField];
+        if (typeof imageValue !== "string" || !imageValue) continue;
+        content[imageField] = mapper(imageValue);
+      }
+    }
+  }
+}
+
+/**
+ * Resolve image storage paths in a Passport JSON to fully qualified public URLs.
+ *
+ * Walks:
+ * - `header.logoUrl`
+ * - Marketing section images in sidebar/canvas (`banner`, `imageCards`, `textImage`)
+ */
+export function resolvePassportImageUrls<
   T extends Record<string, unknown> | null,
->(supabase: SupabaseClient, themeConfig: T): T {
-  if (!themeConfig) {
-    return themeConfig;
+>(supabase: SupabaseClient, passport: T): T {
+  if (!passport) {
+    return passport;
   }
 
-  const resolved = JSON.parse(JSON.stringify(themeConfig)) as Record<
+  const resolved = JSON.parse(JSON.stringify(passport)) as Record<
     string,
     unknown
   >;
 
-  if (
-    resolved.branding &&
-    typeof resolved.branding === "object" &&
-    resolved.branding !== null
-  ) {
-    const branding = resolved.branding as Record<string, unknown>;
-    if (typeof branding.headerLogoUrl === "string" && branding.headerLogoUrl) {
-      branding.headerLogoUrl = toPublicBucketUrl(
-        supabase,
-        DPP_ASSETS_BUCKET,
-        branding.headerLogoUrl,
-      );
-    }
+  // Resolve header logo
+  const header = resolved.header as Record<string, unknown> | undefined;
+  if (header && typeof header.logoUrl === "string" && header.logoUrl) {
+    header.logoUrl = toPublicBucketUrl(
+      supabase,
+      DPP_ASSETS_BUCKET,
+      header.logoUrl,
+    );
   }
 
-  if (resolved.cta && typeof resolved.cta === "object" && resolved.cta !== null) {
-    const cta = resolved.cta as Record<string, unknown>;
-    if (
-      typeof cta.bannerBackgroundImage === "string" &&
-      cta.bannerBackgroundImage
-    ) {
-      cta.bannerBackgroundImage = toPublicBucketUrl(
-        supabase,
-        DPP_ASSETS_BUCKET,
-        cta.bannerBackgroundImage,
-      );
-    }
-  }
+  mapSectionImageFields(resolved, (value) =>
+    toPublicBucketUrl(supabase, DPP_ASSETS_BUCKET, value),
+  );
 
   return resolved as T;
 }
 
 /**
- * Normalize themeConfig image URLs to storage paths before persisting.
+ * Normalize Passport image URLs to storage paths before persisting.
+ *
+ * Walks the same paths as resolvePassportImageUrls.
  */
-export function normalizeThemeConfigImagePathsForStorage<
+export function normalizePassportImagePathsForStorage<
   T extends Record<string, unknown>,
->(themeConfig: T): T {
-  const normalized = JSON.parse(JSON.stringify(themeConfig)) as Record<
+>(passport: T): T {
+  const normalized = JSON.parse(JSON.stringify(passport)) as Record<
     string,
     unknown
   >;
 
-  if (
-    normalized.branding &&
-    typeof normalized.branding === "object" &&
-    normalized.branding !== null
-  ) {
-    const branding = normalized.branding as Record<string, unknown>;
-    if (typeof branding.headerLogoUrl === "string" && branding.headerLogoUrl) {
-      branding.headerLogoUrl = toStoragePath(
-        DPP_ASSETS_BUCKET,
-        branding.headerLogoUrl,
-      );
-    }
+  // Normalize header logo
+  const header = normalized.header as Record<string, unknown> | undefined;
+  if (header && typeof header.logoUrl === "string" && header.logoUrl) {
+    header.logoUrl = toStoragePath(DPP_ASSETS_BUCKET, header.logoUrl);
   }
 
-  if (
-    normalized.cta &&
-    typeof normalized.cta === "object" &&
-    normalized.cta !== null
-  ) {
-    const cta = normalized.cta as Record<string, unknown>;
-    if (
-      typeof cta.bannerBackgroundImage === "string" &&
-      cta.bannerBackgroundImage
-    ) {
-      cta.bannerBackgroundImage = toStoragePath(
-        DPP_ASSETS_BUCKET,
-        cta.bannerBackgroundImage,
-      );
-    }
-  }
+  mapSectionImageFields(normalized, (value) =>
+    toStoragePath(DPP_ASSETS_BUCKET, value),
+  );
 
   return normalized as T;
 }

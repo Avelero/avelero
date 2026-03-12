@@ -44,7 +44,6 @@ export function BrandsHeader({
           Invites
         </Button>
       </div>
-
     </div>
   );
 }

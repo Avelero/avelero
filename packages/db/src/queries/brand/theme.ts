@@ -1,20 +1,22 @@
+/**
+ * Brand theme queries.
+ *
+ * Reads and writes the brand-owned passport document.
+ */
+
 import { eq } from "drizzle-orm";
 import type { Database } from "../../client";
 import { brandTheme } from "../../schema";
 
 export type BrandThemeRow = {
   brandId: string;
-  themeStyles: unknown;
-  themeConfig: unknown;
-  stylesheetPath: string | null;
-  googleFontsUrl: string | null;
+  passport: unknown;
   createdAt: string;
   updatedAt: string;
 };
 
 /**
- * Fetches the theme configuration for a brand.
- * Returns the theme styles and config, or null if no theme exists.
+ * Fetches the theme (passport) for a brand.
  */
 export async function getBrandTheme(
   db: Database,
@@ -23,10 +25,7 @@ export async function getBrandTheme(
   const [row] = await db
     .select({
       brandId: brandTheme.brandId,
-      themeStyles: brandTheme.themeStyles,
-      themeConfig: brandTheme.themeConfig,
-      stylesheetPath: brandTheme.stylesheetPath,
-      googleFontsUrl: brandTheme.googleFontsUrl,
+      passport: brandTheme.passport,
       createdAt: brandTheme.createdAt,
       updatedAt: brandTheme.updatedAt,
     })
@@ -38,20 +37,19 @@ export async function getBrandTheme(
 }
 
 /**
- * Updates the theme config (content) for a brand.
- * Only updates the theme_config column, preserving theme_styles.
+ * Updates the passport for a brand.
  */
-export async function updateBrandThemeConfig(
+export async function updatePassport(
   db: Database,
   brandId: string,
-  themeConfig: unknown,
+  passport: unknown,
 ): Promise<{ success: true; updatedAt: string }> {
   const now = new Date().toISOString();
 
   await db
     .update(brandTheme)
     .set({
-      themeConfig,
+      passport,
       updatedAt: now,
     })
     .where(eq(brandTheme.brandId, brandId));

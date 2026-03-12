@@ -1,15 +1,25 @@
 "use client";
 
-import { type OperatorData, OperatorSheet } from "@/components/sheets/operator-sheet";
+import {
+  type OperatorData,
+  OperatorSheet,
+} from "@/components/sheets/operator-sheet";
 import {
   DeleteConfirmationDialog,
   EntityTableShell,
   EntityToolbar,
 } from "@/components/tables/settings/shared";
-import { OperatorsTable, type OperatorListItem } from "@/components/tables/settings/operators";
+import {
+  OperatorsTable,
+  type OperatorListItem,
+} from "@/components/tables/settings/operators";
 import { invalidateSettingsEntityCaches } from "@/lib/settings-entity-cache";
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
@@ -20,7 +30,9 @@ function toTimestamp(value?: string | Date | null) {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
-function mapOperatorToSheetData(operator: OperatorListItem | null): OperatorData | undefined {
+function mapOperatorToSheetData(
+  operator: OperatorListItem | null,
+): OperatorData | undefined {
   if (!operator) return undefined;
 
   return {
@@ -50,19 +62,27 @@ export function OperatorsSection() {
   const [searchValue, setSearchValue] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
-  const [editingOperator, setEditingOperator] = React.useState<OperatorListItem | null>(null);
-  const [deleteDialog, setDeleteDialog] = React.useState<DeleteDialogState>(null);
+  const [editingOperator, setEditingOperator] =
+    React.useState<OperatorListItem | null>(null);
+  const [deleteDialog, setDeleteDialog] =
+    React.useState<DeleteDialogState>(null);
 
-  const operatorsQuery = useSuspenseQuery(trpc.catalog.operators.list.queryOptions(undefined));
-  const deleteOperatorMutation = useMutation(trpc.catalog.operators.delete.mutationOptions());
+  const operatorsQuery = useSuspenseQuery(
+    trpc.catalog.operators.list.queryOptions(undefined),
+  );
+  const deleteOperatorMutation = useMutation(
+    trpc.catalog.operators.delete.mutationOptions(),
+  );
 
   const allRows = React.useMemo(
     () =>
       [...(operatorsQuery.data?.data ?? [])].sort((a, b) => {
-        const updatedDiff = toTimestamp(b.updated_at) - toTimestamp(a.updated_at);
+        const updatedDiff =
+          toTimestamp(b.updated_at) - toTimestamp(a.updated_at);
         if (updatedDiff !== 0) return updatedDiff;
 
-        const createdDiff = toTimestamp(b.created_at) - toTimestamp(a.created_at);
+        const createdDiff =
+          toTimestamp(b.created_at) - toTimestamp(a.created_at);
         if (createdDiff !== 0) return createdDiff;
 
         return a.display_name.localeCompare(b.display_name);
@@ -92,7 +112,10 @@ export function OperatorsSection() {
     const allowed = new Set(allRows.map((row) => row.id));
     setSelectedIds((prev) => {
       const next = prev.filter((id) => allowed.has(id));
-      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+      if (
+        next.length === prev.length &&
+        next.every((id, index) => id === prev[index])
+      ) {
         return prev;
       }
       return next;
@@ -121,54 +144,65 @@ export function OperatorsSection() {
         await invalidateLists();
         toast.success("Operator deleted");
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to delete operator";
+        const message =
+          error instanceof Error ? error.message : "Failed to delete operator";
         toast.error(message);
       }
     },
     [deleteOperatorMutation, invalidateLists],
   );
 
-  const deleteSelectedNow = React.useCallback(async (ids: string[]) => {
-    if (ids.length === 0) return;
+  const deleteSelectedNow = React.useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
 
-    const currentIds = [...ids];
-    const results = await Promise.allSettled(
-      currentIds.map((id) => deleteOperatorMutation.mutateAsync({ id })),
-    );
+      const currentIds = [...ids];
+      const results = await Promise.allSettled(
+        currentIds.map((id) => deleteOperatorMutation.mutateAsync({ id })),
+      );
 
-    const failures = results.filter((result) => result.status === "rejected");
-    const failedIds = results.flatMap((result, index) =>
-      result.status === "rejected" ? [currentIds[index]!] : [],
-    );
-    const successes = results.length - failures.length;
+      const failures = results.filter((result) => result.status === "rejected");
+      const failedIds = results.flatMap((result, index) =>
+        result.status === "rejected" ? [currentIds[index]!] : [],
+      );
+      const successes = results.length - failures.length;
 
-    if (successes > 0) {
-      setSelectedIds(failedIds);
-      await invalidateLists();
-    }
+      if (successes > 0) {
+        setSelectedIds(failedIds);
+        await invalidateLists();
+      }
 
-    if (failures.length === 0) {
-      setSelectedIds([]);
-      toast.success(`${successes} operator${successes === 1 ? "" : "s"} deleted`);
-      return;
-    }
+      if (failures.length === 0) {
+        setSelectedIds([]);
+        toast.success(
+          `${successes} operator${successes === 1 ? "" : "s"} deleted`,
+        );
+        return;
+      }
 
-    if (successes > 0) {
-      toast.error(`${failures.length} delete${failures.length === 1 ? "" : "s"} failed`);
-      return;
-    }
+      if (successes > 0) {
+        toast.error(
+          `${failures.length} delete${failures.length === 1 ? "" : "s"} failed`,
+        );
+        return;
+      }
 
-    const reason = failures[0];
-    toast.error(
-      reason && reason.status === "rejected" && reason.reason instanceof Error
-        ? reason.reason.message
-        : "Failed to delete selected operators",
-    );
-  }, [deleteOperatorMutation, invalidateLists]);
+      const reason = failures[0];
+      toast.error(
+        reason && reason.status === "rejected" && reason.reason instanceof Error
+          ? reason.reason.message
+          : "Failed to delete selected operators",
+      );
+    },
+    [deleteOperatorMutation, invalidateLists],
+  );
 
-  const handleDeleteOperator = React.useCallback((operator: OperatorListItem) => {
-    setDeleteDialog({ mode: "single", operator });
-  }, []);
+  const handleDeleteOperator = React.useCallback(
+    (operator: OperatorListItem) => {
+      setDeleteDialog({ mode: "single", operator });
+    },
+    [],
+  );
 
   const handleDeleteSelected = React.useCallback(() => {
     if (selectedIds.length === 0) return;

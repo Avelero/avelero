@@ -1,9 +1,14 @@
 "use client";
 
+/**
+ * Styles panel renderer for component-level style fields in the theme editor.
+ */
+
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
+import { Switch } from "@v1/ui/switch";
 import {
   Select,
   SelectContent,
@@ -13,21 +18,18 @@ import {
   SelectTrigger,
 } from "@v1/ui/select";
 import * as React from "react";
+import { type StyleField, resolveComponentForEditor } from "../../registry";
 import {
-  type StyleField,
-  TYPESCALE_OPTIONS,
-  findComponentById,
-} from "../../registry";
-import {
+  AccordionItem,
   BorderInput,
   ColorInput,
-  EditorSection,
   FieldWrapper,
   PixelInput,
   RadiusInput,
   combineHexWithAlpha,
   parseHexWithAlpha,
 } from "../inputs";
+import { TypographyStyleField } from "./typography-style-field";
 
 // =============================================================================
 // INTERNAL SELECT COMPONENT
@@ -106,8 +108,20 @@ interface StyleFieldRendererProps {
   field: StyleField;
 }
 
+function isToggleFieldChecked(value: unknown): boolean {
+  // Interpret zero-width borders and empty strings as disabled toggle states.
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value > 0;
+  if (typeof value === "string") return value.trim().length > 0;
+  return value !== undefined && value !== null;
+}
+
 function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
-  const { getComponentStyleValue, updateComponentStyle } = useDesignEditor();
+  const {
+    getComponentStyleValue,
+    getDefaultComponentStyleValue,
+    updateComponentStyle,
+  } = useDesignEditor();
 
   // Values are always present in the DB (seeded on brand creation)
   const value = getComponentStyleValue(field.path);
@@ -151,6 +165,7 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
           onChange={(num) => updateComponentStyle(field.path, num)}
           unit={field.unit}
           min={0}
+          step={field.step}
         />
       );
     }
@@ -240,17 +255,7 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
     }
 
     case "typescale": {
-      return (
-        <FieldWrapper label={field.label}>
-          <StyleSelect
-            value={typeof value === "string" ? value : null}
-            onValueChange={(val) => updateComponentStyle(field.path, val)}
-            options={TYPESCALE_OPTIONS}
-            placeholder="Select..."
-            className="h-8 text-sm"
-          />
-        </FieldWrapper>
-      );
+      return <TypographyStyleField field={field} />;
     }
 
     case "select": {
@@ -268,7 +273,23 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
     }
 
     case "toggle":
-      return null;
+      return (
+        <FieldWrapper label={field.label} row>
+          <Switch
+            checked={isToggleFieldChecked(value)}
+            onCheckedChange={(checked) => {
+              // Restore the canonical default value when the toggle is turned back on.
+              const defaultValue = getDefaultComponentStyleValue(field.path);
+              updateComponentStyle(
+                field.path,
+                checked
+                  ? field.enabledValue ?? defaultValue ?? true
+                  : field.disabledValue,
+              );
+            }}
+          />
+        </FieldWrapper>
+      );
 
     default:
       return null;
@@ -276,116 +297,69 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
 }
 
 // =============================================================================
-// GROUP FIELDS BY CATEGORY
+// GROUP FIELDS BY SECTION
 // =============================================================================
 
-type FieldCategory =
-  | "background"
-  | "stroke"
-  | "typography"
-  | "sizing"
-  | "spacing"
-  | "other";
-
-interface GroupedFields {
-  background: StyleField[];
-  stroke: StyleField[];
-  typography: StyleField[];
-  sizing: StyleField[];
-  spacing: StyleField[];
-  other: StyleField[];
-}
-
-function categorizeField(field: StyleField): FieldCategory {
-  const label = field.label.toLowerCase();
-  const path = field.path.toLowerCase();
-
-  if (label.includes("background") || path.includes("background")) {
-    return "background";
-  }
-
-  if (
-    field.type === "radius" ||
-    field.type === "border" ||
-    label.includes("border") ||
-    label.includes("stroke") ||
-    label.includes("radius") ||
-    label.includes("rounding") ||
-    path.includes("border") ||
-    path.includes("radius")
-  ) {
-    return "stroke";
-  }
-
-  if (
-    field.type === "typescale" ||
-    label.includes("font") ||
-    label.includes("weight") ||
-    label.includes("transform") ||
-    label.includes("capitalization") ||
-    label.includes("typescale") ||
-    label.includes("color") ||
-    path.includes("font") ||
-    path.includes("color") ||
-    path.includes("typescale") ||
-    path.includes("texttransform")
-  ) {
-    return "typography";
-  }
-
-  // Size fields (e.g., icon size, width, height)
-  if (
-    label.includes("size") ||
-    label.includes("width") ||
-    label.includes("height")
-  ) {
-    return "sizing";
-  }
-
-  // Spacing fields (padding, margin, gap)
-  if (
-    label.includes("padding") ||
-    label.includes("margin") ||
-    label.includes("gap") ||
-    label.includes("spacing")
-  ) {
-    return "spacing";
-  }
-
-  return "other";
-}
-
 function organizeStyleFields(fields: StyleField[]): {
-  mainGroups: GroupedFields;
   sectionGroups: Record<string, StyleField[]>;
   sectionOrder: string[];
 } {
-  const mainGroups: GroupedFields = {
-    background: [],
-    stroke: [],
-    typography: [],
-    sizing: [],
-    spacing: [],
-    other: [],
-  };
   const sectionGroups: Record<string, StyleField[]> = {};
   const sectionOrder: string[] = [];
 
   for (const field of fields) {
-    if (field.section) {
-      const section = field.section;
-      if (!sectionGroups[section]) {
-        sectionGroups[section] = [];
-        sectionOrder.push(section);
-      }
-      sectionGroups[section]?.push(field);
-    } else {
-      const category = categorizeField(field);
-      mainGroups[category].push(field);
+    const section = field.section ?? "General";
+    if (!sectionGroups[section]) {
+      sectionGroups[section] = [];
+      sectionOrder.push(section);
     }
+    sectionGroups[section]?.push(field);
   }
 
-  return { mainGroups, sectionGroups, sectionOrder };
+  return { sectionGroups, sectionOrder };
+}
+
+/**
+ * Split a style field path into its style key and property name.
+ */
+function splitStyleFieldPath(
+  path: string,
+): { styleKey: string; property: string } | null {
+  const separatorIndex = path.lastIndexOf(".");
+  if (separatorIndex <= 0 || separatorIndex >= path.length - 1) {
+    return null;
+  }
+
+  return {
+    styleKey: path.slice(0, separatorIndex),
+    property: path.slice(separatorIndex + 1),
+  };
+}
+
+/**
+ * Hide standalone capitalization fields when the typography field owns them.
+ */
+function filterTypographyCompanionFields(fields: StyleField[]): StyleField[] {
+  const typographyStyleKeys = new Set<string>();
+
+  for (const field of fields) {
+    if (field.type !== "typescale") continue;
+    const pathParts = splitStyleFieldPath(field.path);
+    if (!pathParts) continue;
+    typographyStyleKeys.add(pathParts.styleKey);
+  }
+
+  return fields.filter((field) => {
+    if (field.type !== "select") return true;
+
+    const pathParts = splitStyleFieldPath(field.path);
+    if (!pathParts) return true;
+
+    return !(
+      pathParts.property === "textTransform" &&
+      typographyStyleKeys.has(pathParts.styleKey)
+    );
+  });
 }
 
 // =============================================================================
@@ -397,7 +371,15 @@ interface StylesSectionProps {
 }
 
 export function StylesSection({ componentId }: StylesSectionProps) {
-  const component = findComponentById(componentId);
+  const { passportDraft } = useDesignEditor();
+  const component = resolveComponentForEditor(componentId, passportDraft);
+  const styleFields = filterTypographyCompanionFields(component?.styleFields || []);
+  const [openSection, setOpenSection] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // Start each component detail view with every accordion section collapsed.
+    setOpenSection(null);
+  }, [componentId]);
 
   if (!component) {
     return (
@@ -407,9 +389,7 @@ export function StylesSection({ componentId }: StylesSectionProps) {
     );
   }
 
-  const styleFields = component.styleFields || [];
-  const { mainGroups, sectionGroups, sectionOrder } =
-    organizeStyleFields(styleFields);
+  const { sectionGroups, sectionOrder } = organizeStyleFields(styleFields);
 
   if (styleFields.length === 0) {
     return (
@@ -423,65 +403,26 @@ export function StylesSection({ componentId }: StylesSectionProps) {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto scrollbar-hide">
-      {/* Main field groups with section borders */}
-      {mainGroups.background.length > 0 && (
-        <EditorSection title="Background">
-          {mainGroups.background.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {mainGroups.stroke.length > 0 && (
-        <EditorSection title="Stroke">
-          {mainGroups.stroke.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {mainGroups.typography.length > 0 && (
-        <EditorSection title="Typography">
-          {mainGroups.typography.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {mainGroups.sizing.length > 0 && (
-        <EditorSection title="Sizing">
-          {mainGroups.sizing.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {mainGroups.spacing.length > 0 && (
-        <EditorSection title="Spacing">
-          {mainGroups.spacing.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {mainGroups.other.length > 0 && (
-        <EditorSection title="Other">
-          {mainGroups.other.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
-
-      {/* Named section groups */}
       {sectionOrder.map((sectionName) => {
         const fields = sectionGroups[sectionName];
         if (!fields) return null;
         return (
-          <EditorSection key={sectionName} title={sectionName}>
-            {fields.map((field) => (
-              <StyleFieldRenderer key={field.path} field={field} />
-            ))}
-          </EditorSection>
+          <AccordionItem
+            key={sectionName}
+            label={sectionName}
+            isOpen={openSection === sectionName}
+            onToggle={() =>
+              setOpenSection((prev) =>
+                prev === sectionName ? null : sectionName,
+              )
+            }
+          >
+            <div className="flex flex-col gap-3">
+              {fields.map((field) => (
+                <StyleFieldRenderer key={field.path} field={field} />
+              ))}
+            </div>
+          </AccordionItem>
         );
       })}
     </div>

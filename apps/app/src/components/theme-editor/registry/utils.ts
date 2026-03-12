@@ -1,27 +1,32 @@
 /**
- * Utility functions for the component registry
+ * Utility functions for the component registry.
+ *
+ * Searches COMPONENT_REGISTRY (fixed components) and SECTION_REGISTRY (sections)
+ * to resolve editor component definitions by ID.
  */
 
-import { COMPONENT_TREE } from "./component-tree";
-import type { ComponentDefinition } from "./types";
-
-// =============================================================================
-// UTILITY FUNCTIONS
-// =============================================================================
+import type {
+  ComponentDefinition,
+  Passport,
+  SectionType,
+} from "@v1/dpp-components";
+import {
+  COMPONENT_REGISTRY,
+  MODAL_SCHEMA_REGISTRY,
+  SECTION_REGISTRY,
+} from "@v1/dpp-components";
 
 /**
- * Find a component definition by its ID
+ * Recursively search a ComponentDefinition tree for a matching ID.
  */
-export function findComponentById(
+function findInTree(
   id: string,
-  tree: ComponentDefinition[] = COMPONENT_TREE,
+  node: ComponentDefinition,
 ): ComponentDefinition | null {
-  for (const component of tree) {
-    if (component.id === id) {
-      return component;
-    }
-    if (component.children) {
-      const found = findComponentById(id, component.children);
+  if (node.id === id) return node;
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findInTree(id, child);
       if (found) return found;
     }
   }
@@ -29,80 +34,91 @@ export function findComponentById(
 }
 
 /**
- * Get the ancestry chain for a component (for breadcrumb)
+ * Find a component definition by its ID.
+ * Searches fixed components, modal schemas, then section editor trees.
  */
-export function getComponentAncestry(
+function findComponentById(
   id: string,
-  tree: ComponentDefinition[] = COMPONENT_TREE,
-  path: ComponentDefinition[] = [],
-): ComponentDefinition[] | null {
-  for (const component of tree) {
-    if (component.id === id) {
-      return [...path, component];
+  tree?: ComponentDefinition[],
+): ComponentDefinition | null {
+  // When an explicit tree is passed, search only that subtree (recursive calls).
+  if (tree) {
+    for (const component of tree) {
+      if (component.id === id) return component;
+      if (component.children) {
+        const found = findComponentById(id, component.children);
+        if (found) return found;
+      }
     }
-    if (component.children) {
-      const result = getComponentAncestry(id, component.children, [
-        ...path,
-        component,
-      ]);
-      if (result) return result;
-    }
+    return null;
   }
+
+  // Search COMPONENT_REGISTRY editor trees (header, productImage, modal, footer)
+  for (const entry of Object.values(COMPONENT_REGISTRY)) {
+    if (!entry) continue;
+    const found = findInTree(id, entry.schema.editorTree);
+    if (found) return found;
+  }
+
+  // Search modal editor trees.
+  for (const entry of Object.values(MODAL_SCHEMA_REGISTRY)) {
+    if (!entry) continue;
+    const found = findInTree(id, entry.schema.editorTree);
+    if (found) return found;
+  }
+
+  // Search SECTION_REGISTRY editor trees
+  for (const entry of Object.values(SECTION_REGISTRY)) {
+    const found = findInTree(
+      id,
+      entry.schema.editorTree as ComponentDefinition,
+    );
+    if (found) return found;
+  }
+
   return null;
 }
 
 /**
- * Get all component IDs as a flat list
- */
-export function getAllComponentIds(
-  tree: ComponentDefinition[] = COMPONENT_TREE,
-): string[] {
-  const ids: string[] = [];
-  for (const component of tree) {
-    ids.push(component.id);
-    if (component.children) {
-      ids.push(...getAllComponentIds(component.children));
-    }
-  }
-  return ids;
-}
-
-/**
  * Check if a component has editable style fields.
- * Used to determine if clicking should navigate to editor or just expand.
  */
 export function hasEditableContent(component: ComponentDefinition): boolean {
-  // Grouping-only components are never directly editable
-  if (component.isGrouping) {
-    return false;
-  }
+  if (component.isGrouping) return false;
   return (component.styleFields?.length ?? 0) > 0;
 }
 
 /**
- * Check if a CSS class name is a selectable component in the preview.
- * Returns false for groupings (logical groupings that don't have a corresponding CSS class).
- */
-export function isSelectableComponent(className: string): boolean {
-  const component = findComponentById(className);
-  if (!component) return false;
-  // Groupings are not selectable in the preview
-  if (component.isGrouping) return false;
-  return true;
-}
-
-/**
  * Check if a component has editable config fields (for the Content tab).
- * Used to determine if the Content tab should be shown.
  */
 export function hasConfigContent(component: ComponentDefinition): boolean {
   return (component.configFields?.length ?? 0) > 0;
 }
 
 /**
- * Check if a component has a visibility toggle (for eye icon in layout tree).
- * Used to determine if an eye icon should be shown next to the component.
+ * Resolve a component definition for the editor by ID.
+ *
+ * Checks fixed components and modal schemas first, then section editor trees,
+ * then passport sections by instance ID.
  */
-export function hasVisibilityToggle(component: ComponentDefinition): boolean {
-  return component.visibilityKey !== undefined;
+export function resolveComponentForEditor(
+  componentId: string,
+  passport: Passport,
+): ComponentDefinition | null {
+  // Try fixed components, modal schemas, and section editor trees.
+  const component = findComponentById(componentId);
+  if (component) return component;
+
+  // Try passport sections — match by instance ID and return section schema editorTree
+  for (const zoneKey of ["sidebar", "canvas"] as const) {
+    const zone = passport[zoneKey];
+    if (!zone) continue;
+    for (const section of zone) {
+      if (section.id === componentId) {
+        const entry = SECTION_REGISTRY[section.type as SectionType];
+        if (entry) return entry.schema.editorTree as ComponentDefinition;
+      }
+    }
+  }
+
+  return null;
 }

@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  type CurrentUser,
-  useUserQuerySuspense,
-} from "@/hooks/use-user";
+import { type CurrentUser, useUserQuerySuspense } from "@/hooks/use-user";
 import { Icons } from "@v1/ui/icons";
 import { Suspense } from "react";
 import { AvatarUpload } from "../avatar-upload";

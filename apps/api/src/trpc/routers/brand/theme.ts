@@ -2,24 +2,21 @@ import { eq } from "@v1/db/queries";
 /**
  * Brand theme router.
  *
- * Handles theme configuration (content) and theme styles operations.
- *
- * Phase 4 changes:
- * - Renamed from workflowThemeRouter to brandThemeRouter
- * - Removed listCarouselProducts (use products.list instead)
+ * Handles reading and writing the brand's Passport (single JSON document
+ * containing tokens, layout, and per-section styles).
  *
  * Targets:
- * - brand.theme.get - Get full theme (styles + config)
- * - brand.theme.update - Update theme config (menus, banner, social, etc.)
+ * - brand.theme.get - Get passport (with resolved image URLs)
+ * - brand.theme.update - Update passport
  */
-import { getBrandTheme, updateBrandThemeConfig } from "@v1/db/queries/brand";
+import { getBrandTheme, updatePassport } from "@v1/db/queries/brand";
 import { brands } from "@v1/db/schema";
 import { z } from "zod";
 import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
 import { wrapError } from "../../../utils/errors.js";
 import {
-  normalizeThemeConfigImagePathsForStorage,
-  resolveThemeConfigImageUrls,
+  normalizePassportImagePathsForStorage,
+  resolvePassportImageUrls,
 } from "../../../utils/theme-config-images.js";
 import {
   brandReadProcedure,
@@ -28,7 +25,7 @@ import {
 } from "../../init.js";
 
 /**
- * Get theme data (styles and config) for the active brand.
+ * Get passport data for the active brand.
  */
 const getThemeProcedure = brandReadProcedure.query(async ({ ctx }) => {
   const { db, brandId, supabase } = ctx;
@@ -36,23 +33,18 @@ const getThemeProcedure = brandReadProcedure.query(async ({ ctx }) => {
     const theme = await getBrandTheme(db, brandId);
     if (!theme) {
       return {
-        themeStyles: {},
-        themeConfig: {},
-        googleFontsUrl: null,
+        passport: {},
         updatedAt: null,
       };
     }
 
-    // Resolve image paths in themeConfig to full URLs
-    const resolvedThemeConfig = resolveThemeConfigImageUrls(
+    const resolvedPassport = resolvePassportImageUrls(
       supabase,
-      (theme.themeConfig as Record<string, unknown>) ?? {},
+      (theme.passport as Record<string, unknown>) ?? {},
     );
 
     return {
-      themeStyles: theme.themeStyles,
-      themeConfig: resolvedThemeConfig,
-      googleFontsUrl: theme.googleFontsUrl,
+      passport: resolvedPassport,
       updatedAt: theme.updatedAt,
     };
   } catch (error) {
@@ -61,31 +53,23 @@ const getThemeProcedure = brandReadProcedure.query(async ({ ctx }) => {
 });
 
 /**
- * Update theme config (content) for the active brand.
- * This updates menus, banner, social links, section visibility, carousel config, etc.
+ * Update the passport for the active brand.
  */
 const updateConfigProcedure = brandWriteProcedure
   .input(
     z.object({
-      // ThemeConfig is validated on the client side
-      // Here we accept any object and store it as JSONB
-      config: z.record(z.unknown()),
+      passport: z.record(z.unknown()),
     }),
   )
   .mutation(async ({ ctx, input }) => {
     const { db, brandId } = ctx;
     try {
-      const normalizedConfig = normalizeThemeConfigImagePathsForStorage(
-        input.config,
+      const normalizedPassport = normalizePassportImagePathsForStorage(
+        input.passport,
       );
-      const result = await updateBrandThemeConfig(
-        db,
-        brandId,
-        normalizedConfig,
-      );
+      const result = await updatePassport(db, brandId, normalizedPassport);
 
       // Revalidate all DPP pages for this brand (fire-and-forget)
-      // Wrapped in try-catch so revalidation failures don't affect the response
       try {
         const [brand] = await db
           .select({ slug: brands.slug })
@@ -96,12 +80,12 @@ const updateConfigProcedure = brandWriteProcedure
           revalidateBrand(brand.slug).catch(() => {});
         }
       } catch {
-        // Silently ignore revalidation errors - the config update already succeeded
+        // Silently ignore revalidation errors - the passport update already succeeded
       }
 
       return result;
     } catch (error) {
-      throw wrapError(error, "Failed to update theme config");
+      throw wrapError(error, "Failed to update passport");
     }
   });
 

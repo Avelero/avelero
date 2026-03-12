@@ -978,7 +978,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           if (existingBrandValue) {
             resolvedValueIds.push(existingBrandValue.id);
             tokenToBrandValueId.set(valueId, existingBrandValue.id);
-            tokenToBrandValueId.set(existingBrandValue.name, existingBrandValue.id);
+            tokenToBrandValueId.set(
+              existingBrandValue.name,
+              existingBrandValue.id,
+            );
             continue;
           }
 
@@ -1262,30 +1265,32 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           // Now update dimension values to use resolved brand value IDs.
           if (resolvedVariant.tokenMaps.length > 0) {
             let resolvedIndex = 0;
-            const updatedDimensions = formValues.variantDimensions.map((dim) => {
-              const hasValues = dim.isCustomInline
-                ? (dim.customValues ?? []).some((v) => v.trim().length > 0)
-                : dim.values.length > 0;
+            const updatedDimensions = formValues.variantDimensions.map(
+              (dim) => {
+                const hasValues = dim.isCustomInline
+                  ? (dim.customValues ?? []).some((v) => v.trim().length > 0)
+                  : dim.values.length > 0;
 
-              if (!hasValues) return dim;
+                if (!hasValues) return dim;
 
-              const tokenMap = resolvedVariant.tokenMaps[resolvedIndex];
-              const resolvedDim = resolvedVariant.dimensions[resolvedIndex];
-              resolvedIndex += 1;
+                const tokenMap = resolvedVariant.tokenMaps[resolvedIndex];
+                const resolvedDim = resolvedVariant.dimensions[resolvedIndex];
+                resolvedIndex += 1;
 
-              if (!tokenMap || dim.isCustomInline) return dim;
+                if (!tokenMap || dim.isCustomInline) return dim;
 
-              // Replace values with resolved brand value IDs
-              const updatedValues = dim.values.map(
-                (valueId) => tokenMap.get(valueId) ?? valueId,
-              );
+                // Replace values with resolved brand value IDs
+                const updatedValues = dim.values.map(
+                  (valueId) => tokenMap.get(valueId) ?? valueId,
+                );
 
-              return {
-                ...dim,
-                attributeId: resolvedDim?.attribute_id ?? dim.attributeId,
-                values: updatedValues,
-              };
-            });
+                return {
+                  ...dim,
+                  attributeId: resolvedDim?.attribute_id ?? dim.attributeId,
+                  values: updatedValues,
+                };
+              },
+            );
 
             // Update enabledVariantKeys with resolved brand value IDs
             const updatedEnabledKeys = new Set<string>();
@@ -1428,6 +1433,17 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           await syncVariantsMutation.mutateAsync({
             productHandle: targetProductHandle,
             variants: [{ attributeValueIds: [], isGhost: true }],
+          });
+        }
+
+        // Keep published create flows aligned with edit flows by materializing the snapshot immediately.
+        if (
+          (formValues.status ?? "unpublished") === "published" &&
+          productId &&
+          targetProductHandle
+        ) {
+          await publishProductMutation.mutateAsync({
+            productId,
           });
         }
 

@@ -190,13 +190,10 @@ describe("Bulk QR Export Router", () => {
       expect(result.status).toBe("PENDING");
 
       expect(mockTrigger).toHaveBeenCalledTimes(1);
-      expect(mockTrigger).toHaveBeenCalledWith(
-        "export-qr-codes",
-        {
-          jobId: result.jobId,
-          brandId,
-        },
-      );
+      expect(mockTrigger).toHaveBeenCalledWith("export-qr-codes", {
+        jobId: result.jobId,
+        brandId,
+      });
     });
 
     it("keeps summary and job counters consistent for all+exclude selection", async () => {

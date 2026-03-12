@@ -1,199 +1,205 @@
 "use client";
 
+/**
+ * Layout tree for the passport theme editor.
+ *
+ * Renders a flat list of fixed items, modal previews, and sortable section zones.
+ * Every item navigates to a detail page on click — no expand/collapse.
+ */
+
 import { useDesignEditor } from "@/contexts/design-editor-provider";
+import {
+  type DragEndEvent,
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  COMPONENT_REGISTRY,
+  MODAL_SCHEMA_REGISTRY,
+  SECTION_REGISTRY,
+  buildDppSelectableNodeId,
+  type ComponentDefinition,
+  type Section,
+  type SectionType,
+  type ZoneId,
+} from "@v1/dpp-components";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
-import * as React from "react";
-import { useCallback, useRef } from "react";
-import {
-  COMPONENT_TREE,
-  type ComponentDefinition,
-  findComponentById,
-  getComponentAncestry,
-  hasConfigContent,
-  hasEditableContent,
-} from "../../registry";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { hasConfigContent, hasEditableContent } from "../../registry";
+import { AddComponentPopover } from "./add-component-popover";
 
 /**
- * Debounce delay for triggering live preview highlight when hovering layout tree items (ms).
- * Hover shows after cursor has been on an item for this duration.
+ * Build the preview node id for a fixed component target.
  */
-const PREVIEW_HIGHLIGHT_DEBOUNCE_MS = 20;
-
-// =============================================================================
-// VISIBILITY TOGGLE BUTTON
-// =============================================================================
-
-interface VisibilityToggleProps {
-  visibilityKey: NonNullable<ComponentDefinition["visibilityKey"]>;
+function getFixedNodeId(editorId: string): string {
+  return buildDppSelectableNodeId({ kind: "fixed", editorId });
 }
 
-function VisibilityToggle({ visibilityKey }: VisibilityToggleProps) {
-  const { themeConfigDraft, toggleSectionVisibility } = useDesignEditor();
+/**
+ * Build the preview node id for a section root target.
+ */
+function getSectionRootNodeId(
+  zoneId: ZoneId,
+  sectionId: string,
+  editorId: string,
+): string {
+  return buildDppSelectableNodeId({
+    kind: "section-root",
+    editorId,
+    sectionId,
+    zoneId,
+  });
+}
 
-  const isVisible = themeConfigDraft.sections[visibilityKey];
+/**
+ * Resolve the row background treatment for hover and selected states.
+ */
+function getTreeRowStateClass(isSelected: boolean, isHovered: boolean): string {
+  if (isSelected) return "bg-accent-blue";
+  if (isHovered) return "bg-accent";
+  return "";
+}
 
-  const handleClick = (e: React.MouseEvent) => {
-    // Prevent the click from bubbling to the parent button (which navigates)
-    e.stopPropagation();
-    toggleSectionVisibility(visibilityKey);
+// =============================================================================
+// INSERT LINE
+// =============================================================================
+
+interface InsertLineProps {
+  zoneId: ZoneId;
+  position: number;
+}
+
+function InsertLine({ zoneId, position }: InsertLineProps) {
+  const [open, setOpen] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { addSection } = useDesignEditor();
+
+  const handleAdd = (sectionType: SectionType) => {
+    addSection(zoneId, sectionType, position);
+    setOpen(false);
+    setVisible(false);
   };
 
+  const handleMouseEnter = useCallback(() => {
+    timerRef.current = setTimeout(() => {
+      setVisible(true);
+    }, 500);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setVisible(false);
+  }, []);
+
+  const isActive = visible || open;
+
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className={cn(
-        "flex items-center justify-center min-w-7 h-7 transition-colors duration-100 hover:bg-accent-dark",
-        // Show on hover UNLESS hidden (then always show so user remembers)
-        isVisible ? "opacity-0 group-hover:opacity-100" : "opacity-100",
-      )}
-      aria-label={isVisible ? "Hide section" : "Show section"}
-      title={isVisible ? "Hide section" : "Show section"}
+    <div
+      className="relative h-1 z-10"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
-      {isVisible ? (
-        <Icons.Eye className="h-3.5 w-3.5 text-tertiary" />
-      ) : (
-        <Icons.EyeOff className="h-3.5 w-3.5 text-tertiary" />
+      {isActive && (
+        <div
+          className="absolute inset-x-0 -top-0.5 -bottom-0.5"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        />
       )}
-    </button>
+      <AddComponentPopover
+        zoneId={zoneId}
+        open={open}
+        onOpenChange={setOpen}
+        onSelect={handleAdd}
+      >
+        <button
+          type="button"
+          className={cn(
+            "absolute inset-x-2 top-1/2 -translate-y-1/2 flex items-center overflow-visible transition-opacity cursor-pointer",
+            isActive ? "opacity-100" : "opacity-0 pointer-events-none",
+          )}
+        >
+          <div className="flex-1 h-[2px] bg-brand" />
+          <div className="flex items-center justify-center w-4 h-4 rounded-full bg-brand text-brand-foreground shrink-0">
+            <Icons.Plus className="h-2.5 w-2.5" />
+          </div>
+          <div className="flex-1 h-[2px] bg-brand" />
+        </button>
+      </AddComponentPopover>
+    </div>
   );
 }
 
 // =============================================================================
-// LAYOUT TREE ITEM
+// FIXED ITEM (Header / Product Image / Footer)
 // =============================================================================
 
-interface LayoutTreeItemProps {
-  item: ComponentDefinition;
-  level: number;
-  expandedItems: Set<string>;
-  highlightedId: string | null;
-  onToggleExpand: (id: string) => void;
-  onItemClick: (id: string) => void;
-  onItemHover: (id: string | null) => void;
+interface FixedItemProps {
+  componentDef: ComponentDefinition;
+  onItemHover: (nodeId: string | null) => void;
 }
 
-function LayoutTreeItem({
-  item,
-  level,
-  expandedItems,
-  highlightedId,
-  onToggleExpand,
-  onItemClick,
-  onItemHover,
-}: LayoutTreeItemProps) {
-  const isHighlighted = item.id === highlightedId;
-  const hasChildren = item.children && item.children.length > 0;
-  const isExpanded = expandedItems.has(item.id);
-  // A component is editable if it has EITHER style fields OR config fields
-  const isEditable = hasEditableContent(item) || hasConfigContent(item);
+function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
+  const { hoveredNodeId, navigateToComponent, navigation, setSelectedNodeId } =
+    useDesignEditor();
+  const isEditable =
+    hasEditableContent(componentDef) || hasConfigContent(componentDef);
+  const rootNodeId = isEditable ? getFixedNodeId(componentDef.id) : null;
+  const isHovered = rootNodeId !== null && hoveredNodeId === rootNodeId;
+  const isSelected =
+    navigation.level === "component" &&
+    navigation.section === "layout" &&
+    !!navigation.componentId &&
+    (navigation.componentId === componentDef.id ||
+      navigation.componentId.startsWith(`${componentDef.id}.`));
 
-  // Calculate indentation - 24px per level
-  const indentPx = level * 24;
-
-  /**
-   * Handle click on the main item area:
-   * - If item has editable content → navigate to editor
-   * - If item only has children → toggle expand/collapse
-   */
-  const handleMainClick = () => {
-    if (isEditable) {
-      onItemClick(item.id);
-    } else if (hasChildren) {
-      onToggleExpand(item.id);
+  const handleClick = () => {
+    if (isEditable && rootNodeId) {
+      setSelectedNodeId(rootNodeId);
+      navigateToComponent(componentDef.id);
     }
   };
 
   return (
-    <div className="flex flex-col">
-      {/* Item row */}
-      <div
-        className="flex items-center h-8 group"
-        onMouseEnter={() => onItemHover(item.id)}
-        onMouseLeave={() => onItemHover(null)}
-      >
-        {/* Inner container with h-7 hover background */}
-        <div
-          className={cn(
-            "relative flex items-center w-full h-7 group-hover:bg-accent",
-            isHighlighted && "bg-accent",
-          )}
-          style={{ paddingLeft: `${indentPx}px` }}
-        >
-          {/* Expand/collapse chevron or spacer */}
-          {hasChildren ? (
-            <button
-              type="button"
-              onClick={() => onToggleExpand(item.id)}
-              className="flex items-center justify-center min-w-4 h-7 hover:bg-accent-dark transition-colors duration-100"
-              aria-label={isExpanded ? "Collapse" : "Expand"}
-            >
-              <Icons.ChevronRight
-                className={cn(
-                  "h-3 w-3 text-tertiary transition-transform duration-150",
-                  isExpanded && "rotate-90",
-                )}
-              />
-            </button>
-          ) : (
-            <div className="min-w-4" />
-          )}
+    <div
+      className={cn(
+        "relative flex items-center w-full h-7 rounded",
+        getTreeRowStateClass(isSelected, isHovered),
+        isEditable ? "cursor-pointer" : "cursor-default",
+      )}
+      onClick={handleClick}
+      onMouseEnter={() => onItemHover(rootNodeId)}
+      onMouseLeave={() => onItemHover(null)}
+    >
+      <div className="min-w-4" />
 
-          {/* Item label - main clickable area */}
-          <button
-            type="button"
-            onClick={handleMainClick}
-            className={cn(
-              "flex flex-row items-center text-left h-7 flex-1 type-small text-primary",
-              // Only show cursor-pointer for editable items
-              isEditable ? "cursor-pointer" : "cursor-default",
-            )}
-          >
-            <div className="flex items-center truncate">
-              <div className="flex items-center justify-center min-w-4 h-7">
-                <Icons.GalleryVertical className="h-3 w-3 text-tertiary" />
-              </div>
-              <div className="flex items-center px-2 h-7">
-                {item.displayName}
-              </div>
-            </div>
-          </button>
-
-          {/* Right side controls - outside the main button to avoid nesting */}
-          <div className="flex items-center">
-            {/* Visibility eye toggle - shows on hover, always visible if section is hidden */}
-            {item.visibilityKey && (
-              <VisibilityToggle visibilityKey={item.visibilityKey} />
-            )}
-            {/* Navigation chevron - only show for editable items, shows on hover */}
-            {isEditable ? (
-              <div className="flex items-center justify-center min-w-7 h-7 opacity-0 group-hover:opacity-100">
-                <Icons.ChevronRight className="h-3.5 w-3.5 text-primary" />
-              </div>
-            ) : (
-              /* Spacer to maintain alignment when no chevron */
-              item.visibilityKey && <div className="min-w-7 h-7" />
-            )}
-          </div>
-        </div>
+      <div className="flex items-center justify-center min-w-4 h-7">
+        <Icons.GalleryVertical className="h-3 w-3 text-tertiary" />
       </div>
 
-      {/* Children - render when expanded */}
-      {isExpanded && hasChildren && (
-        <div>
-          {item.children!.map((child) => (
-            <LayoutTreeItem
-              key={child.id}
-              item={child}
-              level={level + 1}
-              expandedItems={expandedItems}
-              highlightedId={highlightedId}
-              onToggleExpand={onToggleExpand}
-              onItemClick={onItemClick}
-              onItemHover={onItemHover}
-            />
-          ))}
+      <div className="flex items-center px-2 h-7 flex-1 min-w-0">
+        <span className="type-small text-primary truncate">
+          {componentDef.displayName}
+        </span>
+      </div>
+
+      {isEditable && (
+        <div className="flex items-center pr-1">
+          <Icons.ChevronRight className="h-3 w-3 text-tertiary" />
         </div>
       )}
     </div>
@@ -201,46 +207,320 @@ function LayoutTreeItem({
 }
 
 // =============================================================================
-// HELPER: Find visible parent for highlighting
+// SHARED MODAL ITEM
 // =============================================================================
 
-/**
- * Given a hovered component ID and the current expanded items,
- * find which tree item should be highlighted.
- * If the hovered component is visible (all ancestors expanded), return it.
- * Otherwise, return the deepest visible ancestor.
- */
-function findVisibleHighlightTarget(
-  hoveredId: string | null,
-  expandedItems: Set<string>,
-): string | null {
-  if (!hoveredId) return null;
+interface SharedModalItemProps {
+  onItemHover: (nodeId: string | null) => void;
+}
 
-  const ancestry = getComponentAncestry(hoveredId);
-  if (!ancestry || ancestry.length === 0) return null;
+function SharedModalItem({ onItemHover }: SharedModalItemProps) {
+  const {
+    hoveredNodeId,
+    navigation,
+    previewModalType,
+    setPreviewModalType,
+    navigateToComponent,
+    setSelectedNodeId,
+  } = useDesignEditor();
+  const modalSchema = MODAL_SCHEMA_REGISTRY.modal?.schema;
+  const editorTree = modalSchema?.editorTree;
+  const isEditable = editorTree
+    ? hasEditableContent(editorTree) || hasConfigContent(editorTree)
+    : false;
+  const rootNodeId = editorTree ? getFixedNodeId(editorTree.id) : null;
+  const isPreviewActive = previewModalType === editorTree?.id;
+  const isHovered = rootNodeId !== null && hoveredNodeId === rootNodeId;
+  const isSelected =
+    navigation.level === "component" &&
+    navigation.section === "layout" &&
+    !!navigation.componentId &&
+    (navigation.componentId === editorTree?.id ||
+      navigation.componentId === "modal" ||
+      navigation.componentId.startsWith("modal."));
 
-  // Walk through the ancestry from root to target
-  // The last item where all its ancestors are expanded is the visible one
-  let lastVisible: string | null = null;
+  const handleRowClick = () => {
+    if (!isEditable || !editorTree || !rootNodeId) return;
 
-  for (let i = 0; i < ancestry.length; i++) {
-    const component = ancestry[i];
-    if (!component) continue;
+    // Toggle the shared modal preview and route the detail panel to the modal editor.
+    setPreviewModalType(isPreviewActive ? null : editorTree.id);
+    setSelectedNodeId(rootNodeId);
+    navigateToComponent(editorTree.id);
+  };
 
-    // Check if all parents up to this point are expanded
-    const parentsExpanded = ancestry
-      .slice(0, i)
-      .every((parent) => expandedItems.has(parent.id));
+  return (
+    <div
+      className={cn(
+        "relative flex items-center w-full h-7 rounded",
+        getTreeRowStateClass(isSelected || isPreviewActive, isHovered),
+        isEditable ? "cursor-pointer" : "cursor-default",
+      )}
+      onClick={handleRowClick}
+      onMouseEnter={() => onItemHover(rootNodeId)}
+      onMouseLeave={() => onItemHover(null)}
+    >
+      <div className="min-w-4" />
 
-    if (i === 0 || parentsExpanded) {
-      lastVisible = component.id;
-    } else {
-      // Parent is not expanded, so this component is not visible
-      break;
+      <div className="flex items-center justify-center min-w-4 h-7">
+        <Icons.GalleryVertical className="h-3 w-3 text-tertiary" />
+      </div>
+
+      <div className="flex items-center px-2 h-7 flex-1 min-w-0">
+        <span className="type-small text-primary truncate">Modal</span>
+      </div>
+
+      {isEditable && (
+        <div className="flex items-center pr-1">
+          <Icons.ChevronRight className="h-3 w-3 text-tertiary" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// SORTABLE SECTION ITEM
+// =============================================================================
+
+interface SortableSectionItemProps {
+  section: Section;
+  zoneId: ZoneId;
+  onItemHover: (nodeId: string | null) => void;
+}
+
+function SortableSectionItem({
+  section,
+  zoneId,
+  onItemHover,
+}: SortableSectionItemProps) {
+  const {
+    hoveredNodeId,
+    navigateToSectionInstance,
+    deleteSection,
+    activeSectionId,
+    setSelectedNodeId,
+  } = useDesignEditor();
+
+  const entry = SECTION_REGISTRY[section.type as SectionType];
+  const editorTree = entry?.schema.editorTree as
+    | ComponentDefinition
+    | undefined;
+
+  const rootIsEditable = editorTree
+    ? hasEditableContent(editorTree) || hasConfigContent(editorTree)
+    : false;
+  const rootNodeId =
+    rootIsEditable && editorTree
+      ? getSectionRootNodeId(zoneId, section.id, editorTree.id)
+      : null;
+
+  const isSelected = activeSectionId === section.id;
+  const isHovered = rootNodeId !== null && hoveredNodeId === rootNodeId;
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: section.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const handleMainClick = () => {
+    if (rootIsEditable && rootNodeId) {
+      setSelectedNodeId(rootNodeId);
+      navigateToSectionInstance(zoneId, section.id);
     }
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn("flex flex-col", isDragging && "opacity-50")}
+    >
+      <div
+        className={cn(
+          "group/instance relative flex items-center w-full h-7 rounded",
+          getTreeRowStateClass(isSelected, isHovered),
+          rootIsEditable ? "cursor-pointer" : "cursor-default",
+        )}
+        onClick={handleMainClick}
+        onMouseEnter={() => onItemHover(rootNodeId)}
+        onMouseLeave={() => onItemHover(null)}
+      >
+        <div className="min-w-4" />
+
+        <div
+          className="flex items-center justify-center min-w-4 h-7 touch-none rounded hover:bg-accent-dark cursor-grab active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Icons.GalleryVertical className="h-3 w-3 text-tertiary group-hover/instance:hidden" />
+          <Icons.GripVertical className="h-3 w-3 text-tertiary hidden group-hover/instance:block cursor-grab active:cursor-grabbing" />
+        </div>
+
+        <div className="flex items-center px-2 h-7 flex-1 min-w-0">
+          <span className="type-small text-primary truncate">
+            {entry?.schema.displayName ?? section.type}
+          </span>
+        </div>
+
+        <div className="flex items-center opacity-0 group-hover/instance:opacity-100 pr-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteSection(zoneId, section.id);
+            }}
+            className="flex items-center justify-center w-6 h-6 hover:bg-accent-dark rounded"
+            aria-label="Delete section"
+          >
+            <Icons.Trash2 className="h-3 w-3 text-tertiary" />
+          </button>
+        </div>
+
+        {rootIsEditable && (
+          <div className="flex items-center pr-1">
+            <Icons.ChevronRight className="h-3 w-3 text-tertiary" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// ZONE SECTION
+// =============================================================================
+
+const ZONE_LABELS: Record<ZoneId, string> = {
+  sidebar: "Sidebar",
+  canvas: "Canvas",
+};
+
+interface ZoneSectionProps {
+  zoneId: ZoneId;
+  sections: Section[];
+  onItemHover: (nodeId: string | null) => void;
+  showLabel?: boolean;
+}
+
+function ZoneSection({
+  zoneId,
+  sections,
+  onItemHover,
+  showLabel = true,
+}: ZoneSectionProps) {
+  // Keep the add affordance visible before the sortable list while preserving in-list insert handles.
+  const { moveSection } = useDesignEditor();
+  const dndId = useMemo(() => `dnd-zone-${zoneId}`, [zoneId]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = sections.findIndex((s) => s.id === active.id);
+    const newIndex = sections.findIndex((s) => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    moveSection(zoneId, active.id as string, newIndex);
   }
 
-  return lastVisible;
+  return (
+    <div className={cn("flex flex-col", zoneId === "canvas" && "pb-4")}>
+      {showLabel && (
+        <div className="flex items-center h-8 px-1">
+          <span className="type-small font-medium text-secondary">
+            {ZONE_LABELS[zoneId]}
+          </span>
+        </div>
+      )}
+
+      <AddSectionButton zoneId={zoneId} sectionCount={sections.length} />
+
+      {sections.length > 0 && <InsertLine zoneId={zoneId} position={0} />}
+
+      <DndContext
+        id={dndId}
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={sections.map((s) => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {sections.map((section, index) => (
+            <div key={section.id}>
+              {index > 0 && <InsertLine zoneId={zoneId} position={index} />}
+              <SortableSectionItem
+                section={section}
+                zoneId={zoneId}
+                onItemHover={onItemHover}
+              />
+            </div>
+          ))}
+        </SortableContext>
+      </DndContext>
+    </div>
+  );
+}
+
+// =============================================================================
+// ADD SECTION BUTTON
+// =============================================================================
+
+interface AddSectionButtonProps {
+  zoneId: ZoneId;
+  sectionCount: number;
+}
+
+function AddSectionButton({ zoneId, sectionCount }: AddSectionButtonProps) {
+  const [open, setOpen] = useState(false);
+  const { addSection } = useDesignEditor();
+
+  const handleAdd = (sectionType: SectionType) => {
+    addSection(zoneId, sectionType, sectionCount);
+    setOpen(false);
+  };
+
+  return (
+    <AddComponentPopover
+      zoneId={zoneId}
+      open={open}
+      onOpenChange={setOpen}
+      onSelect={handleAdd}
+    >
+      <button
+        type="button"
+        className={cn(
+          "flex items-center w-full h-7 rounded type-small text-link cursor-pointer hover:bg-accent",
+          open && "bg-accent",
+        )}
+      >
+        <div className="min-w-4" />
+        <div className="flex items-center justify-center min-w-4 h-7">
+          <Icons.Plus className="h-3 w-3" />
+        </div>
+        <div className="flex items-center px-2 h-7">
+          <span>Add section</span>
+        </div>
+      </button>
+    </AddComponentPopover>
+  );
 }
 
 // =============================================================================
@@ -248,107 +528,66 @@ function findVisibleHighlightTarget(
 // =============================================================================
 
 export function LayoutTree() {
-  const {
-    expandedItems,
-    toggleExpanded,
-    navigateToComponent,
-    hoveredComponentId,
-    setHoveredComponentId,
-  } = useDesignEditor();
+  const { passportDraft, setHoveredNodeId } = useDesignEditor();
 
-  // Debounce timer for hover from layout tree
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingHoverRef = useRef<string | null>(null);
+  const headerDef = COMPONENT_REGISTRY.header?.schema.editorTree;
+  const productImageDef = COMPONENT_REGISTRY.productImage?.schema.editorTree;
+  const footerDef = COMPONENT_REGISTRY.footer?.schema.editorTree;
 
-  const handleItemClick = (id: string) => {
-    navigateToComponent(id);
-  };
-
-  /**
-   * Handle hover on layout tree items.
-   * Uses a short debounce so highlight shows after cursor has been on an item for a moment.
-   * Only triggers preview highlight for editable components (not grouping items).
-   */
   const handleItemHover = useCallback(
-    (id: string | null) => {
-      // If same as what we're already tracking, do nothing
-      if (id === pendingHoverRef.current) {
-        return;
-      }
-
-      // Clear any pending timer
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
-      }
-
-      pendingHoverRef.current = id;
-
-      // If leaving (id is null), clear immediately
-      if (id === null) {
-        setHoveredComponentId(null);
-        return;
-      }
-
-      // Only trigger preview highlight for components with editable content or config content
-      const component = findComponentById(id);
-      if (
-        !component ||
-        (!hasEditableContent(component) && !hasConfigContent(component))
-      ) {
-        // Clear hover when hovering non-editable items
-        setHoveredComponentId(null);
-        return;
-      }
-
-      // Start debounce timer - will fire if cursor stays on this item
-      debounceTimerRef.current = setTimeout(() => {
-        if (pendingHoverRef.current === id) {
-          setHoveredComponentId(id);
-        }
-        debounceTimerRef.current = null;
-      }, PREVIEW_HIGHLIGHT_DEBOUNCE_MS);
+    (nodeId: string | null) => {
+      setHoveredNodeId(nodeId);
     },
-    [setHoveredComponentId],
+    [setHoveredNodeId],
   );
-
-  // Cleanup debounce timer and hover state on unmount
-  React.useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      pendingHoverRef.current = null;
-      setHoveredComponentId(null);
-    };
-  }, [setHoveredComponentId]);
-
-  // Determine which item should be highlighted based on hover
-  const highlightedId = findVisibleHighlightTarget(
-    hoveredComponentId,
-    expandedItems,
-  );
-
-  // Filter out hidden components (feature flag support)
-  const visibleComponents = COMPONENT_TREE.filter((item) => !item.hidden);
 
   return (
     <div
-      className="flex-1 p-2 overflow-y-auto scrollbar-hide"
+      className="flex-1 overflow-y-auto scrollbar-hide px-2 pt-2 pb-4"
       onMouseLeave={() => handleItemHover(null)}
     >
-      {visibleComponents.map((item) => (
-        <LayoutTreeItem
-          key={item.id}
-          item={item}
-          level={0}
-          expandedItems={expandedItems}
-          highlightedId={highlightedId}
-          onToggleExpand={toggleExpanded}
-          onItemClick={handleItemClick}
+      {/* Layout — fixed structural components */}
+      <div className="flex items-center h-8 px-1">
+        <span className="type-small font-medium text-secondary">Layout</span>
+      </div>
+      {headerDef && (
+        <FixedItem componentDef={headerDef} onItemHover={handleItemHover} />
+      )}
+      {productImageDef && (
+        <FixedItem
+          componentDef={productImageDef}
           onItemHover={handleItemHover}
         />
-      ))}
+      )}
+      {footerDef && (
+        <FixedItem componentDef={footerDef} onItemHover={handleItemHover} />
+      )}
+
+      <div className="border-t my-1" />
+
+      {/* Modal — shared modal preview and editor target */}
+      <div className="flex items-center h-8 px-1">
+        <span className="type-small font-medium text-secondary">Modal</span>
+      </div>
+      <SharedModalItem onItemHover={handleItemHover} />
+
+      <div className="border-t my-1" />
+
+      {/* Sidebar zone */}
+      <ZoneSection
+        zoneId="sidebar"
+        sections={passportDraft.sidebar}
+        onItemHover={handleItemHover}
+      />
+
+      <div className="border-t my-1" />
+
+      {/* Canvas zone */}
+      <ZoneSection
+        zoneId="canvas"
+        sections={passportDraft.canvas}
+        onItemHover={handleItemHover}
+      />
     </div>
   );
 }

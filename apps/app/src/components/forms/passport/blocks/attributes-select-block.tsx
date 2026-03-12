@@ -58,10 +58,7 @@ function DimensionSelect({
   const queryClient = useQueryClient();
 
   // Use the shared hook for deduplicated attribute value options
-  const {
-    options: availableOptions,
-    brandValues,
-  } = useAttributes({
+  const { options: availableOptions, brandValues } = useAttributes({
     brandAttributeId: dimension.attributeId,
   });
 
@@ -342,10 +339,7 @@ export function extractDimensionsFromVariants(
   }
 
   // Group by attribute_id - we just need the dimension info, not the values
-  const dimensionMap = new Map<
-    string,
-    { attributeName: string }
-  >();
+  const dimensionMap = new Map<string, { attributeName: string }>();
 
   // Use a consistent order based on the first variant's attribute order
   const orderedAttributeIds: string[] = [];

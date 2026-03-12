@@ -1,4 +1,7 @@
-import { ColorSelect, normalizeColorHex } from "@/components/select/color-select";
+import {
+  ColorSelect,
+  normalizeColorHex,
+} from "@/components/select/color-select";
 import type { FlatTableColumn } from "@/components/tables/settings/shared";
 import { cn } from "@v1/ui/cn";
 import { format } from "date-fns";
@@ -41,7 +44,10 @@ function TagNameCell({
   const [draftName, setDraftName] = React.useState(row.name);
   const [isColorOpen, setIsColorOpen] = React.useState(false);
   const [isNameHovered, setIsNameHovered] = React.useState(false);
-  const [suppressNameHoverUntilPointerMove, setSuppressNameHoverUntilPointerMove] = React.useState(false);
+  const [
+    suppressNameHoverUntilPointerMove,
+    setSuppressNameHoverUntilPointerMove,
+  ] = React.useState(false);
   const showInputField = isEditing || isDraftTagListItem(row);
   const showInputShell = showInputField || isNameHovered;
 
@@ -211,7 +217,9 @@ function TagNameCell({
           aria-hidden
           className="invisible inline-flex h-8 min-w-[200px] max-w-full items-center whitespace-pre border border-transparent px-2 type-p"
         >
-          {draftName || (isDraftTagListItem(row) ? "Tag name" : row.name) || " "}
+          {draftName ||
+            (isDraftTagListItem(row) ? "Tag name" : row.name) ||
+            " "}
         </span>
 
         <input

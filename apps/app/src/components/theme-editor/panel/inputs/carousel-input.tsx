@@ -6,7 +6,7 @@ import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { useCallback, useMemo, useState } from "react";
-import type { ContentField } from "../../registry/types";
+import type { ContentField } from "@v1/dpp-components";
 import { FieldWrapper } from "./field-wrapper";
 
 interface CarouselInputProps {

@@ -6,11 +6,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { createBrand } from "@v1/db/queries/brand";
 import { seedBrandCatalogDefaults } from "@v1/db/queries/catalog";
 import * as schema from "@v1/db/schema";
-import {
-  createTestBrand,
-  createTestUser,
-  testDb,
-} from "@v1/db/testing";
+import { createTestBrand, createTestUser, testDb } from "@v1/db/testing";
 
 describe("Brand catalog default seeding", () => {
   let taxonomyAttributeCount = 0;
@@ -76,7 +72,9 @@ describe("Brand catalog default seeding", () => {
 
     expect(sourceTaxonomyValue).toBeDefined();
     expect(sampleSeededValue?.sortOrder).toBe(sourceTaxonomyValue?.sortOrder);
-    expect(sampleSeededValue?.metadata).toEqual(sourceTaxonomyValue?.metadata ?? {});
+    expect(sampleSeededValue?.metadata).toEqual(
+      sourceTaxonomyValue?.metadata ?? {},
+    );
   });
 
   it("is idempotent for the same brand", async () => {

@@ -48,7 +48,9 @@ export default async function SidebarLayout({
   );
 
   if (workflowInit.activeBrand) {
-    await queryClient.fetchQuery(trpc.notifications.getUnreadCount.queryOptions());
+    await queryClient.fetchQuery(
+      trpc.notifications.getUnreadCount.queryOptions(),
+    );
     await queryClient.fetchQuery(
       trpc.notifications.getRecent.queryOptions({
         limit: 30,

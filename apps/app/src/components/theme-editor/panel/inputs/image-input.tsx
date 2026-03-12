@@ -5,7 +5,7 @@ import { BUCKETS, UPLOAD_CONFIGS } from "@/utils/storage-config";
 import { buildPublicUrl, isFullUrl } from "@/utils/storage-urls";
 import { createClient } from "@v1/supabase/client";
 import { useCallback, useRef } from "react";
-import type { ContentField } from "../../registry/types";
+import type { ContentField } from "@v1/dpp-components";
 import { FieldWrapper } from "./field-wrapper";
 
 interface ImageInputProps {
@@ -64,11 +64,29 @@ export function ImageInput({
 
   // Determine the folder based on the field path
   const getStorageFolder = (fieldPath: string): string => {
-    if (fieldPath.includes("headerLogo") || fieldPath.includes("branding")) {
+    if (
+      fieldPath === "logoUrl" ||
+      fieldPath.includes("headerLogo") ||
+      fieldPath.includes("branding")
+    ) {
       return "header-logo";
     }
-    if (fieldPath.includes("banner") || fieldPath.includes("cta")) {
+    if (
+      fieldPath === "backgroundImage" ||
+      fieldPath.includes("banner") ||
+      fieldPath.includes("cta")
+    ) {
       return "banner";
+    }
+    if (
+      fieldPath.includes("cardOne") ||
+      fieldPath.includes("cardTwo") ||
+      fieldPath.includes("cardThree")
+    ) {
+      return "image-cards";
+    }
+    if (fieldPath === "image") {
+      return "text-image";
     }
     return "assets";
   };
@@ -77,10 +95,18 @@ export function ImageInput({
   const getDimensions = (
     fieldPath: string,
   ): { width: number; height: number } => {
-    if (fieldPath.includes("headerLogo") || fieldPath.includes("branding")) {
+    if (
+      fieldPath === "logoUrl" ||
+      fieldPath.includes("headerLogo") ||
+      fieldPath.includes("branding")
+    ) {
       return { width: 250, height: 50 };
     }
-    if (fieldPath.includes("banner") || fieldPath.includes("cta")) {
+    if (
+      fieldPath === "backgroundImage" ||
+      fieldPath.includes("banner") ||
+      fieldPath.includes("cta")
+    ) {
       return { width: 250, height: 100 };
     }
     return { width: 250, height: 100 };

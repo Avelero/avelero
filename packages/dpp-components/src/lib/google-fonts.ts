@@ -1,8 +1,9 @@
 /**
- * Minimal Google Fonts URL generation utilities for ThemeStyles typography.
+ * Minimal Google Fonts URL generation utilities for Passport typography tokens.
  * This intentionally avoids any browser or React dependencies so it can be used in server actions.
  */
 import { findFont } from "@v1/selections/fonts";
+import type { CustomFont } from "../types/passport";
 
 const LOCAL_FONTS = [
   "system-ui",
@@ -16,18 +17,42 @@ const LOCAL_FONTS = [
 ];
 const PRESET_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
+/** Normalize a font family value to its primary family name. */
+export function getPrimaryFamilyName(fontFamily: string): string {
+  return fontFamily.split(",")[0]?.replace(/['"]/g, "")?.trim() || "";
+}
+
+/** Build a lowercase family-name set for uploaded custom fonts. */
+function getCustomFontFamilySet(customFonts?: CustomFont[]): Set<string> {
+  return new Set(
+    (customFonts ?? [])
+      .map((font) => getPrimaryFamilyName(font.fontFamily).toLowerCase())
+      .filter(Boolean),
+  );
+}
+
 /**
  * Checks if a font is a Google Font (not a local/system font).
  */
-export function isGoogleFont(fontFamily: string): boolean {
-  const primaryFamily =
-    fontFamily.split(",")[0]?.replace(/['"]/g, "")?.trim()?.toLowerCase() || "";
+export function isGoogleFont(
+  fontFamily: string,
+  customFonts?: CustomFont[],
+): boolean {
+  const primaryFamily = getPrimaryFamilyName(fontFamily).toLowerCase();
 
   if (!primaryFamily) {
     return false;
   }
 
-  return !LOCAL_FONTS.includes(primaryFamily);
+  if (LOCAL_FONTS.includes(primaryFamily)) {
+    return false;
+  }
+
+  if (getCustomFontFamilySet(customFonts).has(primaryFamily)) {
+    return false;
+  }
+
+  return findFont(primaryFamily) !== undefined;
 }
 
 /**
@@ -35,8 +60,10 @@ export function isGoogleFont(fontFamily: string): boolean {
  */
 export function extractGoogleFontsFromTypography(
   typography?: Record<string, any>,
+  customFonts?: CustomFont[],
 ): string[] {
   const fontSet = new Set<string>();
+  const customFontFamilies = getCustomFontFamilySet(customFonts);
 
   if (!typography) {
     return [];
@@ -57,11 +84,14 @@ export function extractGoogleFontsFromTypography(
   for (const scale of typescales) {
     const scaleConfig = typography[scale];
     if (scaleConfig?.fontFamily) {
-      const primaryFont =
-        scaleConfig.fontFamily.split(",")[0]?.replace(/['"]/g, "")?.trim() ||
-        "";
+      const primaryFont = getPrimaryFamilyName(scaleConfig.fontFamily);
+      const normalizedPrimaryFont = primaryFont.toLowerCase();
 
-      if (primaryFont && isGoogleFont(primaryFont)) {
+      if (
+        primaryFont &&
+        !customFontFamilies.has(normalizedPrimaryFont) &&
+        isGoogleFont(primaryFont)
+      ) {
         fontSet.add(primaryFont);
       }
     }
@@ -92,6 +122,39 @@ function getFallbackAxisWeight(start: number, end: number): number {
   // Clamp regular weight into axis range so URL generation always has a valid weight.
   const clampedWeight = Math.min(Math.max(400, start), end);
   return Math.round(clampedWeight);
+}
+
+/**
+ * Expand a stored custom font descriptor into the weights it can satisfy.
+ */
+function collectWeightsFromCustomFont(font: CustomFont): number[] {
+  if (typeof font.fontWeight === "number") {
+    return [font.fontWeight];
+  }
+
+  if (
+    typeof font.fontWeight === "string" &&
+    font.fontWeight.trim().includes(" ")
+  ) {
+    const [rawStart, rawEnd] = font.fontWeight.trim().split(/\s+/);
+    const rangeStart = Number.parseInt(rawStart ?? "", 10);
+    const rangeEnd = Number.parseInt(rawEnd ?? "", 10);
+
+    if (!Number.isNaN(rangeStart) && !Number.isNaN(rangeEnd)) {
+      return PRESET_WEIGHTS.filter(
+        (weight) => weight >= rangeStart && weight <= rangeEnd,
+      );
+    }
+  }
+
+  if (typeof font.fontWeight === "string") {
+    const parsedWeight = Number.parseInt(font.fontWeight, 10);
+    if (!Number.isNaN(parsedWeight)) {
+      return [parsedWeight];
+    }
+  }
+
+  return [400];
 }
 
 function getFontWeights(fontFamily: string): number[] {
@@ -128,6 +191,75 @@ function getFontWeights(fontFamily: string): number[] {
 }
 
 /**
+ * Resolve the available weights for a font across custom, local, and Google sources.
+ */
+export function getAvailableFontWeights(
+  fontFamily: string | undefined,
+  customFonts?: CustomFont[],
+): number[] {
+  if (!fontFamily) {
+    return PRESET_WEIGHTS;
+  }
+
+  const primaryFamily = getPrimaryFamilyName(fontFamily);
+  const normalizedFamily = primaryFamily.toLowerCase();
+  const customWeights = Array.from(
+    new Set(
+      (customFonts ?? [])
+        .filter(
+          (font) =>
+            getPrimaryFamilyName(font.fontFamily).toLowerCase() ===
+            normalizedFamily,
+        )
+        .flatMap(collectWeightsFromCustomFont),
+    ),
+  ).sort((a, b) => a - b);
+
+  if (customWeights.length > 0) {
+    return customWeights;
+  }
+
+  if (LOCAL_FONTS.includes(normalizedFamily)) {
+    return PRESET_WEIGHTS;
+  }
+
+  return getFontWeights(primaryFamily);
+}
+
+/**
+ * Snap a requested weight to the nearest supported weight for the chosen font family.
+ */
+export function resolveClosestAvailableFontWeight(
+  fontFamily: string | undefined,
+  requestedWeight: number,
+  customFonts?: CustomFont[],
+): number {
+  const availableWeights = getAvailableFontWeights(fontFamily, customFonts);
+
+  if (availableWeights.length === 0) {
+    return requestedWeight;
+  }
+
+  return availableWeights.reduce((closestWeight, candidateWeight) => {
+    const candidateDistance = Math.abs(candidateWeight - requestedWeight);
+    const closestDistance = Math.abs(closestWeight - requestedWeight);
+
+    if (candidateDistance < closestDistance) {
+      return candidateWeight;
+    }
+
+    if (
+      candidateDistance === closestDistance &&
+      candidateWeight < closestWeight
+    ) {
+      return candidateWeight;
+    }
+
+    return closestWeight;
+  });
+}
+
+/**
  * Generates a Google Fonts CSS2 URL for a list of fonts.
  * Always includes an explicit weight axis for consistent rendering behavior.
  */
@@ -147,8 +279,9 @@ export function generateGoogleFontsUrl(fonts: string[]): string {
  */
 export function generateGoogleFontsUrlFromTypography(
   typography?: Record<string, any>,
+  customFonts?: CustomFont[],
 ): string {
-  const googleFonts = extractGoogleFontsFromTypography(typography);
+  const googleFonts = extractGoogleFontsFromTypography(typography, customFonts);
   return generateGoogleFontsUrl(googleFonts);
 }
 

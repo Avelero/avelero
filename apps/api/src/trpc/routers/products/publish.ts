@@ -167,7 +167,11 @@ export const publishRouter = createTRPCRouter({
       const { db, brandId } = ctx as BrandContext;
 
       try {
-        const target = await getVariantPublishTarget(db, brandId, input.variantId);
+        const target = await getVariantPublishTarget(
+          db,
+          brandId,
+          input.variantId,
+        );
         if (!target) {
           throw badRequest("Variant not found");
         }
@@ -191,7 +195,9 @@ export const publishRouter = createTRPCRouter({
 
         await revalidateProjectedPassports(brandId, {
           upids: [projection.passport.upid],
-          barcodes: projection.passport.barcode ? [projection.passport.barcode] : [],
+          barcodes: projection.passport.barcode
+            ? [projection.passport.barcode]
+            : [],
         });
 
         return {
@@ -223,7 +229,11 @@ export const publishRouter = createTRPCRouter({
       const { db, brandId } = ctx as BrandContext;
 
       try {
-        const variantCount = await countProductVariants(db, brandId, input.productId);
+        const variantCount = await countProductVariants(
+          db,
+          brandId,
+          input.productId,
+        );
         if (variantCount === null) {
           throw badRequest("Product not found");
         }

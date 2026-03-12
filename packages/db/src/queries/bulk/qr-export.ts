@@ -155,7 +155,9 @@ export async function updateQrExportJobStatus(
   }
 
   if (Object.keys(updateData).length === 0) {
-    throw new Error(`No update fields provided for QR export job: ${params.jobId}`);
+    throw new Error(
+      `No update fields provided for QR export job: ${params.jobId}`,
+    );
   }
 
   const updated = await db
@@ -202,7 +204,9 @@ export async function getQrExportJobStatus(
 /**
  * Maps a raw job record to QrExportJobStatus type.
  */
-function mapJobToStatus(job: typeof qrExportJobs.$inferSelect): QrExportJobStatus {
+function mapJobToStatus(
+  job: typeof qrExportJobs.$inferSelect,
+): QrExportJobStatus {
   return {
     id: job.id,
     brandId: job.brandId,

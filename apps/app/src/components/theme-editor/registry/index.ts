@@ -1,4 +1,4 @@
-// Types
+// Types — canonical definitions live in @v1/dpp-components/types/editor
 export type {
   StyleFieldType,
   StyleField,
@@ -6,7 +6,7 @@ export type {
   ContentField,
   SectionVisibilityKey,
   ComponentDefinition,
-} from "./types";
+} from "@v1/dpp-components";
 
 // Constants
 export {
@@ -18,16 +18,9 @@ export {
   TEXT_ALIGN_OPTIONS,
 } from "./constants";
 
-// Component tree
-export { COMPONENT_TREE } from "./component-tree";
-
 // Utility functions
 export {
-  findComponentById,
-  getComponentAncestry,
-  getAllComponentIds,
   hasEditableContent,
-  isSelectableComponent,
   hasConfigContent,
-  hasVisibilityToggle,
+  resolveComponentForEditor,
 } from "./utils";

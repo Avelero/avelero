@@ -15,7 +15,6 @@ import {
 } from "@/lib/percentage-utils";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
 // ============================================================================
@@ -359,7 +358,7 @@ export function useVariantForm(options: UseVariantFormOptions) {
       }));
 
       // Call the unified update mutation
-      await updateVariantMutation.mutateAsync({
+      const result = await updateVariantMutation.mutateAsync({
         productHandle,
         variantUpid,
         overrides,
@@ -375,11 +374,9 @@ export function useVariantForm(options: UseVariantFormOptions) {
 
       // Update original values ref
       originalValuesRef.current = { ...state };
-
-      toast.success("Variant saved successfully");
+      return result.data;
     } catch (error) {
       console.error("Failed to save variant:", error);
-      toast.error("Failed to save variant");
       throw error;
     }
   }, [

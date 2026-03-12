@@ -1,7 +1,7 @@
 /**
  * Carousel Similar Products Query
  *
- * Fetches products for the DPP carousel based on ThemeConfig.carousel settings.
+ * Fetches products for the DPP carousel based on carousel section content.
  * Prioritizes products based on category relevance:
  * 1. Same category as current product
  * 2. Sibling categories (same parent)
@@ -42,7 +42,7 @@ export interface CarouselProduct {
 }
 
 /**
- * Carousel configuration from ThemeConfig.
+ * Carousel configuration from section content.
  */
 interface CarouselConfig {
   productCount?: number;

@@ -54,7 +54,10 @@ export async function createOrUpdatePendingInstallation(
  * Find a pending installation by shop domain.
  * Only returns if not expired.
  */
-export async function findPendingInstallation(db: Database, shopDomain: string) {
+export async function findPendingInstallation(
+  db: Database,
+  shopDomain: string,
+) {
   const now = new Date().toISOString();
   const [row] = await db
     .select({
@@ -66,9 +69,7 @@ export async function findPendingInstallation(db: Database, shopDomain: string) 
       createdAt: pendingInstallations.createdAt,
     })
     .from(pendingInstallations)
-    .where(
-      eq(pendingInstallations.shopDomain, shopDomain),
-    )
+    .where(eq(pendingInstallations.shopDomain, shopDomain))
     .limit(1);
 
   // Check if expired
@@ -82,7 +83,10 @@ export async function findPendingInstallation(db: Database, shopDomain: string) 
 /**
  * Delete a pending installation by shop domain (after claiming or on shop/redact).
  */
-export async function deletePendingInstallation(db: Database, shopDomain: string) {
+export async function deletePendingInstallation(
+  db: Database,
+  shopDomain: string,
+) {
   const [row] = await db
     .delete(pendingInstallations)
     .where(eq(pendingInstallations.shopDomain, shopDomain))
@@ -95,5 +99,7 @@ export async function deletePendingInstallation(db: Database, shopDomain: string
  */
 export async function deleteExpiredPendingInstallations(db: Database) {
   const now = new Date().toISOString();
-  return db.delete(pendingInstallations).where(lt(pendingInstallations.expiresAt, now));
+  return db
+    .delete(pendingInstallations)
+    .where(lt(pendingInstallations.expiresAt, now));
 }

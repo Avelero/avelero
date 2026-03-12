@@ -605,26 +605,29 @@ export function AttributeSelect({
     const optimisticMetadata = opts?.metadata ?? {};
 
     // Optimistically add to catalog cache so the chip label/swatch resolve immediately.
-    queryClient.setQueryData(trpc.composite.catalogContent.queryKey(), (old: any) => {
-      if (!old?.brandCatalog) return old;
-      return {
-        ...old,
-        brandCatalog: {
-          ...old.brandCatalog,
-          attributeValues: [
-            ...old.brandCatalog.attributeValues,
-            {
-              id: tempId,
-              attributeId: dimension.attributeId,
-              name: trimmedName,
-              taxonomyValueId: null,
-              metadata: optimisticMetadata,
-              sortOrder: null,
-            },
-          ],
-        },
-      };
-    });
+    queryClient.setQueryData(
+      trpc.composite.catalogContent.queryKey(),
+      (old: any) => {
+        if (!old?.brandCatalog) return old;
+        return {
+          ...old,
+          brandCatalog: {
+            ...old.brandCatalog,
+            attributeValues: [
+              ...old.brandCatalog.attributeValues,
+              {
+                id: tempId,
+                attributeId: dimension.attributeId,
+                name: trimmedName,
+                taxonomyValueId: null,
+                metadata: optimisticMetadata,
+                sortOrder: null,
+              },
+            ],
+          },
+        };
+      },
+    );
 
     // Optimistically select it so it appears instantly in the chip row and variant table.
     onChange({
@@ -926,8 +929,8 @@ export function AttributeSelect({
                     value={search}
                     onValueChange={setSearch}
                   />
-                    <CommandList className="max-h-48">
-                      <CommandGroup>
+                  <CommandList className="max-h-48">
+                    <CommandGroup>
                       {filteredColors.map((color) => (
                         <CommandItem
                           key={`${color.name}-${color.hex}`}

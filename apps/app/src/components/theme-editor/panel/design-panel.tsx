@@ -4,9 +4,9 @@ import { useDesignEditor } from "@/contexts/design-editor-provider";
 import type { NavigationSection } from "@/contexts/design-editor-provider";
 import { useState } from "react";
 import {
-  findComponentById,
   hasConfigContent,
   hasEditableContent,
+  resolveComponentForEditor,
 } from "../registry";
 import { PanelHeader } from "./panel-header";
 import { ColorsEditor } from "./views/colors-editor";
@@ -17,11 +17,11 @@ import { StyleContentTabs, type TabType } from "./views/style-content-tabs";
 import { StylesSection } from "./views/styles-section";
 import { TypographyEditor } from "./views/typography-editor";
 
-// Get display title for navigation state
 function getNavigationTitle(
-  level: "root" | "section" | "component",
+  componentId: string | undefined,
   section?: NavigationSection,
-  componentId?: string,
+  level?: "root" | "section" | "component",
+  resolvedName?: string,
 ): string {
   if (level === "section") {
     switch (section) {
@@ -36,8 +36,7 @@ function getNavigationTitle(
     }
   }
   if (level === "component" && componentId) {
-    const component = findComponentById(componentId);
-    return component?.displayName || componentId;
+    return resolvedName || componentId;
   }
   return "Layout";
 }
@@ -49,19 +48,17 @@ export function DesignPanel() {
     menuItemEdit,
     clearMenuItemEdit,
     getConfigValue,
+    passportDraft,
   } = useDesignEditor();
 
-  // Tab state for component view (Styles vs Content)
   const [activeTab, setActiveTab] = useState<TabType>("styles");
 
-  // Default to layout section if at root (shouldn't happen with new default)
   const effectiveSection = navigation.section ?? "layout";
 
-  // Check if we're editing a menu item
+  // Menu item editing sub-view
   if (menuItemEdit) {
-    // Get the menu item label for the header
     const items =
-      (getConfigValue(menuItemEdit.configPath) as
+      (getConfigValue(menuItemEdit.contentPath) as
         | Array<{ label: string; url: string }>
         | undefined) ?? [];
     const item = items[menuItemEdit.itemIndex];
@@ -77,7 +74,7 @@ export function DesignPanel() {
         <div className="flex-1 flex flex-col min-h-0">
           <MenuItemEditor
             menuType={menuItemEdit.menuType}
-            configPath={menuItemEdit.configPath}
+            configPath={menuItemEdit.contentPath}
             itemIndex={menuItemEdit.itemIndex}
             onBack={clearMenuItemEdit}
           />
@@ -86,21 +83,24 @@ export function DesignPanel() {
     );
   }
 
+  // Resolve component for title and content rendering
+  const resolved = navigation.componentId
+    ? resolveComponentForEditor(navigation.componentId, passportDraft)
+    : null;
+
   const title = getNavigationTitle(
-    navigation.level,
-    effectiveSection,
     navigation.componentId,
+    effectiveSection,
+    navigation.level,
+    resolved?.displayName,
   );
 
-  // Only show back button when viewing a component (to go back to layout tree)
   const showBackButton = navigation.level === "component";
 
-  // Render the appropriate content based on navigation state
   const renderContent = () => {
     // Component editor view
     if (navigation.level === "component" && navigation.componentId) {
-      const component = findComponentById(navigation.componentId);
-      if (!component) {
+      if (!resolved) {
         return (
           <div className="p-4 text-center">
             <p className="type-small text-secondary">Component not found</p>
@@ -108,10 +108,9 @@ export function DesignPanel() {
         );
       }
 
-      const hasStyles = hasEditableContent(component);
-      const hasConfig = hasConfigContent(component);
+      const hasStyles = hasEditableContent(resolved);
+      const hasConfig = hasConfigContent(resolved);
 
-      // Both styles and content available - show tabs
       if (hasStyles && hasConfig) {
         return (
           <>
@@ -129,17 +128,14 @@ export function DesignPanel() {
         );
       }
 
-      // Only styles available - no tabs needed
       if (hasStyles) {
         return <StylesSection componentId={navigation.componentId} />;
       }
 
-      // Only content available - no tabs needed
       if (hasConfig) {
         return <ContentSection componentId={navigation.componentId} />;
       }
 
-      // Neither - shouldn't happen but handle gracefully
       return (
         <div className="p-4 text-center">
           <p className="type-small text-secondary">
@@ -149,7 +145,6 @@ export function DesignPanel() {
       );
     }
 
-    // Section view - controlled by sidebar
     switch (effectiveSection) {
       case "layout":
         return <LayoutTree />;

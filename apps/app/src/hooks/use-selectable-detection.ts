@@ -1,34 +1,62 @@
 "use client";
 
-import {
-  findComponentById,
-  hasEditableContent,
-} from "@/components/theme-editor/registry";
+/**
+ * Preview selection detection for the theme editor.
+ *
+ * Only section-root and fixed nodes are selectable. Clicking a section
+ * navigates to its detail page; clicking a fixed component navigates to
+ * its editor view.
+ */
+
 import { useDesignEditor } from "@/contexts/design-editor-provider";
+import type { ZoneId } from "@v1/dpp-components";
 import { useCallback, useEffect, useRef } from "react";
 
-/** Debounce delay in ms - hover shows after cursor has been on an item for this duration */
-const HOVER_DEBOUNCE_MS = 20;
+type SelectableNodeTarget =
+  | {
+      nodeId: string;
+      kind: "fixed";
+      editorId: string;
+    }
+  | {
+      nodeId: string;
+      kind: "section-root";
+      editorId: string;
+      sectionId: string;
+      zoneId: ZoneId;
+    };
 
 /**
- * Apply selection data attribute to all elements with a given class within a container.
- * CSS handles the visual styling via [data-*] selectors.
+ * Escape a node id so it can be used inside an attribute selector safely.
+ */
+function escapeAttributeValue(value: string): string {
+  // Use the browser escape helper when available so dots and colons stay valid.
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(value);
+  }
+
+  return value.replace(/["\\]/g, "\\$&");
+}
+
+/**
+ * Apply a selection data attribute to every preview node with the given id.
  */
 function applySelectionAttribute(
   container: HTMLElement | null,
-  componentId: string | null,
+  nodeId: string | null,
   attributeKey: string,
 ) {
-  if (!container || !componentId) return;
+  if (!container || !nodeId) return;
 
-  const elements = container.querySelectorAll(`.${componentId}`);
-  for (const el of elements) {
-    (el as HTMLElement).dataset[attributeKey] = "true";
+  const selector = `[data-dpp-node-id="${escapeAttributeValue(nodeId)}"]`;
+  const elements = container.querySelectorAll(selector);
+  for (const element of elements) {
+    (element as HTMLElement).dataset[attributeKey] = "true";
   }
 }
 
 /**
- * Remove selection data attribute from all elements that have it.
+ * Remove a selection data attribute from every preview node that currently has it.
  */
 function removeSelectionAttribute(
   container: HTMLElement | null,
@@ -38,109 +66,117 @@ function removeSelectionAttribute(
 
   const selector = `[data-${toKebabCase(attributeKey)}="true"]`;
   const elements = container.querySelectorAll(selector);
-  for (const el of elements) {
-    delete (el as HTMLElement).dataset[attributeKey];
+  for (const element of elements) {
+    delete (element as HTMLElement).dataset[attributeKey];
   }
 }
 
 /**
- * Convert camelCase to kebab-case for data attribute selectors
+ * Convert camelCase to kebab-case for dataset selector lookups.
  */
-function toKebabCase(str: string): string {
-  return str.replace(/([A-Z])/g, "-$1").toLowerCase();
+function toKebabCase(value: string): string {
+  return value.replace(/([A-Z])/g, "-$1").toLowerCase();
+}
+
+/**
+ * Parse a selectable preview node target from the renderer metadata.
+ */
+function parseSelectableTarget(
+  element: HTMLElement | null,
+): SelectableNodeTarget | null {
+  if (!element) return null;
+
+  const nodeId = element.dataset.dppNodeId;
+  const kind = element.dataset.dppNodeKind;
+  const editorId = element.dataset.dppEditorId;
+
+  if (!nodeId || !kind || !editorId) {
+    return null;
+  }
+
+  if (kind === "fixed") {
+    return { nodeId, kind, editorId };
+  }
+
+  const sectionId = element.dataset.dppSectionId;
+  const zoneId = element.dataset.dppZoneId as ZoneId | undefined;
+
+  if (!sectionId || !zoneId) {
+    return null;
+  }
+
+  if (kind === "section-root") {
+    return { nodeId, kind, editorId, sectionId, zoneId };
+  }
+
+  return null;
+}
+
+/**
+ * Find the nearest selectable preview node above the current event target.
+ */
+function findSelectableTarget(
+  target: EventTarget | null,
+): SelectableNodeTarget | null {
+  if (!(target instanceof Element)) return null;
+
+  const selectableElement = target.closest<HTMLElement>("[data-dpp-node-id]");
+  return parseSelectableTarget(selectableElement);
 }
 
 /**
  * Hook for detecting selectable components in the DPP preview.
- * Uses CSS-driven styling via data attributes for GPU-accelerated rendering.
- * Includes a short debounce so hover only shows after cursor is on an item for a moment.
  */
 export function useSelectableDetection(
   containerRef: React.RefObject<HTMLElement | null>,
 ) {
   const {
-    hoveredComponentId,
-    setHoveredComponentId,
-    selectedComponentId,
-    setSelectedComponentId,
+    hoveredNodeId,
+    setHoveredNodeId,
+    selectedNodeId,
+    setSelectedNodeId,
     navigateToComponent,
+    navigateToSectionInstance,
     navigateBack,
   } = useDesignEditor();
 
-  // Debounce timer for hover detection
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track the component under cursor (before debounce completes)
-  const pendingComponentRef = useRef<string | null>(null);
-
-  // Track previous IDs to know when to update attributes
+  // Track previous node ids so selection attributes update cleanly.
   const prevHoveredRef = useRef<string | null>(null);
   const prevSelectedRef = useRef<string | null>(null);
 
-  /**
-   * Find the deepest selectable element under the cursor.
-   */
-  const findSelectableComponentId = useCallback(
-    (target: EventTarget | null): string | null => {
-      if (!(target instanceof Element)) return null;
-
-      let current: Element | null = target;
-
-      while (current) {
-        for (const className of current.classList) {
-          const component = findComponentById(className);
-          if (component && hasEditableContent(component)) {
-            return className;
-          }
-        }
-        current = current.parentElement;
-      }
-
-      return null;
-    },
-    [],
-  );
-
-  // Apply/remove hover attributes when hoveredComponentId changes
+  // Apply or clear hover attributes when the hovered node changes.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Remove old hover attribute
     if (prevHoveredRef.current) {
       removeSelectionAttribute(container, "hoverSelection");
     }
 
-    // Apply new hover attribute (only if different from selected)
-    if (hoveredComponentId && hoveredComponentId !== selectedComponentId) {
-      applySelectionAttribute(container, hoveredComponentId, "hoverSelection");
+    if (hoveredNodeId && hoveredNodeId !== selectedNodeId) {
+      applySelectionAttribute(container, hoveredNodeId, "hoverSelection");
     }
 
-    prevHoveredRef.current = hoveredComponentId;
-  }, [hoveredComponentId, selectedComponentId, containerRef]);
+    prevHoveredRef.current = hoveredNodeId;
+  }, [hoveredNodeId, selectedNodeId, containerRef]);
 
-  // Apply/remove selected attributes when selectedComponentId changes
+  // Apply or clear selected attributes when the selected node changes.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Remove old selected attribute
     if (prevSelectedRef.current) {
       removeSelectionAttribute(container, "selectedSelection");
     }
 
-    // Apply new selected attribute
-    if (selectedComponentId) {
-      applySelectionAttribute(
-        container,
-        selectedComponentId,
-        "selectedSelection",
-      );
+    if (selectedNodeId) {
+      applySelectionAttribute(container, selectedNodeId, "selectedSelection");
     }
 
-    prevSelectedRef.current = selectedComponentId;
-  }, [selectedComponentId, containerRef]);
+    prevSelectedRef.current = selectedNodeId;
+  }, [selectedNodeId, containerRef]);
 
-  // Cleanup on unmount
+  // Clean up selection attributes on unmount.
   useEffect(() => {
     return () => {
       const container = containerRef.current;
@@ -148,100 +184,65 @@ export function useSelectableDetection(
         removeSelectionAttribute(container, "hoverSelection");
         removeSelectionAttribute(container, "selectedSelection");
       }
-      // Cancel any pending debounce timer
-      if (debounceTimerRef.current !== null) {
-        clearTimeout(debounceTimerRef.current);
-      }
     };
   }, [containerRef]);
 
   /**
-   * Handle mouse move - detect which component is under cursor.
-   * Uses a short debounce so hover shows after cursor has been on an item for a moment.
-   * This prevents flicker during fast movement while still feeling responsive.
+   * Handle mouse move and update hover state immediately.
    */
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
-      const componentId = findSelectableComponentId(event.target);
+      const target = findSelectableTarget(event.target);
+      const nodeId = target?.nodeId ?? null;
 
-      // If we're still on the same component, no need to do anything
-      if (componentId === pendingComponentRef.current) {
-        return;
+      if (nodeId !== hoveredNodeId) {
+        setHoveredNodeId(nodeId);
       }
-
-      // Moving to a different component (or null)
-      pendingComponentRef.current = componentId;
-
-      // Clear any existing debounce timer
-      if (debounceTimerRef.current !== null) {
-        clearTimeout(debounceTimerRef.current);
-      }
-
-      // If moving to null (no component), clear immediately
-      if (componentId === null) {
-        debounceTimerRef.current = null;
-        if (hoveredComponentId !== null) {
-          setHoveredComponentId(null);
-        }
-        return;
-      }
-
-      // Start debounce timer - will fire if cursor stays on this component
-      debounceTimerRef.current = setTimeout(() => {
-        if (pendingComponentRef.current === componentId) {
-          setHoveredComponentId(componentId);
-        }
-        debounceTimerRef.current = null;
-      }, HOVER_DEBOUNCE_MS);
     },
-    [findSelectableComponentId, hoveredComponentId, setHoveredComponentId],
+    [hoveredNodeId, setHoveredNodeId],
   );
 
   /**
-   * Handle mouse leave - clear hover state
+   * Handle mouse leave and clear the current hover state immediately.
    */
   const handleMouseLeave = useCallback(() => {
-    // Cancel any pending debounce timer
-    if (debounceTimerRef.current !== null) {
-      clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = null;
-    }
-    pendingComponentRef.current = null;
-    setHoveredComponentId(null);
-  }, [setHoveredComponentId]);
+    setHoveredNodeId(null);
+  }, [setHoveredNodeId]);
 
   /**
-   * Handle click - select the component and navigate to its editor,
-   * or deselect if clicking on background.
-   * Prevents default behavior (links, buttons) so preview is non-interactive.
+   * Handle preview clicks by selecting the node and navigating to its editor target.
    */
   const handleClick = useCallback(
     (event: React.MouseEvent) => {
-      // Prevent default behavior (links opening, buttons submitting, etc.)
       event.preventDefault();
       event.stopPropagation();
 
-      const componentId = findSelectableComponentId(event.target);
-      if (componentId) {
-        // Clicked on a component - select it and navigate to editor
-        setSelectedComponentId(componentId);
-        navigateToComponent(componentId);
-      } else {
-        // Clicked on background - only navigate back if a component was selected
-        // This preserves the current section (layout/typography/colors) when clicking background
-        if (selectedComponentId) {
-          setSelectedComponentId(null);
+      const target = findSelectableTarget(event.target);
+
+      if (!target) {
+        if (selectedNodeId) {
+          setSelectedNodeId(null);
           navigateBack();
         }
-        // If no component was selected, do nothing - keep current section active
+        return;
       }
+
+      setSelectedNodeId(target.nodeId);
+
+      if (target.kind === "fixed") {
+        navigateToComponent(target.editorId);
+        return;
+      }
+
+      // Section-root: navigate to the section's detail page.
+      navigateToSectionInstance(target.zoneId, target.sectionId);
     },
     [
-      findSelectableComponentId,
-      setSelectedComponentId,
-      navigateToComponent,
       navigateBack,
-      selectedComponentId,
+      navigateToComponent,
+      navigateToSectionInstance,
+      selectedNodeId,
+      setSelectedNodeId,
     ],
   );
 

@@ -1,6 +1,7 @@
 "use client";
 
-import type { ContentField } from "../../registry/types";
+import type { ContentField } from "@v1/dpp-components";
+import { Textarea } from "@v1/ui/textarea";
 import { FieldWrapper } from "./field-wrapper";
 
 interface TextareaInputProps {
@@ -15,11 +16,11 @@ interface TextareaInputProps {
 export function TextareaInput({ field, value, onChange }: TextareaInputProps) {
   return (
     <FieldWrapper label={field.label}>
-      <textarea
+      <Textarea
         value={typeof value === "string" ? value : ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholder}
-        className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        className="min-h-[80px] max-h-none resize-y text-sm"
       />
     </FieldWrapper>
   );

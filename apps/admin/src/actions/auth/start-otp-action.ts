@@ -22,7 +22,8 @@ export const startOtpAction = actionClient
   .schema(schema)
   .action(async ({ parsedInput }): Promise<StartOtpActionResult> => {
     const normalizedEmail = normalizeAuthEmail(parsedInput.email);
-    const allowlistAccess = await isPlatformAdminEmailAllowlisted(normalizedEmail);
+    const allowlistAccess =
+      await isPlatformAdminEmailAllowlisted(normalizedEmail);
 
     if (allowlistAccess.unavailable) {
       return { ok: false, errorCode: "auth-unavailable" };

@@ -37,8 +37,9 @@ export async function GET(request: Request) {
         normalized.includes("user not found") ||
         normalized.includes("signups not allowed") ||
         normalized.includes("signup is disabled");
-      const mappedError =
-        isInviteRequired ? "invite-required" : "auth-code-error";
+      const mappedError = isInviteRequired
+        ? "invite-required"
+        : "auth-code-error";
       const loginUrl = new URL("/login", origin);
       loginUrl.searchParams.set("error", mappedError);
       if (provider === "google") {

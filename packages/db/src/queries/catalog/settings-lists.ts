@@ -145,7 +145,10 @@ export async function listMaterialsWithMetrics(db: Database, brandId: string) {
         productId: productVariants.productId,
       })
       .from(variantMaterials)
-      .innerJoin(productVariants, eq(productVariants.id, variantMaterials.variantId))
+      .innerJoin(
+        productVariants,
+        eq(productVariants.id, variantMaterials.variantId),
+      )
       .innerJoin(products, eq(products.id, productVariants.productId))
       .where(eq(products.brandId, brandId)),
   ]);
@@ -180,7 +183,10 @@ export async function listOperatorsWithMetrics(db: Database, brandId: string) {
         productId: productVariants.productId,
       })
       .from(variantJourneySteps)
-      .innerJoin(productVariants, eq(productVariants.id, variantJourneySteps.variantId))
+      .innerJoin(
+        productVariants,
+        eq(productVariants.id, variantJourneySteps.variantId),
+      )
       .innerJoin(products, eq(products.id, productVariants.productId))
       .where(eq(products.brandId, brandId)),
   ]);
@@ -216,7 +222,7 @@ export async function listAttributesGroupedWithMetrics(
   brandId: string,
 ) {
   const [attributes, values, valueVariantCounts, attributeVariantCounts] =
-      await Promise.all([
+    await Promise.all([
       listBrandAttributes(db, brandId),
       db
         .select({
@@ -245,7 +251,10 @@ export async function listAttributesGroupedWithMetrics(
         .from(brandAttributeValues)
         .leftJoin(
           productVariantAttributes,
-          eq(productVariantAttributes.attributeValueId, brandAttributeValues.id),
+          eq(
+            productVariantAttributes.attributeValueId,
+            brandAttributeValues.id,
+          ),
         )
         .where(eq(brandAttributeValues.brandId, brandId))
         .groupBy(brandAttributeValues.id),
@@ -257,7 +266,10 @@ export async function listAttributesGroupedWithMetrics(
         .from(brandAttributeValues)
         .leftJoin(
           productVariantAttributes,
-          eq(productVariantAttributes.attributeValueId, brandAttributeValues.id),
+          eq(
+            productVariantAttributes.attributeValueId,
+            brandAttributeValues.id,
+          ),
         )
         .where(eq(brandAttributeValues.brandId, brandId))
         .groupBy(brandAttributeValues.attributeId),
@@ -280,14 +292,14 @@ export async function listAttributesGroupedWithMetrics(
       id: row.id,
       brandId: row.brandId,
       attributeId: row.attributeId,
-          taxonomyValueId: row.taxonomyValueId,
-          name: row.name,
-          metadata: row.metadata,
-          sortOrder: row.sortOrder,
-          createdAt: row.createdAt,
-          updatedAt: row.updatedAt,
-          variants_count: valueCountMap.get(row.id) ?? 0,
-        });
+      taxonomyValueId: row.taxonomyValueId,
+      name: row.name,
+      metadata: row.metadata,
+      sortOrder: row.sortOrder,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      variants_count: valueCountMap.get(row.id) ?? 0,
+    });
     valuesByAttribute.set(row.attributeId, list);
   }
 

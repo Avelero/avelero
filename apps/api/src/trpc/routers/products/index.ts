@@ -128,9 +128,7 @@ async function collectPublicProductVariantIdentifiers(
 /**
  * Determine whether a single-product update touched snapshot-backed fields.
  */
-function hasSingleProductSnapshotChanges(
-  input: unknown,
-): boolean {
+function hasSingleProductSnapshotChanges(input: unknown): boolean {
   // Treat any working-data change that feeds the passport snapshot as dirtying.
   const fields =
     input && typeof input === "object"
@@ -156,9 +154,7 @@ function hasSingleProductSnapshotChanges(
 /**
  * Determine whether a bulk product update touched snapshot-backed fields.
  */
-function hasBulkProductSnapshotChanges(
-  input: unknown,
-): boolean {
+function hasBulkProductSnapshotChanges(input: unknown): boolean {
   // Bulk updates only expose these three snapshot-relevant fields today.
   const fields =
     input && typeof input === "object"
@@ -238,7 +234,11 @@ function buildQrPngCacheFilename(
   return `${digest}.png`;
 }
 
-function buildQrCachePath(brandId: string, domain: string, barcode: string): string[] {
+function buildQrCachePath(
+  brandId: string,
+  domain: string,
+  barcode: string,
+): string[] {
   const normalizedDomain = normalizeDomain(domain);
   const normalizedBarcode = barcode.trim();
 
@@ -286,7 +286,10 @@ async function getQrCachePathsForDeletedProducts(
     .from(productVariants)
     .innerJoin(products, eq(productVariants.productId, products.id))
     .where(
-      and(eq(products.brandId, brandId), inArray(productVariants.productId, productIds)),
+      and(
+        eq(products.brandId, brandId),
+        inArray(productVariants.productId, productIds),
+      ),
     );
 
   const barcodes = Array.from(

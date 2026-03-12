@@ -1,9 +1,11 @@
 // Core DPP compliance data types
-export * from "./dpp-data";
+export * from "./data";
 
 // Non-compliance content types (similar products, marketing)
-export * from "./dpp-content";
+export * from "./content";
 
-// Theme configuration and styling
-export * from "./theme-config";
-export * from "./theme-styles";
+// Passport — single JSON document per brand
+export * from "./passport";
+
+// Editor type system (component definitions, style/content fields, schemas)
+export * from "./editor";

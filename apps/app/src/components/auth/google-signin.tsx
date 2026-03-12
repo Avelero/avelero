@@ -146,7 +146,10 @@ export function GoogleSignin() {
           return;
         }
 
-        const redirectTo = new URL("/api/auth/callback", window.location.origin);
+        const redirectTo = new URL(
+          "/api/auth/callback",
+          window.location.origin,
+        );
         redirectTo.searchParams.append("provider", "google");
         if (returnTo) {
           redirectTo.searchParams.append("return_to", returnTo);
@@ -242,7 +245,9 @@ export function GoogleSignin() {
           aria-hidden
           className={cn(
             "absolute inset-0 z-10 overflow-hidden opacity-0",
-            !isReady || isSubmitting ? "pointer-events-none" : "pointer-events-auto",
+            !isReady || isSubmitting
+              ? "pointer-events-none"
+              : "pointer-events-auto",
           )}
         />
       </div>

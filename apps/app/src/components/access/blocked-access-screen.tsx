@@ -20,7 +20,9 @@ const CONTENT: Record<
   },
 };
 
-export function BlockedAccessScreen({ reason }: { reason: BlockedAccessReason }) {
+export function BlockedAccessScreen({
+  reason,
+}: { reason: BlockedAccessReason }) {
   const content = CONTENT[reason];
 
   return (
@@ -42,7 +44,7 @@ export function BlockedAccessScreen({ reason }: { reason: BlockedAccessReason })
             <Link href="/settings/billing">Open Billing</Link>
           </Button>
           <Button asChild size="sm" variant="outline">
-            <a href="mailto:support@avelero.com">Contact support</a>
+            <a href="mailto:raf@avelero.com">Contact support</a>
           </Button>
         </div>
       </div>

@@ -32,6 +32,8 @@ import {
   variantWeight,
 } from "../../schema";
 import {
+  CERTIFICATIONS_BUCKET,
+  buildPublicStorageUrl,
   buildProductImageUrl,
   getSupabaseUrlFromEnv,
 } from "../../utils/storage-url";
@@ -332,6 +334,9 @@ function buildMaterialsSnapshot(
     {
       title: string;
       certificationCode: string | null;
+      issueDate: string | null;
+      expiryDate: string | null;
+      certificationPath: string | null;
       instituteName: string | null;
       instituteEmail: string | null;
       instituteWebsite: string | null;
@@ -343,6 +348,7 @@ function buildMaterialsSnapshot(
       instituteCountryCode: string | null;
     }
   >,
+  storageBaseUrl: string | null | undefined,
 ): DppSnapshot["materials"] | null {
   // Return null when there are no links.
   if (links.length === 0) {
@@ -381,6 +387,13 @@ function buildMaterialsSnapshot(
           ? {
               title: certification.title,
               certificationCode: certification.certificationCode,
+              issueDate: certification.issueDate,
+              expiryDate: certification.expiryDate,
+              documentUrl: buildPublicStorageUrl(
+                storageBaseUrl,
+                CERTIFICATIONS_BUCKET,
+                certification.certificationPath,
+              ),
               testingInstitute: hasTestingInstituteData
                 ? {
                     instituteName: certification.instituteName,
@@ -424,7 +437,9 @@ async function buildSnapshotsForVariantChunk(
   }
 
   const variantIds = targets.map((target) => target.variantId);
-  const targetByVariantId = new Map(targets.map((target) => [target.variantId, target]));
+  const targetByVariantId = new Map(
+    targets.map((target) => [target.variantId, target]),
+  );
   const storageBaseUrl = getSupabaseUrlFromEnv();
 
   // Load core variant/product rows for this chunk.
@@ -644,7 +659,10 @@ async function buildSnapshotsForVariantChunk(
           })
           .from(productMaterials)
           .where(inArray(productMaterials.productId, productIds))
-          .orderBy(asc(productMaterials.productId), asc(productMaterials.createdAt))
+          .orderBy(
+            asc(productMaterials.productId),
+            asc(productMaterials.createdAt),
+          )
       : [];
   const productMaterialsByProductId = new Map<string, MaterialLink[]>();
   for (const row of productMaterialRows) {
@@ -699,6 +717,9 @@ async function buildSnapshotsForVariantChunk(
             id: brandCertifications.id,
             title: brandCertifications.title,
             certificationCode: brandCertifications.certificationCode,
+            issueDate: brandCertifications.issueDate,
+            expiryDate: brandCertifications.expiryDate,
+            certificationPath: brandCertifications.certificationPath,
             instituteName: brandCertifications.instituteName,
             instituteEmail: brandCertifications.instituteEmail,
             instituteWebsite: brandCertifications.instituteWebsite,
@@ -718,6 +739,9 @@ async function buildSnapshotsForVariantChunk(
       {
         title: row.title,
         certificationCode: row.certificationCode,
+        issueDate: row.issueDate,
+        expiryDate: row.expiryDate,
+        certificationPath: row.certificationPath,
         instituteName: row.instituteName,
         instituteEmail: row.instituteEmail,
         instituteWebsite: row.instituteWebsite,
@@ -741,7 +765,10 @@ async function buildSnapshotsForVariantChunk(
     })
     .from(variantJourneySteps)
     .where(inArray(variantJourneySteps.variantId, variantIds))
-    .orderBy(asc(variantJourneySteps.variantId), asc(variantJourneySteps.sortIndex));
+    .orderBy(
+      asc(variantJourneySteps.variantId),
+      asc(variantJourneySteps.sortIndex),
+    );
   const variantJourneyByVariantId = new Map<string, JourneyRow[]>();
   for (const row of variantJourneyRows) {
     const steps = variantJourneyByVariantId.get(row.ownerId) ?? [];
@@ -874,6 +901,7 @@ async function buildSnapshotsForVariantChunk(
       materialLinks,
       materialsById,
       certificationsById,
+      storageBaseUrl,
     );
 
     const variantJourney = variantJourneyByVariantId.get(row.variantId) ?? [];
@@ -989,7 +1017,9 @@ async function publishVariantChunk(
   for (const target of targets) {
     const snapshot = snapshotsByVariantId.get(target.variantId);
     if (!snapshot) {
-      throw new Error(`Failed to build snapshot for variant ${target.variantId}`);
+      throw new Error(
+        `Failed to build snapshot for variant ${target.variantId}`,
+      );
     }
 
     const currentVersion = currentVersionByPassportId.get(target.passportId);
@@ -1002,7 +1032,10 @@ async function publishVariantChunk(
       const existingContentHash = existingSnapshot
         ? calculateContentOnlyHash(existingSnapshot)
         : null;
-      if (existingContentHash !== null && newContentHash === existingContentHash) {
+      if (
+        existingContentHash !== null &&
+        newContentHash === existingContentHash
+      ) {
         versionsSkippedUnchanged++;
         continue;
       }

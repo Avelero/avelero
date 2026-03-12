@@ -23,7 +23,9 @@ export const operatorColumns: Array<FlatTableColumn<OperatorListItem>> = [
     headerClassName: "min-w-[360px]",
     cellClassName: "min-w-[360px]",
     cell: (row) => (
-      <span className="block truncate type-p text-primary">{row.display_name}</span>
+      <span className="block truncate type-p text-primary">
+        {row.display_name}
+      </span>
     ),
   },
   {

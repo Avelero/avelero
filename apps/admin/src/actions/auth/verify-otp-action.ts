@@ -6,9 +6,11 @@ import { createClient } from "@v1/supabase/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-const GENERIC_AUTH_ERROR = "Unable to sign in. Please contact your administrator.";
+const GENERIC_AUTH_ERROR =
+  "Unable to sign in. Please contact your administrator.";
 const INVALID_OTP_ERROR = "Invalid verification code. Please try again.";
-const RATE_LIMITED_ERROR = "Too many attempts. Please wait a moment and try again.";
+const RATE_LIMITED_ERROR =
+  "Too many attempts. Please wait a moment and try again.";
 
 const schema = z.object({
   email: z.string().email("Please enter a valid email address"),

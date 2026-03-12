@@ -121,7 +121,9 @@ describe("Set-Based Batch Publish", () => {
     expect(result.versionsCreated).toBe(1);
 
     const publishedPassport = await getPassportByVariantId(published.variantId);
-    const unpublishedPassport = await getPassportByVariantId(unpublished.variantId);
+    const unpublishedPassport = await getPassportByVariantId(
+      unpublished.variantId,
+    );
 
     expect(publishedPassport).not.toBeNull();
     expect(publishedPassport?.currentVersionId).toBeTruthy();
@@ -197,4 +199,3 @@ describe("Set-Based Batch Publish", () => {
     expect(passport?.currentVersionId).toBe(versions[0]?.id);
   });
 });
-

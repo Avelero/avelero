@@ -78,7 +78,9 @@ export const verifyOtpAction = actionClient
       }
 
       if (isRateLimited) {
-        throw new Error("Too many attempts. Please wait a moment and try again.");
+        throw new Error(
+          "Too many attempts. Please wait a moment and try again.",
+        );
       }
 
       if (hasExpired && hasInvalid) {

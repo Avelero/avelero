@@ -1,3 +1,7 @@
+/**
+ * Font parsing helpers for custom font uploads in the theme editor.
+ */
+
 import opentype from "opentype.js";
 
 // ============================================================================
@@ -13,25 +17,11 @@ export interface ParsedFontMetadata {
   weightRange?: { min: number; max: number };
 }
 
+type FontStyle = ParsedFontMetadata["fontStyle"];
+
 // ============================================================================
 // Constants
 // ============================================================================
-
-/**
- * Maps OS/2 weight class values to CSS font-weight values.
- * @see https://docs.microsoft.com/en-us/typography/opentype/spec/os2#usweightclass
- */
-const WEIGHT_CLASS_MAP: Record<number, number> = {
-  100: 100, // Thin
-  200: 200, // Extra Light
-  300: 300, // Light
-  400: 400, // Normal/Regular
-  500: 500, // Medium
-  600: 600, // Semi Bold
-  700: 700, // Bold
-  800: 800, // Extra Bold
-  900: 900, // Black
-};
 
 /**
  * Format detection based on file extension.
@@ -43,35 +33,34 @@ const FORMAT_MAP: Record<string, ParsedFontMetadata["format"]> = {
   otf: "opentype",
 };
 
+const WEIGHT_NAME_PATTERNS: Array<{ pattern: RegExp; weight: number }> = [
+  { pattern: /\b(thin|hairline)\b/i, weight: 100 },
+  { pattern: /\b(extra[\s-]?light|ultra[\s-]?light)\b/i, weight: 200 },
+  { pattern: /\blight\b/i, weight: 300 },
+  { pattern: /\bbook\b/i, weight: 350 },
+  { pattern: /\b(normal|regular|roman)\b/i, weight: 400 },
+  { pattern: /\bmedium\b/i, weight: 500 },
+  { pattern: /\b(semi[\s-]?bold|demi[\s-]?bold)\b/i, weight: 600 },
+  { pattern: /\b(extra[\s-]?bold|ultra[\s-]?bold)\b/i, weight: 800 },
+  { pattern: /\bbold\b/i, weight: 700 },
+  { pattern: /\b(black|heavy)\b/i, weight: 900 },
+];
+
 // ============================================================================
 // Main Functions
 // ============================================================================
 
 /**
  * Parse a font file and extract metadata using opentype.js.
- *
- * Extracts:
- * - Font family name (from name table)
- * - Weight class (from OS/2 table)
- * - Style (italic/oblique flags from OS/2 or head table)
- * - Variable font detection (fvar table presence)
- * - Weight axis range for variable fonts
  */
 export async function parseFontFile(file: File): Promise<ParsedFontMetadata> {
   const arrayBuffer = await file.arrayBuffer();
   const font = opentype.parse(arrayBuffer);
-
-  // Extract format from filename
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
   const format = FORMAT_MAP[ext] ?? "truetype";
-
-  // Extract font family name
   const fontFamily = extractFontFamily(font, file.name);
-
-  // Check if it's a variable font (has fvar table)
   const isVariable = hasVariableWeightAxis(font);
 
-  // Extract weight
   let fontWeight: number | string = 400;
   let weightRange: { min: number; max: number } | undefined;
 
@@ -82,11 +71,10 @@ export async function parseFontFile(file: File): Promise<ParsedFontMetadata> {
       fontWeight = `${range.min} ${range.max}`;
     }
   } else {
-    fontWeight = extractWeightClass(font);
+    fontWeight = extractWeightClass(font, file.name);
   }
 
-  // Extract style (italic/oblique)
-  const fontStyle = extractFontStyle(font);
+  const fontStyle = extractFontStyle(font, file.name);
 
   return {
     fontFamily,
@@ -100,19 +88,14 @@ export async function parseFontFile(file: File): Promise<ParsedFontMetadata> {
 
 /**
  * Normalize a font family name for use as a filename or CSS identifier.
- *
- * Examples:
- * - "Inter-Bold" → "inter"
- * - "Playfair Display" → "playfair-display"
- * - "Open Sans Condensed" → "open-sans-condensed"
  */
 export function normalizeFontFamily(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[-_\s]+/g, "-") // Replace separators with hyphens
-    .replace(/[^a-z0-9-]/g, "") // Remove special characters
-    .replace(/-+/g, "-") // Collapse multiple hyphens
-    .replace(/^-|-$/g, ""); // Trim leading/trailing hyphens
+    .replace(/[-_\s]+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 // ============================================================================
@@ -120,37 +103,121 @@ export function normalizeFontFamily(name: string): string {
 // ============================================================================
 
 /**
- * Extract font family name from the font's name table.
- * Falls back to filename if name table is missing or empty.
+ * Extract the first localized name value from an OpenType name record.
  */
-function extractFontFamily(font: opentype.Font, filename: string): string {
-  // Try to get the font family from name table
-  // Name ID 1 = Font Family name
-  // Name ID 16 = Typographic Family name (preferred for variable fonts)
+function getLocalizedName(record?: Record<string, string>): string | undefined {
+  if (!record) return undefined;
+  return record["en-US"] ?? record.en ?? Object.values(record)[0];
+}
+
+/**
+ * Collect the most useful name strings for weight/style fallback parsing.
+ */
+function getNameCandidates(font: opentype.Font, filename: string): string[] {
   const names = font.names;
 
-  // Prefer typographic family name (ID 16) if available
-  const typographicFamily =
-    names.preferredFamily?.en || names.preferredFamily?.["en-US"];
+  return [
+    getLocalizedName(names.preferredSubfamily),
+    getLocalizedName(names.fontSubfamily),
+    getLocalizedName(names.fullName),
+    getLocalizedName(names.postScriptName),
+    filename.replace(/\.[^.]+$/, ""),
+  ].filter((value): value is string => Boolean(value?.trim()));
+}
+
+/**
+ * Normalize a text candidate for weight and style matching.
+ */
+function normalizeSearchText(value: string): string {
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Extract a numeric weight hint from name table text or the filename.
+ */
+function extractWeightFromText(...candidates: string[]): number | undefined {
+  for (const candidate of candidates) {
+    const normalized = normalizeSearchText(candidate);
+    if (!normalized) continue;
+
+    const numericMatch = normalized.match(/(^|\s)(\d{2,4})(?=\s|$)/);
+    const numericWeight = Number.parseInt(numericMatch?.[2] ?? "", 10);
+    if (
+      numericMatch?.[2] &&
+      !Number.isNaN(numericWeight) &&
+      numericWeight >= 1 &&
+      numericWeight <= 1000
+    ) {
+      return numericWeight;
+    }
+
+    for (const { pattern, weight } of WEIGHT_NAME_PATTERNS) {
+      if (pattern.test(normalized)) {
+        return weight;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Extract a style hint from name table text or the filename.
+ */
+function extractStyleFromText(...candidates: string[]): FontStyle {
+  for (const candidate of candidates) {
+    const normalized = normalizeSearchText(candidate);
+    if (!normalized) continue;
+
+    if (/\boblique\b/i.test(normalized)) return "oblique";
+    if (/\bitalic\b/i.test(normalized)) return "italic";
+  }
+
+  return "normal";
+}
+
+/**
+ * Extract the raw OS/2 weight class without snapping to preset buckets.
+ */
+function getOs2WeightClass(font: opentype.Font): number | undefined {
+  const os2 = (font.tables as Record<string, unknown>).os2 as
+    | { usWeightClass?: number }
+    | undefined;
+
+  const weightClass = os2?.usWeightClass;
+  if (weightClass === undefined) return undefined;
+
+  const roundedWeight = Math.round(weightClass);
+  if (roundedWeight < 1 || roundedWeight > 1000) return undefined;
+  return roundedWeight;
+}
+
+/**
+ * Extract font family name from the font's name table.
+ */
+function extractFontFamily(font: opentype.Font, filename: string): string {
+  const names = font.names;
+  const typographicFamily = getLocalizedName(names.preferredFamily);
   if (typographicFamily) {
     return cleanFontFamilyName(typographicFamily);
   }
 
-  // Fall back to font family name (ID 1)
-  const fontFamily = names.fontFamily?.en || names.fontFamily?.["en-US"];
+  const fontFamily = getLocalizedName(names.fontFamily);
   if (fontFamily) {
     return cleanFontFamilyName(fontFamily);
   }
 
-  // Last resort: use filename
   return cleanFontFamilyName(filename.replace(/\.[^.]+$/, ""));
 }
 
 /**
- * Clean up font family name by removing weight/style suffixes.
+ * Clean up font family name by removing trailing weight/style suffixes.
  */
 function cleanFontFamilyName(name: string): string {
-  // Remove common weight/style suffixes
   const suffixes = [
     "thin",
     "hairline",
@@ -180,7 +247,6 @@ function cleanFontFamilyName(name: string): string {
 
   let cleaned = name.trim();
 
-  // Remove suffix patterns like "-Bold", " Italic", etc.
   for (const suffix of suffixes) {
     const pattern = new RegExp(`[-_\\s]?${suffix}$`, "i");
     cleaned = cleaned.replace(pattern, "");
@@ -190,56 +256,59 @@ function cleanFontFamilyName(name: string): string {
 }
 
 /**
- * Extract weight class from OS/2 table.
+ * Extract the best static weight for a font file.
  */
-function extractWeightClass(font: opentype.Font): number {
-  // Access OS/2 table for weight class
-  const os2 = (font.tables as Record<string, unknown>).os2 as
-    | { usWeightClass?: number }
-    | undefined;
+function extractWeightClass(font: opentype.Font, filename: string): number {
+  const os2Weight = getOs2WeightClass(font);
+  const namedWeight = extractWeightFromText(...getNameCandidates(font, filename));
 
-  if (os2?.usWeightClass) {
-    // Map to nearest standard weight
-    const weightClass = os2.usWeightClass;
-    return WEIGHT_CLASS_MAP[Math.round(weightClass / 100) * 100] ?? 400;
+  if (os2Weight === undefined) {
+    return namedWeight ?? 400;
   }
 
-  return 400; // Default to normal weight
+  if (namedWeight === undefined) {
+    return os2Weight;
+  }
+
+  if (os2Weight === 400 && namedWeight !== 400) {
+    return namedWeight;
+  }
+
+  return os2Weight;
 }
 
 /**
- * Extract font style (italic/oblique) from OS/2 and head tables.
+ * Extract font style (italic/oblique) from metadata and fallback name hints.
  */
-function extractFontStyle(
-  font: opentype.Font,
-): "normal" | "italic" | "oblique" {
+function extractFontStyle(font: opentype.Font, filename: string): FontStyle {
+  const namedStyle = extractStyleFromText(...getNameCandidates(font, filename));
+  if (namedStyle !== "normal") {
+    return namedStyle;
+  }
+
   const os2 = (font.tables as Record<string, unknown>).os2 as
     | { fsSelection?: number }
     | undefined;
 
-  // Check fsSelection flags in OS/2 table
-  // Bit 0 = ITALIC, Bit 9 = OBLIQUE
   if (os2?.fsSelection) {
     const fsSelection = os2.fsSelection;
     if (fsSelection & (1 << 9)) return "oblique";
     if (fsSelection & 1) return "italic";
   }
 
-  // Also check head table macStyle
   const head = (font.tables as Record<string, unknown>).head as
     | { macStyle?: number }
     | undefined;
 
-  if (head?.macStyle) {
-    // Bit 1 = Italic
-    if (head.macStyle & 2) return "italic";
+  if (head?.macStyle && head.macStyle & 2) {
+    return "italic";
   }
 
   return "normal";
 }
 
 /**
- * Check if font has a variable weight axis (fvar table with wght axis).
+ * Check if font has a variable weight axis.
  */
 function hasVariableWeightAxis(font: opentype.Font): boolean {
   const fvar = (font.tables as Record<string, unknown>).fvar as
@@ -247,7 +316,6 @@ function hasVariableWeightAxis(font: opentype.Font): boolean {
     | undefined;
 
   if (!fvar?.axes) return false;
-
   return fvar.axes.some((axis) => axis.tag === "wght");
 }
 

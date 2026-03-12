@@ -59,7 +59,10 @@ export const domainSchema = z
     "Invalid domain format. Enter a domain like passport.yourbrand.com",
   )
   .transform((val) => val.toLowerCase())
-  .refine((val) => !val.includes(".."), "Domain cannot contain consecutive dots")
+  .refine(
+    (val) => !val.includes(".."),
+    "Domain cannot contain consecutive dots",
+  )
   .refine((val) => !isIpAddress(val), "IP addresses are not allowed")
   .refine((val) => !isReservedDomain(val), "This domain is reserved");
 

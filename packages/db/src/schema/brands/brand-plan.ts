@@ -69,7 +69,10 @@ export const brandPlan = pgTable(
       "brand_plan_skus_created_onboarding_check",
       sql`skus_created_onboarding >= 0`,
     ),
-    check("brand_plan_max_seats_check", sql`max_seats IS NULL OR max_seats > 0`),
+    check(
+      "brand_plan_max_seats_check",
+      sql`max_seats IS NULL OR max_seats > 0`,
+    ),
     uniqueIndex("brand_plan_brand_id_unq").on(table.brandId),
     index("idx_brand_plan_plan_type").on(table.planType),
     index("idx_brand_plan_sku_year_start").on(table.skuYearStart),

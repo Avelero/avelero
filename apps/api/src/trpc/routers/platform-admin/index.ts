@@ -1,13 +1,5 @@
 import { tasks } from "@trigger.dev/sdk/v3";
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  isNull,
-  sql,
-} from "@v1/db/queries";
+import { and, asc, desc, eq, inArray, isNull, sql } from "@v1/db/queries";
 import {
   computeNextBrandIdForUser,
   createBrand,
@@ -31,11 +23,7 @@ import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
 import { brandCreateSchema } from "../../../schemas/brand.js";
 import { assignableRoleSchema } from "../../../schemas/_shared/domain.js";
-import {
-  badRequest,
-  notFound,
-  wrapError,
-} from "../../../utils/errors.js";
+import { badRequest, notFound, wrapError } from "../../../utils/errors.js";
 import {
   createTRPCRouter,
   platformAdminProcedure,
@@ -53,7 +41,11 @@ const phaseValues = [
 ] as const;
 
 const phaseSchema = z.enum(phaseValues);
-const billingOverrideSchema = z.enum(["none", "temporary_allow", "temporary_block"]);
+const billingOverrideSchema = z.enum([
+  "none",
+  "temporary_allow",
+  "temporary_block",
+]);
 const billingModeSchema = z.enum(["stripe_checkout", "stripe_invoice"]);
 const planTypeSchema = z.enum(["starter", "growth", "scale", "enterprise"]);
 
@@ -75,7 +67,15 @@ const platformBrandsListSchema = z.object({
   search: z.string().trim().max(100).optional(),
   phase: phaseSchema.optional(),
   sort_by: z
-    .enum(["name", "phase", "plan", "sku_usage", "trial_ends", "members", "created"])
+    .enum([
+      "name",
+      "phase",
+      "plan",
+      "sku_usage",
+      "trial_ends",
+      "members",
+      "created",
+    ])
     .default("created"),
   sort_dir: z.enum(["asc", "desc"]).default("desc"),
   page: z.number().int().min(1).default(1),
@@ -94,7 +94,13 @@ const platformBrandIdentityUpdateSchema = z
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
       .optional(),
     email: z.string().trim().email().nullable().optional(),
-    country_code: z.string().trim().toUpperCase().length(2).nullable().optional(),
+    country_code: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .length(2)
+      .nullable()
+      .optional(),
   })
   .superRefine((value, ctx) => {
     if (
@@ -185,7 +191,10 @@ function normalizeSearch(value?: string) {
   return value?.trim().toLowerCase() ?? "";
 }
 
-function buildStorageProxyUrl(bucket: "avatars" | "brand-avatars", path: string | null) {
+function buildStorageProxyUrl(
+  bucket: "avatars" | "brand-avatars",
+  path: string | null,
+) {
   if (!path) return null;
   const encoded = path
     .split("/")
@@ -217,27 +226,27 @@ async function triggerInviteEmails(invites: InviteResultRow[]) {
 
   const appUrl = getAppUrl();
   const payload = invites.reduce<InviteEmailPayload[]>((acc, invite) => {
-      if (!invite.tokenHash) {
-        logger.error(
-          {
-            inviteEmail: invite.email,
-            brandId: invite.brand?.id,
-          },
-          "Invite email skipped because token hash is missing",
-        );
-        return acc;
-      }
-
-      acc.push({
-        recipientEmail: invite.email,
-        brandName: invite.brand?.name ?? "Avelero",
-        role: invite.role,
-        acceptUrl: `${appUrl}/api/auth/accept?token_hash=${invite.tokenHash}`,
-        ctaMode: "accept",
-      });
-
+    if (!invite.tokenHash) {
+      logger.error(
+        {
+          inviteEmail: invite.email,
+          brandId: invite.brand?.id,
+        },
+        "Invite email skipped because token hash is missing",
+      );
       return acc;
-    }, []);
+    }
+
+    acc.push({
+      recipientEmail: invite.email,
+      brandName: invite.brand?.name ?? "Avelero",
+      role: invite.role,
+      acceptUrl: `${appUrl}/api/auth/accept?token_hash=${invite.tokenHash}`,
+      ctaMode: "accept",
+    });
+
+    return acc;
+  }, []);
 
   if (payload.length === 0) return;
 
@@ -275,7 +284,10 @@ export const platformAdminRouter = createTRPCRouter({
         id: profile?.id ?? ctx.user.id,
         email: profile?.email ?? ctx.user.email ?? null,
         full_name: profile?.fullName ?? null,
-        avatar_url: buildStorageProxyUrl("avatars", profile?.avatarPath ?? null),
+        avatar_url: buildStorageProxyUrl(
+          "avatars",
+          profile?.avatarPath ?? null,
+        ),
       };
     }),
   }),
@@ -645,7 +657,9 @@ export const platformAdminRouter = createTRPCRouter({
         }
 
         if (existing.phase !== "trial" && existing.phase !== "expired") {
-          throw badRequest("Trial can only be extended for trial or expired brands");
+          throw badRequest(
+            "Trial can only be extended for trial or expired brands",
+          );
         }
 
         const nowIso = new Date().toISOString();
@@ -654,7 +668,10 @@ export const platformAdminRouter = createTRPCRouter({
           .update(brandLifecycle)
           .set({
             phase: "trial",
-            phaseChangedAt: existing.phase === "expired" ? nowIso : brandLifecycle.phaseChangedAt,
+            phaseChangedAt:
+              existing.phase === "expired"
+                ? nowIso
+                : brandLifecycle.phaseChangedAt,
             trialStartedAt: existing.trialStartedAt ?? nowIso,
             trialEndsAt: input.trial_ends_at,
           })
@@ -838,7 +855,8 @@ export const platformAdminRouter = createTRPCRouter({
           billingUpdates.billingMode = input.billing_mode;
         }
         if (input.custom_monthly_price_cents !== undefined) {
-          billingUpdates.customMonthlyPriceCents = input.custom_monthly_price_cents;
+          billingUpdates.customMonthlyPriceCents =
+            input.custom_monthly_price_cents;
         }
 
         if (Object.keys(planUpdates).length > 0) {
@@ -879,7 +897,7 @@ export const platformAdminRouter = createTRPCRouter({
           .set({
             billingAccessOverride: input.override,
             billingOverrideExpiresAt:
-              input.override === "none" ? null : (input.expires_at ?? null),
+              input.override === "none" ? null : input.expires_at ?? null,
           })
           .where(eq(brandBilling.brandId, input.brand_id));
 
@@ -984,7 +1002,9 @@ export const platformAdminRouter = createTRPCRouter({
             created_at: invite.createdAt,
             expires_at: invite.expiresAt,
             invited_by:
-              invite.invitedByFullName ?? invite.invitedByEmail ?? "Avelero Team",
+              invite.invitedByFullName ??
+              invite.invitedByEmail ??
+              "Avelero Team",
           })),
         };
       }),

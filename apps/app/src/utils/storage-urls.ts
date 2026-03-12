@@ -22,6 +22,12 @@ const PRIVATE_BUCKETS = new Set<string>([
   BUCKETS.BRAND_AVATARS,
 ]);
 
+const PASSPORT_SECTION_IMAGE_FIELDS = {
+  banner: ["backgroundImage"],
+  imageCards: ["cardOneImage", "cardTwoImage", "cardThreeImage"],
+  textImage: ["image"],
+} as const;
+
 // ============================================================================
 // URL Builders
 // ============================================================================
@@ -141,50 +147,61 @@ function extractPath(
 }
 
 // ============================================================================
-// Theme Config Image Resolution
+// Passport Image Resolution
 // ============================================================================
 
 /**
- * Resolve image paths in themeConfig to full public URLs.
+ * Resolve image paths in a Passport to full public URLs.
  *
- * ThemeConfig stores storage PATHS (not full URLs) for images.
+ * The passport stores storage PATHS (not full URLs) for images.
  * This function converts those paths to full URLs for display.
  *
- * This is the client-side equivalent of resolveThemeConfigImageUrls in the API router.
- * Used during live preview editing where themeConfigDraft contains raw paths.
+ * Walks:
+ * - header.logoUrl
+ * - Marketing section images in sidebar/canvas (`banner`, `imageCards`, `textImage`)
  */
-export function resolveThemeConfigImageUrls<T>(themeConfig: T): T {
-  if (!themeConfig || typeof themeConfig !== "object") return themeConfig;
+export function resolvePassportImageUrls<T>(passport: T): T {
+  if (!passport || typeof passport !== "object") return passport;
 
-  // Deep clone to avoid mutating the original
-  const resolved = JSON.parse(JSON.stringify(themeConfig)) as T & {
-    branding?: { headerLogoUrl?: string };
-    cta?: { bannerBackgroundImage?: string };
-  };
+  const resolved = JSON.parse(JSON.stringify(passport)) as Record<
+    string,
+    unknown
+  >;
 
-  // Resolve branding.headerLogoUrl
-  if (resolved.branding?.headerLogoUrl) {
-    // Only resolve if it's a path (not already a full URL)
-    if (!isFullUrl(resolved.branding.headerLogoUrl)) {
-      resolved.branding.headerLogoUrl =
-        buildPublicUrl(BUCKETS.DPP_ASSETS, resolved.branding.headerLogoUrl) ??
-        "";
+  // Resolve header.logoUrl
+  const header = resolved.header as Record<string, unknown> | undefined;
+  if (header && typeof header.logoUrl === "string" && header.logoUrl) {
+    if (!isFullUrl(header.logoUrl)) {
+      header.logoUrl = buildPublicUrl(BUCKETS.DPP_ASSETS, header.logoUrl) ?? "";
     }
   }
 
-  // Resolve cta.bannerBackgroundImage
-  if (resolved.cta?.bannerBackgroundImage) {
-    // Only resolve if it's a path (not already a full URL)
-    if (!isFullUrl(resolved.cta.bannerBackgroundImage)) {
-      resolved.cta.bannerBackgroundImage =
-        buildPublicUrl(
-          BUCKETS.DPP_ASSETS,
-          resolved.cta.bannerBackgroundImage,
-        ) ?? "";
+  // Resolve section images stored in canvas and sidebar marketing blocks.
+  for (const zoneKey of ["sidebar", "canvas"]) {
+    const zone = resolved[zoneKey];
+    if (!Array.isArray(zone)) continue;
+    for (const section of zone) {
+      if (typeof section !== "object" || section === null) continue;
+      const sec = section as Record<string, unknown>;
+      const imageFields =
+        PASSPORT_SECTION_IMAGE_FIELDS[
+          sec.type as keyof typeof PASSPORT_SECTION_IMAGE_FIELDS
+        ];
+      if (!imageFields) continue;
+      const content = sec.content as Record<string, unknown> | undefined;
+      if (!content) continue;
+
+      for (const imageField of imageFields) {
+        const imageValue = content[imageField];
+        if (typeof imageValue !== "string" || !imageValue) continue;
+        if (isFullUrl(imageValue)) continue;
+        content[imageField] =
+          buildPublicUrl(BUCKETS.DPP_ASSETS, imageValue) ?? "";
+      }
     }
   }
 
-  return resolved;
+  return resolved as T;
 }
 
 // ============================================================================

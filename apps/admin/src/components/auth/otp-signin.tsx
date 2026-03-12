@@ -11,7 +11,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 const GENERIC_ERROR = "Unable to sign in. Please contact your administrator.";
-const RATE_LIMITED_ERROR = "Too many attempts. Please wait a moment and try again.";
+const RATE_LIMITED_ERROR =
+  "Too many attempts. Please wait a moment and try again.";
 
 type Props = {
   className?: string;

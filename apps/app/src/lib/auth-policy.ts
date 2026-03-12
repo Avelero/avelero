@@ -26,17 +26,13 @@ export async function evaluateMainOtpStartPolicy(
 
   const admin = await createClient({ admin: true });
 
-  const [
-    allowlistResult,
-    inviteResult,
-    authUserResult,
-    membershipResult,
-  ] = await Promise.all([
-    admin.rpc("has_platform_admin_email", { p_email: normalizedEmail }),
-    admin.rpc("has_pending_invite_email", { p_email: normalizedEmail }),
-    admin.rpc("has_auth_user_email", { p_email: normalizedEmail }),
-    admin.rpc("has_brand_membership_email", { p_email: normalizedEmail }),
-  ]);
+  const [allowlistResult, inviteResult, authUserResult, membershipResult] =
+    await Promise.all([
+      admin.rpc("has_platform_admin_email", { p_email: normalizedEmail }),
+      admin.rpc("has_pending_invite_email", { p_email: normalizedEmail }),
+      admin.rpc("has_auth_user_email", { p_email: normalizedEmail }),
+      admin.rpc("has_brand_membership_email", { p_email: normalizedEmail }),
+    ]);
 
   if (
     allowlistResult.error ||

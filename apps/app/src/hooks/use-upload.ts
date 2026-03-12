@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Shared upload hooks for storage-backed assets in the app.
+ */
+
 import {
   type ValidationConfig,
   type ValidationResult,
@@ -19,6 +23,7 @@ interface UploadOptions {
   bucket: string;
   path: string[];
   isPublic?: boolean;
+  upsert?: boolean;
   metadata?: Record<string, string>;
   /** Validation config or custom validate function */
   validation: ValidationConfig | ((file: File) => ValidationResult);
@@ -44,6 +49,7 @@ export function useUpload() {
       bucket,
       path,
       isPublic = true,
+      upsert = true,
       metadata,
       validation,
     }: UploadOptions): Promise<UploadResult> => {
@@ -63,7 +69,13 @@ export function useUpload() {
 
       try {
         const supabase = createClient();
-        const result = await upload(supabase, { file, bucket, path, metadata });
+        const result = await upload(supabase, {
+          file,
+          bucket,
+          path,
+          upsert,
+          metadata,
+        });
         const joinedPath = path.join("/");
         const displayUrl = isPublic
           ? buildPublicUrl(bucket, joinedPath) ?? ""
@@ -104,6 +116,7 @@ export function useImageUpload() {
       bucket,
       path,
       isPublic = true,
+      upsert = true,
       metadata,
       validation,
     }: UploadOptions): Promise<UploadResult> => {
@@ -124,7 +137,13 @@ export function useImageUpload() {
 
       try {
         const supabase = createClient();
-        const result = await upload(supabase, { file, bucket, path, metadata });
+        const result = await upload(supabase, {
+          file,
+          bucket,
+          path,
+          upsert,
+          metadata,
+        });
         const joinedPath = path.join("/");
         const displayUrl = isPublic
           ? buildPublicUrl(bucket, joinedPath) ?? ""

@@ -34,27 +34,41 @@ export const seasonColumns: Array<FlatTableColumn<SeasonListItem>> = [
     header: "Season",
     headerClassName: "min-w-[320px]",
     cellClassName: "min-w-[320px]",
-    cell: (row) => <span className="type-p text-primary truncate block">{row.name}</span>,
+    cell: (row) => (
+      <span className="type-p text-primary truncate block">{row.name}</span>
+    ),
   },
   {
     id: "date_range",
     header: "Date range",
     headerClassName: "w-[280px] min-w-[280px] max-w-[280px]",
     cellClassName: "w-[280px] min-w-[280px] max-w-[280px]",
-    cell: (row) => <span className="type-p text-primary whitespace-nowrap">{formatDateRange(row)}</span>,
+    cell: (row) => (
+      <span className="type-p text-primary whitespace-nowrap">
+        {formatDateRange(row)}
+      </span>
+    ),
   },
   {
     id: "products_count",
     header: "Products",
     headerClassName: "w-[120px] min-w-[120px] max-w-[120px]",
     cellClassName: "w-[120px] min-w-[120px] max-w-[120px]",
-    cell: (row) => <span className="type-p text-primary whitespace-nowrap">{row.products_count ?? 0}</span>,
+    cell: (row) => (
+      <span className="type-p text-primary whitespace-nowrap">
+        {row.products_count ?? 0}
+      </span>
+    ),
   },
   {
     id: "created_at",
     header: "Created",
     headerClassName: "w-[240px] min-w-[240px] max-w-[240px]",
     cellClassName: "w-[240px] min-w-[240px] max-w-[240px]",
-    cell: (row) => <span className="type-p text-primary whitespace-nowrap">{formatCreatedDate(row.createdAt)}</span>,
+    cell: (row) => (
+      <span className="type-p text-primary whitespace-nowrap">
+        {formatCreatedDate(row.createdAt)}
+      </span>
+    ),
   },
 ];

@@ -15,8 +15,8 @@ export function PaymentRequiredOverlay() {
               Payment Required
             </h2>
             <p className="type-small text-secondary">
-              Your trial has ended. You can continue reviewing brand data, but write
-              actions are blocked until billing is updated.
+              Your trial has ended. You can continue reviewing brand data, but
+              write actions are blocked until billing is updated.
             </p>
           </div>
         </div>
@@ -26,7 +26,7 @@ export function PaymentRequiredOverlay() {
             <Link href="/settings/billing">Open Billing</Link>
           </Button>
           <Button asChild size="sm" variant="outline">
-            <a href="mailto:support@avelero.com">Contact support</a>
+            <a href="mailto:raf@avelero.com">Contact support</a>
           </Button>
         </div>
       </div>

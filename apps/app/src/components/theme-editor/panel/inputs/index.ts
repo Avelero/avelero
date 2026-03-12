@@ -1,6 +1,6 @@
 // Core utilities
 export { FieldWrapper } from "./field-wrapper";
-export { EditorSection } from "./editor-section";
+export { AccordionItem } from "./accordion-item";
 
 // Style input components
 export {
@@ -14,6 +14,7 @@ export { BorderInput } from "./border-input";
 
 // Content input components
 export { TextInput } from "./text-input";
+export { SelectInput } from "./select-input";
 export { UrlInput } from "./url-input";
 export { ToggleInput } from "./toggle-input";
 export { NumberInput } from "./number-input";

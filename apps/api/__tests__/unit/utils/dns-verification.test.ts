@@ -122,7 +122,9 @@ describe("getAuthoritativeNameservers", () => {
     fetchCalls = [];
     mockFetchImpl = async (url) => {
       fetchCalls.push({ url });
-      return createMockResponse(createNsResponse(["ns1.example.com", "ns2.example.com"]));
+      return createMockResponse(
+        createNsResponse(["ns1.example.com", "ns2.example.com"]),
+      );
     };
 
     // @ts-expect-error - mock fetch doesn't need all properties
@@ -139,7 +141,9 @@ describe("getAuthoritativeNameservers", () => {
   it("returns nameservers for a domain", async () => {
     mockFetchImpl = async (url) => {
       fetchCalls.push({ url });
-      return createMockResponse(createNsResponse(["ns1.nike.com", "ns2.nike.com"]));
+      return createMockResponse(
+        createNsResponse(["ns1.nike.com", "ns2.nike.com"]),
+      );
     };
 
     const result = await getAuthoritativeNameservers("passport.nike.com");
@@ -252,7 +256,10 @@ describe("resolveNameserverIPs", () => {
     });
 
     await expect(
-      resolveNameserverIPs(["ns1.example.com", "ns2.example.com"], mockResolver),
+      resolveNameserverIPs(
+        ["ns1.example.com", "ns2.example.com"],
+        mockResolver,
+      ),
     ).rejects.toThrow("Could not resolve any nameserver IPs");
   });
 
@@ -261,7 +268,10 @@ describe("resolveNameserverIPs", () => {
       resolve4: async () => ["1.2.3.4", "5.6.7.8"],
     });
 
-    const result = await resolveNameserverIPs(["ns1.example.com"], mockResolver);
+    const result = await resolveNameserverIPs(
+      ["ns1.example.com"],
+      mockResolver,
+    );
 
     expect(result).toEqual(["1.2.3.4", "5.6.7.8"]);
   });
@@ -347,7 +357,11 @@ describe("verifyDomainDns", () => {
     it("returns success when one of multiple TXT records matches", async () => {
       const expectedToken = "avelero-verify-abc123";
       const mockResolver = createMockResolver({
-        resolveTxt: async () => [["other-record"], [expectedToken], ["another-record"]],
+        resolveTxt: async () => [
+          ["other-record"],
+          [expectedToken],
+          ["another-record"],
+        ],
       });
 
       const result = await verifyDomainDns("passport.nike.com", expectedToken, {
@@ -640,7 +654,10 @@ describe("verifyDomainDns", () => {
 
 describe("buildDnsInstructions", () => {
   it("returns TXT record with subdomain included in host for subdomain", () => {
-    const instructions = buildDnsInstructions("passport.nike.com", "avelero-verify-abc123");
+    const instructions = buildDnsInstructions(
+      "passport.nike.com",
+      "avelero-verify-abc123",
+    );
 
     expect(instructions.txt).toEqual({
       recordType: "TXT",
@@ -651,7 +668,10 @@ describe("buildDnsInstructions", () => {
   });
 
   it("returns CNAME record with subdomain as host", () => {
-    const instructions = buildDnsInstructions("passport.nike.com", "avelero-verify-abc123");
+    const instructions = buildDnsInstructions(
+      "passport.nike.com",
+      "avelero-verify-abc123",
+    );
 
     expect(instructions.cname).toEqual({
       recordType: "CNAME",
@@ -662,14 +682,20 @@ describe("buildDnsInstructions", () => {
   });
 
   it("handles root domain with @ for CNAME and plain _avelero-verification for TXT", () => {
-    const instructions = buildDnsInstructions("nike.com", "avelero-verify-abc123");
+    const instructions = buildDnsInstructions(
+      "nike.com",
+      "avelero-verify-abc123",
+    );
 
     expect(instructions.txt.host).toBe("_avelero-verification");
     expect(instructions.cname.host).toBe("@");
   });
 
   it("handles deep subdomain correctly", () => {
-    const instructions = buildDnsInstructions("eu.passport.nike.com", "avelero-verify-abc123");
+    const instructions = buildDnsInstructions(
+      "eu.passport.nike.com",
+      "avelero-verify-abc123",
+    );
 
     expect(instructions.txt.host).toBe("_avelero-verification.eu.passport");
     expect(instructions.cname.host).toBe("eu.passport");
@@ -693,7 +719,10 @@ describe("buildDnsInstructions", () => {
   });
 
   it("uses 300 as TTL for both records", () => {
-    const instructions = buildDnsInstructions("passport.nike.com", "avelero-verify-abc123");
+    const instructions = buildDnsInstructions(
+      "passport.nike.com",
+      "avelero-verify-abc123",
+    );
 
     expect(instructions.txt.ttl).toBe(300);
     expect(instructions.cname.ttl).toBe(300);
@@ -702,7 +731,10 @@ describe("buildDnsInstructions", () => {
   it("TXT host includes subdomain to match verification lookup", () => {
     const instructions1 = buildDnsInstructions("passport.nike.com", "token1");
     const instructions2 = buildDnsInstructions("nike.com", "token2");
-    const instructions3 = buildDnsInstructions("eu.passport.brand.io", "token3");
+    const instructions3 = buildDnsInstructions(
+      "eu.passport.brand.io",
+      "token3",
+    );
 
     expect(instructions1.txt.host).toBe("_avelero-verification.passport");
     expect(instructions2.txt.host).toBe("_avelero-verification");

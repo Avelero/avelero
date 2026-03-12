@@ -218,8 +218,7 @@ export async function countBrandAttributeValueVariantReferences(
 ): Promise<number> {
   const [row] = await db
     .select({
-      count:
-        sql<number>`count(distinct ${productVariantAttributes.variantId})::int`,
+      count: sql<number>`count(distinct ${productVariantAttributes.variantId})::int`,
     })
     .from(brandAttributeValues)
     .leftJoin(

@@ -71,6 +71,10 @@ declare namespace opentype {
     names: {
       fontFamily?: Record<string, string>;
       preferredFamily?: Record<string, string>;
+      fontSubfamily?: Record<string, string>;
+      preferredSubfamily?: Record<string, string>;
+      fullName?: Record<string, string>;
+      postScriptName?: Record<string, string>;
     };
     tables: Record<string, unknown>;
   }

@@ -483,9 +483,7 @@ describe("P-MATCH-003: Primary Handles Duplicate Barcodes in External", () => {
     expect(allVariants).toHaveLength(2);
 
     // Each variant has its own unique barcode
-    const barcodes = allVariants
-      .map((v) => v.product_variants.barcode)
-      .sort();
+    const barcodes = allVariants.map((v) => v.product_variants.barcode).sort();
     expect(barcodes).toEqual([barcode1, barcode2]);
   });
 });

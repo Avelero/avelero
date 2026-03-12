@@ -350,10 +350,12 @@ describe("Catalog Router Dirty Marking", () => {
     ]);
 
     expect(
-      dirtyRows.find((row) => row.id === productLinkedFixture.passportId)?.dirty,
+      dirtyRows.find((row) => row.id === productLinkedFixture.passportId)
+        ?.dirty,
     ).toBe(true);
     expect(
-      dirtyRows.find((row) => row.id === variantLinkedFixture.passportId)?.dirty,
+      dirtyRows.find((row) => row.id === variantLinkedFixture.passportId)
+        ?.dirty,
     ).toBe(true);
     expect(
       dirtyRows.find((row) => row.id === unpublishedFixture.passportId)?.dirty,
@@ -366,7 +368,10 @@ describe("Catalog Router Dirty Marking", () => {
       })
       .from(schema.brandMaterials)
       .where(
-        inArray(schema.brandMaterials.id, [productMaterialId, variantMaterialId]),
+        inArray(schema.brandMaterials.id, [
+          productMaterialId,
+          variantMaterialId,
+        ]),
       );
 
     expect(materials).toEqual(

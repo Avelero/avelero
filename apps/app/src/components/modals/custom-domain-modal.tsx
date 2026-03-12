@@ -77,13 +77,13 @@ function DomainStatusBadge({
     <span
       className={cn(
         "inline-flex items-center px-1.5 h-6 rounded-full border border-border bg-background cursor-default select-none",
-        shaking && "animate-shake"
+        shaking && "animate-shake",
       )}
       style={
         shaking
           ? {
-            animation: "shake 0.5s ease-in-out",
-          }
+              animation: "shake 0.5s ease-in-out",
+            }
           : undefined
       }
     >
@@ -156,7 +156,7 @@ function CopyableText({
       onClick={handleCopy}
       className={cn(
         "group flex items-center gap-1 text-left cursor-pointer max-w-full",
-        truncate && "min-w-0 overflow-hidden"
+        truncate && "min-w-0 overflow-hidden",
       )}
       title={text}
     >
@@ -164,7 +164,7 @@ function CopyableText({
         className={cn(
           "type-small text-foreground font-mono",
           truncate && "truncate min-w-0",
-          className
+          className,
         )}
       >
         {text}
@@ -464,10 +464,10 @@ function VerifiedContent({
 }) {
   const verifiedDate = domainDetails.verifiedAt
     ? new Date(domainDetails.verifiedAt).toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    })
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
     : null;
 
   return (
@@ -553,7 +553,10 @@ export function CustomDomainModal({
             />
           )}
           {hasDomain && isVerified && (
-            <VerifiedContent domainDetails={domainDetails} onClose={handleClose} />
+            <VerifiedContent
+              domainDetails={domainDetails}
+              onClose={handleClose}
+            />
           )}
         </DialogContent>
       </Dialog>

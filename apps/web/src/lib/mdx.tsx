@@ -7,7 +7,10 @@ import Link from "next/link";
 import NextImage, { type ImageProps as NextImageProps } from "next/image";
 import { isValidElement, type ReactNode } from "react";
 
-type MdxImageProps = Omit<NextImageProps, "src" | "alt" | "width" | "height"> & {
+type MdxImageProps = Omit<
+  NextImageProps,
+  "src" | "alt" | "width" | "height"
+> & {
   src: string;
   alt: string;
   width: number | string;
@@ -16,7 +19,10 @@ type MdxImageProps = Omit<NextImageProps, "src" | "alt" | "width" | "height"> & 
   figureClassName?: string;
 };
 
-function toNumberDimension(value: number | string, name: "width" | "height"): number {
+function toNumberDimension(
+  value: number | string,
+  name: "width" | "height",
+): number {
   const parsed = typeof value === "number" ? value : Number(value);
 
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -41,7 +47,12 @@ function MdxImage({
   const numericHeight = toNumberDimension(height, "height");
 
   return (
-    <figure className={cn("my-8 w-full sm:-mx-8 sm:w-[calc(100%+4rem)]", figureClassName)}>
+    <figure
+      className={cn(
+        "my-8 w-full sm:-mx-8 sm:w-[calc(100%+4rem)]",
+        figureClassName,
+      )}
+    >
       <NextImage
         src={src}
         alt={alt}
@@ -117,7 +128,11 @@ export const mdxComponents: MDXComponents = {
     const headingText = getTextContent(children);
 
     return (
-      <h2 id={headingId} className="group text-h5 mb-4 mt-8 scroll-mt-28" {...props}>
+      <h2
+        id={headingId}
+        className="group text-h5 mb-4 mt-8 scroll-mt-28"
+        {...props}
+      >
         {children}
         {headingId ? (
           <a
@@ -136,7 +151,11 @@ export const mdxComponents: MDXComponents = {
     const headingText = getTextContent(children);
 
     return (
-      <h3 id={headingId} className="group text-h6 mb-3 mt-6 scroll-mt-28" {...props}>
+      <h3
+        id={headingId}
+        className="group text-h6 mb-3 mt-6 scroll-mt-28"
+        {...props}
+      >
         {children}
         {headingId ? (
           <a

@@ -93,20 +93,27 @@ export const qrExportRouter = createTRPCRouter({
         selectionMode === "all" ? input.selection.excludeIds ?? [] : [];
 
       try {
-        const verifiedDomain = await getVerifiedCustomDomain(brandCtx.db, brandId);
+        const verifiedDomain = await getVerifiedCustomDomain(
+          brandCtx.db,
+          brandId,
+        );
         if (!verifiedDomain) {
           throw badRequest(
             "A verified custom domain is required to export GS1 QR codes.",
           );
         }
 
-        const productIds = await resolveQrExportProductIds(brandCtx.db, brandId, {
-          selectionMode,
-          includeIds,
-          excludeIds,
-          filterState: input.filterState ?? null,
-          searchQuery: input.search ?? null,
-        });
+        const productIds = await resolveQrExportProductIds(
+          brandCtx.db,
+          brandId,
+          {
+            selectionMode,
+            includeIds,
+            excludeIds,
+            filterState: input.filterState ?? null,
+            searchQuery: input.search ?? null,
+          },
+        );
 
         const summary = await getQrExportSelectionSummary(
           brandCtx.db,

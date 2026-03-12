@@ -21,7 +21,9 @@ export function ManufacturersTable({
   selectedIds: string[];
   onSelectedIdsChange: (next: string[]) => void;
   onEditManufacturer: (manufacturer: ManufacturerListItem) => void;
-  onDeleteManufacturer: (manufacturer: ManufacturerListItem) => void | Promise<void>;
+  onDeleteManufacturer: (
+    manufacturer: ManufacturerListItem,
+  ) => void | Promise<void>;
   onCreateManufacturer: () => void;
   hasSearch: boolean;
 }) {

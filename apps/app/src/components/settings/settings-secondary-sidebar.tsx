@@ -31,7 +31,10 @@ export function SettingsSecondarySidebar() {
 
   return (
     <aside className="w-[244px] shrink-0 border-r border-border bg-background">
-      <nav className="h-full overflow-y-auto p-2" aria-label="Settings navigation">
+      <nav
+        className="h-full overflow-y-auto p-2"
+        aria-label="Settings navigation"
+      >
         <div className="flex flex-col gap-4">
           {SETTINGS_NAV_GROUPS.map((group) => (
             <section key={group.label} className="flex flex-col">

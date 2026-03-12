@@ -23,6 +23,9 @@ import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
 import { brandCreateSchema } from "../../../schemas/brand.js";
 import { assignableRoleSchema } from "../../../schemas/_shared/domain.js";
+import { createCheckoutSession } from "../../../lib/stripe/checkout.js";
+import { findOrCreateStripeCustomer } from "../../../lib/stripe/customer.js";
+import { createEnterpriseInvoice } from "../../../lib/stripe/invoice.js";
 import { badRequest, notFound, wrapError } from "../../../utils/errors.js";
 import {
   createTRPCRouter,
@@ -129,7 +132,7 @@ const platformPlanUpdateSchema = z
     sku_onboarding_limit: z.number().int().min(0).nullable().optional(),
     sku_limit_override: z.number().int().min(0).nullable().optional(),
     billing_mode: billingModeSchema.nullable().optional(),
-    custom_monthly_price_cents: z.number().int().min(0).nullable().optional(),
+    custom_price_cents: z.number().int().min(0).nullable().optional(),
   })
   .superRefine((value, ctx) => {
     if (
@@ -138,7 +141,7 @@ const platformPlanUpdateSchema = z
       value.sku_onboarding_limit === undefined &&
       value.sku_limit_override === undefined &&
       value.billing_mode === undefined &&
-      value.custom_monthly_price_cents === undefined
+      value.custom_price_cents === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -168,9 +171,6 @@ const platformAuditListSchema = z.object({
   page_size: z.number().int().min(1).max(100).default(25),
 });
 
-const platformBillingStubSchema = z.object({
-  brand_id: z.string().uuid(),
-});
 
 type InviteResultRow = {
   email: string;
@@ -472,7 +472,7 @@ export const platformAdminRouter = createTRPCRouter({
             stripeCustomerId: brandBilling.stripeCustomerId,
             stripeSubscriptionId: brandBilling.stripeSubscriptionId,
             planCurrency: brandBilling.planCurrency,
-            customMonthlyPriceCents: brandBilling.customMonthlyPriceCents,
+            customPriceCents: brandBilling.customPriceCents,
             billingAccessOverride: brandBilling.billingAccessOverride,
             billingOverrideExpiresAt: brandBilling.billingOverrideExpiresAt,
           })
@@ -579,7 +579,7 @@ export const platformAdminRouter = createTRPCRouter({
             stripe_customer_id: brand.stripeCustomerId,
             stripe_subscription_id: brand.stripeSubscriptionId,
             plan_currency: brand.planCurrency,
-            custom_monthly_price_cents: brand.customMonthlyPriceCents,
+            custom_price_cents: brand.customPriceCents,
             billing_access_override: brand.billingAccessOverride,
             billing_override_expires_at: brand.billingOverrideExpiresAt,
             events: billingEvents,
@@ -834,7 +834,7 @@ export const platformAdminRouter = createTRPCRouter({
 
         const billingUpdates: Partial<{
           billingMode: "stripe_checkout" | "stripe_invoice" | null;
-          customMonthlyPriceCents: number | null;
+          customPriceCents: number | null;
         }> = {};
 
         if (input.plan_type !== undefined) {
@@ -854,9 +854,9 @@ export const platformAdminRouter = createTRPCRouter({
         if (input.billing_mode !== undefined) {
           billingUpdates.billingMode = input.billing_mode;
         }
-        if (input.custom_monthly_price_cents !== undefined) {
-          billingUpdates.customMonthlyPriceCents =
-            input.custom_monthly_price_cents;
+        if (input.custom_price_cents !== undefined) {
+          billingUpdates.customPriceCents =
+            input.custom_price_cents;
         }
 
         if (Object.keys(planUpdates).length > 0) {
@@ -916,22 +916,155 @@ export const platformAdminRouter = createTRPCRouter({
       }),
 
     createCheckoutLink: platformAdminProcedure
-      .input(platformBillingStubSchema)
-      .mutation(async ({ input }) => ({
-        ok: false as const,
-        code: "U5_PENDING" as const,
-        brand_id: input.brand_id,
-        message: "Checkout link creation is part of Undertaking 5.",
-      })),
+      .input(
+        z.object({
+          brand_id: z.string().uuid(),
+          tier: z.enum(["starter", "growth", "scale"]),
+          interval: z.enum(["monthly", "yearly"]),
+          include_impact: z.boolean().default(false),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { db } = ctx;
+
+        // Only allow checkout for brands in trial or expired phase
+        const [lifecycle] = await db
+          .select({ phase: brandLifecycle.phase })
+          .from(brandLifecycle)
+          .where(eq(brandLifecycle.brandId, input.brand_id))
+          .limit(1);
+
+        if (
+          !lifecycle ||
+          !["trial", "expired"].includes(lifecycle.phase)
+        ) {
+          throw badRequest(
+            "Checkout links can only be created for brands in trial or expired phase. Use the Stripe Customer Portal for active or past_due brands.",
+          );
+        }
+
+        const [brand] = await db
+          .select({ name: brands.name, email: brands.email })
+          .from(brands)
+          .where(eq(brands.id, input.brand_id))
+          .limit(1);
+
+        if (!brand) {
+          throw notFound("Brand not found");
+        }
+
+        if (!brand.email) {
+          throw badRequest(
+            "Brand has no email set. Set the brand email first before creating a checkout link.",
+          );
+        }
+
+        const stripeCustomerId = await findOrCreateStripeCustomer({
+          brandId: input.brand_id,
+          brandName: brand.name,
+          email: brand.email,
+          db,
+        });
+
+        const appUrl = getAppUrl();
+        const session = await createCheckoutSession({
+          brandId: input.brand_id,
+          stripeCustomerId,
+          tier: input.tier,
+          interval: input.interval,
+          includeImpact: input.include_impact,
+          successUrl: `${appUrl}/settings/billing?checkout=success`,
+          cancelUrl: `${appUrl}/settings/billing?checkout=cancelled`,
+        });
+
+        await logPlatformAdminAction(ctx, {
+          action: "platform_admin.billing.create_checkout_link",
+          resourceType: "brand",
+          resourceId: input.brand_id,
+          payload: {
+            brandId: input.brand_id,
+            tier: input.tier,
+            interval: input.interval,
+            includeImpact: input.include_impact,
+            checkoutUrl: session.url,
+          },
+        });
+
+        return { ok: true as const, url: session.url };
+      }),
 
     createInvoice: platformAdminProcedure
-      .input(platformBillingStubSchema)
-      .mutation(async ({ input }) => ({
-        ok: false as const,
-        code: "U5_PENDING" as const,
-        brand_id: input.brand_id,
-        message: "Invoice creation is part of Undertaking 5.",
-      })),
+      .input(
+        z.object({
+          brand_id: z.string().uuid(),
+          amount_cents: z.number().int().positive(),
+          description: z.string().optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { db } = ctx;
+
+        const [brand] = await db
+          .select({ name: brands.name, email: brands.email })
+          .from(brands)
+          .where(eq(brands.id, input.brand_id))
+          .limit(1);
+
+        if (!brand) {
+          throw notFound("Brand not found");
+        }
+
+        // Verify brand is Enterprise
+        const [billing] = await db
+          .select({ billingMode: brandBilling.billingMode })
+          .from(brandBilling)
+          .where(eq(brandBilling.brandId, input.brand_id))
+          .limit(1);
+
+        if (billing?.billingMode !== "stripe_invoice") {
+          throw badRequest(
+            "Invoices can only be created for Enterprise brands (billing_mode = stripe_invoice)",
+          );
+        }
+
+        if (!brand.email) {
+          throw badRequest(
+            "Brand has no email set. Set the brand email first before creating an invoice.",
+          );
+        }
+
+        const stripeCustomerId = await findOrCreateStripeCustomer({
+          brandId: input.brand_id,
+          brandName: brand.name,
+          email: brand.email,
+          db,
+        });
+
+        const result = await createEnterpriseInvoice({
+          brandId: input.brand_id,
+          stripeCustomerId,
+          amountCents: input.amount_cents,
+          description: input.description ?? "Avelero Enterprise",
+        });
+
+        await logPlatformAdminAction(ctx, {
+          action: "platform_admin.billing.create_invoice",
+          resourceType: "brand",
+          resourceId: input.brand_id,
+          payload: {
+            brandId: input.brand_id,
+            amountCents: input.amount_cents,
+            description: input.description,
+            invoiceId: result.invoiceId,
+          },
+        });
+
+        return {
+          ok: true as const,
+          invoice_id: result.invoiceId,
+          invoice_url: result.invoiceUrl,
+        };
+      }),
   }),
 
   invites: createTRPCRouter({

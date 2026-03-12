@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   date,
   index,
@@ -36,6 +37,10 @@ export const brandPlan = pgTable(
     skusCreatedOnboarding: integer("skus_created_onboarding")
       .notNull()
       .default(0),
+    billingInterval: text("billing_interval"),
+    hasImpactPredictions: boolean("has_impact_predictions")
+      .notNull()
+      .default(false),
     maxSeats: integer("max_seats"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
@@ -68,6 +73,10 @@ export const brandPlan = pgTable(
     check(
       "brand_plan_skus_created_onboarding_check",
       sql`skus_created_onboarding >= 0`,
+    ),
+    check(
+      "brand_plan_billing_interval_check",
+      sql`billing_interval IS NULL OR billing_interval = ANY (ARRAY['monthly'::text, 'yearly'::text])`,
     ),
     check(
       "brand_plan_max_seats_check",

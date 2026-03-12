@@ -300,7 +300,7 @@ export async function createBrand(
       stripeCustomerId: null,
       stripeSubscriptionId: null,
       planCurrency: "EUR",
-      customMonthlyPriceCents: null,
+      customPriceCents: null,
       billingAccessOverride: "none",
       billingOverrideExpiresAt: null,
     });

@@ -12,6 +12,7 @@ import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { websocketManager } from "./lib/websocket-manager.js";
 import { integrationRoutes } from "./routes/integrations/index.js";
+import { webhookRoutes } from "./routes/webhooks/index.js";
 import { createTRPCContext } from "./trpc/init.js";
 import { appRouter } from "./trpc/routers/_app.js";
 
@@ -84,6 +85,17 @@ app.use(
  * - GET /integrations/shopify/callback - Handle Shopify OAuth callback
  */
 app.route("/integrations", integrationRoutes);
+
+/**
+ * Mount Stripe billing webhook route.
+ *
+ * This is a raw HTTP endpoint (not tRPC) because Stripe sends
+ * signed POST requests directly. Signature verification requires
+ * the raw request body.
+ *
+ * Endpoint: POST /webhooks/stripe
+ */
+app.route("/webhooks", webhookRoutes);
 
 /**
  * Lightweight health check endpoint used by hosting to confirm the API is up.

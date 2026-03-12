@@ -94,7 +94,7 @@ async function setBrandSubscriptionState(params: {
       stripeCustomerId: null,
       stripeSubscriptionId: null,
       planCurrency: "EUR",
-      customMonthlyPriceCents: null,
+      customPriceCents: null,
       billingAccessOverride: params.billingOverride ?? "none",
       billingOverrideExpiresAt: params.billingOverrideExpiresAt ?? null,
       updatedAt: now,

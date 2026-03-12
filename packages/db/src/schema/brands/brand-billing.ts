@@ -26,7 +26,7 @@ export const brandBilling = pgTable(
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
     planCurrency: text("plan_currency").notNull().default("EUR"),
-    customMonthlyPriceCents: integer("custom_monthly_price_cents"),
+    customPriceCents: integer("custom_price_cents"),
     billingAccessOverride: text("billing_access_override")
       .notNull()
       .default("none"),
@@ -51,8 +51,8 @@ export const brandBilling = pgTable(
       sql`char_length(plan_currency) = 3`,
     ),
     check(
-      "brand_billing_custom_monthly_price_check",
-      sql`custom_monthly_price_cents IS NULL OR custom_monthly_price_cents >= 0`,
+      "brand_billing_custom_price_check",
+      sql`custom_price_cents IS NULL OR custom_price_cents >= 0`,
     ),
     check(
       "brand_billing_access_override_check",

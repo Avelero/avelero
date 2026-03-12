@@ -116,7 +116,7 @@ export type Database = {
           billing_override_expires_at: string | null;
           brand_id: string;
           created_at: string;
-          custom_monthly_price_cents: number | null;
+          custom_price_cents: number | null;
           id: string;
           plan_currency: string;
           stripe_customer_id: string | null;
@@ -129,7 +129,7 @@ export type Database = {
           billing_override_expires_at?: string | null;
           brand_id: string;
           created_at?: string;
-          custom_monthly_price_cents?: number | null;
+          custom_price_cents?: number | null;
           id?: string;
           plan_currency?: string;
           stripe_customer_id?: string | null;
@@ -142,7 +142,7 @@ export type Database = {
           billing_override_expires_at?: string | null;
           brand_id?: string;
           created_at?: string;
-          custom_monthly_price_cents?: number | null;
+          custom_price_cents?: number | null;
           id?: string;
           plan_currency?: string;
           stripe_customer_id?: string | null;
@@ -723,8 +723,10 @@ export type Database = {
       };
       brand_plan: {
         Row: {
+          billing_interval: string | null;
           brand_id: string;
           created_at: string;
+          has_impact_predictions: boolean;
           id: string;
           max_seats: number | null;
           plan_selected_at: string | null;
@@ -738,8 +740,10 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          billing_interval?: string | null;
           brand_id: string;
           created_at?: string;
+          has_impact_predictions?: boolean;
           id?: string;
           max_seats?: number | null;
           plan_selected_at?: string | null;
@@ -753,8 +757,10 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          billing_interval?: string | null;
           brand_id?: string;
           created_at?: string;
+          has_impact_predictions?: boolean;
           id?: string;
           max_seats?: number | null;
           plan_selected_at?: string | null;

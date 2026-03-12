@@ -31,6 +31,7 @@
     "dataloader": "^2.2.3",
     "drizzle-orm": "^0.44.7",
     "hono": "^4.5.10",
+    "stripe": "^20.4.1",
     "supabase": "^2.34.3",
     "superjson": "^2.2.1",
     "tldts": "^7.0.19",

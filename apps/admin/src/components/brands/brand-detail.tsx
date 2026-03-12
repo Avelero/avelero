@@ -237,12 +237,25 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
   const [skuAnnualLimit, setSkuAnnualLimit] = useState("");
   const [skuOnboardingLimit, setSkuOnboardingLimit] = useState("");
   const [skuLimitOverride, setSkuLimitOverride] = useState("");
-  const [customMonthlyPriceCents, setCustomMonthlyPriceCents] = useState("");
+  const [customPriceCents, setCustomPriceCents] = useState("");
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"owner" | "member">("member");
 
   const [note, setNote] = useState("");
+
+  // Checkout link form state
+  const [checkoutTier, setCheckoutTier] = useState<
+    "starter" | "growth" | "scale"
+  >("starter");
+  const [checkoutInterval, setCheckoutInterval] = useState<
+    "monthly" | "yearly"
+  >("monthly");
+  const [checkoutIncludeImpact, setCheckoutIncludeImpact] = useState(false);
+
+  // Invoice form state
+  const [invoiceAmountCents, setInvoiceAmountCents] = useState("");
+  const [invoiceDescription, setInvoiceDescription] = useState("");
 
   const loading =
     brandQuery.isLoading || membersQuery.isLoading || invitesQuery.isLoading;
@@ -309,9 +322,9 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         ? String(brandData.plan.sku_limit_override)
         : "",
     );
-    setCustomMonthlyPriceCents(
-      brandData.billing.custom_monthly_price_cents !== null
-        ? String(brandData.billing.custom_monthly_price_cents)
+    setCustomPriceCents(
+      brandData.billing.custom_price_cents !== null
+        ? String(brandData.billing.custom_price_cents)
         : "",
     );
   }, [brandData]);
@@ -475,21 +488,35 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
     }),
   );
 
-  const checkoutStubMutation = useMutation(
+  const checkoutLinkMutation = useMutation(
     trpc.platformAdmin.billing.createCheckoutLink.mutationOptions({
       onSuccess: (result) => {
-        toast.error(result.message);
+        if (result.url) {
+          navigator.clipboard.writeText(result.url);
+          toast.success("Checkout link copied to clipboard");
+        } else {
+          toast.success("Checkout session created (no URL returned)");
+        }
       },
-      onError: (error) => toast.error(error.message || "Action unavailable"),
+      onError: (error) =>
+        toast.error(error.message || "Failed to create checkout link"),
     }),
   );
 
-  const invoiceStubMutation = useMutation(
+  const createInvoiceMutation = useMutation(
     trpc.platformAdmin.billing.createInvoice.mutationOptions({
       onSuccess: (result) => {
-        toast.error(result.message);
+        if (result.invoice_url) {
+          navigator.clipboard.writeText(result.invoice_url);
+          toast.success("Invoice created — URL copied to clipboard");
+        } else {
+          toast.success(`Invoice created: ${result.invoice_id}`);
+        }
+        setInvoiceAmountCents("");
+        setInvoiceDescription("");
       },
-      onError: (error) => toast.error(error.message || "Action unavailable"),
+      onError: (error) =>
+        toast.error(error.message || "Failed to create invoice"),
     }),
   );
 
@@ -709,12 +736,12 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
           onChange={setBillingMode}
           options={BILLING_MODE_OPTIONS}
         />
-        <FieldRow label="Custom monthly price (cents)">
+        <FieldRow label="Custom price (cents)">
           <Input
             type="number"
             placeholder="e.g. 4900"
-            value={customMonthlyPriceCents}
-            onChange={(e) => setCustomMonthlyPriceCents(e.target.value)}
+            value={customPriceCents}
+            onChange={(e) => setCustomPriceCents(e.target.value)}
           />
         </FieldRow>
         <FieldRow label="SKU annual limit">
@@ -762,8 +789,8 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
                   | "stripe_checkout"
                   | "stripe_invoice"
                   | null,
-                custom_monthly_price_cents: parseIntOrNull(
-                  customMonthlyPriceCents,
+                custom_price_cents: parseIntOrNull(
+                  customPriceCents,
                 ),
                 sku_annual_limit: parseIntOrNull(skuAnnualLimit),
                 sku_onboarding_limit: parseIntOrNull(skuOnboardingLimit),
@@ -793,22 +820,105 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
               {brandData.billing.stripe_subscription_id ?? "Not linked"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          {/* ── Checkout Link Form ──────────────────────────────── */}
+          <div className="border border-border p-3 space-y-2">
+            <p className="type-small font-medium text-primary">
+              Create Checkout Link
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <SimpleSelect
+                label="Tier"
+                value={checkoutTier}
+                onChange={setCheckoutTier}
+                options={[
+                  { value: "starter" as const, label: "Starter" },
+                  { value: "growth" as const, label: "Growth" },
+                  { value: "scale" as const, label: "Scale" },
+                ]}
+              />
+              <SimpleSelect
+                label="Interval"
+                value={checkoutInterval}
+                onChange={setCheckoutInterval}
+                options={[
+                  { value: "monthly" as const, label: "Monthly" },
+                  { value: "yearly" as const, label: "Yearly" },
+                ]}
+              />
+              <div className="flex items-end">
+                <label className="flex items-center gap-2 type-small text-secondary cursor-pointer pb-2">
+                  <input
+                    type="checkbox"
+                    checked={checkoutIncludeImpact}
+                    onChange={(e) =>
+                      setCheckoutIncludeImpact(e.target.checked)
+                    }
+                  />
+                  Include Impact
+                </label>
+              </div>
+            </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => checkoutStubMutation.mutate({ brand_id: brandId })}
-              disabled={checkoutStubMutation.isPending}
+              onClick={() =>
+                checkoutLinkMutation.mutate({
+                  brand_id: brandId,
+                  tier: checkoutTier,
+                  interval: checkoutInterval,
+                  include_impact: checkoutIncludeImpact,
+                })
+              }
+              disabled={checkoutLinkMutation.isPending}
             >
-              Create Checkout Session
+              {checkoutLinkMutation.isPending
+                ? "Creating…"
+                : "Create & Copy Link"}
             </Button>
+          </div>
+
+          {/* ── Invoice Form ───────────────────────────────────── */}
+          <div className="border border-border p-3 space-y-2">
+            <p className="type-small font-medium text-primary">
+              Create Enterprise Invoice
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <FieldRow label="Amount (cents)">
+                <Input
+                  value={invoiceAmountCents}
+                  onChange={(e) => setInvoiceAmountCents(e.target.value)}
+                  placeholder="e.g. 50000"
+                  type="number"
+                />
+              </FieldRow>
+              <FieldRow label="Description">
+                <Input
+                  value={invoiceDescription}
+                  onChange={(e) => setInvoiceDescription(e.target.value)}
+                  placeholder="Avelero Enterprise"
+                />
+              </FieldRow>
+            </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => invoiceStubMutation.mutate({ brand_id: brandId })}
-              disabled={invoiceStubMutation.isPending}
+              onClick={() => {
+                const cents = Number.parseInt(invoiceAmountCents, 10);
+                if (!cents || cents <= 0) {
+                  toast.error("Enter a valid amount in cents");
+                  return;
+                }
+                createInvoiceMutation.mutate({
+                  brand_id: brandId,
+                  amount_cents: cents,
+                  description: invoiceDescription || undefined,
+                });
+              }}
+              disabled={createInvoiceMutation.isPending}
             >
-              Create Invoice
+              {createInvoiceMutation.isPending
+                ? "Creating…"
+                : "Create & Copy Link"}
             </Button>
           </div>
         </div>

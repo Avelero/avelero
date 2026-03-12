@@ -704,9 +704,17 @@ export function DesignEditorProvider({
     section: "layout",
   });
 
+  /**
+   * Clear transient layout selection and preview state when leaving the tree.
+   */
   const navigateToSection = useCallback((section: NavigationSection) => {
     setNavigation({ level: "section", section });
     setSelectedNodeId(null);
+    setHoveredNodeId(null);
+    setActiveSectionId(null);
+    setActiveZoneId(null);
+    setActiveTarget(null);
+    setPreviewModalType(null);
   }, []);
 
   const navigateToComponent = useCallback((componentId: string) => {
@@ -747,9 +755,11 @@ export function DesignEditorProvider({
     setNavigation((prev) => {
       if (prev.level === "component") {
         setSelectedNodeId(null);
+        setHoveredNodeId(null);
         setActiveSectionId(null);
         setActiveZoneId(null);
         setActiveTarget(null);
+        setPreviewModalType(null);
         return { level: "section", section: "layout" };
       }
       if (prev.level === "section") {
@@ -761,6 +771,12 @@ export function DesignEditorProvider({
 
   const navigateToRoot = useCallback(() => {
     setNavigation({ level: "root" });
+    setSelectedNodeId(null);
+    setHoveredNodeId(null);
+    setActiveSectionId(null);
+    setActiveZoneId(null);
+    setActiveTarget(null);
+    setPreviewModalType(null);
   }, []);
 
   // ---------------------------------------------------------------------------

@@ -32,7 +32,12 @@ function resolveTypescale(
   scale: TypographyScale,
 ): Pick<
   React.CSSProperties,
-  "fontFamily" | "fontSize" | "fontWeight" | "lineHeight" | "letterSpacing"
+  | "fontFamily"
+  | "fontSize"
+  | "fontWeight"
+  | "lineHeight"
+  | "letterSpacing"
+  | "textTransform"
 > {
   return {
     fontFamily: `"${scale.fontFamily}", ${getFontFallback(scale.fontFamily)}`,
@@ -41,6 +46,7 @@ function resolveTypescale(
     lineHeight: scale.lineHeight,
     letterSpacing:
       scale.letterSpacing === 0 ? undefined : `${scale.letterSpacing}px`,
+    textTransform: scale.textTransform,
   };
 }
 
@@ -49,6 +55,9 @@ function applyTypographyOverrides(
   css: React.CSSProperties,
   override: StyleOverride,
 ): void {
+  if (override.fontFamily !== undefined) {
+    css.fontFamily = `"${override.fontFamily}", ${getFontFallback(override.fontFamily)}`;
+  }
   if (override.fontSize !== undefined) {
     css.fontSize = `${override.fontSize / 16}rem`;
   }
@@ -60,6 +69,9 @@ function applyTypographyOverrides(
   }
   if (override.letterSpacing !== undefined) {
     css.letterSpacing = `${override.letterSpacing}px`;
+  }
+  if (override.textTransform !== undefined) {
+    css.textTransform = override.textTransform;
   }
 }
 
@@ -98,7 +110,6 @@ function resolveOverride(
   applyTypographyOverrides(css, override);
 
   // Text
-  if (override.textTransform) css.textTransform = override.textTransform;
   if (override.textAlign) css.textAlign = override.textAlign;
 
   // Border radius

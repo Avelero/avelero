@@ -9,15 +9,15 @@
 import { MapPinIcon } from "@phosphor-icons/react/dist/ssr/MapPin";
 import { useState } from "react";
 import { Modal, OperatorModal } from "../../components";
+import { ModalLink } from "../../components/modal";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { useHapticTap } from "../../lib/haptics";
-import {
-  INTERACTIVE_HOVER_CLASS_NAME,
-  createInteractiveHoverStyle,
-} from "../../lib/interactive-hover";
+import { INTERACTIVE_HOVER_CLASS_NAME } from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
 import { getResolvedTextLineHeight } from "../../lib/text-line-height";
+import { createUnderlinedActionStyle } from "../../lib/underlined-action";
 import { toExternalHref } from "../../lib/url-utils";
+import type { CustomFont } from "../../types/passport";
 import type { SectionProps } from "../registry";
 import { getCountryName, transformJourney } from "../transforms";
 
@@ -31,7 +31,12 @@ type JourneyCompany = ReturnType<
   typeof transformJourney
 >[number]["companies"][number];
 
-function buildOperatorModalFacts(stageName: string, company: JourneyCompany) {
+function buildOperatorModalFacts(
+  stageName: string,
+  company: JourneyCompany,
+  modalStyles: Record<string, React.CSSProperties>,
+  customFonts?: CustomFont[],
+) {
   // Gather the operator details that should appear in the quick overview modal.
   const facts: Array<{
     key: string;
@@ -60,14 +65,15 @@ function buildOperatorModalFacts(stageName: string, company: JourneyCompany) {
       key: "Website",
       label: "Website",
       value: operatorHref ? (
-        <a
-          className="underline underline-offset-4"
+        <ModalLink
+          customFonts={customFonts}
           href={operatorHref}
           rel="noopener noreferrer"
+          styles={modalStyles}
           target="_blank"
         >
           {company.website}
-        </a>
+        </ModalLink>
       ) : (
         company.website
       ),
@@ -162,10 +168,10 @@ export function JourneySection({
 
   // Use resolved colors for the timeline and stage dividers, with border as fallback.
   const lineColor = s["card.line"]?.backgroundColor ?? "var(--border)";
-  const dotColor = s["card.dot"]?.backgroundColor ?? lineColor;
   const dividerColor = s.card?.borderColor ?? "var(--border)";
-  const operatorStyle = createInteractiveHoverStyle(s["card.operator"], {
-    color: true,
+  const operatorStyle = createUnderlinedActionStyle(s["card.operator"], {
+    customFonts: tokens.fonts,
+    defaultColor: tokens.colors.link,
   });
   const showExactLocation = modalContent?.showExactLocation !== false;
   const titleRowHeight = getResolvedTextLineHeight(
@@ -230,10 +236,9 @@ export function JourneySection({
                     <div
                       className="relative z-10 rounded-full"
                       style={{
-                        ...s["card.dot"],
                         width: `${TIMELINE_DOT_SIZE}px`,
                         height: `${TIMELINE_DOT_SIZE}px`,
-                        backgroundColor: dotColor,
+                        backgroundColor: lineColor,
                       }}
                     />
                   </div>
@@ -285,7 +290,7 @@ export function JourneySection({
                             <span className="min-w-0 break-words">
                               <button
                                 type="button"
-                                className={`inline cursor-pointer appearance-none border-0 bg-transparent p-0 align-baseline underline underline-offset-4 ${INTERACTIVE_HOVER_CLASS_NAME}`}
+                                className={`cursor-pointer appearance-none border-0 bg-transparent p-0 align-baseline ${INTERACTIVE_HOVER_CLASS_NAME}`}
                                 style={operatorStyle}
                                 onClick={() => {
                                   hapticTap();
@@ -337,10 +342,13 @@ export function JourneySection({
         if (!operator) return null;
         return (
           <OperatorModal
+            customFonts={tokens.fonts}
             description={`This operator is responsible for the ${operator.stageName.toLowerCase()} step recorded in the product journey.`}
             facts={buildOperatorModalFacts(
               operator.stageName,
               operator.company,
+              modalStyles ?? {},
+              tokens.fonts,
             )}
             mapQuery={buildOperatorMapQuery(
               operator.company,

@@ -21,6 +21,11 @@ export function Header({
 }: Props) {
   // Resolve the fixed header styles once and expose only the header shell for editor selection.
   const s = resolveStyles(header.styles, tokens);
+  const {
+    borderStyle: _borderStyle,
+    borderWidth: _borderWidth,
+    ...containerStyle
+  } = s.container ?? {};
   const logoUrl = header.logoUrl;
   const logoHeight = 24;
   const select = createFixedSelectionAttributes();
@@ -43,7 +48,7 @@ export function Header({
     <div
       {...headerSelection}
       className={positionClass}
-      style={{ ...s.container, ...positionStyle }}
+      style={{ ...containerStyle, ...positionStyle }}
     >
       <div
         className="flex items-center justify-center w-full border-b"

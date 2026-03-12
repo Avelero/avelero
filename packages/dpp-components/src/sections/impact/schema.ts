@@ -148,7 +148,7 @@ export const IMPACT_SCHEMA: SectionSchema = {
         typescale: "body",
         typographyDetached: true,
         fontWeight: 500,
-        color: "$mutedForeground",
+        color: "$link",
         textTransform: "none",
       },
       card: {

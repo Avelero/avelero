@@ -8,11 +8,9 @@
 import Image from "next/image";
 import { ImagePlaceholder } from "../../components/image-placeholder";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
-import {
-  INTERACTIVE_HOVER_CLASS_NAME,
-  createInteractiveHoverStyle,
-} from "../../lib/interactive-hover";
+import { INTERACTIVE_HOVER_CLASS_NAME } from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
+import { createUnderlinedActionStyle } from "../../lib/underlined-action";
 import type { SectionProps } from "../registry";
 
 type ImageCardId = "cardOne" | "cardTwo" | "cardThree";
@@ -119,8 +117,9 @@ export function ImageCardsSection({
   );
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const rootSelection = select("imageCards", "overlay");
-  const buttonStyle = createInteractiveHoverStyle(s.cardButton, {
-    color: true,
+  const buttonStyle = createUnderlinedActionStyle(s.cardButton, {
+    customFonts: tokens.fonts,
+    defaultColor: tokens.colors.link,
   });
 
   if (!content.title.trim() && visibleCards.length === 0) {
@@ -181,7 +180,7 @@ export function ImageCardsSection({
                           href={card.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`inline-flex w-fit underline underline-offset-4 ${INTERACTIVE_HOVER_CLASS_NAME}`}
+                          className={`w-fit ${INTERACTIVE_HOVER_CLASS_NAME}`}
                           style={buttonStyle}
                           aria-label="Read More (opens in new tab)"
                         >

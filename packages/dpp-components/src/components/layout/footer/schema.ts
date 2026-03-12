@@ -26,12 +26,6 @@ export const FOOTER_SCHEMA: FixedComponentSchema = {
         section: "Border",
       },
       {
-        type: "border",
-        path: "container.borderWidth",
-        label: "Border Width",
-        section: "Border",
-      },
-      {
         type: "color",
         path: "socialIcon.color",
         label: "Color",
@@ -120,7 +114,6 @@ export const FOOTER_SCHEMA: FixedComponentSchema = {
       container: {
         backgroundColor: "$background",
         borderColor: "$border",
-        borderWidth: 0,
       },
       brandName: {
         typescale: "body-sm",

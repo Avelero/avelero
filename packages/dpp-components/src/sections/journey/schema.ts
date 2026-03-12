@@ -114,13 +114,7 @@ export const JOURNEY_SCHEMA: SectionSchema = {
       {
         type: "color",
         path: "card.line.backgroundColor",
-        label: "Line Color",
-        section: "Timeline",
-      },
-      {
-        type: "color",
-        path: "card.dot.backgroundColor",
-        label: "Dot Color",
+        label: "Color",
         section: "Timeline",
       },
     ],
@@ -158,7 +152,6 @@ export const JOURNEY_SCHEMA: SectionSchema = {
       },
       "card.locationIcon": { color: "$mutedForeground", size: 14 },
       "card.line": { backgroundColor: "$muted" },
-      "card.dot": { backgroundColor: "$muted" },
     },
     content: {},
   },

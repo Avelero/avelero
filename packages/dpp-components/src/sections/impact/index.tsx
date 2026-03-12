@@ -14,11 +14,9 @@ import { useState } from "react";
 import { ImpactModal, Modal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { useHapticTap } from "../../lib/haptics";
-import {
-  INTERACTIVE_HOVER_CLASS_NAME,
-  createInteractiveHoverStyle,
-} from "../../lib/interactive-hover";
+import { INTERACTIVE_HOVER_CLASS_NAME } from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
+import { createUnderlinedActionStyle } from "../../lib/underlined-action";
 import type { SectionProps } from "../registry";
 import { transformImpactMetrics } from "../transforms";
 
@@ -68,8 +66,9 @@ export function ImpactSection({
   const hapticTap = useHapticTap();
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const rootSelection = select("impact");
-  const helpLinkStyle = createInteractiveHoverStyle(s.helpLink, {
-    color: true,
+  const helpLinkStyle = createUnderlinedActionStyle(s.helpLink, {
+    customFonts: tokens.fonts,
+    defaultColor: tokens.colors.link,
   });
 
   if (metrics.length === 0) return null;
@@ -90,7 +89,7 @@ export function ImpactSection({
           <h6 style={s.title}>Impact</h6>
           <button
             type="button"
-            className={`appearance-none border-0 bg-transparent p-0 underline underline-offset-4 cursor-pointer text-right ${INTERACTIVE_HOVER_CLASS_NAME}`}
+            className={`w-fit appearance-none border-0 bg-transparent p-0 cursor-pointer text-right ${INTERACTIVE_HOVER_CLASS_NAME}`}
             style={helpLinkStyle}
             onClick={() => {
               hapticTap();

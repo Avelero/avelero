@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Styles panel renderer for component-level style fields in the theme editor.
+ */
+
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -315,6 +319,49 @@ function organizeStyleFields(fields: StyleField[]): {
   return { sectionGroups, sectionOrder };
 }
 
+/**
+ * Split a style field path into its style key and property name.
+ */
+function splitStyleFieldPath(
+  path: string,
+): { styleKey: string; property: string } | null {
+  const separatorIndex = path.lastIndexOf(".");
+  if (separatorIndex <= 0 || separatorIndex >= path.length - 1) {
+    return null;
+  }
+
+  return {
+    styleKey: path.slice(0, separatorIndex),
+    property: path.slice(separatorIndex + 1),
+  };
+}
+
+/**
+ * Hide standalone capitalization fields when the typography field owns them.
+ */
+function filterTypographyCompanionFields(fields: StyleField[]): StyleField[] {
+  const typographyStyleKeys = new Set<string>();
+
+  for (const field of fields) {
+    if (field.type !== "typescale") continue;
+    const pathParts = splitStyleFieldPath(field.path);
+    if (!pathParts) continue;
+    typographyStyleKeys.add(pathParts.styleKey);
+  }
+
+  return fields.filter((field) => {
+    if (field.type !== "select") return true;
+
+    const pathParts = splitStyleFieldPath(field.path);
+    if (!pathParts) return true;
+
+    return !(
+      pathParts.property === "textTransform" &&
+      typographyStyleKeys.has(pathParts.styleKey)
+    );
+  });
+}
+
 // =============================================================================
 // STYLES SECTION (MAIN EXPORT)
 // =============================================================================
@@ -326,6 +373,7 @@ interface StylesSectionProps {
 export function StylesSection({ componentId }: StylesSectionProps) {
   const { passportDraft } = useDesignEditor();
   const component = resolveComponentForEditor(componentId, passportDraft);
+  const styleFields = filterTypographyCompanionFields(component?.styleFields || []);
   const [openSection, setOpenSection] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -341,7 +389,6 @@ export function StylesSection({ componentId }: StylesSectionProps) {
     );
   }
 
-  const styleFields = component.styleFields || [];
   const { sectionGroups, sectionOrder } = organizeStyleFields(styleFields);
 
   if (styleFields.length === 0) {

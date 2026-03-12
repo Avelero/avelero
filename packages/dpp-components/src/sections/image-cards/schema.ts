@@ -235,6 +235,8 @@ export const IMAGE_CARDS_SCHEMA: SectionSchema = {
       },
       cardButton: {
         typescale: "body",
+        typographyDetached: true,
+        fontWeight: 500,
         color: "$link",
         textTransform: "none",
       },

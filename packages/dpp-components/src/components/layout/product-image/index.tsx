@@ -547,25 +547,19 @@ export function ProductImage({ productImage, tokens, image, alt }: Props) {
   const mediaRootStyle: CSSProperties =
     mediaShape === "wider" ? {} : { maxHeight: "100%" };
 
-  // The product image renders at ~2× the size of section images, so the same
-  // border-radius appears proportionally halved. Double the resolved value so
-  // a "4 px" editor setting visually matches "4 px" on smaller components.
-  const rawFrameRadius = s.frame?.borderRadius;
-  const frameBorderRadius =
-    typeof rawFrameRadius === "string" && rawFrameRadius.endsWith("px")
-      ? `${Number.parseFloat(rawFrameRadius) * 2}px`
-      : rawFrameRadius;
-
   const imageStyle: CSSProperties =
     mediaShape === "wider"
-      ? { ...BASE_IMAGE_STYLE, height: "auto", borderRadius: frameBorderRadius }
-      : { ...BASE_IMAGE_STYLE, borderRadius: frameBorderRadius };
+      ? {
+          ...BASE_IMAGE_STYLE,
+          height: "auto",
+          borderRadius: s.frame?.borderRadius,
+        }
+      : { ...BASE_IMAGE_STYLE, borderRadius: s.frame?.borderRadius };
   const imageFrameStyle: CSSProperties = {
     boxSizing: "border-box",
     display: "block",
     overflow: "hidden",
     ...s.frame,
-    borderRadius: frameBorderRadius,
   };
 
   const transform = isMediaLoaded

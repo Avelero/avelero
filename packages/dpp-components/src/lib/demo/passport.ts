@@ -22,7 +22,9 @@ import {
   DEFAULT_TYPOGRAPHY,
 } from "../defaults/tokens";
 
-const bannerDemoDefaults = structuredClone(SECTION_REGISTRY.banner.schema.defaults);
+const bannerDemoDefaults = structuredClone(
+  SECTION_REGISTRY.banner.schema.defaults,
+);
 
 /** Create a demo section: styles from schema defaults, custom inline content. */
 function demoSection(

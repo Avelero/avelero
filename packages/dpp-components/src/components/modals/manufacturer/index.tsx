@@ -4,11 +4,13 @@
  * Manufacturer overview modal content.
  */
 
+import type { CustomFont } from "../../../types/passport";
 import {
   ModalBody,
   ModalContent,
   ModalDataTable,
   ModalDescription,
+  ModalLink,
   ModalSection,
   ModalStaticMap,
   ModalSubtitle,
@@ -22,6 +24,7 @@ import type {
 } from "../../modal";
 
 interface ManufacturerModalProps {
+  customFonts?: CustomFont[];
   description?: string;
   facts?: ModalDataTableRow[];
   mapQuery?: string | null;
@@ -31,38 +34,50 @@ interface ManufacturerModalProps {
   title?: string;
 }
 
-const DEFAULT_MANUFACTURER_FACTS: ModalDataTableRow[] = [
-  {
-    key: "Address",
-    label: "Address",
-    value: "Strawinskylaan 3051\n1077 ZX Amsterdam\nNetherlands",
-  },
-  {
-    key: "Website",
-    label: "Website",
-    value: (
-      <a
-        className="underline underline-offset-4"
-        href="https://example.com"
-        rel="noopener noreferrer"
-        target="_blank"
-      >
-        example.com
-      </a>
-    ),
-  },
-  { key: "Contact", label: "Contact", value: "hello@example.com" },
-];
+function getDefaultManufacturerFacts(
+  styles: ModalStyles,
+  customFonts?: CustomFont[],
+): ModalDataTableRow[] {
+  // Seed the preview with a styled external link alongside plain fact rows.
+  return [
+    {
+      key: "Address",
+      label: "Address",
+      value: "Strawinskylaan 3051\n1077 ZX Amsterdam\nNetherlands",
+    },
+    {
+      key: "Website",
+      label: "Website",
+      value: (
+        <ModalLink
+          customFonts={customFonts}
+          href="https://example.com"
+          rel="noopener noreferrer"
+          styles={styles}
+          target="_blank"
+        >
+          example.com
+        </ModalLink>
+      ),
+    },
+    { key: "Contact", label: "Contact", value: "hello@example.com" },
+  ];
+}
 
 export function ManufacturerModal({
+  customFonts,
   description = "This manufacturer is listed as the responsible producer for this product passport.",
-  facts = DEFAULT_MANUFACTURER_FACTS,
+  facts,
   mapQuery,
   select,
   styles,
   subtitle = "Manufacturer overview",
   title = "Atelier Nord",
 }: ManufacturerModalProps) {
+  // Fall back to the seeded fact rows only when runtime data is unavailable.
+  const resolvedFacts =
+    facts ?? getDefaultManufacturerFacts(styles, customFonts);
+
   return (
     <ModalContent styles={styles}>
       <ModalBody>
@@ -90,7 +105,7 @@ export function ManufacturerModal({
 
         <ModalSection>
           <ModalDataTable
-            rows={facts}
+            rows={resolvedFacts}
             select={select}
             styles={styles}
             valueClassName="whitespace-pre-line"

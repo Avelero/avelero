@@ -1,3 +1,8 @@
+/**
+ * App header shell.
+ *
+ * Renders the primary chrome for the main app and the theme editor.
+ */
 import { AnimatedAveleroIcon } from "@/components/animated-avelero-icon";
 import { HeaderNavigation } from "@/components/header-navigation";
 import { NotificationCenter } from "@/components/notifications/notification-center";
@@ -17,6 +22,7 @@ export function Header({
   disableLogoLink,
   variant = "default",
 }: HeaderProps) {
+  // Switch the leading chrome depending on whether the editor is active.
   const logoIsLink = !disableLogoLink;
   const isEditor = variant === "editor";
 
@@ -61,7 +67,6 @@ export function Header({
         <div className="flex min-w-0 flex-1 items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <HeaderNavigation />
-            {isEditor ? <EditorHeaderStatus /> : null}
           </div>
           <div className="flex items-center gap-4">
             {isEditor && <DataControl />}
@@ -75,20 +80,5 @@ export function Header({
         </div>
       </div>
     </header>
-  );
-}
-
-function EditorHeaderStatus() {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="relative flex items-center justify-center px-2 h-6 rounded-full bg-success-brand">
-        <div className="flex items-center justify-center h-[12px] w-[12px]">
-          <div className="h-2.5 w-2.5 rounded-full bg-success-brand-foreground" />
-        </div>
-        <p className="type-small leading-none text-success-brand-foreground ml-1.5">
-          Live
-        </p>
-      </div>
-    </div>
   );
 }

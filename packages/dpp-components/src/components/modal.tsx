@@ -8,6 +8,13 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import * as React from "react";
+import { resolveClosestAvailableFontWeight } from "../lib/google-fonts";
+import {
+  INTERACTIVE_HOVER_CLASS_NAME,
+  createInteractiveHoverStyle,
+} from "../lib/interactive-hover";
+import { createUnderlinedActionStyle } from "../lib/underlined-action";
+import type { CustomFont } from "../types/passport";
 import { DataTable } from "./data-table";
 
 const Modal = DialogPrimitive.Root;
@@ -35,6 +42,39 @@ export function getModalSelectionProps(
 ) {
   // Resolve editor selection attributes only when a section passes a scoped getter.
   return select?.(slotId) ?? {};
+}
+
+function formatModalBorderRadius(
+  value: React.CSSProperties["borderRadius"],
+): string | undefined {
+  // Normalize modal radius values into a CSS custom property friendly string.
+  if (typeof value === "number") {
+    return `${value}px`;
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return undefined;
+}
+
+function getRequestedFontWeight(
+  value: React.CSSProperties["fontWeight"],
+): number {
+  // Normalize modal action weights before snapping them to an available font weight.
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsedValue = Number.parseInt(value, 10);
+    if (!Number.isNaN(parsedValue)) {
+      return parsedValue;
+    }
+  }
+
+  return 500;
 }
 
 interface ModalPortalProps
@@ -127,6 +167,7 @@ const ModalContent = React.forwardRef<
   // Compose ModalBody, ModalHeader, and ModalFooter as children to build the layout.
   const contentStyle = getModalSlotStyle(styles, "modal.container", style);
   const { borderRadius: themeRadius, ...restContentStyle } = contentStyle;
+  const modalBorderRadius = formatModalBorderRadius(themeRadius);
 
   return (
     <ModalPortal container={portalContainer}>
@@ -142,12 +183,10 @@ const ModalContent = React.forwardRef<
             backgroundColor: "var(--card, #FFFFFF)",
             borderStyle: "solid",
             color: "var(--foreground, #1E2040)",
-            ...(themeRadius != null
+            ...(modalBorderRadius
               ? {
-                  "--modal-border-radius":
-                    typeof themeRadius === "number"
-                      ? `${themeRadius}px`
-                      : String(themeRadius),
+                  "--modal-border-radius": modalBorderRadius,
+                  borderRadius: "var(--modal-border-radius)",
                 }
               : {}),
             ...restContentStyle,
@@ -341,7 +380,10 @@ function ModalValue({ className, style, styles, ...props }: ModalValueProps) {
   // Render the value slot paired with modal labels and descriptive facts.
   return (
     <div
-      className={cn("whitespace-pre-line text-sm leading-6", className)}
+      className={cn(
+        "dpp-modal-value whitespace-pre-line text-sm leading-6",
+        className,
+      )}
       style={getModalSlotStyle(styles, "modal.value", style)}
       {...props}
     />
@@ -461,6 +503,92 @@ interface ModalDataTableProps {
   valueClassName?: string;
 }
 
+interface ModalLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+  customFonts?: CustomFont[];
+  select?: ModalSelectionGetter;
+  styles?: ModalStyles;
+}
+
+function ModalLink({
+  children,
+  className,
+  customFonts,
+  select,
+  style,
+  styles,
+  ...props
+}: ModalLinkProps) {
+  // Render the shared underlined link used inside modal fact tables.
+  const linkStyle = createUnderlinedActionStyle(
+    getModalSlotStyle(styles, "modal.link", style),
+    {
+      customFonts,
+      defaultColor: "var(--link)",
+    },
+  );
+
+  return (
+    <a
+      {...getModalSelectionProps(select, "modal.link")}
+      className={cn("w-fit", INTERACTIVE_HOVER_CLASS_NAME, className)}
+      style={linkStyle}
+      {...props}
+    >
+      {children}
+    </a>
+  );
+}
+
+interface ModalFooterButtonProps
+  extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+  customFonts?: CustomFont[];
+  select?: ModalSelectionGetter;
+  styles?: ModalStyles;
+}
+
+function ModalFooterButton({
+  children,
+  className,
+  customFonts,
+  select,
+  style,
+  styles,
+  ...props
+}: ModalFooterButtonProps) {
+  // Render the shared modal footer CTA so the editor can style it explicitly.
+  const baseStyle = getModalSlotStyle(styles, "modal.footerButton", style);
+  const buttonStyle = createInteractiveHoverStyle(
+    {
+      ...baseStyle,
+      fontWeight: resolveClosestAvailableFontWeight(
+        typeof baseStyle.fontFamily === "string"
+          ? baseStyle.fontFamily
+          : undefined,
+        getRequestedFontWeight(baseStyle.fontWeight),
+        customFonts,
+      ),
+    },
+    {
+      background: true,
+    },
+  );
+
+  return (
+    <a
+      {...getModalSelectionProps(select, "modal.footerButton")}
+      className={cn(
+        "inline-flex w-full items-center justify-center gap-2 px-4 py-4",
+        INTERACTIVE_HOVER_CLASS_NAME,
+        className,
+      )}
+      style={buttonStyle}
+      {...props}
+    >
+      {children}
+    </a>
+  );
+}
+
 function ModalDataTable({
   className,
   gridTemplateColumns,
@@ -485,6 +613,7 @@ function ModalDataTable({
       className={className}
       gridTemplateColumns={gridTemplateColumns}
       labelStyle={styles?.["modal.label"]}
+      rowClassName="py-md"
       rows={tableRows}
       valueClassName={cn("whitespace-normal break-all", valueClassName)}
       valueStyle={styles?.["modal.value"]}
@@ -570,5 +699,7 @@ export {
   ModalValue,
   ModalField,
   ModalDataTable,
+  ModalLink,
   ModalStaticMap,
+  ModalFooterButton,
 };

@@ -61,6 +61,15 @@ function getSectionRootNodeId(
   });
 }
 
+/**
+ * Resolve the row background treatment for hover and selected states.
+ */
+function getTreeRowStateClass(isSelected: boolean, isHovered: boolean): string {
+  if (isSelected) return "bg-accent-blue";
+  if (isHovered) return "bg-accent";
+  return "";
+}
+
 // =============================================================================
 // INSERT LINE
 // =============================================================================
@@ -145,12 +154,18 @@ interface FixedItemProps {
 }
 
 function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
-  const { hoveredNodeId, navigateToComponent, setSelectedNodeId } =
+  const { hoveredNodeId, navigateToComponent, navigation, setSelectedNodeId } =
     useDesignEditor();
   const isEditable =
     hasEditableContent(componentDef) || hasConfigContent(componentDef);
   const rootNodeId = isEditable ? getFixedNodeId(componentDef.id) : null;
   const isHovered = rootNodeId !== null && hoveredNodeId === rootNodeId;
+  const isSelected =
+    navigation.level === "component" &&
+    navigation.section === "layout" &&
+    !!navigation.componentId &&
+    (navigation.componentId === componentDef.id ||
+      navigation.componentId.startsWith(`${componentDef.id}.`));
 
   const handleClick = () => {
     if (isEditable && rootNodeId) {
@@ -162,8 +177,8 @@ function FixedItem({ componentDef, onItemHover }: FixedItemProps) {
   return (
     <div
       className={cn(
-        "relative flex items-center w-full h-7 rounded hover:bg-accent",
-        isHovered && "bg-accent",
+        "relative flex items-center w-full h-7 rounded",
+        getTreeRowStateClass(isSelected, isHovered),
         isEditable ? "cursor-pointer" : "cursor-default",
       )}
       onClick={handleClick}
@@ -202,6 +217,7 @@ interface SharedModalItemProps {
 function SharedModalItem({ onItemHover }: SharedModalItemProps) {
   const {
     hoveredNodeId,
+    navigation,
     previewModalType,
     setPreviewModalType,
     navigateToComponent,
@@ -213,14 +229,21 @@ function SharedModalItem({ onItemHover }: SharedModalItemProps) {
     ? hasEditableContent(editorTree) || hasConfigContent(editorTree)
     : false;
   const rootNodeId = editorTree ? getFixedNodeId(editorTree.id) : null;
-  const isActive = previewModalType === editorTree?.id;
+  const isPreviewActive = previewModalType === editorTree?.id;
   const isHovered = rootNodeId !== null && hoveredNodeId === rootNodeId;
+  const isSelected =
+    navigation.level === "component" &&
+    navigation.section === "layout" &&
+    !!navigation.componentId &&
+    (navigation.componentId === editorTree?.id ||
+      navigation.componentId === "modal" ||
+      navigation.componentId.startsWith("modal."));
 
   const handleRowClick = () => {
     if (!isEditable || !editorTree || !rootNodeId) return;
 
     // Toggle the shared modal preview and route the detail panel to the modal editor.
-    setPreviewModalType(isActive ? null : editorTree.id);
+    setPreviewModalType(isPreviewActive ? null : editorTree.id);
     setSelectedNodeId(rootNodeId);
     navigateToComponent(editorTree.id);
   };
@@ -228,8 +251,8 @@ function SharedModalItem({ onItemHover }: SharedModalItemProps) {
   return (
     <div
       className={cn(
-        "relative flex items-center w-full h-7 rounded hover:bg-accent",
-        (isActive || isHovered) && "bg-accent",
+        "relative flex items-center w-full h-7 rounded",
+        getTreeRowStateClass(isSelected || isPreviewActive, isHovered),
         isEditable ? "cursor-pointer" : "cursor-default",
       )}
       onClick={handleRowClick}
@@ -323,9 +346,8 @@ function SortableSectionItem({
     >
       <div
         className={cn(
-          "group/instance relative flex items-center w-full h-7 rounded hover:bg-accent",
-          isSelected && "bg-accent",
-          isHovered && "bg-accent",
+          "group/instance relative flex items-center w-full h-7 rounded",
+          getTreeRowStateClass(isSelected, isHovered),
           rootIsEditable ? "cursor-pointer" : "cursor-default",
         )}
         onClick={handleMainClick}

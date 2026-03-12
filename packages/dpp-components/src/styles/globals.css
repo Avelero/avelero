@@ -14,6 +14,8 @@
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 
     /* Header height: padding (20px * 2) + logo (24px) + border (1px) */
     --header-height: calc(40px + 24px + 1px);
@@ -70,8 +72,8 @@
   }
 
   .dpp-root ::selection {
-    background-color: var(--primary);
-    color: var(--primary-foreground);
+    background-color: #0000FF;
+    color: #FFFFFF;
   }
 }
 
@@ -199,7 +201,7 @@
     bottom: 0;
     width: 100%;
     max-height: calc(90dvh);
-    border-radius: var(--modal-border-radius, 28px) var(--modal-border-radius, 28px) 0 0;
+    border-radius: var(--modal-border-radius, 28px);
     transform: translate3d(0, 100%, 0);
     transform-origin: bottom center;
     will-change: transform, opacity;
@@ -220,7 +222,7 @@
       color-mix(in srgb, var(--card, #FFFFFF) 25%, transparent) 75%,
       transparent 100%
     );
-    border-radius: var(--modal-border-radius, 28px) var(--modal-border-radius, 28px) 0 0;
+    border-radius: var(--modal-border-radius, 28px);
     z-index: 5;
     pointer-events: none;
   }
@@ -261,7 +263,7 @@
     }
 
     .dpp-native-dialog__content::after {
-      border-radius: var(--modal-border-radius, 28px) var(--modal-border-radius, 28px) 0 0;
+      border-radius: var(--modal-border-radius, 28px);
     }
 
     .dpp-native-dialog__content::before {

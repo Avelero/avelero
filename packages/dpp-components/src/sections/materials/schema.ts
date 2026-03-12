@@ -113,13 +113,13 @@ export const MATERIALS_SCHEMA: SectionSchema = {
       },
       {
         type: "color",
-        path: "card.certification.color",
+        path: "card.certText.color",
         label: "Color",
         section: "Certification Type",
       },
       {
         type: "typescale",
-        path: "card.certification.typescale",
+        path: "card.certText.typescale",
         label: "Typography",
         section: "Certification Type",
       },
@@ -137,13 +137,13 @@ export const MATERIALS_SCHEMA: SectionSchema = {
       },
       {
         type: "color",
-        path: "card.certText.color",
+        path: "card.certLabel.color",
         label: "Color",
         section: "Certification Label",
       },
       {
         type: "typescale",
-        path: "card.certText.typescale",
+        path: "card.certLabel.typescale",
         label: "Typography",
         section: "Certification Label",
       },
@@ -153,11 +153,9 @@ export const MATERIALS_SCHEMA: SectionSchema = {
         label: "Icon Color",
         section: "Certification Label",
       },
-    ],
-    configFields: [
       {
         type: "toggle",
-        path: "showCertificationCheckIcon",
+        path: "card.certIcon.visible",
         label: "Show Check Icon",
         section: "Certification Label",
       },
@@ -190,15 +188,17 @@ export const MATERIALS_SCHEMA: SectionSchema = {
       },
       "card.locationIcon": { color: "$mutedForeground", size: 14 },
       "card.certification": {
+        backgroundColor: "$muted",
+        borderRadius: 9999,
+      },
+      "card.certLabel": {
         typescale: "body-sm",
         typographyDetached: true,
         lineHeight: 2,
         color: "$cardForeground",
-        backgroundColor: "$muted",
-        borderRadius: 9999,
         textTransform: "none",
       },
-      "card.certIcon": { color: "$cardForeground", size: 14 },
+      "card.certIcon": { color: "$cardForeground", size: 14, visible: false },
       "card.certText": {
         typescale: "body",
         typographyDetached: true,
@@ -207,8 +207,6 @@ export const MATERIALS_SCHEMA: SectionSchema = {
         textTransform: "none",
       },
     },
-    content: {
-      showCertificationCheckIcon: false,
-    },
+    content: {},
   },
 };

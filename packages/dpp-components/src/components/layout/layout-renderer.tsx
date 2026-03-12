@@ -36,8 +36,8 @@ function getSidebarSectionWrapperClassName(
 
 /** Builds the shared canvas section shell classes for consistent alignment. */
 function getCanvasSectionWrapperClassName(): string {
-  // Keep every canvas block aligned to the shared content container.
-  return "max-w-container py-8 mx-auto w-full @md:px-md";
+  // Keep every canvas block aligned to the shared content container while increasing desktop vertical spacing.
+  return "max-w-container py-8 mx-auto w-full @md:px-md @md:py-16";
 }
 
 export function LayoutRenderer({

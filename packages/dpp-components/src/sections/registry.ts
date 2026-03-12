@@ -29,8 +29,10 @@ import { MaterialsSection } from "./materials";
 import { MATERIALS_SCHEMA } from "./materials/schema";
 import { SeparatorSection } from "./separator";
 import { SEPARATOR_SCHEMA } from "./separator/schema";
+import { TextSection } from "./text";
 import { TextImageSection } from "./text-image";
 import { TEXT_IMAGE_SCHEMA } from "./text-image/schema";
+import { TEXT_SCHEMA } from "./text/schema";
 
 // Re-export editor types for backward compatibility — section schemas and
 // renderers import SectionSchema, SectionProps, ComponentDefinition etc. from
@@ -67,6 +69,7 @@ export const SECTION_REGISTRY: Record<SectionType, SectionRegistryEntry> = {
     schema: IMAGE_CARDS_SCHEMA,
     component: ImageCardsSection,
   },
+  text: { schema: TEXT_SCHEMA, component: TextSection },
   textImage: { schema: TEXT_IMAGE_SCHEMA, component: TextImageSection },
   separator: { schema: SEPARATOR_SCHEMA, component: SeparatorSection },
 };

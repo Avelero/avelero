@@ -26,12 +26,6 @@ export const HEADER_SCHEMA: FixedComponentSchema = {
         section: "Border",
       },
       {
-        type: "border",
-        path: "container.borderWidth",
-        label: "Border Width",
-        section: "Border",
-      },
-      {
         type: "color",
         path: "textLogo.color",
         label: "Color",
@@ -58,7 +52,6 @@ export const HEADER_SCHEMA: FixedComponentSchema = {
       container: {
         backgroundColor: "$background",
         borderColor: "$border",
-        borderWidth: 0,
       },
       textLogo: { color: "$foreground", textTransform: "none" },
     },

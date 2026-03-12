@@ -20,6 +20,7 @@ import {
 } from "@v1/dpp-components";
 
 interface ThemeEditorModalPreviewProps {
+  customFonts?: Passport["tokens"]["fonts"];
   data: DppData;
   modal: Passport["modal"];
   modalStyles: Record<string, React.CSSProperties>;
@@ -40,6 +41,7 @@ const DEFAULT_PREVIEW_CERTIFICATION: MaterialCertification = {
 };
 
 export function ThemeEditorModalPreview({
+  customFonts,
   data,
   modal,
   modalStyles,
@@ -73,7 +75,15 @@ export function ThemeEditorModalPreview({
         description={buildCertificationModalDescription(
           certifiedMaterial?.material ?? "recycled polyester",
         )}
-        facts={buildCertificationModalFacts(certification)}
+        customFonts={customFonts}
+        facts={buildCertificationModalFacts(
+          certification,
+          modalStyles,
+          customFonts,
+          {
+            onClick: (event) => event.preventDefault(),
+          },
+        )}
         footerLinkProps={{
           onClick: (event) => event.preventDefault(),
         }}

@@ -95,8 +95,8 @@ export const DESCRIPTION_SCHEMA: SectionSchema = {
       showMore: {
         typescale: "body",
         typographyDetached: true,
-        fontWeight: 600,
-        color: "$foreground",
+        fontWeight: 500,
+        color: "$link",
         textTransform: "none",
       },
     },

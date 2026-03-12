@@ -76,6 +76,32 @@ export const SHARED_MODAL_SCHEMA: FixedComponentSchema = {
       ...createTypographyFields("modal.description", "Description"),
       ...createTypographyFields("modal.label", "Label"),
       ...createTypographyFields("modal.value", "Value"),
+      ...createTypographyFields("modal.link", "Link"),
+      {
+        type: "color",
+        path: "modal.footerButton.backgroundColor",
+        label: "Background Color",
+        section: "Footer Button",
+      },
+      {
+        type: "color",
+        path: "modal.footerButton.borderColor",
+        label: "Border Color",
+        section: "Footer Button",
+      },
+      {
+        type: "border",
+        path: "modal.footerButton.borderWidth",
+        label: "Border Width",
+        section: "Footer Button",
+      },
+      {
+        type: "radius",
+        path: "modal.footerButton.borderRadius",
+        label: "Corner Radius",
+        section: "Footer Button",
+      },
+      ...createTypographyFields("modal.footerButton", "Footer Button"),
       {
         type: "number",
         path: "modal.map.aspectRatio",
@@ -133,6 +159,24 @@ export const SHARED_MODAL_SCHEMA: FixedComponentSchema = {
       "modal.value": {
         typescale: "body",
         color: "$foreground",
+        textTransform: "none",
+      },
+      "modal.link": {
+        typescale: "body",
+        typographyDetached: true,
+        fontWeight: 500,
+        color: "$link",
+        textTransform: "none",
+      },
+      "modal.footerButton": {
+        typescale: "body",
+        typographyDetached: true,
+        fontWeight: 500,
+        color: "$card",
+        backgroundColor: "$foreground",
+        borderColor: "$foreground",
+        borderRadius: 9999,
+        borderWidth: 0,
         textTransform: "none",
       },
       "modal.map": {

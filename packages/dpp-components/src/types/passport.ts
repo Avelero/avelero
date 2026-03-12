@@ -31,6 +31,7 @@ export interface TypographyScale {
   fontWeight: number;
   lineHeight: number;
   letterSpacing: number; // px
+  textTransform: "none" | "uppercase" | "lowercase" | "capitalize";
 }
 
 export type TypeScale =
@@ -73,6 +74,7 @@ export interface StyleOverride {
   height?: number;
   typescale?: TypeScale;
   typographyDetached?: boolean;
+  fontFamily?: string;
   fontSize?: number;
   fontWeight?: number;
   lineHeight?: number;
@@ -93,6 +95,7 @@ export interface StyleOverride {
   alignItems?: string;
   justifyContent?: string;
   size?: number; // icon width/height in px
+  visible?: boolean;
 }
 
 /** Map of element names to their style overrides. Keys are local to the section type. */
@@ -113,6 +116,7 @@ export type SectionType =
   | "banner"
   | "carousel"
   | "imageCards"
+  | "text"
   | "textImage"
   | "separator";
 

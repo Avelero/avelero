@@ -1,7 +1,15 @@
 "use client";
 
+/**
+ * Custom font management modal for uploading and removing brand fonts.
+ */
+
 import { useUpload } from "@/hooks/use-upload";
-import { normalizeFontFamily, parseFontFile } from "@/utils/font-parser";
+import {
+  type ParsedFontMetadata,
+  normalizeFontFamily,
+  parseFontFile,
+} from "@/utils/font-parser";
 import { UPLOAD_CONFIGS, buildStoragePath } from "@/utils/storage-config";
 import { FONT_EXTENSIONS, validateFontFile } from "@/utils/upload";
 import type { CustomFont } from "@v1/dpp-components";
@@ -19,10 +27,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { toast } from "@v1/ui/sonner";
 import { useCallback, useMemo, useRef, useState } from "react";
 
-// ============================================================================
-// Types
-// ============================================================================
-
 interface CustomFontsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,6 +38,77 @@ interface CustomFontsModalProps {
 interface GroupedFont {
   family: string;
   variants: CustomFont[];
+}
+
+/**
+ * Normalize a stored font weight into a stable comparison key.
+ */
+function normalizeFontWeightValue(weight: number | string | undefined): string {
+  if (weight === undefined) return "400";
+  if (typeof weight === "number") return String(weight);
+  return weight.trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Build a stable variant key used for duplicate detection.
+ */
+function getFontVariantKey(font: {
+  fontFamily: string;
+  fontWeight?: number | string;
+  fontStyle?: string;
+}): string {
+  return [
+    normalizeFontFamily(font.fontFamily),
+    normalizeFontWeightValue(font.fontWeight),
+    font.fontStyle?.toLowerCase() ?? "normal",
+  ].join(":");
+}
+
+/**
+ * Extract the file extension for a font upload.
+ */
+function getFontFileExtension(file: File, metadata: ParsedFontMetadata): string {
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  if (ext && FONT_EXTENSIONS.includes(ext as (typeof FONT_EXTENSIONS)[number])) {
+    return ext;
+  }
+
+  switch (metadata.format) {
+    case "woff2":
+      return "woff2";
+    case "woff":
+      return "woff";
+    case "opentype":
+      return "otf";
+    default:
+      return "ttf";
+  }
+}
+
+/**
+ * Build a deterministic filename for a parsed font variant.
+ */
+function buildFontFilename(file: File, metadata: ParsedFontMetadata): string {
+  const family = normalizeFontFamily(metadata.fontFamily);
+  const weight = normalizeFontWeightValue(metadata.fontWeight).replace(/\s+/g, "-");
+  const style = metadata.fontStyle;
+  const ext = getFontFileExtension(file, metadata);
+
+  return `${family}-${weight}-${style}.${ext}`;
+}
+
+/**
+ * Sort fonts by their numeric weight so families render in a stable order.
+ */
+function getSortableWeight(font: CustomFont): number {
+  if (typeof font.fontWeight === "number") {
+    return font.fontWeight;
+  }
+
+  return Number.parseInt(
+    String(font.fontWeight ?? 400).split(" ")[0] ?? "400",
+    10,
+  );
 }
 
 // ============================================================================
@@ -48,10 +123,10 @@ export function CustomFontsModal({
   onFontsChange,
 }: CustomFontsModalProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploadingBatch, setIsUploadingBatch] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isLoading } = useUpload();
 
-  // Group fonts by family for display
   const groupedFonts = useMemo(() => {
     const groups = new Map<string, CustomFont[]>();
 
@@ -63,126 +138,114 @@ export function CustomFontsModal({
     return Array.from(groups.entries()).map(
       ([family, variants]): GroupedFont => ({
         family,
-        variants: variants.sort((a, b) => {
-          // Sort by weight (numeric comparison for single weights)
-          const weightA =
-            typeof a.fontWeight === "number"
-              ? a.fontWeight
-              : Number.parseInt(
-                  String(a.fontWeight ?? 400).split(" ")[0] ?? "400",
-                ) || 400;
-          const weightB =
-            typeof b.fontWeight === "number"
-              ? b.fontWeight
-              : Number.parseInt(
-                  String(b.fontWeight ?? 400).split(" ")[0] ?? "400",
-                ) || 400;
-          return weightA - weightB;
-        }),
+        variants: variants.sort((a, b) => getSortableWeight(a) - getSortableWeight(b)),
       }),
     );
   }, [customFonts]);
 
-  // Handle file upload
-  const handleFile = useCallback(
-    async (file: File) => {
-      // 1. Validate extension
-      const validation = validateFontFile(file, {
-        maxBytes: UPLOAD_CONFIGS.font.maxBytes,
-      });
-      if (!validation.valid) {
-        toast.error(validation.error);
-        return;
-      }
+  /**
+   * Parse, dedupe, upload, and commit a selected batch of font files.
+   */
+  const handleFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+
+      setIsUploadingBatch(true);
+      const acceptedFonts: CustomFont[] = [];
+      const seenVariantKeys = new Set(customFonts.map(getFontVariantKey));
 
       try {
-        // 2. Parse metadata (auto-detect family, weight, style)
-        const metadata = await parseFontFile(file);
-        const family = normalizeFontFamily(metadata.fontFamily);
+        for (const file of files) {
+          const validation = validateFontFile(file, {
+            maxBytes: UPLOAD_CONFIGS.font.maxBytes,
+          });
 
-        // 3. Build filename and upload
-        const weightStr =
-          typeof metadata.fontWeight === "string"
-            ? metadata.fontWeight.replace(" ", "-")
-            : String(metadata.fontWeight);
-        const filename = `${family}-${weightStr}-${metadata.fontStyle}.${metadata.format}`;
+          if (!validation.valid) {
+            toast.error(validation.error);
+            continue;
+          }
 
-        const result = await uploadFile({
-          file,
-          bucket: UPLOAD_CONFIGS.font.bucket,
-          path: buildStoragePath.font(brandId, filename).split("/"),
-          isPublic: true,
-          validation: () => ({ valid: true }), // Already validated above
-        });
+          try {
+            const metadata = await parseFontFile(file);
+            const variantKey = getFontVariantKey(metadata);
 
-        // 4. Build CustomFont object
-        const newFont: CustomFont = {
-          fontFamily: metadata.fontFamily, // Use original name for display
-          src: result.displayUrl,
-          fontWeight: metadata.fontWeight,
-          fontStyle: metadata.fontStyle,
-          format: metadata.format,
-          fontDisplay: "swap",
-        };
+            if (seenVariantKeys.has(variantKey)) {
+              toast.error(
+                `${metadata.fontFamily} (${formatWeight(metadata.fontWeight)}, ${metadata.fontStyle}) already exists.`,
+              );
+              continue;
+            }
 
-        // 5. Check for duplicates (same family + weight + style)
-        const isDuplicate = customFonts.some(
-          (f) =>
-            f.fontFamily.toLowerCase() === newFont.fontFamily.toLowerCase() &&
-            String(f.fontWeight) === String(newFont.fontWeight) &&
-            f.fontStyle === newFont.fontStyle,
-        );
+            const filename = buildFontFilename(file, metadata);
+            const result = await uploadFile({
+              file,
+              bucket: UPLOAD_CONFIGS.font.bucket,
+              path: buildStoragePath.font(brandId, filename).split("/"),
+              isPublic: true,
+              upsert: false,
+              validation: () => ({ valid: true }),
+            });
 
-        if (isDuplicate) {
-          toast.error(
-            `${metadata.fontFamily} (${formatWeight(metadata.fontWeight)}, ${metadata.fontStyle}) already exists.`,
-          );
-          return;
+            const newFont: CustomFont = {
+              fontFamily: metadata.fontFamily,
+              src: result.displayUrl,
+              fontWeight: metadata.fontWeight,
+              fontStyle: metadata.fontStyle,
+              format: metadata.format,
+              fontDisplay: "swap",
+            };
+
+            acceptedFonts.push(newFont);
+            seenVariantKeys.add(variantKey);
+            toast.success(`${metadata.fontFamily} uploaded successfully`);
+          } catch (error) {
+            console.error("Font upload error:", error);
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : "Could not parse font. Please ensure it's a valid font file.",
+            );
+          }
         }
 
-        // 6. Update state
-        onFontsChange([...customFonts, newFont]);
-        toast.success(`${metadata.fontFamily} uploaded successfully`);
-      } catch (error) {
-        console.error("Font upload error:", error);
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Could not parse font. Please ensure it's a valid font file.",
-        );
+        if (acceptedFonts.length > 0) {
+          onFontsChange([...customFonts, ...acceptedFonts]);
+        }
+      } finally {
+        setIsUploadingBatch(false);
       }
     },
     [brandId, customFonts, onFontsChange, uploadFile],
   );
 
-  // Handle file drop
+  /**
+   * Accept a drag-and-drop batch of font files.
+   */
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
-
-      const files = Array.from(e.dataTransfer.files);
-      for (const file of files) {
-        void handleFile(file);
-      }
+      void handleFiles(Array.from(e.dataTransfer.files));
     },
-    [handleFile],
+    [handleFiles],
   );
 
-  // Handle file select from input
+  /**
+   * Accept a file input selection batch of font files.
+   */
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
-      for (const file of files) {
-        void handleFile(file);
-      }
+      void handleFiles(files);
       e.target.value = "";
     },
-    [handleFile],
+    [handleFiles],
   );
 
-  // Handle delete font
+  /**
+   * Remove a single uploaded font variant.
+   */
   const handleDeleteFont = useCallback(
     (fontToDelete: CustomFont) => {
       onFontsChange(customFonts.filter((f) => f.src !== fontToDelete.src));
@@ -191,7 +254,9 @@ export function CustomFontsModal({
     [customFonts, onFontsChange],
   );
 
-  // Handle delete entire font family
+  /**
+   * Remove every uploaded variant for a font family.
+   */
   const handleDeleteFamily = useCallback(
     (family: string) => {
       onFontsChange(
@@ -204,7 +269,7 @@ export function CustomFontsModal({
     [customFonts, onFontsChange],
   );
 
-  const disabledUpload = isLoading;
+  const disabledUpload = isUploadingBatch || isLoading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -213,9 +278,7 @@ export function CustomFontsModal({
           <DialogTitle className="text-foreground">Custom fonts</DialogTitle>
         </DialogHeader>
 
-        {/* Main content */}
         <div className="px-6 py-4 min-h-[160px] space-y-4">
-          {/* Upload area */}
           <div
             role="button"
             tabIndex={0}
@@ -251,7 +314,7 @@ export function CustomFontsModal({
             }}
             onDrop={disabledUpload ? undefined : handleDrop}
           >
-            {isLoading ? (
+            {disabledUpload ? (
               <div className="flex items-center gap-2 type-small text-primary">
                 <Icons.Loader className="h-4 w-4 animate-spin" />
                 Uploading...
@@ -279,8 +342,7 @@ export function CustomFontsModal({
             />
           </div>
 
-          {/* Uploaded fonts list */}
-          {groupedFonts.length > 0 && (
+          {groupedFonts.length > 0 ? (
             <div className="space-y-2">
               <p className="type-small text-secondary">Uploaded fonts</p>
               <div className="space-y-2">
@@ -294,10 +356,9 @@ export function CustomFontsModal({
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Footer */}
         <DialogFooter className="px-6 py-4 border-t border-border bg-background">
           <div className="flex items-center justify-end w-full">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -320,6 +381,9 @@ interface FontFamilyGroupProps {
   onDeleteFamily: (family: string) => void;
 }
 
+/**
+ * Render a grouped font family with its uploaded variants.
+ */
 function FontFamilyGroup({
   group,
   onDeleteFont,
@@ -329,8 +393,7 @@ function FontFamilyGroup({
 
   return (
     <div className="border border-border overflow-hidden">
-      {/* Family header (when multiple variants) */}
-      {hasMultipleVariants && (
+      {hasMultipleVariants ? (
         <div className="flex items-center justify-between px-3 py-2 border-b border-border">
           <span className="type-small font-medium text-primary">
             {group.family}
@@ -340,9 +403,8 @@ function FontFamilyGroup({
             label={`Delete all ${group.family} variants`}
           />
         </div>
-      )}
+      ) : null}
 
-      {/* Variants */}
       <div className="divide-y border-border">
         {group.variants.map((font, index) => (
           <FontVariantRow
@@ -363,6 +425,9 @@ interface FontVariantRowProps {
   onDelete: () => void;
 }
 
+/**
+ * Render a single uploaded font variant row.
+ */
 function FontVariantRow({
   font,
   showFamilyName,
@@ -382,23 +447,23 @@ function FontVariantRow({
             </span>
             <span className="type-small text-tertiary">
               {weightLabel}
-              {font.fontStyle === "italic" && ", Italic"}
-              {isVariable && (
+              {font.fontStyle === "italic" ? ", Italic" : null}
+              {isVariable ? (
                 <span className="ml-1.5 px-1.5 py-0.5 type-xsmall">
                   Variable
                 </span>
-              )}
+              ) : null}
             </span>
           </>
         ) : (
           <span className="type-small text-secondary">
             {weightLabel}
-            {font.fontStyle === "italic" && ", Italic"}
-            {isVariable && (
+            {font.fontStyle === "italic" ? ", Italic" : null}
+            {isVariable ? (
               <span className="ml-1.5 px-1.5 py-0.5 type-xsmall bg-accent">
                 Variable
               </span>
-            )}
+            ) : null}
           </span>
         )}
       </div>
@@ -412,6 +477,9 @@ interface FontActionsMenuProps {
   label: string;
 }
 
+/**
+ * Render the per-row action menu for deleting a font.
+ */
 function FontActionsMenu({ onDelete, label }: FontActionsMenuProps) {
   const [open, setOpen] = useState(false);
 
@@ -447,6 +515,9 @@ function FontActionsMenu({ onDelete, label }: FontActionsMenuProps) {
 // Helpers
 // ============================================================================
 
+/**
+ * Format a font weight into a human-readable label for the modal.
+ */
 function formatWeight(weight: number | string | undefined): string {
   if (!weight) return "Regular (400)";
 
@@ -456,7 +527,7 @@ function formatWeight(weight: number | string | undefined): string {
   }
 
   const numWeight =
-    typeof weight === "number" ? weight : Number.parseInt(weight);
+    typeof weight === "number" ? weight : Number.parseInt(weight, 10);
 
   const weightNames: Record<number, string> = {
     100: "Thin",

@@ -8,15 +8,15 @@
 
 import { useState } from "react";
 import { DataTable, ManufacturerModal, Modal } from "../../components";
+import { ModalLink } from "../../components/modal";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { useHapticTap } from "../../lib/haptics";
-import {
-  INTERACTIVE_HOVER_CLASS_NAME,
-  createInteractiveHoverStyle,
-} from "../../lib/interactive-hover";
+import { INTERACTIVE_HOVER_CLASS_NAME } from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
+import { createUnderlinedActionStyle } from "../../lib/underlined-action";
 import { toExternalHref } from "../../lib/url-utils";
 import type { Manufacturer } from "../../types/data";
+import type { CustomFont } from "../../types/passport";
 import type { SectionProps } from "../registry";
 import { getCountryName } from "../transforms";
 
@@ -31,7 +31,11 @@ function toCapitalizedLabel(value: string): string {
     .join(" ");
 }
 
-function buildManufacturerModalFacts(manufacturer: Manufacturer) {
+function buildManufacturerModalFacts(
+  manufacturer: Manufacturer,
+  modalStyles: Record<string, React.CSSProperties>,
+  customFonts?: CustomFont[],
+) {
   // Gather the available manufacturer facts into reusable modal field rows.
   const facts: Array<{ key: string; label: string; value: React.ReactNode }> =
     [];
@@ -53,14 +57,15 @@ function buildManufacturerModalFacts(manufacturer: Manufacturer) {
       key: "Website",
       label: "Website",
       value: manufacturerHref ? (
-        <a
-          className="underline underline-offset-4"
+        <ModalLink
+          customFonts={customFonts}
           href={manufacturerHref}
           rel="noopener noreferrer"
+          styles={modalStyles}
           target="_blank"
         >
           {manufacturer.website}
-        </a>
+        </ModalLink>
       ) : (
         manufacturer.website
       ),
@@ -145,16 +150,12 @@ export function DetailsSection({
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const rootSelection = select("details");
   const showExactLocation = modalContent?.showExactLocation !== false;
-  const manufacturerValueStyle = createInteractiveHoverStyle(
+  const manufacturerValueStyle = createUnderlinedActionStyle(
     {
       ...s.value,
-      fontWeight: 500,
-      textDecorationLine: "underline",
-      textUnderlineOffset: "0.16em",
+      color: tokens.colors.link,
     },
-    {
-      color: true,
-    },
+    { customFonts: tokens.fonts, defaultColor: tokens.colors.link },
   );
 
   const rows: Array<{
@@ -182,7 +183,7 @@ export function DetailsSection({
       value: (
         <button
           type="button"
-          className={`block w-full appearance-none cursor-pointer overflow-hidden truncate border-0 bg-transparent p-0 text-left ${INTERACTIVE_HOVER_CLASS_NAME}`}
+          className={`max-w-full cursor-pointer appearance-none overflow-hidden whitespace-nowrap border-0 bg-transparent p-0 text-left text-ellipsis ${INTERACTIVE_HOVER_CLASS_NAME}`}
           style={manufacturerValueStyle}
           onClick={() => {
             hapticTap();
@@ -264,8 +265,13 @@ export function DetailsSection({
 
       {manufacturer && manufacturerName ? (
         <ManufacturerModal
+          customFonts={tokens.fonts}
           description="This manufacturer is listed as the responsible producer for this product passport."
-          facts={buildManufacturerModalFacts(manufacturer)}
+          facts={buildManufacturerModalFacts(
+            manufacturer,
+            modalStyles ?? {},
+            tokens.fonts,
+          )}
           mapQuery={buildManufacturerMapQuery(manufacturer, showExactLocation)}
           styles={modalStyles ?? {}}
           subtitle="Manufacturer overview"

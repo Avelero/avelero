@@ -215,15 +215,17 @@ export function FontSelect({
           onHoverFont={setHoveredFont}
         />
 
-        {/* Custom Fonts Button - always visible at bottom */}
-        <SelectFooter onMouseEnter={() => setHoveredFont("__clear__")}>
-          <SelectAction onSelect={handleManageCustomFonts}>
-            <div className="flex items-center gap-2">
-              <Icons.Plus className="h-3.5 w-3.5" />
-              <span>Custom fonts</span>
-            </div>
-          </SelectAction>
-        </SelectFooter>
+        {/* Custom Fonts Button - only rendered when the caller can open the manager */}
+        {onManageCustomFonts ? (
+          <SelectFooter onMouseEnter={() => setHoveredFont("__clear__")}>
+            <SelectAction onSelect={handleManageCustomFonts}>
+              <div className="flex items-center gap-2">
+                <Icons.Plus className="h-3.5 w-3.5" />
+                <span>Custom fonts</span>
+              </div>
+            </SelectAction>
+          </SelectFooter>
+        ) : null}
       </SelectContent>
     </Select>
   );

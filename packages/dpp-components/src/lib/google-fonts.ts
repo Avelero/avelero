@@ -18,7 +18,7 @@ const LOCAL_FONTS = [
 const PRESET_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
 /** Normalize a font family value to its primary family name. */
-function getPrimaryFamilyName(fontFamily: string): string {
+export function getPrimaryFamilyName(fontFamily: string): string {
   return fontFamily.split(",")[0]?.replace(/['"]/g, "")?.trim() || "";
 }
 
@@ -124,6 +124,39 @@ function getFallbackAxisWeight(start: number, end: number): number {
   return Math.round(clampedWeight);
 }
 
+/**
+ * Expand a stored custom font descriptor into the weights it can satisfy.
+ */
+function collectWeightsFromCustomFont(font: CustomFont): number[] {
+  if (typeof font.fontWeight === "number") {
+    return [font.fontWeight];
+  }
+
+  if (
+    typeof font.fontWeight === "string" &&
+    font.fontWeight.trim().includes(" ")
+  ) {
+    const [rawStart, rawEnd] = font.fontWeight.trim().split(/\s+/);
+    const rangeStart = Number.parseInt(rawStart ?? "", 10);
+    const rangeEnd = Number.parseInt(rawEnd ?? "", 10);
+
+    if (!Number.isNaN(rangeStart) && !Number.isNaN(rangeEnd)) {
+      return PRESET_WEIGHTS.filter(
+        (weight) => weight >= rangeStart && weight <= rangeEnd,
+      );
+    }
+  }
+
+  if (typeof font.fontWeight === "string") {
+    const parsedWeight = Number.parseInt(font.fontWeight, 10);
+    if (!Number.isNaN(parsedWeight)) {
+      return [parsedWeight];
+    }
+  }
+
+  return [400];
+}
+
 function getFontWeights(fontFamily: string): number[] {
   // Resolve the safest available weight set for each Google font family.
   const metadata = findFont(fontFamily);
@@ -155,6 +188,75 @@ function getFontWeights(fontFamily: string): number[] {
   ).sort((a, b) => a - b);
 
   return staticWeights.length > 0 ? staticWeights : [400];
+}
+
+/**
+ * Resolve the available weights for a font across custom, local, and Google sources.
+ */
+export function getAvailableFontWeights(
+  fontFamily: string | undefined,
+  customFonts?: CustomFont[],
+): number[] {
+  if (!fontFamily) {
+    return PRESET_WEIGHTS;
+  }
+
+  const primaryFamily = getPrimaryFamilyName(fontFamily);
+  const normalizedFamily = primaryFamily.toLowerCase();
+  const customWeights = Array.from(
+    new Set(
+      (customFonts ?? [])
+        .filter(
+          (font) =>
+            getPrimaryFamilyName(font.fontFamily).toLowerCase() ===
+            normalizedFamily,
+        )
+        .flatMap(collectWeightsFromCustomFont),
+    ),
+  ).sort((a, b) => a - b);
+
+  if (customWeights.length > 0) {
+    return customWeights;
+  }
+
+  if (LOCAL_FONTS.includes(normalizedFamily)) {
+    return PRESET_WEIGHTS;
+  }
+
+  return getFontWeights(primaryFamily);
+}
+
+/**
+ * Snap a requested weight to the nearest supported weight for the chosen font family.
+ */
+export function resolveClosestAvailableFontWeight(
+  fontFamily: string | undefined,
+  requestedWeight: number,
+  customFonts?: CustomFont[],
+): number {
+  const availableWeights = getAvailableFontWeights(fontFamily, customFonts);
+
+  if (availableWeights.length === 0) {
+    return requestedWeight;
+  }
+
+  return availableWeights.reduce((closestWeight, candidateWeight) => {
+    const candidateDistance = Math.abs(candidateWeight - requestedWeight);
+    const closestDistance = Math.abs(closestWeight - requestedWeight);
+
+    if (candidateDistance < closestDistance) {
+      return candidateWeight;
+    }
+
+    if (
+      candidateDistance === closestDistance &&
+      candidateWeight < closestWeight
+    ) {
+      return candidateWeight;
+    }
+
+    return closestWeight;
+  });
 }
 
 /**

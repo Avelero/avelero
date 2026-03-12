@@ -5,16 +5,15 @@
  */
 
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr/DownloadSimple";
-import {
-  INTERACTIVE_HOVER_CLASS_NAME,
-  createInteractiveHoverStyle,
-} from "../../../lib/interactive-hover";
+import type { CustomFont } from "../../../types/passport";
 import {
   ModalBody,
   ModalContent,
   ModalDataTable,
   ModalDescription,
   ModalFooter,
+  ModalFooterButton,
+  ModalLink,
   ModalSection,
   ModalStaticMap,
   ModalSubtitle,
@@ -33,6 +32,7 @@ interface CertificationModalProps {
     React.ComponentPropsWithoutRef<typeof ModalContent>,
     "children" | "styles"
   >;
+  customFonts?: CustomFont[];
   description?: string;
   facts?: ModalDataTableRow[];
   footerLinkProps?: Omit<
@@ -50,54 +50,42 @@ interface CertificationModalProps {
   title?: string;
 }
 
-const DEFAULT_CERTIFICATION_FACTS: ModalDataTableRow[] = [
-  {
-    key: "Institute",
-    label: "Institute",
-    value: "Textile Certification Council",
-  },
-  {
-    key: "Website",
-    label: "Website",
-    value: (
-      <a
-        className="underline underline-offset-4"
-        href="https://example.com"
-        rel="noopener noreferrer"
-        target="_blank"
-      >
-        example.com
-      </a>
-    ),
-  },
-  { key: "Contact", label: "Contact", value: "compliance@example.com" },
-];
-
-function getCertificateDownloadButtonStyle(styles: ModalStyles) {
-  // Invert the modal foreground/background pair so the CTA defaults to a solid high-contrast fill.
-  return createInteractiveHoverStyle(
+function getDefaultCertificationFacts(
+  styles: ModalStyles,
+  customFonts?: CustomFont[],
+): ModalDataTableRow[] {
+  // Seed the certification preview with a styled institute link row.
+  return [
     {
-      backgroundColor:
-        typeof styles["modal.value"]?.color === "string"
-          ? styles["modal.value"].color
-          : "#1E2040",
-      color:
-        typeof styles["modal.container"]?.backgroundColor === "string"
-          ? styles["modal.container"].backgroundColor
-          : "#FFFFFF",
-      padding: 16,
+      key: "Institute",
+      label: "Institute",
+      value: "Textile Certification Council",
     },
     {
-      background: true,
+      key: "Website",
+      label: "Website",
+      value: (
+        <ModalLink
+          customFonts={customFonts}
+          href="https://example.com"
+          rel="noopener noreferrer"
+          styles={styles}
+          target="_blank"
+        >
+          example.com
+        </ModalLink>
+      ),
     },
-  );
+    { key: "Contact", label: "Contact", value: "compliance@example.com" },
+  ];
 }
 
 export function CertificationModal({
   certificateUrl,
   contentProps,
+  customFonts,
   description = "This certification is recorded as part of the material traceability information for this product passport.",
-  facts = DEFAULT_CERTIFICATION_FACTS,
+  facts,
   footerLinkProps,
   mapQuery,
   mapProps,
@@ -107,8 +95,8 @@ export function CertificationModal({
   title = "Global Organic Textile Standard",
 }: CertificationModalProps) {
   // Render the certification modal and opt the footer CTA into the shared interactive hover treatment.
-  const certificateDownloadButtonStyle =
-    getCertificateDownloadButtonStyle(styles);
+  const resolvedFacts =
+    facts ?? getDefaultCertificationFacts(styles, customFonts);
 
   return (
     <ModalContent styles={styles} {...contentProps}>
@@ -136,7 +124,11 @@ export function CertificationModal({
         </ModalDescription>
 
         <ModalSection>
-          <ModalDataTable rows={facts} select={select} styles={styles} />
+          <ModalDataTable
+            rows={resolvedFacts}
+            select={select}
+            styles={styles}
+          />
         </ModalSection>
 
         {mapQuery ? (
@@ -154,18 +146,19 @@ export function CertificationModal({
 
       {certificateUrl && (
         <ModalFooter styles={styles}>
-          <a
-            className={`inline-flex w-full items-center justify-center gap-2 rounded-full text-base leading-6 ${INTERACTIVE_HOVER_CLASS_NAME}`}
+          <ModalFooterButton
+            customFonts={customFonts}
             download
             href={certificateUrl}
             rel="noopener noreferrer"
-            style={certificateDownloadButtonStyle}
+            select={select}
+            styles={styles}
             target="_blank"
             {...footerLinkProps}
           >
             <DownloadSimpleIcon aria-hidden className="h-4 w-4 shrink-0" />
             Download certificate
-          </a>
+          </ModalFooterButton>
         </ModalFooter>
       )}
     </ModalContent>

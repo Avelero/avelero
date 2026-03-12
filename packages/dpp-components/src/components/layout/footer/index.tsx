@@ -35,6 +35,11 @@ const SOCIAL_LABELS: Array<{ key: keyof SocialLinks; text: string }> = [
 export function Footer({ footer, tokens, brandName }: Props) {
   // Resolve the footer styles once and expose only the footer shell for editor selection.
   const s = resolveStyles(footer.styles, tokens);
+  const {
+    borderStyle: _borderStyle,
+    borderWidth: _borderWidth,
+    ...containerStyle
+  } = s.container ?? {};
   const select = createFixedSelectionAttributes();
   const footerSelection = select("footer");
 
@@ -44,7 +49,7 @@ export function Footer({ footer, tokens, brandName }: Props) {
   })).filter((item) => isValidUrl(item.url ?? ""));
 
   return (
-    <div {...footerSelection} className="w-full" style={s.container}>
+    <div {...footerSelection} className="w-full" style={containerStyle}>
       <div
         className="flex justify-between items-center p-sm border-t"
         style={{ borderColor: s.container?.borderColor }}

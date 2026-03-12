@@ -8,7 +8,9 @@
 import { countries } from "@v1/selections";
 import { toExternalHref } from "../../../lib/url-utils";
 import type { MaterialCertification } from "../../../types/data";
-import type { ModalDataTableRow } from "../../modal";
+import type { CustomFont } from "../../../types/passport";
+import { ModalLink } from "../../modal";
+import type { ModalDataTableRow, ModalStyles } from "../../modal";
 
 function getCountryName(code: string | undefined): string {
   // Resolve an ISO country code into a readable label when possible.
@@ -34,6 +36,12 @@ export function buildCertificationModalDescription(materialName?: string) {
 
 export function buildCertificationModalFacts(
   certification: MaterialCertification | undefined,
+  styles?: ModalStyles,
+  customFonts?: CustomFont[],
+  linkProps?: Omit<
+    React.ComponentPropsWithoutRef<typeof ModalLink>,
+    "children" | "customFonts" | "href" | "styles"
+  >,
 ): ModalDataTableRow[] {
   // Gather the available certification facts into label/value rows for the modal.
   const facts: ModalDataTableRow[] = [];
@@ -82,14 +90,16 @@ export function buildCertificationModalFacts(
       key: "Institute website",
       label: "Institute website",
       value: certificationHref ? (
-        <a
-          className="underline underline-offset-4"
+        <ModalLink
+          customFonts={customFonts}
           href={certificationHref}
+          {...linkProps}
           rel="noopener noreferrer"
+          styles={styles}
           target="_blank"
         >
           {institute.website}
-        </a>
+        </ModalLink>
       ) : (
         institute.website
       ),

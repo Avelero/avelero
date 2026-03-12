@@ -36,6 +36,7 @@ export const DEFAULT_TYPOGRAPHY: Record<TypeScale, TypographyScale> = {
     fontWeight: 600,
     lineHeight: 1.3,
     letterSpacing: 0,
+    textTransform: "none",
   },
   h2: {
     fontFamily: FONT_FAMILY,
@@ -43,6 +44,7 @@ export const DEFAULT_TYPOGRAPHY: Record<TypeScale, TypographyScale> = {
     fontWeight: 500,
     lineHeight: 1.3,
     letterSpacing: 0,
+    textTransform: "none",
   },
   h3: {
     fontFamily: FONT_FAMILY,
@@ -50,6 +52,7 @@ export const DEFAULT_TYPOGRAPHY: Record<TypeScale, TypographyScale> = {
     fontWeight: 500,
     lineHeight: 1.3,
     letterSpacing: 0,
+    textTransform: "none",
   },
   h4: {
     fontFamily: FONT_FAMILY,
@@ -57,6 +60,7 @@ export const DEFAULT_TYPOGRAPHY: Record<TypeScale, TypographyScale> = {
     fontWeight: 500,
     lineHeight: 1.3,
     letterSpacing: 0,
+    textTransform: "none",
   },
   h5: {
     fontFamily: FONT_FAMILY,
@@ -64,6 +68,7 @@ export const DEFAULT_TYPOGRAPHY: Record<TypeScale, TypographyScale> = {
     fontWeight: 500,
     lineHeight: 1.4,
     letterSpacing: 0,
+    textTransform: "none",
   },
   h6: {
     fontFamily: FONT_FAMILY,
@@ -71,6 +76,7 @@ export const DEFAULT_TYPOGRAPHY: Record<TypeScale, TypographyScale> = {
     fontWeight: 500,
     lineHeight: 1.4,
     letterSpacing: 0,
+    textTransform: "none",
   },
   body: {
     fontFamily: FONT_FAMILY,
@@ -78,6 +84,7 @@ export const DEFAULT_TYPOGRAPHY: Record<TypeScale, TypographyScale> = {
     fontWeight: 400,
     lineHeight: 1.5,
     letterSpacing: 0,
+    textTransform: "none",
   },
   "body-sm": {
     fontFamily: FONT_FAMILY,
@@ -85,6 +92,7 @@ export const DEFAULT_TYPOGRAPHY: Record<TypeScale, TypographyScale> = {
     fontWeight: 400,
     lineHeight: 1.5,
     letterSpacing: 0,
+    textTransform: "none",
   },
   "body-xs": {
     fontFamily: FONT_FAMILY,
@@ -92,6 +100,7 @@ export const DEFAULT_TYPOGRAPHY: Record<TypeScale, TypographyScale> = {
     fontWeight: 400,
     lineHeight: 1.5,
     letterSpacing: 0,
+    textTransform: "none",
   },
 };
 

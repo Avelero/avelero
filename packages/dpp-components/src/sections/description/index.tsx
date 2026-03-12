@@ -10,11 +10,9 @@ import { useState } from "react";
 import { DescriptionModal, Modal } from "../../components";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { useHapticTap } from "../../lib/haptics";
-import {
-  INTERACTIVE_HOVER_CLASS_NAME,
-  createInteractiveHoverStyle,
-} from "../../lib/interactive-hover";
+import { INTERACTIVE_HOVER_CLASS_NAME } from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
+import { createUnderlinedActionStyle } from "../../lib/underlined-action";
 import type { SectionProps } from "../registry";
 
 const DESCRIPTION_PREVIEW_WORD_LIMIT = 30;
@@ -86,8 +84,9 @@ export function DescriptionSection({
   );
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const rootSelection = select("description");
-  const showMoreStyle = createInteractiveHoverStyle(s.showMore, {
-    color: true,
+  const showMoreStyle = createUnderlinedActionStyle(s.showMore, {
+    customFonts: tokens.fonts,
+    defaultColor: tokens.colors.link,
   });
 
   if (!description) return null;
@@ -118,7 +117,7 @@ export function DescriptionSection({
           {preview.isTruncated ? (
             <button
               type="button"
-              className={`appearance-none border-0 bg-transparent p-0 w-fit text-left ${INTERACTIVE_HOVER_CLASS_NAME}`}
+              className={`w-fit appearance-none border-0 bg-transparent p-0 text-left ${INTERACTIVE_HOVER_CLASS_NAME}`}
               style={showMoreStyle}
               onClick={() => {
                 hapticTap();

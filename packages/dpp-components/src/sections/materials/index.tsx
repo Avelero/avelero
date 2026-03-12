@@ -17,12 +17,10 @@ import {
 } from "../../components/modals/certification/helpers";
 import { createSectionSelectionAttributes } from "../../lib/editor-selection";
 import { useHapticTap } from "../../lib/haptics";
-import {
-  INTERACTIVE_HOVER_CLASS_NAME,
-  createInteractiveHoverStyle,
-} from "../../lib/interactive-hover";
+import { INTERACTIVE_HOVER_CLASS_NAME } from "../../lib/interactive-hover";
 import { resolveStyles } from "../../lib/resolve-styles";
 import { getResolvedTextLineHeight } from "../../lib/text-line-height";
+import { createUnderlinedActionStyle } from "../../lib/underlined-action";
 import { toExternalHref } from "../../lib/url-utils";
 import type { SectionProps } from "../registry";
 import { transformMaterials } from "../transforms";
@@ -47,15 +45,16 @@ export function MaterialsSection({
   const [selectedCertification, setSelectedCertification] = useState<
     ReturnType<typeof transformMaterials>[number] | null
   >(null);
-  const showCheckIcon = section.content.showCertificationCheckIcon !== false;
+  const showCheckIcon = section.styles["card.certIcon"]?.visible !== false;
   const select = createSectionSelectionAttributes(section.id, zoneId);
   const rootSelection = select("materials");
   const percentageStyle: React.CSSProperties = {
     ...s["card.percentage"],
     fontVariantNumeric: "tabular-nums",
   };
-  const certTextStyle = createInteractiveHoverStyle(s["card.certText"], {
-    color: true,
+  const certTypeStyle = createUnderlinedActionStyle(s["card.certText"], {
+    customFonts: tokens.fonts,
+    defaultColor: tokens.colors.link,
   });
   const dividerColor = s.card?.borderColor ?? "var(--border)";
   const showExactLocation = modalContent?.showExactLocation !== false;
@@ -128,7 +127,7 @@ export function MaterialsSection({
                         {showCheckIcon && (
                           <Icons.Check style={s["card.certIcon"]} />
                         )}
-                        <span>Certified</span>
+                        <span style={s["card.certLabel"]}>Certified</span>
                       </span>
                     )}
                   </div>
@@ -167,8 +166,8 @@ export function MaterialsSection({
                   {material.certification && (
                     <button
                       type="button"
-                      className={`appearance-none border-0 bg-transparent p-0 w-fit cursor-pointer text-left underline underline-offset-4 ${INTERACTIVE_HOVER_CLASS_NAME}`}
-                      style={certTextStyle}
+                      className={`w-fit appearance-none border-0 bg-transparent p-0 cursor-pointer text-left ${INTERACTIVE_HOVER_CLASS_NAME}`}
+                      style={certTypeStyle}
                       onClick={() => {
                         hapticTap();
                         // Keep the selected certification mounted while the dialog animates out.
@@ -199,8 +198,13 @@ export function MaterialsSection({
                   undefined
                 : undefined
             }
+            customFonts={tokens.fonts}
             description={buildCertificationModalDescription(certMaterial.type)}
-            facts={buildCertificationModalFacts(certMaterial.certification)}
+            facts={buildCertificationModalFacts(
+              certMaterial.certification,
+              modalStyles ?? {},
+              tokens.fonts,
+            )}
             mapQuery={buildCertificationModalMapQuery(
               certMaterial.certification,
               showExactLocation,

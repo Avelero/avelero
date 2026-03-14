@@ -56,11 +56,7 @@ export function ThemeEditorModalPreview({
   const rootSelection = createFixedSelectionAttributes()("modal");
 
   return (
-    <Modal
-      open
-      modal={false}
-      onOpenChange={() => {}}
-    >
+    <Modal open modal={false} onOpenChange={() => {}}>
       <CertificationModal
         certificateUrl="#theme-editor-modal-preview"
         contentProps={{

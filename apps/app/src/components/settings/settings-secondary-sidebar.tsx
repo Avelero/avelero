@@ -5,8 +5,10 @@ import {
   getActiveSettingsNavItem,
   type SettingsNavIconKey,
 } from "@/lib/settings-navigation";
+import { useTRPC } from "@/trpc/client";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
+import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,6 +30,10 @@ const SETTINGS_NAV_ICONS: Record<SettingsNavIconKey, LucideIcon> = {
 export function SettingsSecondarySidebar() {
   const pathname = usePathname();
   const activeItem = getActiveSettingsNavItem(pathname);
+  const trpc = useTRPC();
+  const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
+  const phase = initQuery.data?.access?.phase;
+  const hasBillingAccess = phase === "active" || phase === "past_due";
 
   return (
     <aside className="w-[244px] shrink-0 border-r border-border bg-background">
@@ -45,7 +51,14 @@ export function SettingsSecondarySidebar() {
               ) : null}
 
               <div className="flex flex-col gap-0.5">
-                {group.items.map((item) => {
+                {group.items
+                  .filter((item) => {
+                    // Hide Billing for brands without an active subscription
+                    if (item.href === "/settings/billing" && !hasBillingAccess)
+                      return false;
+                    return true;
+                  })
+                  .map((item) => {
                   const Icon = SETTINGS_NAV_ICONS[item.icon];
                   const isActive = activeItem?.href === item.href;
 

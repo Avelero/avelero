@@ -373,7 +373,9 @@ interface StylesSectionProps {
 export function StylesSection({ componentId }: StylesSectionProps) {
   const { passportDraft } = useDesignEditor();
   const component = resolveComponentForEditor(componentId, passportDraft);
-  const styleFields = filterTypographyCompanionFields(component?.styleFields || []);
+  const styleFields = filterTypographyCompanionFields(
+    component?.styleFields || [],
+  );
   const [openSection, setOpenSection] = React.useState<string | null>(null);
 
   React.useEffect(() => {

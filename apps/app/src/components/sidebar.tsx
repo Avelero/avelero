@@ -1,7 +1,10 @@
 "use client";
 
+import { useTRPC } from "@/trpc/client";
 import { cn } from "@v1/ui/cn";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { TrialSidebarCard } from "./billing/trial-sidebar-card";
 import { EditorMenu } from "./editor-menu";
 import { MainMenu } from "./main-menu";
 import { BrandDropdown } from "./select/brand-select";
@@ -15,6 +18,21 @@ export function Sidebar({ variant = "default" }: SidebarProps) {
   const [isBrandPopupOpen, setIsBrandPopupOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
   const mousePositionRef = useRef({ x: 0, y: 0 });
+
+  const trpc = useTRPC();
+  const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
+  const access = initQuery.data?.access;
+
+  const isTrialPhase = access?.phase === "trial" && access?.trialEndsAt;
+  const daysRemaining = isTrialPhase
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(access.trialEndsAt!).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24),
+        ),
+      )
+    : null;
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -54,7 +72,7 @@ export function Sidebar({ variant = "default" }: SidebarProps) {
     <aside
       ref={sidebarRef}
       className={cn(
-        "fixed top-0 z-50 flex h-screen mt-14",
+        "fixed top-0 z-50 flex mt-14 h-[calc(100vh-56px)]",
         "flex-col flex-shrink-0 p-2 gap-2",
         "bg-background border-r border-border",
         "desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px]",
@@ -71,6 +89,17 @@ export function Sidebar({ variant = "default" }: SidebarProps) {
             onPopupChange={handleBrandPopupChange}
           />
           <MainMenu isExpanded={isExpanded} />
+
+          {/* Spacer + Trial card at bottom */}
+          {isTrialPhase && daysRemaining != null && (
+            <>
+              <div className="flex-1" />
+              <TrialSidebarCard
+                isExpanded={isExpanded}
+                daysRemaining={daysRemaining}
+              />
+            </>
+          )}
         </>
       )}
 

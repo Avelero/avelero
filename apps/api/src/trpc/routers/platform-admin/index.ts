@@ -171,7 +171,6 @@ const platformAuditListSchema = z.object({
   page_size: z.number().int().min(1).max(100).default(25),
 });
 
-
 type InviteResultRow = {
   email: string;
   role: "owner" | "member";
@@ -855,8 +854,7 @@ export const platformAdminRouter = createTRPCRouter({
           billingUpdates.billingMode = input.billing_mode;
         }
         if (input.custom_price_cents !== undefined) {
-          billingUpdates.customPriceCents =
-            input.custom_price_cents;
+          billingUpdates.customPriceCents = input.custom_price_cents;
         }
 
         if (Object.keys(planUpdates).length > 0) {
@@ -934,10 +932,7 @@ export const platformAdminRouter = createTRPCRouter({
           .where(eq(brandLifecycle.brandId, input.brand_id))
           .limit(1);
 
-        if (
-          !lifecycle ||
-          !["trial", "expired"].includes(lifecycle.phase)
-        ) {
+        if (!lifecycle || !["trial", "expired"].includes(lifecycle.phase)) {
           throw badRequest(
             "Checkout links can only be created for brands in trial or expired phase. Use the Stripe Customer Portal for active or past_due brands.",
           );

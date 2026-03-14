@@ -150,10 +150,7 @@ function TypographyScaleForm({
         <ThemeTypographySelect
           value={value.textTransform || "none"}
           onValueChange={(v) =>
-            handleChange(
-              "textTransform",
-              v as TypographyScale["textTransform"],
-            )
+            handleChange("textTransform", v as TypographyScale["textTransform"])
           }
           options={CAPITALIZATION_OPTIONS}
           placeholder="Select..."

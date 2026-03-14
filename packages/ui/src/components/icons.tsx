@@ -28,6 +28,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ChevronsUpDown,
+  CircleAlert,
+  Clock,
   Copy,
   Crown,
   Download,
@@ -357,6 +359,9 @@ export const Icons = {
   StatusScheduled,
   StatusUnpublished,
   StatusArchived,
+  // Billing Icons
+  Clock,
+  CircleAlert,
   // Design Editor Icons
   LayoutGrid,
   Type,

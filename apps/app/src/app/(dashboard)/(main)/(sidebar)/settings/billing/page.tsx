@@ -1,21 +1,36 @@
-import { Button } from "@v1/ui/button";
+import { BillingPageContent } from "@/components/billing/billing-page-content";
+import {
+  HydrateClient,
+  batchPrefetch,
+  getQueryClient,
+  trpc,
+} from "@/trpc/server";
+import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
-export default function BillingPage() {
+export default async function BillingPage() {
+  await connection();
+
+  const queryClient = getQueryClient();
+  const initDashboard = await queryClient.fetchQuery(
+    trpc.composite.initDashboard.queryOptions(),
+  );
+
+  // Only accessible for brands with an active subscription.
+  // Trial/expired brands use the plan selector overlay instead.
+  const phase = initDashboard.access.phase;
+  if (phase !== "active" && phase !== "past_due") {
+    redirect("/settings");
+  }
+
+  batchPrefetch([
+    trpc.brand.billing.getStatus.queryOptions(),
+    trpc.brand.billing.getPortalUrl.queryOptions(),
+  ]);
+
   return (
-    <div className="w-full max-w-[700px]">
-      <div className="rounded-xl border border-border bg-background p-6">
-        <h1 className="type-large !font-semibold text-primary">Billing</h1>
-        <p className="mt-2 type-small text-secondary">
-          Billing management is being finalized. For plan changes, payment
-          updates, or invoice support, contact our team.
-        </p>
-
-        <div className="mt-5">
-          <Button asChild size="sm">
-            <a href="mailto:raf@avelero.com">Contact support</a>
-          </Button>
-        </div>
-      </div>
-    </div>
+    <HydrateClient>
+      <BillingPageContent />
+    </HydrateClient>
   );
 }

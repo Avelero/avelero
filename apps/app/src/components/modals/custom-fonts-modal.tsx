@@ -67,9 +67,15 @@ function getFontVariantKey(font: {
 /**
  * Extract the file extension for a font upload.
  */
-function getFontFileExtension(file: File, metadata: ParsedFontMetadata): string {
+function getFontFileExtension(
+  file: File,
+  metadata: ParsedFontMetadata,
+): string {
   const ext = file.name.split(".").pop()?.toLowerCase();
-  if (ext && FONT_EXTENSIONS.includes(ext as (typeof FONT_EXTENSIONS)[number])) {
+  if (
+    ext &&
+    FONT_EXTENSIONS.includes(ext as (typeof FONT_EXTENSIONS)[number])
+  ) {
     return ext;
   }
 
@@ -90,7 +96,10 @@ function getFontFileExtension(file: File, metadata: ParsedFontMetadata): string 
  */
 function buildFontFilename(file: File, metadata: ParsedFontMetadata): string {
   const family = normalizeFontFamily(metadata.fontFamily);
-  const weight = normalizeFontWeightValue(metadata.fontWeight).replace(/\s+/g, "-");
+  const weight = normalizeFontWeightValue(metadata.fontWeight).replace(
+    /\s+/g,
+    "-",
+  );
   const style = metadata.fontStyle;
   const ext = getFontFileExtension(file, metadata);
 
@@ -138,7 +147,9 @@ export function CustomFontsModal({
     return Array.from(groups.entries()).map(
       ([family, variants]): GroupedFont => ({
         family,
-        variants: variants.sort((a, b) => getSortableWeight(a) - getSortableWeight(b)),
+        variants: variants.sort(
+          (a, b) => getSortableWeight(a) - getSortableWeight(b),
+        ),
       }),
     );
   }, [customFonts]);

@@ -22,9 +22,8 @@ export async function addImpactToSubscription(opts: {
   const { stripeSubscriptionId, tier, interval } = opts;
   const stripe = getStripeClient();
 
-  const subscription = await stripe.subscriptions.retrieve(
-    stripeSubscriptionId,
-  );
+  const subscription =
+    await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
   // Check if an Impact item already exists
   const existingImpact = subscription.items.data.some((item) => {
@@ -58,9 +57,8 @@ export async function removeImpactFromSubscription(opts: {
   const { stripeSubscriptionId } = opts;
   const stripe = getStripeClient();
 
-  const subscription = await stripe.subscriptions.retrieve(
-    stripeSubscriptionId,
-  );
+  const subscription =
+    await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
   const impactItem = subscription.items.data.find((item) => {
     const resolved = resolvePriceId(item.price.id);
@@ -94,9 +92,8 @@ export async function updateSubscriptionPlan(opts: {
   const { stripeSubscriptionId, newTier, newInterval, hasImpact } = opts;
   const stripe = getStripeClient();
 
-  const subscription = await stripe.subscriptions.retrieve(
-    stripeSubscriptionId,
-  );
+  const subscription =
+    await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
   const newPrices = TIER_CONFIG[newTier].prices[newInterval];
   const items: Array<{

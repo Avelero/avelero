@@ -789,9 +789,7 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
                   | "stripe_checkout"
                   | "stripe_invoice"
                   | null,
-                custom_price_cents: parseIntOrNull(
-                  customPriceCents,
-                ),
+                custom_price_cents: parseIntOrNull(customPriceCents),
                 sku_annual_limit: parseIntOrNull(skuAnnualLimit),
                 sku_onboarding_limit: parseIntOrNull(skuOnboardingLimit),
                 sku_limit_override: parseIntOrNull(skuLimitOverride),
@@ -850,9 +848,7 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
                   <input
                     type="checkbox"
                     checked={checkoutIncludeImpact}
-                    onChange={(e) =>
-                      setCheckoutIncludeImpact(e.target.checked)
-                    }
+                    onChange={(e) => setCheckoutIncludeImpact(e.target.checked)}
                   />
                   Include Impact
                 </label>

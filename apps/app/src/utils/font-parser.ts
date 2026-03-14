@@ -260,7 +260,9 @@ function cleanFontFamilyName(name: string): string {
  */
 function extractWeightClass(font: opentype.Font, filename: string): number {
   const os2Weight = getOs2WeightClass(font);
-  const namedWeight = extractWeightFromText(...getNameCandidates(font, filename));
+  const namedWeight = extractWeightFromText(
+    ...getNameCandidates(font, filename),
+  );
 
   if (os2Weight === undefined) {
     return namedWeight ?? 400;

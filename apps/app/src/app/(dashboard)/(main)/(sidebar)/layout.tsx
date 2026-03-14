@@ -1,3 +1,4 @@
+import { PlanSelectorShell } from "@/components/billing/plan-selector-shell";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { RealtimeWrapper } from "@/providers/realtime-wrapper";
@@ -64,15 +65,17 @@ export default async function SidebarLayout({
   // Note: children (page content) has its own HydrateClient for page-specific data.
   return (
     <HydrateClient>
-      <div className="relative h-full">
-        <Header />
-        <div className="flex flex-row justify-start h-[calc(100%_-_56px)]">
-          <Sidebar />
-          <div className="relative w-[calc(100%_-_56px)] h-full ml-[56px]">
-            <RealtimeWrapper>{children}</RealtimeWrapper>
+      <PlanSelectorShell>
+        <div className="relative h-full">
+          <Header />
+          <div className="flex flex-row justify-start h-[calc(100%_-_56px)]">
+            <Sidebar />
+            <div className="relative w-[calc(100%_-_56px)] h-full ml-[56px]">
+              <RealtimeWrapper>{children}</RealtimeWrapper>
+            </div>
           </div>
         </div>
-      </div>
+      </PlanSelectorShell>
     </HydrateClient>
   );
 }

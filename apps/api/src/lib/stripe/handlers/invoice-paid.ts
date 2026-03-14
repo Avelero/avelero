@@ -54,10 +54,7 @@ export async function handleInvoicePaid(event: Stripe.Event): Promise<void> {
   const nowIso = new Date().toISOString();
 
   // Transition to active if in a recoverable phase
-  if (
-    lifecycle &&
-    ["past_due", "trial", "expired"].includes(lifecycle.phase)
-  ) {
+  if (lifecycle && ["past_due", "trial", "expired"].includes(lifecycle.phase)) {
     await db
       .update(brandLifecycle)
       .set({

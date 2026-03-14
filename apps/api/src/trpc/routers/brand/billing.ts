@@ -10,16 +10,15 @@
  * - getPortalUrl: Stripe Customer Portal link
  */
 import { eq } from "@v1/db/queries";
-import {
-  brandBilling,
-  brandLifecycle,
-  brandPlan,
-  brands,
-} from "@v1/db/schema";
+import { brandBilling, brandLifecycle, brandPlan, brands } from "@v1/db/schema";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createCheckoutSession } from "../../../lib/stripe/checkout.js";
-import { type BillingInterval, TIER_CONFIG, type PlanTier } from "../../../lib/stripe/config.js";
+import {
+  type BillingInterval,
+  TIER_CONFIG,
+  type PlanTier,
+} from "../../../lib/stripe/config.js";
 import { findOrCreateStripeCustomer } from "../../../lib/stripe/customer.js";
 import { createPortalSession } from "../../../lib/stripe/portal.js";
 import {
@@ -27,7 +26,11 @@ import {
   removeImpactFromSubscription,
   updateSubscriptionPlan,
 } from "../../../lib/stripe/subscription.js";
-import { brandReadProcedure, brandWriteProcedure, createTRPCRouter } from "../../init.js";
+import {
+  brandReadProcedure,
+  brandWriteProcedure,
+  createTRPCRouter,
+} from "../../init.js";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
@@ -54,10 +57,7 @@ export const billingRouter = createTRPCRouter({
         .where(eq(brandLifecycle.brandId, brandId))
         .limit(1);
 
-      if (
-        !lifecycle ||
-        !["trial", "expired"].includes(lifecycle.phase)
-      ) {
+      if (!lifecycle || !["trial", "expired"].includes(lifecycle.phase)) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:

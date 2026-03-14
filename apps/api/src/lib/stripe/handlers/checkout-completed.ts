@@ -7,11 +7,7 @@ import {
   brandPlan,
 } from "@v1/db/schema";
 import type Stripe from "stripe";
-import {
-  TIER_CONFIG,
-  type BillingInterval,
-  type PlanTier,
-} from "../config.js";
+import { TIER_CONFIG, type BillingInterval, type PlanTier } from "../config.js";
 
 /**
  * Handle `checkout.session.completed` — a customer completed Stripe Checkout.

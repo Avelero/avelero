@@ -1,4 +1,3 @@
-import type { Database } from "@v1/db/client";
 /**
  * Theme preview router for the theme editor.
  *
@@ -10,6 +9,7 @@ import type { Database } from "@v1/db/client";
  * - brand.themePreview.getProduct - Fetch DppData for a specific product
  * - brand.themePreview.list - List products sorted by updatedAt for navigation
  */
+import type { Database } from "@v1/db/client";
 import { and, asc, desc, eq, sql } from "@v1/db/queries";
 import {
   brandCertifications,
@@ -23,6 +23,11 @@ import {
   products,
   taxonomyCategories,
 } from "@v1/db/schema";
+import {
+  CERTIFICATIONS_BUCKET,
+  buildPublicStorageUrl,
+  getSupabaseUrlFromEnv,
+} from "@v1/db/utils";
 import type { DppData } from "@v1/dpp-components";
 import { type CountryCode, countries } from "@v1/selections";
 import { getPublicUrl } from "@v1/supabase/storage";
@@ -53,13 +58,37 @@ interface DppMaterial {
   materialName: string;
   countryOfOrigin: string | null;
   recyclable: boolean | null;
-  certificationTitle: string | null;
-  certificationUrl: string | null;
+  certification: {
+    type: string;
+    code: string;
+    issueDate?: string;
+    expiryDate?: string;
+    documentUrl?: string;
+    testingInstitute?: {
+      legalName: string;
+      email?: string;
+      website?: string;
+      addressLine1?: string;
+      addressLine2?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
+    };
+  } | null;
 }
 
 interface DppFacility {
   displayName: string;
+  legalName: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
   city: string | null;
+  state: string | null;
+  zip: string | null;
   countryCode: string | null;
 }
 
@@ -83,6 +112,49 @@ function getCountryName(code: string | null): string {
   const upperCode = code.toUpperCase() as CountryCode;
   const country = countries[upperCode];
   return country?.name ?? code;
+}
+
+/**
+ * Maps certification testing institute fields into the component-facing shape.
+ */
+function buildTestingInstitute(input: {
+  instituteAddressLine1: string | null;
+  instituteAddressLine2: string | null;
+  instituteCity: string | null;
+  instituteCountryCode: string | null;
+  instituteEmail: string | null;
+  instituteName: string | null;
+  instituteState: string | null;
+  instituteWebsite: string | null;
+  instituteZip: string | null;
+}) {
+  const hasTestingInstituteData = Boolean(
+    input.instituteName ||
+      input.instituteEmail ||
+      input.instituteWebsite ||
+      input.instituteAddressLine1 ||
+      input.instituteAddressLine2 ||
+      input.instituteCity ||
+      input.instituteState ||
+      input.instituteZip ||
+      input.instituteCountryCode,
+  );
+
+  if (!hasTestingInstituteData) {
+    return undefined;
+  }
+
+  return {
+    legalName: input.instituteName ?? "",
+    email: input.instituteEmail ?? undefined,
+    website: input.instituteWebsite ?? undefined,
+    addressLine1: input.instituteAddressLine1 ?? undefined,
+    addressLine2: input.instituteAddressLine2 ?? undefined,
+    city: input.instituteCity ?? undefined,
+    state: input.instituteState ?? undefined,
+    postalCode: input.instituteZip ?? undefined,
+    country: input.instituteCountryCode ?? undefined,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,7 +198,15 @@ async function fetchJourneyWithOperators(
     .select({
       id: brandOperators.id,
       displayName: brandOperators.displayName,
+      legalName: brandOperators.legalName,
+      email: brandOperators.email,
+      phone: brandOperators.phone,
+      website: brandOperators.website,
+      addressLine1: brandOperators.addressLine1,
+      addressLine2: brandOperators.addressLine2,
       city: brandOperators.city,
+      state: brandOperators.state,
+      zip: brandOperators.zip,
       countryCode: brandOperators.countryCode,
     })
     .from(brandOperators)
@@ -144,7 +224,15 @@ async function fetchJourneyWithOperators(
         ? [
             {
               displayName: operatorMap.get(step.operatorId)!.displayName,
+              legalName: operatorMap.get(step.operatorId)!.legalName,
+              email: operatorMap.get(step.operatorId)!.email,
+              phone: operatorMap.get(step.operatorId)!.phone,
+              website: operatorMap.get(step.operatorId)!.website,
+              addressLine1: operatorMap.get(step.operatorId)!.addressLine1,
+              addressLine2: operatorMap.get(step.operatorId)!.addressLine2,
               city: operatorMap.get(step.operatorId)!.city,
+              state: operatorMap.get(step.operatorId)!.state,
+              zip: operatorMap.get(step.operatorId)!.zip,
               countryCode: operatorMap.get(step.operatorId)!.countryCode,
             },
           ]
@@ -158,6 +246,7 @@ async function fetchJourneyWithOperators(
 async function fetchProductAttributes(
   db: Database,
   productId: string,
+  storageBaseUrl: string | null | undefined,
 ): Promise<{
   materials: DppMaterial[];
   journey: DppJourneyStep[];
@@ -172,7 +261,22 @@ async function fetchProductAttributes(
         countryOfOrigin: brandMaterials.countryOfOrigin,
         recyclable: brandMaterials.recyclable,
         certificationTitle: brandCertifications.title,
-        certificationUrl: brandCertifications.instituteWebsite,
+        certificationCode: brandCertifications.certificationCode,
+        certificationIssueDate: brandCertifications.issueDate,
+        certificationExpiryDate: brandCertifications.expiryDate,
+        certificationPath: brandCertifications.certificationPath,
+        certificationInstituteName: brandCertifications.instituteName,
+        certificationInstituteEmail: brandCertifications.instituteEmail,
+        certificationInstituteWebsite: brandCertifications.instituteWebsite,
+        certificationInstituteAddressLine1:
+          brandCertifications.instituteAddressLine1,
+        certificationInstituteAddressLine2:
+          brandCertifications.instituteAddressLine2,
+        certificationInstituteCity: brandCertifications.instituteCity,
+        certificationInstituteState: brandCertifications.instituteState,
+        certificationInstituteZip: brandCertifications.instituteZip,
+        certificationInstituteCountryCode:
+          brandCertifications.instituteCountryCode,
       })
       .from(productMaterials)
       .innerJoin(
@@ -206,8 +310,31 @@ async function fetchProductAttributes(
       materialName: m.materialName,
       countryOfOrigin: m.countryOfOrigin,
       recyclable: m.recyclable,
-      certificationTitle: m.certificationTitle,
-      certificationUrl: m.certificationUrl,
+      certification: m.certificationTitle
+        ? {
+            type: m.certificationTitle,
+            code: m.certificationCode ?? "",
+            issueDate: m.certificationIssueDate ?? undefined,
+            expiryDate: m.certificationExpiryDate ?? undefined,
+            documentUrl:
+              buildPublicStorageUrl(
+                storageBaseUrl,
+                CERTIFICATIONS_BUCKET,
+                m.certificationPath,
+              ) ?? undefined,
+            testingInstitute: buildTestingInstitute({
+              instituteAddressLine1: m.certificationInstituteAddressLine1,
+              instituteAddressLine2: m.certificationInstituteAddressLine2,
+              instituteCity: m.certificationInstituteCity,
+              instituteCountryCode: m.certificationInstituteCountryCode,
+              instituteEmail: m.certificationInstituteEmail,
+              instituteName: m.certificationInstituteName,
+              instituteState: m.certificationInstituteState,
+              instituteWebsite: m.certificationInstituteWebsite,
+              instituteZip: m.certificationInstituteZip,
+            }),
+          }
+        : null,
     })),
     journey,
     environment:
@@ -248,7 +375,15 @@ function buildDppData(
     categoryId: string | null;
     categoryName: string | null;
     manufacturerName: string | null;
+    manufacturerLegalName: string | null;
+    manufacturerEmail: string | null;
+    manufacturerPhone: string | null;
     manufacturerWebsite: string | null;
+    manufacturerAddressLine1: string | null;
+    manufacturerAddressLine2: string | null;
+    manufacturerCity: string | null;
+    manufacturerState: string | null;
+    manufacturerZip: string | null;
     manufacturerCountryCode: string | null;
   },
   attributes: {
@@ -295,18 +430,7 @@ function buildDppData(
         percentage: m.percentage,
         recyclable: m.recyclable ?? undefined,
         countryOfOrigin: getCountryName(m.countryOfOrigin),
-        certification: m.certificationTitle
-          ? {
-              type: m.certificationTitle,
-              code: "",
-              testingInstitute: m.certificationUrl
-                ? {
-                    legalName: "",
-                    website: m.certificationUrl,
-                  }
-                : undefined,
-            }
-          : undefined,
+        certification: m.certification ?? undefined,
       })),
     },
     manufacturing: {
@@ -314,7 +438,15 @@ function buildDppData(
         ? {
             manufacturerId: 0,
             name: core.manufacturerName,
+            legalName: core.manufacturerLegalName ?? undefined,
+            email: core.manufacturerEmail ?? undefined,
+            phone: core.manufacturerPhone ?? undefined,
             website: core.manufacturerWebsite ?? undefined,
+            addressLine1: core.manufacturerAddressLine1 ?? undefined,
+            addressLine2: core.manufacturerAddressLine2 ?? undefined,
+            city: core.manufacturerCity ?? undefined,
+            state: core.manufacturerState ?? undefined,
+            zip: core.manufacturerZip ?? undefined,
             countryCode: core.manufacturerCountryCode ?? undefined,
           }
         : undefined,
@@ -326,8 +458,16 @@ function buildDppData(
             .join(" "),
           operator: {
             operatorId: index,
-            legalName: f.displayName,
+            name: f.displayName,
+            legalName: f.legalName ?? f.displayName,
+            email: f.email ?? undefined,
+            phone: f.phone ?? undefined,
+            website: f.website ?? undefined,
+            addressLine1: f.addressLine1 ?? undefined,
+            addressLine2: f.addressLine2 ?? undefined,
             city: f.city ?? undefined,
+            state: f.state ?? undefined,
+            zip: f.zip ?? undefined,
             countryCode: f.countryCode ?? undefined,
           },
         })),
@@ -366,7 +506,15 @@ export const themePreviewRouter = createTRPCRouter({
             categoryId: products.categoryId,
             categoryName: taxonomyCategories.name,
             manufacturerName: brandManufacturers.name,
+            manufacturerLegalName: brandManufacturers.legalName,
+            manufacturerEmail: brandManufacturers.email,
+            manufacturerPhone: brandManufacturers.phone,
             manufacturerWebsite: brandManufacturers.website,
+            manufacturerAddressLine1: brandManufacturers.addressLine1,
+            manufacturerAddressLine2: brandManufacturers.addressLine2,
+            manufacturerCity: brandManufacturers.city,
+            manufacturerState: brandManufacturers.state,
+            manufacturerZip: brandManufacturers.zip,
             manufacturerCountryCode: brandManufacturers.countryCode,
           })
           .from(products)
@@ -388,7 +536,11 @@ export const themePreviewRouter = createTRPCRouter({
         }
 
         // Fetch product attributes
-        const attributes = await fetchProductAttributes(db, productId);
+        const attributes = await fetchProductAttributes(
+          db,
+          productId,
+          getSupabaseUrlFromEnv(),
+        );
 
         // Resolve product image URL
         const productImageUrl = productRow.productImage

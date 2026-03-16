@@ -68,14 +68,6 @@ function resolveCountryLabel(value: string | undefined): string {
   return normalizedCountry || value;
 }
 
-function formatLocationLabel(parts: Array<string | undefined>): string {
-  // Join the available city/country segments into a single display label.
-  return parts
-    .map((part) => part?.trim())
-    .filter(Boolean)
-    .join(", ");
-}
-
 function formatCertificationLabel(
   value: string | undefined,
 ): string | undefined {
@@ -98,29 +90,16 @@ function formatCertificationLabel(
 }
 
 export function transformMaterials(data: DppData): MaterialDisplayData[] {
-  // Prefer explicit certification/testing institute locations, then fall back to raw-material operators.
   const { materials } = data;
-  const rawMaterialOperators = (data.manufacturing?.supplyChain ?? [])
-    .filter((step) => step.processStep?.toUpperCase() === "RAW MATERIAL")
-    .map((step) => step.operator);
 
   return (
-    materials?.composition?.map((m, index) => {
-      const institute = m.certification?.testingInstitute;
-      const rawMaterialOperator = rawMaterialOperators[index];
+    materials?.composition?.map((m) => {
       const certificationType = formatCertificationLabel(m.certification?.type);
 
       return {
         percentage: m.percentage,
         type: m.material,
-        origin: formatLocationLabel([
-          institute?.city || rawMaterialOperator?.city,
-          institute?.country
-            ? resolveCountryLabel(institute.country)
-            : rawMaterialOperator?.countryCode
-              ? resolveCountryLabel(rawMaterialOperator.countryCode)
-              : resolveCountryLabel(m.countryOfOrigin),
-        ]),
+        origin: resolveCountryLabel(m.countryOfOrigin),
         certification: m.certification
           ? {
               ...m.certification,

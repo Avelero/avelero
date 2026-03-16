@@ -5,6 +5,7 @@ export type SettingsNavIconKey =
   | "UserRound"
   | "Layers"
   | "FileText"
+  | "BarChart3"
   | "Calendar"
   | "Tag"
   | "Bookmark"
@@ -55,6 +56,11 @@ export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
         label: "Billing",
         href: "/settings/billing",
         icon: "FileText",
+      },
+      {
+        label: "Usage",
+        href: "/settings/usage",
+        icon: "BarChart3",
       },
     ],
   },

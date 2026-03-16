@@ -31,6 +31,7 @@ import {
   accessPaymentRequired,
   accessSkuLimitReached,
   accessSuspended,
+  accessTemporaryBlocked,
   forbidden,
   noBrandSelected,
   unauthorized,
@@ -312,6 +313,9 @@ function throwReadAccessError(decision: BrandAccessDecision): never {
   if (decision === "suspended") {
     throw accessSuspended();
   }
+  if (decision === "temporary_blocked") {
+    throw accessTemporaryBlocked();
+  }
   if (decision === "cancelled") {
     throw accessCancelled();
   }
@@ -327,6 +331,9 @@ function throwWriteAccessError(decision: BrandAccessDecision): never {
   }
   if (decision === "suspended") {
     throw accessSuspended();
+  }
+  if (decision === "temporary_blocked") {
+    throw accessTemporaryBlocked();
   }
   if (decision === "cancelled") {
     throw accessCancelled();
@@ -347,6 +354,20 @@ export function assertResolvedBrandReadAccess(
 ): void {
   if (!brandAccess.capabilities.canReadBrandData) {
     throwReadAccessError(brandAccess.decision);
+  }
+}
+
+/**
+ * Explicitly allows billing-management actions in recovery states while still blocking support suspensions.
+ */
+export function assertResolvedBrandBillingAccess(
+  brandAccess: ResolvedBrandAccessDecision,
+): void {
+  if (brandAccess.decision === "suspended") {
+    throw accessSuspended();
+  }
+  if (brandAccess.decision === "temporary_blocked") {
+    throw accessTemporaryBlocked();
   }
 }
 
@@ -506,6 +527,22 @@ export const brandWriteProcedure = protectedProcedure
     t.middleware(({ ctx, next }) => {
       const brandCtx = ctx as BrandAccessTRPCContext;
       assertResolvedBrandWriteAccess(brandCtx.brandAccess);
+      return next({
+        ctx: brandCtx,
+      });
+    }),
+  );
+
+/**
+ * Procedure variant for billing management surfaces that remain reachable in recovery states.
+ */
+export const brandBillingProcedure = protectedProcedure
+  .use(requireBrand)
+  .use(withResolvedBrandAccess)
+  .use(
+    t.middleware(({ ctx, next }) => {
+      const brandCtx = ctx as BrandAccessTRPCContext;
+      assertResolvedBrandBillingAccess(brandCtx.brandAccess);
       return next({
         ctx: brandCtx,
       });

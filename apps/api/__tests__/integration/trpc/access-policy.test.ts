@@ -53,8 +53,16 @@ async function setBrandSubscriptionState(params: {
   brandId: string;
   phase: BrandPhase;
   trialEndsAt?: string | null;
+  billingMode?: "stripe_checkout" | "stripe_invoice" | null;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
+  currentPeriodStart?: string | null;
+  currentPeriodEnd?: string | null;
+  pastDueSince?: string | null;
+  pendingCancellation?: boolean;
   billingOverride?: "none" | "temporary_allow" | "temporary_block";
   billingOverrideExpiresAt?: string | null;
+  billingInterval?: "monthly" | "yearly" | null;
   skuAnnualLimit?: number | null;
   skuOnboardingLimit?: number | null;
   skuLimitOverride?: number | null;
@@ -90,11 +98,15 @@ async function setBrandSubscriptionState(params: {
     .insert(schema.brandBilling)
     .values({
       brandId: params.brandId,
-      billingMode: null,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
+      billingMode: params.billingMode ?? null,
+      stripeCustomerId: params.stripeCustomerId ?? null,
+      stripeSubscriptionId: params.stripeSubscriptionId ?? null,
       planCurrency: "EUR",
       customPriceCents: null,
+      currentPeriodStart: params.currentPeriodStart ?? null,
+      currentPeriodEnd: params.currentPeriodEnd ?? null,
+      pastDueSince: params.pastDueSince ?? null,
+      pendingCancellation: params.pendingCancellation ?? false,
       billingAccessOverride: params.billingOverride ?? "none",
       billingOverrideExpiresAt: params.billingOverrideExpiresAt ?? null,
       updatedAt: now,
@@ -102,6 +114,13 @@ async function setBrandSubscriptionState(params: {
     .onConflictDoUpdate({
       target: schema.brandBilling.brandId,
       set: {
+        billingMode: params.billingMode ?? null,
+        stripeCustomerId: params.stripeCustomerId ?? null,
+        stripeSubscriptionId: params.stripeSubscriptionId ?? null,
+        currentPeriodStart: params.currentPeriodStart ?? null,
+        currentPeriodEnd: params.currentPeriodEnd ?? null,
+        pastDueSince: params.pastDueSince ?? null,
+        pendingCancellation: params.pendingCancellation ?? false,
         billingAccessOverride: params.billingOverride ?? "none",
         billingOverrideExpiresAt: params.billingOverrideExpiresAt ?? null,
         updatedAt: now,
@@ -120,6 +139,7 @@ async function setBrandSubscriptionState(params: {
       skuYearStart: null,
       skusCreatedThisYear: params.skusCreatedThisYear ?? 0,
       skusCreatedOnboarding: params.skusCreatedOnboarding ?? 0,
+      billingInterval: params.billingInterval ?? null,
       maxSeats: null,
       updatedAt: now,
     })
@@ -131,6 +151,7 @@ async function setBrandSubscriptionState(params: {
         skuLimitOverride: params.skuLimitOverride ?? null,
         skusCreatedThisYear: params.skusCreatedThisYear ?? 0,
         skusCreatedOnboarding: params.skusCreatedOnboarding ?? 0,
+        billingInterval: params.billingInterval ?? null,
         updatedAt: now,
       },
     });
@@ -190,10 +211,19 @@ describe("Access policy enforcement (tRPC)", () => {
     );
   });
 
-  it("past_due allows reads and blocks writes", async () => {
+  it("past_due allows reads and keeps writes enabled during grace", async () => {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
     await setBrandSubscriptionState({
       brandId,
       phase: "past_due",
+      billingMode: "stripe_checkout",
+      stripeCustomerId: "cus_grace",
+      stripeSubscriptionId: "sub_grace",
+      currentPeriodStart: thirtyDaysAgo.toISOString(),
+      currentPeriodEnd: thirtyDaysAgo.toISOString(),
+      pastDueSince: threeDaysAgo.toISOString(),
       skuAnnualLimit: 500,
     });
 
@@ -203,14 +233,37 @@ describe("Access policy enforcement (tRPC)", () => {
 
     await expect(caller.summary.productStatus()).resolves.toBeDefined();
     await expect(caller.products.list({})).resolves.toBeDefined();
-
-    await expectToken(
+    await expect(
       caller.brand.collections.create({
-        name: "Blocked in past_due",
+        name: "Allowed in past_due",
         filter: {},
       }),
-      ACCESS_ERROR_TOKENS.PAST_DUE_READ_ONLY,
+    ).resolves.toBeDefined();
+  });
+
+  it("cancelled brands with remaining entitlement keep access until period end", async () => {
+    await setBrandSubscriptionState({
+      brandId,
+      phase: "cancelled",
+      billingMode: "stripe_checkout",
+      stripeCustomerId: "cus_cancel",
+      currentPeriodStart: "2026-02-01T00:00:00.000Z",
+      currentPeriodEnd: "2099-03-01T00:00:00.000Z",
+      pendingCancellation: true,
+      skuAnnualLimit: 500,
+    });
+
+    const caller = appRouter.createCaller(
+      createMockContext({ brandId, userId, userEmail, role: "owner" }),
     );
+
+    await expect(caller.summary.productStatus()).resolves.toBeDefined();
+    await expect(
+      caller.brand.collections.create({
+        name: "Allowed while cancellation is pending",
+        filter: {},
+      }),
+    ).resolves.toBeDefined();
   });
 
   it("suspended and cancelled block reads and writes", async () => {

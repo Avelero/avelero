@@ -5,11 +5,17 @@ import { SetEmail } from "@/components/settings/set-email";
 import { SetLogo } from "@/components/settings/set-logo";
 import { SetName } from "@/components/settings/set-name";
 import { SetSlug } from "@/components/settings/set-slug";
+import { shouldBlockSidebarContent } from "@/lib/brand-access";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { connection } from "next/server";
 
 export default async function SettingsPage() {
   await connection();
+
+  // Skip page prefetches when the active brand is blocked.
+  if (await shouldBlockSidebarContent()) {
+    return null;
+  }
 
   batchPrefetch([
     trpc.user.brands.list.queryOptions(),

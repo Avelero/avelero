@@ -9,8 +9,8 @@
  * - getStatus: Current billing state
  * - getPortalUrl: Stripe Customer Portal link
  */
-import { eq } from "@v1/db/queries";
-import { brandBilling, brandLifecycle, brandPlan, brands } from "@v1/db/schema";
+import { desc, eq } from "@v1/db/queries";
+import { brandBilling, brandBillingInvoices, brandLifecycle, brandPlan, brands } from "@v1/db/schema";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createCheckoutSession } from "../../../lib/stripe/checkout.js";
@@ -26,8 +26,9 @@ import {
   removeImpactFromSubscription,
   updateSubscriptionPlan,
 } from "../../../lib/stripe/subscription.js";
+import { syncStripeSubscriptionProjectionById } from "../../../lib/stripe/projection.js";
 import {
-  brandReadProcedure,
+  brandBillingProcedure,
   brandWriteProcedure,
   createTRPCRouter,
 } from "../../init.js";
@@ -37,9 +38,9 @@ const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 export const billingRouter = createTRPCRouter({
   /**
    * Create a Stripe Checkout Session for a new subscription.
-   * Only allowed when the brand is in trial or expired phase.
+   * Allowed for recovery states that need to start or restart a subscription.
    */
-  createCheckoutSession: brandWriteProcedure
+  createCheckoutSession: brandBillingProcedure
     .input(
       z.object({
         tier: z.enum(["starter", "growth", "scale"]),
@@ -50,18 +51,36 @@ export const billingRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { brandId, db } = ctx;
 
-      // Validate phase
-      const [lifecycle] = await db
-        .select({ phase: brandLifecycle.phase })
+      const [state] = await db
+        .select({
+          phase: brandLifecycle.phase,
+          stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+          billingMode: brandBilling.billingMode,
+        })
         .from(brandLifecycle)
+        .leftJoin(brandBilling, eq(brandBilling.brandId, brandLifecycle.brandId))
         .where(eq(brandLifecycle.brandId, brandId))
         .limit(1);
 
-      if (!lifecycle || !["trial", "expired"].includes(lifecycle.phase)) {
+      if (!state) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Billing state is not initialized for this brand",
+        });
+      }
+
+      if (state.stripeSubscriptionId) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "This brand already has an active Stripe subscription",
+        });
+      }
+
+      if (state.billingMode === "stripe_invoice") {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:
-            "Checkout is only available for brands in trial or expired phase",
+            "Stripe Checkout is not available for enterprise invoice billing",
         });
       }
 
@@ -282,14 +301,38 @@ export const billingRouter = createTRPCRouter({
   /**
    * Get the current billing status for the brand.
    */
-  getStatus: brandReadProcedure.query(async ({ ctx }) => {
-    const { brandId, db } = ctx;
+  getStatus: brandBillingProcedure.query(async ({ ctx }) => {
+    const { brandId, db, brandAccess } = ctx;
+
+    const [billingLink] = await db
+      .select({
+        billingMode: brandBilling.billingMode,
+        stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+      })
+      .from(brandBilling)
+      .where(eq(brandBilling.brandId, brandId))
+      .limit(1);
+
+    if (
+      billingLink?.billingMode === "stripe_checkout" &&
+      billingLink.stripeSubscriptionId
+    ) {
+      await syncStripeSubscriptionProjectionById({
+        db,
+        subscriptionId: billingLink.stripeSubscriptionId,
+        brandId,
+      });
+    }
 
     const [billing] = await db
       .select({
         billingMode: brandBilling.billingMode,
         stripeCustomerId: brandBilling.stripeCustomerId,
         stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+        currentPeriodStart: brandBilling.currentPeriodStart,
+        currentPeriodEnd: brandBilling.currentPeriodEnd,
+        pastDueSince: brandBilling.pastDueSince,
+        pendingCancellation: brandBilling.pendingCancellation,
       })
       .from(brandBilling)
       .where(eq(brandBilling.brandId, brandId))
@@ -327,6 +370,11 @@ export const billingRouter = createTRPCRouter({
       billing_mode: billing?.billingMode ?? null,
       phase: lifecycle?.phase ?? "demo",
       trial_ends_at: lifecycle?.trialEndsAt ?? null,
+      current_period_start: billing?.currentPeriodStart ?? null,
+      current_period_end: billing?.currentPeriodEnd ?? null,
+      past_due_since: billing?.pastDueSince ?? null,
+      pending_cancellation: billing?.pendingCancellation ?? false,
+      grace_ends_at: brandAccess.graceEndsAt,
       sku_annual_limit: plan?.skuAnnualLimit ?? null,
       skus_created_this_year: plan?.skusCreatedThisYear ?? 0,
       sku_onboarding_limit: plan?.skuOnboardingLimit ?? null,
@@ -337,10 +385,39 @@ export const billingRouter = createTRPCRouter({
   }),
 
   /**
+   * List invoices for the brand, ordered by creation date descending.
+   */
+  listInvoices: brandBillingProcedure.query(async ({ ctx }) => {
+    const { brandId, db } = ctx;
+
+    const invoices = await db
+      .select({
+        id: brandBillingInvoices.id,
+        status: brandBillingInvoices.status,
+        currency: brandBillingInvoices.currency,
+        total: brandBillingInvoices.total,
+        amountDue: brandBillingInvoices.amountDue,
+        amountPaid: brandBillingInvoices.amountPaid,
+        dueDate: brandBillingInvoices.dueDate,
+        paidAt: brandBillingInvoices.paidAt,
+        hostedInvoiceUrl: brandBillingInvoices.hostedInvoiceUrl,
+        invoicePdfUrl: brandBillingInvoices.invoicePdfUrl,
+        invoiceNumber: brandBillingInvoices.invoiceNumber,
+        createdAt: brandBillingInvoices.createdAt,
+      })
+      .from(brandBillingInvoices)
+      .where(eq(brandBillingInvoices.brandId, brandId))
+      .orderBy(desc(brandBillingInvoices.createdAt))
+      .limit(20);
+
+    return invoices;
+  }),
+
+  /**
    * Get a Stripe Customer Portal URL for managing payment methods
    * and viewing invoice history.
    */
-  getPortalUrl: brandReadProcedure.query(async ({ ctx }) => {
+  getPortalUrl: brandBillingProcedure.query(async ({ ctx }) => {
     const { brandId, db } = ctx;
 
     const [billing] = await db
@@ -350,10 +427,7 @@ export const billingRouter = createTRPCRouter({
       .limit(1);
 
     if (!billing?.stripeCustomerId) {
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message: "No billing account set up yet",
-      });
+      return { url: null };
     }
 
     const portal = await createPortalSession({

@@ -14,6 +14,7 @@ import { ExportButton } from "@/components/passports/export-button";
 import { SelectionProvider } from "@/components/passports/selection-context";
 import { TableSection } from "@/components/passports/table-section";
 import { TableSectionSkeleton } from "@/components/tables/passports/table-skeleton";
+import { shouldBlockSidebarContent } from "@/lib/brand-access";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { Button } from "@v1/ui/button";
 import Link from "next/link";
@@ -23,6 +24,11 @@ import { Suspense } from "react";
 
 export default async function PassportsPage() {
   await connection();
+
+  // Skip page prefetches when the active brand is blocked.
+  if (await shouldBlockSidebarContent()) {
+    return null;
+  }
 
   batchPrefetch([
     trpc.summary.productStatus.queryOptions(),

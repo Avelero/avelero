@@ -1,140 +1,275 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { BillingStatusCard } from "./billing-status-card";
-import { SkuUsageBar } from "./sku-usage-bar";
+import { Button } from "@v1/ui/button";
+import { Icons } from "@v1/ui/icons";
+import { Skeleton } from "@v1/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { PLAN_DISPLAY, formatPrice, type PlanTier } from "./plan-features";
 
-/**
- * Billing settings page content for brands with an active or past_due plan.
- * Trial/expired brands are redirected away by the page server component.
- */
+/** Format a date string deterministically to avoid hydration mismatches. */
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const day = d.getUTCDate().toString().padStart(2, "0");
+  const month = (d.getUTCMonth() + 1).toString().padStart(2, "0");
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 export function BillingPageContent() {
   const trpc = useTRPC();
 
   const statusQuery = useQuery(trpc.brand.billing.getStatus.queryOptions());
-  const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
+  const portalQuery = useQuery(trpc.brand.billing.getPortalUrl.queryOptions());
+  const invoicesQuery = useQuery(
+    trpc.brand.billing.listInvoices.queryOptions(),
+  );
 
   const status = statusQuery.data;
-  const sku = initQuery.data?.sku;
 
   if (!status) {
     return (
-      <div className="w-full max-w-[700px]">
-        <div className="space-y-4">
-          <div className="h-40 animate-pulse rounded-xl border border-border bg-muted/30" />
-          <div className="h-24 animate-pulse rounded-xl border border-border bg-muted/30" />
+      <div className="w-full max-w-[700px] flex flex-col gap-12">
+        {/* Plan overview skeleton */}
+        <div className="border">
+          <div className="flex items-start justify-between gap-6 p-6">
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-56" />
+            </div>
+            <Skeleton className="h-9 w-[120px]" />
+          </div>
+        </div>
+
+        {/* Invoices skeleton */}
+        <div className="border">
+          <div className="p-6">
+            <Skeleton className="h-5 w-16" />
+          </div>
+          <div className="grid grid-cols-4">
+            {["Date", "Total", "Status", "Actions"].map((col) => (
+              <div
+                key={col}
+                className="bg-accent-light px-4 py-2 border-y border-border"
+              >
+                <Skeleton className="h-3.5 w-12" />
+              </div>
+            ))}
+          </div>
+          {["a", "b", "c"].map((key) => (
+            <div
+              key={key}
+              className="grid grid-cols-4 border-b border-border last:border-b-0"
+            >
+              <div className="px-4 py-2.5">
+                <Skeleton className="h-4 w-20" />
+              </div>
+              <div className="px-4 py-2.5">
+                <Skeleton className="h-4 w-16" />
+              </div>
+              <div className="px-4 py-2.5">
+                <Skeleton className="h-4 w-12" />
+              </div>
+              <div className="px-4 py-2.5 flex justify-end">
+                <Skeleton className="h-4 w-8" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Cancel section skeleton */}
+        <div className="flex items-center justify-between border p-6">
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+          <Skeleton className="h-9 w-20" />
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="w-full max-w-[700px] space-y-8">
-      {/* Billing status card */}
-      <BillingStatusCard
-        planType={status.plan_type}
-        billingInterval={status.billing_interval}
-        hasImpactPredictions={status.has_impact_predictions}
-        phase={status.phase}
-        trialEndsAt={status.trial_ends_at}
-      />
+  const tier = status.plan_type as PlanTier;
+  const display = PLAN_DISPLAY[tier];
+  const interval = status.billing_interval as "monthly" | "yearly" | null;
+  const basePrice =
+    interval === "yearly" ? display?.yearlyPrice : display?.monthlyPrice;
+  const periodLabel = interval === "yearly" ? "/year" : "/month";
 
-      {/* SKU usage */}
-      {sku && (sku.annual.limit != null || (sku.onboarding.limit != null && sku.onboarding.limit > 0)) && (
-        <div className="rounded-xl border border-border bg-background p-6">
-          <h3 className="type-large !font-semibold text-primary">Usage</h3>
-          <div className="mt-4 space-y-4">
-            {sku.annual.limit != null && (
-              <SkuUsageBar
-                used={sku.annual.used}
-                limit={sku.annual.limit}
-                label="new SKUs used this year"
-              />
+  const invoices = invoicesQuery.data ?? [];
+
+  return (
+    <div className="w-full max-w-[700px] flex flex-col gap-12">
+      {/* Plan overview */}
+      <div className="border">
+        <div className="flex items-start justify-between gap-6 p-6">
+          <div className="flex flex-col gap-1.5">
+            <h6 className="text-foreground">
+              {display?.name ?? status.plan_type} Plan
+            </h6>
+            {basePrice != null && (
+              <p className="text-sm text-secondary">
+                {formatPrice(basePrice)}
+                {periodLabel}
+              </p>
             )}
-            {sku.onboarding.limit != null && sku.onboarding.limit > 0 && (
-              <SkuUsageBar
-                used={sku.onboarding.used}
-                limit={sku.onboarding.limit}
-                label="onboarding SKUs used"
-              />
+            {status.current_period_end && (
+              <p className="text-sm text-secondary">
+                {status.pending_cancellation
+                  ? "Your plan will end on "
+                  : "Your subscription will auto renew on "}
+                <span className="text-primary">
+                  {formatDate(status.current_period_end)}
+                </span>
+                .
+              </p>
+            )}
+            {status.sku_annual_limit != null && (
+              <p className="text-sm text-secondary">
+                {status.sku_annual_limit.toLocaleString("en-US")} product
+                passports per year
+              </p>
+            )}
+            {status.phase === "past_due" && (
+              <p className="text-sm text-destructive">
+                Payment is past due. Update your payment method before{" "}
+                {status.grace_ends_at
+                  ? formatDate(status.grace_ends_at)
+                  : "the grace period ends"}
+                .
+              </p>
             )}
           </div>
+          {portalQuery.data?.url ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                window.open(portalQuery.data?.url ?? "", "_blank");
+              }}
+            >
+              Manage billing
+            </Button>
+          ) : null}
         </div>
-      )}
+      </div>
 
-      {/* Impact Predictions status */}
-      {status.phase === "active" && (
-        <ImpactSection hasImpact={status.has_impact_predictions} />
-      )}
+      {/* Invoices */}
+      <div className="border">
+        <div className="p-6">
+          <h6 className="text-foreground">Invoices</h6>
+        </div>
+
+        {/* Table header */}
+        <div className="grid grid-cols-4">
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">
+            Date
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">
+            Total
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">
+            Status
+          </div>
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border text-right">
+            Actions
+          </div>
+        </div>
+
+        {/* Table rows */}
+        {invoicesQuery.isLoading ? (
+          <>
+            {["a", "b"].map((key) => (
+              <div
+                key={key}
+                className="grid grid-cols-4 border-b border-border last:border-b-0"
+              >
+                <div className="px-4 py-2.5">
+                  <Skeleton className="h-4 w-20" />
+                </div>
+                <div className="px-4 py-2.5">
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <div className="px-4 py-2.5">
+                  <Skeleton className="h-4 w-12" />
+                </div>
+                <div className="px-4 py-2.5 flex justify-end">
+                  <Skeleton className="h-4 w-8" />
+                </div>
+              </div>
+            ))}
+          </>
+        ) : invoices.length === 0 ? (
+          <div className="flex items-center justify-center h-[120px]">
+            <p className="type-p text-tertiary">No invoices yet</p>
+          </div>
+        ) : (
+          invoices.map((inv) => (
+            <div
+              key={inv.id}
+              className="grid grid-cols-4 border-b border-border last:border-b-0"
+            >
+              <div className="px-4 py-2.5 type-p text-primary">
+                {formatDate(inv.createdAt)}
+              </div>
+              <div className="px-4 py-2.5 type-p text-primary">
+                {inv.total != null
+                  ? formatInvoiceAmount(inv.total, inv.currency)
+                  : "—"}
+              </div>
+              <div className="px-4 py-2.5 type-p text-primary">
+                {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
+              </div>
+              <div className="px-4 py-2.5 text-right">
+                {inv.hostedInvoiceUrl && (
+                  <a
+                    href={inv.hostedInvoiceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="type-p text-primary underline underline-offset-2"
+                  >
+                    View
+                  </a>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Cancellation */}
+      {(status.phase === "active" || status.phase === "past_due") &&
+        !status.pending_cancellation && (
+          <div className="flex items-center justify-between border p-6">
+            <div>
+              <h6 className="text-foreground">Cancel plan</h6>
+              <p className="mt-1 text-sm text-secondary">
+                Cancel your subscription at the end of the current billing
+                period.
+              </p>
+            </div>
+            {portalQuery.data?.url ? (
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  window.open(portalQuery.data?.url ?? "", "_blank");
+                }}
+              >
+                Cancel
+              </Button>
+            ) : null}
+          </div>
+        )}
     </div>
   );
 }
 
-/** Impact Predictions add/remove section for active brands. */
-function ImpactSection({ hasImpact }: { hasImpact: boolean }) {
-  const trpc = useTRPC();
-
-  const addImpact = useMutation(
-    trpc.brand.billing.addImpact.mutationOptions({
-      onSuccess: () => {
-        window.location.reload();
-      },
-    }),
-  );
-
-  const removeImpact = useMutation(
-    trpc.brand.billing.removeImpact.mutationOptions({
-      onSuccess: () => {
-        window.location.reload();
-      },
-    }),
-  );
-
-  return (
-    <div className="rounded-xl border border-border bg-background p-6">
-      <h3 className="type-large !font-semibold text-primary">
-        Impact Predictions
-      </h3>
-      <p className="mt-2 type-small text-secondary">
-        AI-powered CO2 and water scarcity impact estimates for every SKU.
-        Supports upcoming EU digital product passport requirements without
-        costly LCA analysis.
-      </p>
-      <div className="mt-4">
-        {hasImpact ? (
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-primary">Active</span>
-            <button
-              type="button"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "Remove Impact Predictions? You'll lose access to CO2 and water impact estimates.",
-                  )
-                ) {
-                  removeImpact.mutate();
-                }
-              }}
-              disabled={removeImpact.isPending}
-              className="text-sm text-destructive underline underline-offset-2 hover:text-destructive/80"
-            >
-              {removeImpact.isPending ? "Removing..." : "Remove add-on"}
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => addImpact.mutate()}
-            disabled={addImpact.isPending}
-            className="text-sm font-medium text-primary underline underline-offset-2 hover:text-primary/80"
-          >
-            {addImpact.isPending
-              ? "Adding..."
-              : "Add Impact Predictions to your plan"}
-          </button>
-        )}
-      </div>
-    </div>
-  );
+function formatInvoiceAmount(cents: number, currency: string): string {
+  const amount = cents / 100;
+  const symbol = currency === "eur" ? "€" : currency === "usd" ? "$" : "";
+  const formatted = amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `${symbol}${formatted}`;
 }

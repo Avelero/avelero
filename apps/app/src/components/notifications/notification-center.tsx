@@ -1,3 +1,9 @@
+/**
+ * Notification center popover.
+ *
+ * The header can render this in a disabled state for blocked brands so the
+ * component does not issue suspense queries that will be denied server-side.
+ */
 "use client";
 
 import { type Notification, useNotifications } from "@/hooks/use-notifications";
@@ -221,7 +227,18 @@ function NotificationCenterSkeleton() {
   );
 }
 
-export function NotificationCenter() {
+interface NotificationCenterProps {
+  disabled?: boolean;
+}
+
+export function NotificationCenter({
+  disabled = false,
+}: NotificationCenterProps) {
+  // Render a static button when notification queries should stay disabled.
+  if (disabled) {
+    return <NotificationCenterSkeleton />;
+  }
+
   return (
     <Suspense fallback={<NotificationCenterSkeleton />}>
       <NotificationCenterContent />

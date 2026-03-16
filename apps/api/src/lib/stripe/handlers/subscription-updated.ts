@@ -1,40 +1,24 @@
+/**
+ * Handles `customer.subscription.updated` by refreshing the subscription projection and cancellation flags.
+ */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
-import {
-  brandBilling,
-  brandBillingEvents,
-  brandLifecycle,
-  brandPlan,
-} from "@v1/db/schema";
+import { brandBilling, brandBillingEvents, brandLifecycle } from "@v1/db/schema";
 import type Stripe from "stripe";
-import { TIER_CONFIG, resolvePriceId } from "../config.js";
+import {
+  isStripeSubscriptionPendingCancellation,
+  projectStripeSubscription,
+  resolveBrandIdForSubscription,
+} from "../projection.js";
 
 /**
- * Handle `customer.subscription.updated` — subscription changed.
- *
- * Covers: plan upgrades/downgrades, interval changes, adding/removing
- * Impact Predictions, and status transitions (e.g. past_due → active
- * after successful retry).
- *
- * Parses the current subscription items via `resolvePriceId()` to
- * determine the effective tier, interval, and whether Impact is present.
+ * Persists subscription updates, including cancel-at-period-end and recovery from past due.
  */
 export async function handleSubscriptionUpdated(
   event: Stripe.Event,
 ): Promise<void> {
   const subscription = event.data.object as Stripe.Subscription;
-
-  // Determine brand ID from metadata or billing lookup
-  let brandId = subscription.metadata?.brand_id;
-
-  if (!brandId) {
-    const [row] = await db
-      .select({ brandId: brandBilling.brandId })
-      .from(brandBilling)
-      .where(eq(brandBilling.stripeSubscriptionId, subscription.id))
-      .limit(1);
-    brandId = row?.brandId;
-  }
+  const brandId = await resolveBrandIdForSubscription({ db, subscription });
 
   if (!brandId) {
     console.warn(
@@ -43,73 +27,68 @@ export async function handleSubscriptionUpdated(
     return;
   }
 
+  const { projection } = await projectStripeSubscription({
+    db,
+    subscription,
+    clearPastDue: subscription.status === "active",
+    knownBrandId: brandId,
+  });
   const nowIso = new Date().toISOString();
 
-  // If subscription became active and brand is past_due, recover
   if (subscription.status === "active") {
-    const [lifecycle] = await db
-      .select({ phase: brandLifecycle.phase })
-      .from(brandLifecycle)
-      .where(eq(brandLifecycle.brandId, brandId))
-      .limit(1);
-
-    if (lifecycle?.phase === "past_due") {
-      await db
-        .update(brandLifecycle)
-        .set({
-          phase: "active",
-          phaseChangedAt: nowIso,
-          updatedAt: nowIso,
-        })
-        .where(eq(brandLifecycle.brandId, brandId));
-    }
-  }
-
-  // Parse subscription items to determine current plan state
-  let resolvedTier: string | null = null;
-  let resolvedInterval: string | null = null;
-  let hasImpact = false;
-
-  for (const item of subscription.items.data) {
-    const resolved = resolvePriceId(item.price.id);
-    if (!resolved) continue;
-
-    if (resolved.product === "avelero") {
-      resolvedTier = resolved.tier;
-      resolvedInterval = resolved.interval;
-    } else if (resolved.product === "impact") {
-      hasImpact = true;
-    }
-  }
-
-  // Update brand_plan if we resolved a valid tier
-  if (resolvedTier && resolvedInterval) {
-    const tierKey = resolvedTier as keyof typeof TIER_CONFIG;
-    const tierConfig = TIER_CONFIG[tierKey];
-
     await db
-      .update(brandPlan)
+      .update(brandLifecycle)
       .set({
-        planType: resolvedTier,
-        billingInterval: resolvedInterval,
-        hasImpactPredictions: hasImpact,
-        skuAnnualLimit: tierConfig.skuAnnualLimit,
-        skuOnboardingLimit: tierConfig.skuOnboardingLimit,
+        phase: "active",
+        phaseChangedAt: nowIso,
         updatedAt: nowIso,
       })
-      .where(eq(brandPlan.brandId, brandId));
+      .where(eq(brandLifecycle.brandId, brandId));
   }
 
-  // Log billing event
+  if (subscription.status === "past_due" || subscription.status === "unpaid") {
+    const [billing] = await db
+      .select({ pastDueSince: brandBilling.pastDueSince })
+      .from(brandBilling)
+      .where(eq(brandBilling.brandId, brandId))
+      .limit(1);
+
+    await db
+      .update(brandBilling)
+      .set({
+        pastDueSince: billing?.pastDueSince ?? nowIso,
+        updatedAt: nowIso,
+      })
+      .where(eq(brandBilling.brandId, brandId));
+
+    await db
+      .update(brandLifecycle)
+      .set({
+        phase: "past_due",
+        phaseChangedAt: nowIso,
+        updatedAt: nowIso,
+      })
+      .where(eq(brandLifecycle.brandId, brandId));
+  }
+
   await db.insert(brandBillingEvents).values({
     brandId,
     eventType: "subscription_updated",
     stripeEventId: event.id,
     payload: {
+      subscription_id: subscription.id,
       status: subscription.status,
-      plan_type: resolvedTier,
-      billing_interval: resolvedInterval,
-      has_impact: hasImpact,
+      cancel_at: subscription.cancel_at
+        ? new Date(subscription.cancel_at * 1000).toISOString()
+        : null,
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      pending_cancellation:
+        isStripeSubscriptionPendingCancellation(subscription),
+      current_period_start: projection.currentPeriodStart,
+      current_period_end: projection.currentPeriodEnd,
+      plan_type: projection.planType,
+      billing_interval: projection.billingInterval,
+      has_impact: projection.hasImpactPredictions,
     },
   });
 }

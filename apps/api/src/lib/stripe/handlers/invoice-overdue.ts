@@ -1,5 +1,5 @@
 /**
- * Handles `invoice.payment_failed` by starting or preserving the grace-period window.
+ * Handles `invoice.overdue` by projecting the invoice locally and starting past-due state.
  */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
@@ -9,19 +9,17 @@ import {
   getStripeId,
   resolveBrandIdForInvoice,
   upsertStripeInvoiceProjection,
+  unixToIso,
 } from "../projection.js";
 
 /**
- * Persists a payment failure without revoking write access during the grace period.
+ * Persists overdue state for send-invoice billing without changing the service-period anchor.
  */
-export async function handleInvoicePaymentFailed(
-  event: Stripe.Event,
-): Promise<void> {
+export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
   const invoice = event.data.object as Stripe.Invoice;
   const brandId = await resolveBrandIdForInvoice({ db, invoice });
 
   if (!brandId) {
-    console.warn("invoice.payment_failed: could not determine brand_id");
     return;
   }
 
@@ -44,7 +42,7 @@ export async function handleInvoicePaymentFailed(
     .update(brandBilling)
     .set({
       stripeCustomerId: getStripeId(invoice.customer),
-      pastDueSince: billing?.pastDueSince ?? nowIso,
+      pastDueSince: billing?.pastDueSince ?? unixToIso(invoice.due_date) ?? nowIso,
       updatedAt: nowIso,
     })
     .where(eq(brandBilling.brandId, brandId));
@@ -60,12 +58,12 @@ export async function handleInvoicePaymentFailed(
 
   await db.insert(brandBillingEvents).values({
     brandId,
-    eventType: "invoice_payment_failed",
+    eventType: "invoice_overdue",
     stripeEventId: event.id,
     payload: {
-      attempt_count: invoice.attempt_count,
       invoice_id: invoice.id,
-      next_payment_attempt: invoice.next_payment_attempt,
+      due_date: unixToIso(invoice.due_date),
+      status: invoice.status,
     },
   });
 }

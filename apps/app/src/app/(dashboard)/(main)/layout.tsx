@@ -1,5 +1,5 @@
-import { BlockedAccessScreen } from "@/components/access/blocked-access-screen";
 import { PastDueBanner } from "@/components/access/past-due-banner";
+import { PendingCancellationBanner } from "@/components/access/pending-cancellation-banner";
 import { PaymentRequiredOverlay } from "@/components/access/payment-required-overlay";
 import {
   INVITE_REQUIRED_LOGIN_PATH,
@@ -59,16 +59,18 @@ export default async function MainLayout({
     redirect("/invites");
   }
 
-  if (access.overlay === "suspended" || access.overlay === "cancelled") {
-    return <BlockedAccessScreen reason={access.overlay} />;
-  }
+  // Cancelled/suspended overlays are rendered inside the sidebar layout's
+  // content area so that header & sidebar remain accessible for brand switching.
 
   return (
     <div className="relative h-full min-h-0">
       {access.banner === "past_due" ? <PastDueBanner /> : null}
+      {access.banner === "pending_cancellation" ? (
+        <PendingCancellationBanner accessUntil={access.currentPeriodEnd} />
+      ) : null}
       <div className="relative h-full min-h-0">
         {children}
-        {access.overlay === "payment_required" ? (
+        {access.overlay === "payment_required" && access.phase !== "trial" ? (
           <PaymentRequiredOverlay />
         ) : null}
       </div>

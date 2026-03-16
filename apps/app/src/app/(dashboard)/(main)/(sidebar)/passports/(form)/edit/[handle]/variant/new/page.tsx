@@ -1,4 +1,5 @@
 import { CreateVariantForm } from "@/components/forms/passport";
+import { shouldBlockSidebarContent } from "@/lib/brand-access";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { connection } from "next/server";
@@ -13,6 +14,11 @@ export default async function VariantCreatePage({
   params: Promise<{ handle: string }>;
 }) {
   await connection();
+
+  // Skip page prefetches when the active brand is blocked.
+  if (await shouldBlockSidebarContent()) {
+    return null;
+  }
 
   const { handle } = await params;
 

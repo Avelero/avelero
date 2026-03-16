@@ -43,16 +43,15 @@ export function SkuUsageBar({
         )}
       </div>
 
-      {/* Progress bar */}
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-3 w-full overflow-hidden bg-[#0000FF]/10">
         <div
           className={cn(
-            "h-full rounded-full transition-all duration-300",
+            "h-full transition-all duration-300",
             isBlocked
               ? "bg-destructive"
               : isWarning
                 ? "bg-amber-500"
-                : "bg-primary",
+                : "bg-brand",
           )}
           style={{ width: `${percentage}%` }}
         />

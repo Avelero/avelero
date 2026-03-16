@@ -1,3 +1,6 @@
+/**
+ * Defines the input and output types used by the brand access policy resolver.
+ */
 import type { Role } from "../../config/roles.js";
 
 export type BrandLifecyclePhase =
@@ -20,6 +23,7 @@ export type BrandAccessDecision =
   | "payment_required"
   | "past_due"
   | "suspended"
+  | "temporary_blocked"
   | "cancelled";
 
 export interface BrandAccessCapabilities {
@@ -32,9 +36,10 @@ export type BrandAccessOverlay =
   | "none"
   | "payment_required"
   | "suspended"
+  | "temporary_blocked"
   | "cancelled";
 
-export type BrandAccessBanner = "none" | "past_due";
+export type BrandAccessBanner = "none" | "past_due" | "pending_cancellation";
 
 export interface BrandAccessSnapshot {
   brandId: string;
@@ -43,8 +48,15 @@ export interface BrandAccessSnapshot {
     trialEndsAt: string | null;
   } | null;
   billing: {
+    billingMode: "stripe_checkout" | "stripe_invoice" | null;
+    stripeCustomerId: string | null;
+    stripeSubscriptionId: string | null;
     billingAccessOverride: BillingAccessOverride;
     billingOverrideExpiresAt: string | null;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+    pastDueSince: string | null;
+    pendingCancellation: boolean;
   } | null;
   plan: {
     skuAnnualLimit: number | null;
@@ -68,6 +80,11 @@ export interface ResolvedBrandAccessDecision {
   banner: BrandAccessBanner;
   phase: BrandLifecyclePhase;
   trialEndsAt: string | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  pastDueSince: string | null;
+  pendingCancellation: boolean;
+  graceEndsAt: string | null;
 }
 
 export type SkuAccessStatus = "allowed" | "warning" | "blocked";

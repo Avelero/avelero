@@ -326,6 +326,11 @@ const DEFAULT_ACCESS = {
   banner: "none" as const,
   phase: "demo" as const,
   trialEndsAt: null as string | null,
+  currentPeriodStart: null as string | null,
+  currentPeriodEnd: null as string | null,
+  pastDueSince: null as string | null,
+  pendingCancellation: false,
+  graceEndsAt: null as string | null,
 };
 
 const DEFAULT_SKU = {
@@ -444,6 +449,11 @@ export const compositeRouter = createTRPCRouter({
         banner: resolvedAccess.banner,
         phase: resolvedAccess.phase,
         trialEndsAt: resolvedAccess.trialEndsAt,
+        currentPeriodStart: resolvedAccess.currentPeriodStart,
+        currentPeriodEnd: resolvedAccess.currentPeriodEnd,
+        pastDueSince: resolvedAccess.pastDueSince,
+        pendingCancellation: resolvedAccess.pendingCancellation,
+        graceEndsAt: resolvedAccess.graceEndsAt,
       },
       sku: {
         status: resolvedSku.status,

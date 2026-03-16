@@ -1,3 +1,6 @@
+/**
+ * Handles `customer.subscription.deleted` by ending the subscription link and resolving the lifecycle phase.
+ */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import {
@@ -7,34 +10,19 @@ import {
   brandPlan,
 } from "@v1/db/schema";
 import type Stripe from "stripe";
+import {
+  resolveBrandIdForSubscription,
+  resolveSubscriptionProjection,
+} from "../projection.js";
 
 /**
- * Handle `customer.subscription.deleted` — subscription was cancelled.
- *
- * Updates:
- * - brand_billing: clear stripe_subscription_id
- * - brand_plan: clear has_impact_predictions
- * - brand_lifecycle: phase depends on cancellation reason:
- *   - `payment_failed` / `payment_disputed` → `expired` (can reactivate by paying)
- *   - Everything else (including `cancellation_requested`) → `cancelled` with 30-day hard delete
- * - brand_billing_events: audit log entry
+ * Persists the final subscription teardown after Stripe has actually deleted the subscription.
  */
 export async function handleSubscriptionDeleted(
   event: Stripe.Event,
 ): Promise<void> {
   const subscription = event.data.object as Stripe.Subscription;
-
-  // Determine brand ID from metadata or billing lookup
-  let brandId = subscription.metadata?.brand_id;
-
-  if (!brandId) {
-    const [row] = await db
-      .select({ brandId: brandBilling.brandId })
-      .from(brandBilling)
-      .where(eq(brandBilling.stripeSubscriptionId, subscription.id))
-      .limit(1);
-    brandId = row?.brandId;
-  }
+  const brandId = await resolveBrandIdForSubscription({ db, subscription });
 
   if (!brandId) {
     console.warn(
@@ -43,24 +31,29 @@ export async function handleSubscriptionDeleted(
     return;
   }
 
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
   const reason = subscription.cancellation_details?.reason ?? null;
-
-  // Billing-failure reasons → expired (brand can reactivate by paying)
-  // Voluntary cancellation or other reasons → cancelled with hard delete
   const isBillingFailure =
     reason === "payment_failed" || reason === "payment_disputed";
+  const projection = resolveSubscriptionProjection(subscription);
+  const periodEnd = projection.currentPeriodEnd
+    ? new Date(projection.currentPeriodEnd)
+    : null;
+  const hasRemainingAccess =
+    periodEnd !== null && periodEnd.getTime() > now.getTime();
 
-  // Clear subscription ID from billing
   await db
     .update(brandBilling)
     .set({
       stripeSubscriptionId: null,
+      currentPeriodStart: projection.currentPeriodStart,
+      currentPeriodEnd: projection.currentPeriodEnd,
+      pendingCancellation: false,
       updatedAt: nowIso,
     })
     .where(eq(brandBilling.brandId, brandId));
 
-  // Clear impact predictions
   await db
     .update(brandPlan)
     .set({
@@ -69,8 +62,16 @@ export async function handleSubscriptionDeleted(
     })
     .where(eq(brandPlan.brandId, brandId));
 
-  if (isBillingFailure) {
-    // Expired: brand can reactivate by paying — no hard delete countdown
+  if (hasRemainingAccess) {
+    await db
+      .update(brandLifecycle)
+      .set({
+        phase: "active",
+        phaseChangedAt: nowIso,
+        updatedAt: nowIso,
+      })
+      .where(eq(brandLifecycle.brandId, brandId));
+  } else if (isBillingFailure) {
     await db
       .update(brandLifecycle)
       .set({
@@ -80,8 +81,7 @@ export async function handleSubscriptionDeleted(
       })
       .where(eq(brandLifecycle.brandId, brandId));
   } else {
-    // Cancelled: voluntary cancellation — start 30-day hard delete countdown
-    const hardDeleteDate = new Date();
+    const hardDeleteDate = new Date(now);
     hardDeleteDate.setDate(hardDeleteDate.getDate() + 30);
 
     await db
@@ -96,14 +96,20 @@ export async function handleSubscriptionDeleted(
       .where(eq(brandLifecycle.brandId, brandId));
   }
 
-  // Log billing event
   await db.insert(brandBillingEvents).values({
     brandId,
     eventType: "subscription_deleted",
     stripeEventId: event.id,
     payload: {
+      subscription_id: subscription.id,
       reason,
-      resolved_phase: isBillingFailure ? "expired" : "cancelled",
+      resolved_phase: hasRemainingAccess
+        ? "active"
+        : isBillingFailure
+          ? "expired"
+          : "cancelled",
+      has_remaining_access: hasRemainingAccess,
+      period_end: projection.currentPeriodEnd,
     },
   });
 }

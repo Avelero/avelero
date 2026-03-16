@@ -60,7 +60,7 @@ export async function verifyAndDispatch(
   // 1. Verify signature
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    event = await stripe.webhooks.constructEventAsync(rawBody, signature, webhookSecret);
   } catch (err) {
     throw new WebhookVerificationError(
       err instanceof Error ? err.message : "Signature verification failed",

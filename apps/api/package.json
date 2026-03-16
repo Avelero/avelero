@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun run src/index.ts",
     "dev:db": "supabase start",
-    "stripe": "stripe listen --forward-to localhost:4000/api/stripe/webhook",
+    "stripe": "stripe listen --forward-to localhost:4000/webhooks/stripe",
     "start": "bun run src/index.ts",
     "login": "supabase login",
     "migrate": "supabase migration up",

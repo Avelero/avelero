@@ -25,6 +25,7 @@ const SETTINGS_NAV_ICONS: Record<SettingsNavIconKey, LucideIcon> = {
   Leaf: Icons.Leaf,
   Award: Icons.Award,
   Building: Icons.Building,
+  BarChart3: Icons.BarChart3,
 };
 
 export function SettingsSecondarySidebar() {
@@ -32,8 +33,14 @@ export function SettingsSecondarySidebar() {
   const activeItem = getActiveSettingsNavItem(pathname);
   const trpc = useTRPC();
   const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
-  const phase = initQuery.data?.access?.phase;
-  const hasBillingAccess = phase === "active" || phase === "past_due";
+  const access = initQuery.data?.access;
+  const phase = access?.phase;
+  const overlay = access?.overlay;
+  const showBillingNav =
+    overlay !== "suspended" &&
+    overlay !== "temporary_blocked" &&
+    phase !== "demo" &&
+    phase !== "trial";
 
   return (
     <aside className="w-[244px] shrink-0 border-r border-border bg-background">
@@ -53,8 +60,10 @@ export function SettingsSecondarySidebar() {
               <div className="flex flex-col gap-0.5">
                 {group.items
                   .filter((item) => {
-                    // Hide Billing for brands without an active subscription
-                    if (item.href === "/settings/billing" && !hasBillingAccess)
+                    if (
+                      (item.href === "/settings/billing" || item.href === "/settings/usage") &&
+                      !showBillingNav
+                    )
                       return false;
                     return true;
                   })

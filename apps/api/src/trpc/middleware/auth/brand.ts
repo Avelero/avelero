@@ -1,6 +1,7 @@
 import { type Role, isRole } from "@api/config/roles.js";
 import { resolveBrandAccessDecision } from "@api/lib/access-policy/resolve-brand-access-decision.js";
 import { resolveSkuAccessDecision } from "@api/lib/access-policy/resolve-sku-access-decision.js";
+import { syncStripeSubscriptionProjectionById } from "@api/lib/stripe/projection.js";
 import type {
   BrandAccessSnapshot,
   ResolvedBrandAccessDecision,
@@ -131,7 +132,20 @@ export async function ensureBrandAccessContext(
     throw new Error("Active brand context required to resolve access policy");
   }
 
-  const snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
+  let snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
+
+  if (
+    snapshot.billing?.stripeSubscriptionId &&
+    !snapshot.billing.currentPeriodEnd
+  ) {
+    await syncStripeSubscriptionProjectionById({
+      db: ctx.db,
+      subscriptionId: snapshot.billing.stripeSubscriptionId,
+      brandId: ctx.brandId,
+    });
+    snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
+  }
+
   const resolvedBrandAccess = resolveBrandAccessDecision({
     role: ctx.role ?? null,
     snapshot,

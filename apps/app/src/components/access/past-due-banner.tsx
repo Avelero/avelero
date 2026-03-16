@@ -8,7 +8,8 @@ export function PastDueBanner() {
         <div className="flex items-center gap-2 type-small">
           <Icons.AlertTriangle className="h-4 w-4 shrink-0" />
           <span>
-            Payment failed. Brand data is read-only until billing is resolved.
+            Payment is past due. You still have access during the 14-day grace
+            period, but please resolve billing before access expires.
           </span>
         </div>
         <Link

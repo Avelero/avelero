@@ -1,14 +1,14 @@
-import { BillingPageContent } from "@/components/billing/billing-page-content";
+import { UsagePageContent } from "@/components/billing/usage-page-content";
 import { getDashboardInit, shouldBlockSidebarContent } from "@/lib/brand-access";
 import {
   HydrateClient,
-  batchPrefetch,
+  prefetch,
   trpc,
 } from "@/trpc/server";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
-export default async function BillingPage() {
+export default async function UsagePage() {
   await connection();
 
   if (await shouldBlockSidebarContent()) {
@@ -21,14 +21,11 @@ export default async function BillingPage() {
     redirect("/settings");
   }
 
-  batchPrefetch([
-    trpc.brand.billing.getStatus.queryOptions(),
-    trpc.brand.billing.listInvoices.queryOptions(),
-  ]);
+  prefetch(trpc.composite.initDashboard.queryOptions());
 
   return (
     <HydrateClient>
-      <BillingPageContent />
+      <UsagePageContent />
     </HydrateClient>
   );
 }

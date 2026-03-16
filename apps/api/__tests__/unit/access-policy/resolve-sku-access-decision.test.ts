@@ -15,8 +15,15 @@ function buildSnapshot(
       trialEndsAt: null,
     },
     billing: {
+      billingMode: null,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
       billingAccessOverride: "none",
       billingOverrideExpiresAt: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      pastDueSince: null,
+      pendingCancellation: false,
     },
     plan: {
       skuAnnualLimit: 100,
@@ -43,6 +50,11 @@ function buildBrandAccess(
     banner: "none",
     phase: "active",
     trialEndsAt: null,
+    currentPeriodStart: null,
+    currentPeriodEnd: null,
+    pastDueSince: null,
+    pendingCancellation: false,
+    graceEndsAt: null,
     ...overrides,
   };
 }

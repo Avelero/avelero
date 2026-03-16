@@ -1,9 +1,15 @@
 import { SetTheme } from "@/components/design/set-theme";
+import { shouldBlockSidebarContent } from "@/lib/brand-access";
 import { HydrateClient, getQueryClient, prefetch, trpc } from "@/trpc/server";
 import { connection } from "next/server";
 
 export default async function DesignPage() {
   await connection();
+
+  // Skip page prefetches when the active brand is blocked.
+  if (await shouldBlockSidebarContent()) {
+    return null;
+  }
 
   prefetch(trpc.brand.theme.get.queryOptions());
 

@@ -14,12 +14,14 @@ import Link from "next/link";
 interface HeaderProps {
   hideUserMenu?: boolean;
   disableLogoLink?: boolean;
+  disableNotifications?: boolean;
   variant?: "default" | "editor";
 }
 
 export function Header({
   hideUserMenu,
   disableLogoLink,
+  disableNotifications = false,
   variant = "default",
 }: HeaderProps) {
   // Switch the leading chrome depending on whether the editor is active.
@@ -72,7 +74,7 @@ export function Header({
             {isEditor && <DataControl />}
             {!hideUserMenu && (
               <>
-                <NotificationCenter />
+                <NotificationCenter disabled={disableNotifications} />
                 <UserMenu />
               </>
             )}

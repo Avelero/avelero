@@ -23,7 +23,8 @@ export function Sidebar({ variant = "default" }: SidebarProps) {
   const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
   const access = initQuery.data?.access;
 
-  const isTrialPhase = access?.phase === "trial" && access?.trialEndsAt;
+  const isTrialPhase =
+    access?.decision === "trial_active" && Boolean(access.trialEndsAt);
   const daysRemaining = isTrialPhase
     ? Math.max(
         0,

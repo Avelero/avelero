@@ -17,8 +17,15 @@ function buildSnapshot(
       trialEndsAt: null,
     },
     billing: {
+      billingMode: null,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
       billingAccessOverride: "none",
       billingOverrideExpiresAt: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      pastDueSince: null,
+      pendingCancellation: false,
     },
     plan: {
       skuAnnualLimit: null,
@@ -102,22 +109,36 @@ describe("resolveBrandAccessDecision", () => {
       snapshot: buildSnapshot({
         lifecycle: { phase: "active", trialEndsAt: null },
         billing: {
+          billingMode: null,
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
           billingAccessOverride: "temporary_block",
           billingOverrideExpiresAt: "2026-03-05T00:00:00.000Z",
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          pastDueSince: null,
+          pendingCancellation: false,
         },
       }),
       now,
     });
 
-    expect(temporaryBlock.decision).toBe("suspended");
+    expect(temporaryBlock.decision).toBe("temporary_blocked");
 
     const temporaryAllow = resolveBrandAccessDecision({
       role: "owner",
       snapshot: buildSnapshot({
         lifecycle: { phase: "suspended", trialEndsAt: null },
         billing: {
+          billingMode: null,
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
           billingAccessOverride: "temporary_allow",
           billingOverrideExpiresAt: "2026-03-05T00:00:00.000Z",
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          pastDueSince: null,
+          pendingCancellation: false,
         },
       }),
       now,
@@ -130,8 +151,15 @@ describe("resolveBrandAccessDecision", () => {
       snapshot: buildSnapshot({
         lifecycle: { phase: "active", trialEndsAt: null },
         billing: {
+          billingMode: null,
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
           billingAccessOverride: "temporary_block",
           billingOverrideExpiresAt: "2026-02-01T00:00:00.000Z",
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          pastDueSince: null,
+          pendingCancellation: false,
         },
       }),
       now,
@@ -146,8 +174,15 @@ describe("resolveBrandAccessDecision", () => {
       snapshot: buildSnapshot({
         lifecycle: { phase: "cancelled", trialEndsAt: null },
         billing: {
+          billingMode: null,
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
           billingAccessOverride: "temporary_block",
           billingOverrideExpiresAt: "2026-12-01T00:00:00.000Z",
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          pastDueSince: null,
+          pendingCancellation: false,
         },
       }),
       now: new Date("2026-02-28T12:00:00.000Z"),
@@ -155,5 +190,56 @@ describe("resolveBrandAccessDecision", () => {
 
     expect(result.decision).toBe("full_access");
     expect(result.capabilities.canWriteBrandData).toBe(true);
+  });
+
+  it("keeps access active for cancelled brands with remaining paid time", () => {
+    const now = new Date("2026-02-28T12:00:00.000Z");
+    const result = resolveBrandAccessDecision({
+      role: "owner",
+      snapshot: buildSnapshot({
+        lifecycle: { phase: "cancelled", trialEndsAt: null },
+        billing: {
+          billingMode: "stripe_checkout",
+          stripeCustomerId: "cus_123",
+          stripeSubscriptionId: null,
+          billingAccessOverride: "none",
+          billingOverrideExpiresAt: null,
+          currentPeriodStart: "2026-02-01T00:00:00.000Z",
+          currentPeriodEnd: "2026-03-15T00:00:00.000Z",
+          pastDueSince: null,
+          pendingCancellation: true,
+        },
+      }),
+      now,
+    });
+
+    expect(result.decision).toBe("full_access");
+    expect(result.banner).toBe("pending_cancellation");
+  });
+
+  it("keeps writes enabled during the 14-day past-due grace window", () => {
+    const now = new Date("2026-02-28T12:00:00.000Z");
+    const result = resolveBrandAccessDecision({
+      role: "owner",
+      snapshot: buildSnapshot({
+        lifecycle: { phase: "past_due", trialEndsAt: null },
+        billing: {
+          billingMode: "stripe_checkout",
+          stripeCustomerId: "cus_123",
+          stripeSubscriptionId: "sub_123",
+          billingAccessOverride: "none",
+          billingOverrideExpiresAt: null,
+          currentPeriodStart: "2026-01-01T00:00:00.000Z",
+          currentPeriodEnd: "2026-02-01T00:00:00.000Z",
+          pastDueSince: "2026-02-20T00:00:00.000Z",
+          pendingCancellation: false,
+        },
+      }),
+      now,
+    });
+
+    expect(result.decision).toBe("past_due");
+    expect(result.capabilities.canWriteBrandData).toBe(true);
+    expect(result.banner).toBe("past_due");
   });
 });

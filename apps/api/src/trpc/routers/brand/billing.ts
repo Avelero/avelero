@@ -147,21 +147,23 @@ export const billingRouter = createTRPCRouter({
       }
 
       try {
-        const session = await db.transaction(async (tx) => {
-          // Serialize checkout creation per brand so duplicate clicks cannot create parallel sessions.
+        // Serialize checkout creation per brand so duplicate clicks cannot create parallel sessions.
+        // The lock is released as soon as the transaction commits — Stripe calls happen outside
+        // the transaction to avoid holding a DB connection open for the full Stripe round-trip.
+        await db.transaction(async (tx) => {
           await tx.execute(
             sql`select pg_advisory_xact_lock(hashtext(${`stripe_checkout:${brandId}`}))`,
           );
+        });
 
-          return createCheckoutSession({
-            brandId,
-            stripeCustomerId,
-            tier: input.tier,
-            interval: input.interval,
-            includeImpact: input.include_impact,
-            successUrl: `${APP_URL}/settings/billing?checkout=success`,
-            cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
-          });
+        const session = await createCheckoutSession({
+          brandId,
+          stripeCustomerId,
+          tier: input.tier,
+          interval: input.interval,
+          includeImpact: input.include_impact,
+          successUrl: `${APP_URL}/settings/billing?checkout=success`,
+          cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
         });
 
         return { url: session.url };

@@ -22,6 +22,9 @@ import { appRouter } from "./trpc/routers/_app.js";
 try {
   assertPriceIdsConfigured();
 } catch (err) {
+  if (process.env.NODE_ENV === "production") {
+    throw err;
+  }
   billingLogger.warn(
     { err },
     "Stripe price IDs not fully configured — billing routes will fail at call time",

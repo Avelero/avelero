@@ -126,7 +126,15 @@ export const db: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
         const connection = createConnection({ maxConnections: 8 });
         _db = drizzle(connection, { schema });
       }
+      // Allow property overrides (e.g. test spies) to take precedence
+      if (Object.prototype.hasOwnProperty.call(_target, prop)) {
+        return _target[prop];
+      }
       return (_db as any)[prop];
+    },
+    set(_target, prop, value) {
+      _target[prop] = value;
+      return true;
     },
   },
 ) as ReturnType<typeof drizzle<typeof schema>>;
@@ -159,7 +167,15 @@ export const serviceDb: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
         });
         _serviceDb = drizzle(serviceConnection, { schema });
       }
+      // Allow property overrides (e.g. test spies) to take precedence
+      if (Object.prototype.hasOwnProperty.call(_target, prop)) {
+        return _target[prop];
+      }
       return (_serviceDb as any)[prop];
+    },
+    set(_target, prop, value) {
+      _target[prop] = value;
+      return true;
     },
   },
 ) as ReturnType<typeof drizzle<typeof schema>>;

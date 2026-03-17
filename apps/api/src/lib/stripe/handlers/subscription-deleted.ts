@@ -1,6 +1,3 @@
-/**
- * Handles `customer.subscription.deleted` by ending the subscription link and resolving the lifecycle phase.
- */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import {
@@ -9,15 +6,15 @@ import {
   brandLifecycle,
   brandPlan,
 } from "@v1/db/schema";
+import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
 import {
   resolveBrandIdForSubscription,
   resolveSubscriptionProjection,
 } from "../projection.js";
 
-/**
- * Persists the final subscription teardown after Stripe has actually deleted the subscription.
- */
+const log = billingLogger.child({ component: "handler:subscription-deleted" });
+
 export async function handleSubscriptionDeleted(
   event: Stripe.Event,
 ): Promise<void> {
@@ -25,8 +22,13 @@ export async function handleSubscriptionDeleted(
   const brandId = await resolveBrandIdForSubscription({ db, subscription });
 
   if (!brandId) {
-    console.warn(
-      `subscription.deleted: could not determine brand_id for ${subscription.id}`,
+    log.error(
+      {
+        stripeEventId: event.id,
+        eventType: event.type,
+        subscriptionId: subscription.id,
+      },
+      "brand_id not resolvable for subscription deletion — brand state was NOT updated",
     );
     return;
   }
@@ -62,7 +64,10 @@ export async function handleSubscriptionDeleted(
     })
     .where(eq(brandPlan.brandId, brandId));
 
+  let resolvedPhase: string;
+
   if (hasRemainingAccess) {
+    resolvedPhase = "active";
     await db
       .update(brandLifecycle)
       .set({
@@ -72,6 +77,7 @@ export async function handleSubscriptionDeleted(
       })
       .where(eq(brandLifecycle.brandId, brandId));
   } else if (isBillingFailure) {
+    resolvedPhase = "expired";
     await db
       .update(brandLifecycle)
       .set({
@@ -81,6 +87,7 @@ export async function handleSubscriptionDeleted(
       })
       .where(eq(brandLifecycle.brandId, brandId));
   } else {
+    resolvedPhase = "cancelled";
     const hardDeleteDate = new Date(now);
     hardDeleteDate.setDate(hardDeleteDate.getDate() + 30);
 
@@ -103,13 +110,22 @@ export async function handleSubscriptionDeleted(
     payload: {
       subscription_id: subscription.id,
       reason,
-      resolved_phase: hasRemainingAccess
-        ? "active"
-        : isBillingFailure
-          ? "expired"
-          : "cancelled",
+      resolved_phase: resolvedPhase,
       has_remaining_access: hasRemainingAccess,
       period_end: projection.currentPeriodEnd,
     },
   });
+
+  log.info(
+    {
+      stripeEventId: event.id,
+      brandId,
+      subscriptionId: subscription.id,
+      reason,
+      resolvedPhase,
+      hasRemainingAccess,
+      periodEnd: projection.currentPeriodEnd,
+    },
+    "subscription deleted: resolved phase",
+  );
 }

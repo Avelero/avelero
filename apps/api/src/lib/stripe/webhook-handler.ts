@@ -1,16 +1,15 @@
+/**
+ * Verifies and dispatches Stripe webhooks with idempotency tracking and structured logging.
+ */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import { stripeWebhookEvents } from "@v1/db/schema";
+import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
 import { getStripeClient } from "./client.js";
 
-/**
- * Supported webhook event types and their handler functions.
- *
- * Handlers are registered lazily in Step 4. For now the dispatcher
- * recognises these event types and will skip any that are not yet
- * wired up.
- */
+const log = billingLogger.child({ component: "webhook-dispatcher" });
+
 type WebhookHandler = (event: Stripe.Event) => Promise<void>;
 
 const handlers: Record<string, WebhookHandler | undefined> = {};
@@ -37,14 +36,49 @@ export class WebhookVerificationError extends Error {
 }
 
 /**
+ * Signals a webhook failure that already emitted a structured log entry.
+ */
+export class LoggedWebhookProcessingError extends Error {
+  override cause?: unknown;
+
+  constructor(message: string, cause?: unknown) {
+    super(message);
+    this.name = "LoggedWebhookProcessingError";
+    this.cause = cause;
+  }
+}
+
+/**
+ * Marks a webhook event as fully processed once every side effect has succeeded.
+ */
+async function markProcessed(params: {
+  stripeEventId: string;
+  eventType: string;
+}): Promise<void> {
+  try {
+    await db
+      .update(stripeWebhookEvents)
+      .set({ processedAt: new Date().toISOString() })
+      .where(eq(stripeWebhookEvents.stripeEventId, params.stripeEventId));
+  } catch (err) {
+    log.error(
+      {
+        stripeEventId: params.stripeEventId,
+        eventType: params.eventType,
+        err,
+      },
+      "failed to mark webhook as processed",
+    );
+    throw new LoggedWebhookProcessingError(
+      "Failed to mark webhook as processed",
+      err,
+    );
+  }
+}
+
+/**
  * Verify the Stripe webhook signature, check idempotency, and dispatch
  * to the appropriate handler.
- *
- * 1. Verify signature via `stripe.webhooks.constructEvent()`
- * 2. Check `stripe_webhook_events` for duplicate (idempotency)
- * 3. Insert event row with `processed_at = null`
- * 4. Dispatch to registered handler
- * 5. Mark `processed_at`
  */
 export async function verifyAndDispatch(
   rawBody: string,
@@ -78,7 +112,6 @@ export async function verifyAndDispatch(
     .limit(1);
 
   if (existing?.processedAt) {
-    // Successfully processed in a previous attempt — skip
     return { received: true };
   }
 
@@ -99,17 +132,51 @@ export async function verifyAndDispatch(
 
   // 4. Dispatch to handler
   const handler = handlers[event.type];
-  if (handler) {
-    await handler(event);
-  } else {
-    console.log(`Stripe webhook: unhandled event type "${event.type}"`);
+
+  if (!handler) {
+    log.info(
+      { stripeEventId: event.id, eventType: event.type },
+      "unhandled event type, skipping",
+    );
+    await markProcessed({
+      stripeEventId: event.id,
+      eventType: event.type,
+    });
+    return { received: true };
   }
 
-  // 5. Mark processed
-  await db
-    .update(stripeWebhookEvents)
-    .set({ processedAt: new Date().toISOString() })
-    .where(eq(stripeWebhookEvents.stripeEventId, event.id));
+  const startMs = Date.now();
+
+  try {
+    await handler(event);
+  } catch (err) {
+    const durationMs = Date.now() - startMs;
+    log.error(
+      {
+        stripeEventId: event.id,
+        eventType: event.type,
+        durationMs,
+        err,
+      },
+      "webhook handler failed",
+    );
+    throw new LoggedWebhookProcessingError("Webhook handler failed", err);
+  }
+
+  await markProcessed({
+    stripeEventId: event.id,
+    eventType: event.type,
+  });
+
+  const durationMs = Date.now() - startMs;
+  log.info(
+    {
+      stripeEventId: event.id,
+      eventType: event.type,
+      durationMs,
+    },
+    "webhook processed",
+  );
 
   return { received: true };
 }

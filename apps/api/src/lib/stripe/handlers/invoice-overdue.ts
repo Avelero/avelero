@@ -1,9 +1,7 @@
-/**
- * Handles `invoice.overdue` by projecting the invoice locally and starting past-due state.
- */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import { brandBilling, brandBillingEvents, brandLifecycle } from "@v1/db/schema";
+import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
 import {
   getStripeId,
@@ -12,14 +10,22 @@ import {
   unixToIso,
 } from "../projection.js";
 
-/**
- * Persists overdue state for send-invoice billing without changing the service-period anchor.
- */
+const log = billingLogger.child({ component: "handler:invoice-overdue" });
+
 export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
   const invoice = event.data.object as Stripe.Invoice;
   const brandId = await resolveBrandIdForInvoice({ db, invoice });
 
   if (!brandId) {
+    log.error(
+      {
+        stripeEventId: event.id,
+        eventType: event.type,
+        invoiceId: invoice.id,
+        customerId: getStripeId(invoice.customer),
+      },
+      "brand_id not resolvable for overdue invoice — brand state was NOT updated",
+    );
     return;
   }
 
@@ -66,4 +72,14 @@ export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
       status: invoice.status,
     },
   });
+
+  log.info(
+    {
+      stripeEventId: event.id,
+      brandId,
+      invoiceId: invoice.id,
+      phase: "past_due",
+    },
+    "invoice overdue: brand marked past_due",
+  );
 }

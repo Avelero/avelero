@@ -11,6 +11,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { websocketManager } from "./lib/websocket-manager.js";
+import { healthRouter } from "./routes/health.js";
 import { integrationRoutes } from "./routes/integrations/index.js";
 import { webhookRoutes } from "./routes/webhooks/index.js";
 import { createTRPCContext } from "./trpc/init.js";
@@ -98,9 +99,9 @@ app.route("/integrations", integrationRoutes);
 app.route("/webhooks", webhookRoutes);
 
 /**
- * Lightweight health check endpoint used by hosting to confirm the API is up.
+ * Health check endpoint with database and Stripe connectivity checks.
  */
-app.get("/health", (c) => c.json({ status: "ok" }, 200));
+app.route("/health", healthRouter);
 
 /**
  * Create HTTP server for WebSocket support

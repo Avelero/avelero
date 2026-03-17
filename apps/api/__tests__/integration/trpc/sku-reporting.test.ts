@@ -315,20 +315,26 @@ describe("SKU reporting routes", () => {
       page_size: 10,
     });
 
-    expect(result.items.map((item) => item.id)).toEqual([
+    // Filter to only the brands created in this test case, preserving the
+    // sort order returned by the endpoint.  Other test cases in this file
+    // also create brands that appear in the unfiltered list.
+    const testBrandIds = new Set([highUsageBrandId, lowUsageBrandId, uninitializedBrandId]);
+    const filtered = result.items.filter((item) => testBrandIds.has(item.id));
+
+    expect(filtered.map((item) => item.id)).toEqual([
       highUsageBrandId,
       lowUsageBrandId,
       uninitializedBrandId,
     ]);
-    expect(result.items[0]?.sku_usage).toEqual({
+    expect(filtered[0]?.sku_usage).toEqual({
       used: 3,
       limit: 10,
     });
-    expect(result.items[1]?.sku_usage).toEqual({
+    expect(filtered[1]?.sku_usage).toEqual({
       used: 1,
       limit: 10,
     });
-    expect(result.items[2]?.sku_usage).toEqual({
+    expect(filtered[2]?.sku_usage).toEqual({
       used: 0,
       limit: null,
     });

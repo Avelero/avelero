@@ -1,17 +1,15 @@
-/**
- * Handles Stripe invoice lifecycle events that only need local projection updates.
- */
 import { db } from "@v1/db/client";
 import { brandBillingEvents } from "@v1/db/schema";
+import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
 import {
+  getStripeId,
   resolveBrandIdForInvoice,
   upsertStripeInvoiceProjection,
 } from "../projection.js";
 
-/**
- * Upserts the invoice projection and logs a passive invoice event.
- */
+const log = billingLogger.child({ component: "handler:invoice-projection" });
+
 async function handlePassiveInvoiceEvent(
   event: Stripe.Event,
   eventType: string,
@@ -20,6 +18,15 @@ async function handlePassiveInvoiceEvent(
   const brandId = await resolveBrandIdForInvoice({ db, invoice });
 
   if (!brandId) {
+    log.warn(
+      {
+        stripeEventId: event.id,
+        eventType: event.type,
+        invoiceId: invoice.id,
+        customerId: getStripeId(invoice.customer),
+      },
+      "brand_id not resolvable for invoice projection",
+    );
     return;
   }
 
@@ -39,39 +46,35 @@ async function handlePassiveInvoiceEvent(
       status: invoice.status,
     },
   });
+
+  log.info(
+    {
+      stripeEventId: event.id,
+      brandId,
+      invoiceId: invoice.id,
+      eventType,
+      status: invoice.status,
+    },
+    "invoice projection synced",
+  );
 }
 
-/**
- * Handles `invoice.created` by storing a local projection row.
- */
 export async function handleInvoiceCreated(event: Stripe.Event): Promise<void> {
   await handlePassiveInvoiceEvent(event, "invoice_created");
 }
 
-/**
- * Handles `invoice.finalized` by storing a local projection row.
- */
 export async function handleInvoiceFinalized(event: Stripe.Event): Promise<void> {
   await handlePassiveInvoiceEvent(event, "invoice_finalized");
 }
 
-/**
- * Handles `invoice.updated` by refreshing the local invoice projection.
- */
 export async function handleInvoiceUpdated(event: Stripe.Event): Promise<void> {
   await handlePassiveInvoiceEvent(event, "invoice_updated");
 }
 
-/**
- * Handles `invoice.voided` by refreshing the local invoice projection.
- */
 export async function handleInvoiceVoided(event: Stripe.Event): Promise<void> {
   await handlePassiveInvoiceEvent(event, "invoice_voided");
 }
 
-/**
- * Handles `invoice.marked_uncollectible` by refreshing the local invoice projection.
- */
 export async function handleInvoiceMarkedUncollectible(
   event: Stripe.Event,
 ): Promise<void> {

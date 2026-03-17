@@ -23,8 +23,11 @@ import type {
   ResolvedBrandAccessDecision,
   ResolvedSkuAccessDecision,
 } from "../lib/access-policy/types.js";
+import { billingLogger } from "@v1/logger/billing";
 import type { DataLoaders } from "../utils/dataloader.js";
 import { createDataLoaders } from "../utils/dataloader.js";
+
+const accessLog = billingLogger.child({ component: "access-enforcement" });
 import {
   accessCancelled,
   accessPastDueReadOnly,
@@ -524,8 +527,20 @@ export const brandReadProcedure = protectedProcedure
   .use(requireBrand)
   .use(withResolvedBrandAccess)
   .use(
-    t.middleware(({ ctx, next }) => {
+    t.middleware(({ ctx, path, next }) => {
       const brandCtx = ctx as BrandAccessTRPCContext;
+      if (!brandCtx.brandAccess.capabilities.canReadBrandData) {
+        accessLog.info(
+          {
+            brandId: brandCtx.brandId,
+            userId: brandCtx.user.id,
+            decision: brandCtx.brandAccess.decision,
+            phase: brandCtx.brandAccess.phase,
+            procedure: path,
+          },
+          "read access denied",
+        );
+      }
       assertResolvedBrandReadAccess(brandCtx.brandAccess);
       return next({
         ctx: brandCtx,
@@ -540,8 +555,20 @@ export const brandWriteProcedure = protectedProcedure
   .use(requireBrand)
   .use(withResolvedBrandAccess)
   .use(
-    t.middleware(({ ctx, next }) => {
+    t.middleware(({ ctx, path, next }) => {
       const brandCtx = ctx as BrandAccessTRPCContext;
+      if (!brandCtx.brandAccess.capabilities.canWriteBrandData) {
+        accessLog.info(
+          {
+            brandId: brandCtx.brandId,
+            userId: brandCtx.user.id,
+            decision: brandCtx.brandAccess.decision,
+            phase: brandCtx.brandAccess.phase,
+            procedure: path,
+          },
+          "write access denied",
+        );
+      }
       assertResolvedBrandWriteAccess(brandCtx.brandAccess);
       return next({
         ctx: brandCtx,
@@ -571,7 +598,7 @@ export const brandBillingProcedure = protectedProcedure
  * This enforces general write access and blocks when no SKU creation budget remains.
  */
 export const brandSkuWriteProcedure = brandWriteProcedure.use(
-  t.middleware(({ ctx, next }) => {
+  t.middleware(({ ctx, path, next }) => {
     const brandCtx = ctx as BrandAccessTRPCContext;
 
     if (brandCtx.role === ROLES.AVELERO) {
@@ -584,6 +611,16 @@ export const brandSkuWriteProcedure = brandWriteProcedure.use(
       brandCtx.brandAccess.capabilities.canWriteBrandData &&
       brandCtx.skuAccess.status === "blocked"
     ) {
+      accessLog.info(
+        {
+          brandId: brandCtx.brandId,
+          userId: brandCtx.user.id,
+          skuStatus: brandCtx.skuAccess.status,
+          remaining: brandCtx.skuAccess.remainingCreateBudget,
+          procedure: path,
+        },
+        "SKU creation blocked by limit",
+      );
       throw accessSkuLimitReached();
     }
 

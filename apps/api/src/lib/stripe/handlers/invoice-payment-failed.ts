@@ -1,9 +1,7 @@
-/**
- * Handles `invoice.payment_failed` by starting or preserving the grace-period window.
- */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import { brandBilling, brandBillingEvents, brandLifecycle } from "@v1/db/schema";
+import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
 import {
   getStripeId,
@@ -11,9 +9,8 @@ import {
   upsertStripeInvoiceProjection,
 } from "../projection.js";
 
-/**
- * Persists a payment failure without revoking write access during the grace period.
- */
+const log = billingLogger.child({ component: "handler:invoice-payment-failed" });
+
 export async function handleInvoicePaymentFailed(
   event: Stripe.Event,
 ): Promise<void> {
@@ -21,7 +18,15 @@ export async function handleInvoicePaymentFailed(
   const brandId = await resolveBrandIdForInvoice({ db, invoice });
 
   if (!brandId) {
-    console.warn("invoice.payment_failed: could not determine brand_id");
+    log.error(
+      {
+        stripeEventId: event.id,
+        eventType: event.type,
+        invoiceId: invoice.id,
+        customerId: getStripeId(invoice.customer),
+      },
+      "brand_id not resolvable for failed invoice — brand state was NOT updated",
+    );
     return;
   }
 
@@ -68,4 +73,16 @@ export async function handleInvoicePaymentFailed(
       next_payment_attempt: invoice.next_payment_attempt,
     },
   });
+
+  log.info(
+    {
+      stripeEventId: event.id,
+      brandId,
+      invoiceId: invoice.id,
+      attemptCount: invoice.attempt_count,
+      nextPaymentAttempt: invoice.next_payment_attempt,
+      phase: "past_due",
+    },
+    "invoice payment failed: brand marked past_due",
+  );
 }

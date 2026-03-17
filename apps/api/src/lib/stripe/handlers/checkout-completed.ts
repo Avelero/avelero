@@ -1,6 +1,3 @@
-/**
- * Handles `checkout.session.completed` by syncing the subscription projection and activating the brand.
- */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import {
@@ -8,6 +5,7 @@ import {
   brandLifecycle,
   brandPlan,
 } from "@v1/db/schema";
+import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
 import { TIER_CONFIG, type BillingInterval, type PlanTier } from "../config.js";
 import {
@@ -15,9 +13,8 @@ import {
   syncStripeSubscriptionProjectionById,
 } from "../projection.js";
 
-/**
- * Persists the checkout-completion side effects for subscription-based billing.
- */
+const log = billingLogger.child({ component: "handler:checkout-completed" });
+
 export async function handleCheckoutCompleted(
   event: Stripe.Event,
 ): Promise<void> {
@@ -26,7 +23,19 @@ export async function handleCheckoutCompleted(
   const brandId = metadata.brand_id;
 
   if (!brandId) {
-    console.warn("checkout.session.completed: missing brand_id in metadata");
+    log.error(
+      {
+        stripeEventId: event.id,
+        eventType: event.type,
+        sessionId: session.id,
+        customerId:
+          typeof session.customer === "string"
+            ? session.customer
+            : session.customer?.id ?? null,
+        metadata,
+      },
+      "brand_id missing from checkout session metadata — brand state was NOT updated",
+    );
     return;
   }
 
@@ -101,4 +110,17 @@ export async function handleCheckoutCompleted(
           : session.customer?.id ?? null,
     },
   });
+
+  log.info(
+    {
+      stripeEventId: event.id,
+      brandId,
+      planType: planType ?? null,
+      billingInterval: billingInterval ?? null,
+      includeImpact,
+      subscriptionId: subscriptionId ?? null,
+      phase: "active",
+    },
+    "checkout completed: brand activated",
+  );
 }

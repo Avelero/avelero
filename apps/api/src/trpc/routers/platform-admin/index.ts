@@ -425,7 +425,7 @@ export const platformAdminRouter = createTRPCRouter({
         const liveVariantCounts = ctx.db
           .select({
             brandId: products.brandId,
-            liveSkuCount: sql<number>`COUNT(${productVariants.id})::int`,
+            liveSkuCount: sql<number>`COUNT(${productVariants.id})::int`.as("liveSkuCount"),
           })
           .from(products)
           .leftJoin(productVariants, eq(productVariants.productId, products.id))

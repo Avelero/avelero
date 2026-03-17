@@ -15,3 +15,10 @@ export function getStripeClient(): Stripe {
   _stripe = new Stripe(key);
   return _stripe;
 }
+
+/**
+ * Type guard for Stripe SDK errors.
+ */
+export function isStripeError(err: unknown): err is Stripe.errors.StripeError {
+  return err instanceof Stripe.errors.StripeError;
+}

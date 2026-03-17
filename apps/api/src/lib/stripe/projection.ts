@@ -9,14 +9,17 @@ import {
   brandLifecycle,
   brandPlan,
 } from "@v1/db/schema";
+import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
-import { getStripeClient } from "./client.js";
+import { getStripeClient, isStripeError } from "./client.js";
 import {
   TIER_CONFIG,
   resolvePriceId,
   type BillingInterval,
   type PlanTier,
 } from "./config.js";
+
+const log = billingLogger.child({ component: "stripe-projection" });
 
 export const STRIPE_BILLING_METADATA_KEYS = {
   brandId: "brand_id",
@@ -546,7 +549,22 @@ export async function syncStripeSubscriptionProjectionById(opts: {
   projection: ResolvedSubscriptionProjection;
 }> {
   const stripe = getStripeClient();
-  const subscription = await stripe.subscriptions.retrieve(opts.subscriptionId);
+  let subscription: Stripe.Subscription;
+  try {
+    subscription = await stripe.subscriptions.retrieve(opts.subscriptionId);
+  } catch (err) {
+    log.error(
+      {
+        brandId: opts.brandId ?? null,
+        subscriptionId: opts.subscriptionId,
+        stripeErrorType: isStripeError(err) ? err.type : "unknown",
+        stripeErrorCode: isStripeError(err) ? err.code : undefined,
+        stripeStatusCode: isStripeError(err) ? err.statusCode : undefined,
+      },
+      "failed to retrieve subscription from Stripe",
+    );
+    throw err;
+  }
   return projectStripeSubscription({
     db: opts.db,
     subscription,
@@ -570,7 +588,22 @@ export async function syncStripeInvoiceProjectionById(opts: {
   servicePeriodEnd: string | null;
 }> {
   const stripe = getStripeClient();
-  const invoice = await stripe.invoices.retrieve(opts.invoiceId);
+  let invoice: Stripe.Invoice;
+  try {
+    invoice = await stripe.invoices.retrieve(opts.invoiceId);
+  } catch (err) {
+    log.error(
+      {
+        brandId: opts.brandId ?? null,
+        invoiceId: opts.invoiceId,
+        stripeErrorType: isStripeError(err) ? err.type : "unknown",
+        stripeErrorCode: isStripeError(err) ? err.code : undefined,
+        stripeStatusCode: isStripeError(err) ? err.statusCode : undefined,
+      },
+      "failed to retrieve invoice from Stripe",
+    );
+    throw err;
+  }
   return upsertStripeInvoiceProjection({
     db: opts.db,
     invoice,

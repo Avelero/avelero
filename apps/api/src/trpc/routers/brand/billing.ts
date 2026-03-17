@@ -11,8 +11,11 @@
  */
 import { desc, eq } from "@v1/db/queries";
 import { brandBilling, brandBillingInvoices, brandLifecycle, brandPlan, brands } from "@v1/db/schema";
+import { billingLogger } from "@v1/logger/billing";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+
+const log = billingLogger.child({ component: "billing-router" });
 import { createCheckoutSession } from "../../../lib/stripe/checkout.js";
 import {
   type BillingInterval,
@@ -102,24 +105,35 @@ export const billingRouter = createTRPCRouter({
         });
       }
 
-      const stripeCustomerId = await findOrCreateStripeCustomer({
-        brandId,
-        brandName: brand.name,
-        email: ctx.user.email,
-        db,
-      });
+      let stripeCustomerId: string;
+      try {
+        stripeCustomerId = await findOrCreateStripeCustomer({
+          brandId,
+          brandName: brand.name,
+          email: ctx.user.email,
+          db,
+        });
+      } catch (err) {
+        log.error({ brandId, operation: "findOrCreateStripeCustomer", err }, "Stripe customer creation failed");
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to set up billing" });
+      }
 
-      const session = await createCheckoutSession({
-        brandId,
-        stripeCustomerId,
-        tier: input.tier,
-        interval: input.interval,
-        includeImpact: input.include_impact,
-        successUrl: `${APP_URL}/settings/billing?checkout=success`,
-        cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
-      });
+      try {
+        const session = await createCheckoutSession({
+          brandId,
+          stripeCustomerId,
+          tier: input.tier,
+          interval: input.interval,
+          includeImpact: input.include_impact,
+          successUrl: `${APP_URL}/settings/billing?checkout=success`,
+          cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
+        });
 
-      return { url: session.url };
+        return { url: session.url };
+      } catch (err) {
+        log.error({ brandId, operation: "createCheckoutSession", tier: input.tier, interval: input.interval, err }, "checkout session creation failed");
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create checkout session" });
+      }
     }),
 
   /**
@@ -164,12 +178,17 @@ export const billingRouter = createTRPCRouter({
         });
       }
 
-      await updateSubscriptionPlan({
-        stripeSubscriptionId: billing.stripeSubscriptionId,
-        newTier: input.tier,
-        newInterval: input.interval,
-        hasImpact: input.include_impact,
-      });
+      try {
+        await updateSubscriptionPlan({
+          stripeSubscriptionId: billing.stripeSubscriptionId,
+          newTier: input.tier,
+          newInterval: input.interval,
+          hasImpact: input.include_impact,
+        });
+      } catch (err) {
+        log.error({ brandId, operation: "updateSubscriptionPlan", tier: input.tier, interval: input.interval, err }, "plan update failed");
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to update plan" });
+      }
 
       // Optimistically update local state (webhook will confirm)
       const tierConfig = TIER_CONFIG[input.tier];
@@ -232,11 +251,16 @@ export const billingRouter = createTRPCRouter({
       });
     }
 
-    await addImpactToSubscription({
-      stripeSubscriptionId: billing.stripeSubscriptionId,
-      tier: plan.planType as PlanTier,
-      interval: plan.billingInterval as BillingInterval,
-    });
+    try {
+      await addImpactToSubscription({
+        stripeSubscriptionId: billing.stripeSubscriptionId,
+        tier: plan.planType as PlanTier,
+        interval: plan.billingInterval as BillingInterval,
+      });
+    } catch (err) {
+      log.error({ brandId, operation: "addImpactToSubscription", err }, "add impact failed");
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to add Impact Predictions" });
+    }
 
     // Optimistically update local state (webhook will confirm)
     await db
@@ -282,9 +306,14 @@ export const billingRouter = createTRPCRouter({
       });
     }
 
-    await removeImpactFromSubscription({
-      stripeSubscriptionId: billing.stripeSubscriptionId,
-    });
+    try {
+      await removeImpactFromSubscription({
+        stripeSubscriptionId: billing.stripeSubscriptionId,
+      });
+    } catch (err) {
+      log.error({ brandId, operation: "removeImpactFromSubscription", err }, "remove impact failed");
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to remove Impact Predictions" });
+    }
 
     // Optimistically update local state (webhook will confirm)
     await db
@@ -317,11 +346,19 @@ export const billingRouter = createTRPCRouter({
       billingLink?.billingMode === "stripe_checkout" &&
       billingLink.stripeSubscriptionId
     ) {
-      await syncStripeSubscriptionProjectionById({
-        db,
-        subscriptionId: billingLink.stripeSubscriptionId,
-        brandId,
-      });
+      try {
+        await syncStripeSubscriptionProjectionById({
+          db,
+          subscriptionId: billingLink.stripeSubscriptionId,
+          brandId,
+        });
+      } catch (err) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to refresh billing status",
+          cause: err,
+        });
+      }
     }
 
     const [billing] = await db
@@ -428,11 +465,16 @@ export const billingRouter = createTRPCRouter({
       return { url: null };
     }
 
-    const portal = await createPortalSession({
-      stripeCustomerId: billing.stripeCustomerId,
-      returnUrl: `${APP_URL}/settings/billing`,
-    });
+    try {
+      const portal = await createPortalSession({
+        stripeCustomerId: billing.stripeCustomerId,
+        returnUrl: `${APP_URL}/settings/billing`,
+      });
 
-    return { url: portal.url };
+      return { url: portal.url };
+    } catch (err) {
+      log.error({ brandId, operation: "createPortalSession", err }, "portal session creation failed");
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to open billing portal" });
+    }
   }),
 });

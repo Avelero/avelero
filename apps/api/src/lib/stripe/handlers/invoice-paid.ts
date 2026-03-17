@@ -1,27 +1,34 @@
-/**
- * Handles `invoice.paid` by refreshing the local invoice projection and clearing past-due state.
- */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import { brandBillingEvents, brandLifecycle } from "@v1/db/schema";
+import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
 import {
   applyEnterpriseInvoiceEntitlement,
   getInvoiceSubscriptionId,
+  getStripeId,
   resolveBrandIdForInvoice,
   syncStripeSubscriptionProjectionById,
   upsertStripeInvoiceProjection,
 } from "../projection.js";
 
-/**
- * Persists the successful-invoice side effects for both subscriptions and managed enterprise invoices.
- */
+const log = billingLogger.child({ component: "handler:invoice-paid" });
+
 export async function handleInvoicePaid(event: Stripe.Event): Promise<void> {
   const invoice = event.data.object as Stripe.Invoice;
   const brandId = await resolveBrandIdForInvoice({ db, invoice });
 
   if (!brandId) {
-    console.warn("invoice.paid: could not determine brand_id");
+    log.error(
+      {
+        stripeEventId: event.id,
+        eventType: event.type,
+        invoiceId: invoice.id,
+        customerId: getStripeId(invoice.customer),
+        subscriptionId: getInvoiceSubscriptionId(invoice),
+      },
+      "brand_id not resolvable for paid invoice — brand state was NOT updated",
+    );
     return;
   }
 
@@ -72,4 +79,17 @@ export async function handleInvoicePaid(event: Stripe.Event): Promise<void> {
       service_period_end: projectedInvoice.servicePeriodEnd,
     },
   });
+
+  log.info(
+    {
+      stripeEventId: event.id,
+      brandId,
+      invoiceId: invoice.id,
+      amountPaid: invoice.amount_paid,
+      subscriptionId,
+      managedByAvelero: projectedInvoice.managedByAvelero,
+      phase: "active",
+    },
+    "invoice paid: brand activated",
+  );
 }

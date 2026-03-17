@@ -1,4 +1,3 @@
-import { createServer } from "node:http";
 /**
  * Bootstraps the public API server supporting the tRPC endpoints.
  *
@@ -6,16 +5,20 @@ import { createServer } from "node:http";
  * tRPC router that exposes the brand and product management endpoints. Bun
  * loads this file directly in both development and production.
  */
+import { createServer } from "node:http";
 import { trpcServer } from "@hono/trpc-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
+import { assertPriceIdsConfigured } from "./lib/stripe/config.js";
 import { websocketManager } from "./lib/websocket-manager.js";
 import { healthRouter } from "./routes/health.js";
 import { integrationRoutes } from "./routes/integrations/index.js";
 import { webhookRoutes } from "./routes/webhooks/index.js";
 import { createTRPCContext } from "./trpc/init.js";
 import { appRouter } from "./trpc/routers/_app.js";
+
+assertPriceIdsConfigured();
 
 const app = new Hono();
 
@@ -99,7 +102,10 @@ app.route("/integrations", integrationRoutes);
 app.route("/webhooks", webhookRoutes);
 
 /**
- * Health check endpoint with database and Stripe connectivity checks.
+ * Health endpoints.
+ *
+ * - GET /health: lightweight liveness check
+ * - GET /health/dependencies: database and Stripe connectivity checks
  */
 app.route("/health", healthRouter);
 

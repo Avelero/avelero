@@ -48,6 +48,11 @@ interface ResolvedSubscriptionProjection {
   hasImpactPredictions: boolean;
 }
 
+interface StripeSubscriptionPeriodFields {
+  current_period_start?: number | null;
+  current_period_end?: number | null;
+}
+
 /**
  * Converts a Stripe unix timestamp into an ISO string.
  */
@@ -105,11 +110,17 @@ export function getInvoiceServicePeriod(invoice: Stripe.Invoice): {
   servicePeriodEnd: string | null;
 } {
   const metadata = invoice.metadata ?? {};
-  const servicePeriodStart =
-    metadata[STRIPE_BILLING_METADATA_KEYS.servicePeriodStart] ??
-    unixToIso(invoice.period_start);
-  const explicitServicePeriodEnd =
+  const fallbackServicePeriodStart = unixToIso(invoice.period_start);
+  const metadataServicePeriodStart =
+    metadata[STRIPE_BILLING_METADATA_KEYS.servicePeriodStart] ?? null;
+  const servicePeriodStart = isoToDate(metadataServicePeriodStart)
+    ? metadataServicePeriodStart
+    : fallbackServicePeriodStart;
+  const metadataServicePeriodEnd =
     metadata[STRIPE_BILLING_METADATA_KEYS.servicePeriodEnd] ?? null;
+  const explicitServicePeriodEnd = isoToDate(metadataServicePeriodEnd)
+    ? metadataServicePeriodEnd
+    : null;
 
   if (explicitServicePeriodEnd) {
     return {
@@ -122,7 +133,11 @@ export function getInvoiceServicePeriod(invoice: Stripe.Invoice): {
     return { servicePeriodStart: null, servicePeriodEnd: null };
   }
 
-  const derivedEnd = new Date(servicePeriodStart);
+  const derivedEnd = isoToDate(servicePeriodStart);
+  if (!derivedEnd) {
+    return { servicePeriodStart: null, servicePeriodEnd: null };
+  }
+
   derivedEnd.setUTCFullYear(derivedEnd.getUTCFullYear() + 1);
   return {
     servicePeriodStart,
@@ -212,11 +227,15 @@ export async function resolveBrandIdForInvoice(opts: {
 export function resolveSubscriptionProjection(
   subscription: Stripe.Subscription,
 ): ResolvedSubscriptionProjection {
+  const subscriptionPeriods =
+    subscription as Stripe.Subscription & StripeSubscriptionPeriodFields;
   let planType: PlanTier | null = null;
   let billingInterval: BillingInterval | null = null;
   let hasImpactPredictions = false;
-  let currentPeriodStart: string | null = null;
-  let currentPeriodEnd: string | null = null;
+  let currentPeriodStart: string | null =
+    unixToIso(subscriptionPeriods.current_period_start);
+  let currentPeriodEnd: string | null =
+    unixToIso(subscriptionPeriods.current_period_end);
 
   for (const item of subscription.items.data) {
     const resolvedPrice = resolvePriceId(item.price.id);
@@ -225,8 +244,10 @@ export function resolveSubscriptionProjection(
     if (resolvedPrice.product === "avelero") {
       planType = resolvedPrice.tier;
       billingInterval = resolvedPrice.interval;
-      currentPeriodStart = unixToIso(item.current_period_start);
-      currentPeriodEnd = unixToIso(item.current_period_end);
+      currentPeriodStart =
+        unixToIso(item.current_period_start) ?? currentPeriodStart;
+      currentPeriodEnd =
+        unixToIso(item.current_period_end) ?? currentPeriodEnd;
       continue;
     }
 

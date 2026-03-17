@@ -31,7 +31,7 @@ export function Header({
   // Switch the leading chrome depending on whether the editor is active.
   const logoIsLink = !disableLogoLink;
   const isEditor = variant === "editor";
-  const topOffsetClass = hasTopBanner ? "top-10" : "top-0";
+  const topOffsetClass = hasTopBanner ? "top-14 sm:top-10" : "top-0";
 
   return (
     <header

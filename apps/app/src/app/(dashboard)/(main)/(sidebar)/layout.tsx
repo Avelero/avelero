@@ -5,6 +5,7 @@
  * messaging inside the content area while keeping brand switching available.
  */
 import { BlockedAccessScreen } from "@/components/access/blocked-access-screen";
+import { PaymentRequiredOverlay } from "@/components/access/payment-required-overlay";
 import { PlanSelectorShell } from "@/components/billing/plan-selector-shell";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
@@ -48,6 +49,8 @@ export default async function SidebarLayout({
     : access.overlay === "payment_required" && access.phase === "trial"
       ? "trial_expired"
       : null;
+  const showPaymentRequiredOverlay =
+    access.overlay === "payment_required" && access.phase !== "trial";
 
   // Seed caches for client components (Header, Sidebar, BrandDropdown, etc.)
   queryClient.setQueryData(
@@ -98,6 +101,7 @@ export default async function SidebarLayout({
                     brandId={workflowInit.activeBrand.id}
                   />
                 ) : null}
+                {showPaymentRequiredOverlay ? <PaymentRequiredOverlay /> : null}
               </RealtimeWrapper>
             </div>
           </div>

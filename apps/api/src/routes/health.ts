@@ -1,3 +1,6 @@
+/**
+ * Lightweight liveness and dependency health endpoints.
+ */
 import { Hono } from "hono";
 import { db } from "@v1/db/client";
 import { sql } from "@v1/db/queries";
@@ -8,7 +11,12 @@ const log = billingLogger.child({ component: "health" });
 
 export const healthRouter = new Hono();
 
-healthRouter.get("/", async (c) => {
+healthRouter.get("/", (c) => {
+  return c.json({ status: "ok" });
+});
+
+healthRouter.get("/dependencies", async (c) => {
+  // Probe external dependencies only on the detailed health endpoint.
   const checks: Record<
     string,
     { status: "ok" | "degraded" | "down"; latencyMs: number }
@@ -40,7 +48,10 @@ healthRouter.get("/", async (c) => {
   const httpStatus = overallStatus === "down" ? 503 : 200;
 
   if (overallStatus !== "ok") {
-    log.warn({ checks, overallStatus }, "health check degraded");
+    log.warn(
+      { checks, overallStatus },
+      overallStatus === "down" ? "health check down" : "health check degraded",
+    );
   }
 
   return c.json({ status: overallStatus, checks }, httpStatus);

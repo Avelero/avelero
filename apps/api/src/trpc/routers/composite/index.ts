@@ -3,7 +3,10 @@ import { and, asc, desc, eq, sql } from "@v1/db/queries";
 import {
   type BrandMembershipListItem,
   type UserInviteSummaryRow,
+  countBrandSkus,
+  getBrandAccessSnapshot,
   getBrandsByUserId,
+  getCurrentDatabaseDate,
   getOwnerCountsByBrandIds,
   listPendingInvitesForEmail,
 } from "@v1/db/queries/brand";
@@ -40,14 +43,15 @@ import { getAppUrl } from "@v1/utils/envs";
  * - composite.membersWithInvites
  * - composite.catalogContent (renamed from brandCatalogContent in Phase 6)
  */
-import { isOwnerEquivalentRole } from "../../../config/roles.js";
+import { ROLES, isOwnerEquivalentRole } from "../../../config/roles.js";
 import {
   SKU_WARNING_THRESHOLD,
   TRIAL_UNIVERSAL_CAP,
+  resolveSkuAccessDecision,
 } from "../../../lib/access-policy/resolve-sku-access-decision.js";
+import { resolveBrandAccessDecision } from "../../../lib/access-policy/resolve-brand-access-decision.js";
 import { brandIdOptionalSchema } from "../../../schemas/brand.js";
 import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
-import { ensureBrandAccessContext } from "../../middleware/auth/brand.js";
 import {
   type AuthenticatedTRPCContext,
   brandReadProcedure,
@@ -313,6 +317,45 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
 
 type WorkflowInviteList = Awaited<ReturnType<typeof fetchWorkflowInvites>>;
 
+/**
+ * Resolves dashboard access data without triggering Stripe syncs or lazy writes.
+ */
+async function resolveReadonlyBrandAccessContext(params: {
+  db: Database;
+  brandId: string;
+  role: AuthenticatedTRPCContext["role"];
+}) {
+  const snapshot = await getBrandAccessSnapshot(params.db, params.brandId);
+  const currentDatabaseDate = await getCurrentDatabaseDate(params.db);
+  const currentNonGhostSkuCount = await countBrandSkus(params.db, params.brandId);
+  const resolvedBrandAccess = resolveBrandAccessDecision({
+    role: params.role ?? null,
+    snapshot,
+  });
+  const skuAccess = resolveSkuAccessDecision({
+    brandAccess: resolvedBrandAccess,
+    snapshot,
+    intendedCreateCount: 0,
+    currentNonGhostSkuCount,
+    trialStartedAt: snapshot.lifecycle?.trialStartedAt ?? null,
+    evaluationDate: currentDatabaseDate,
+  });
+
+  return {
+    brandAccess: {
+      ...resolvedBrandAccess,
+      capabilities: {
+        ...resolvedBrandAccess.capabilities,
+        canCreateSkus:
+          params.role === ROLES.AVELERO ||
+          (resolvedBrandAccess.capabilities.canWriteBrandData &&
+            skuAccess.status !== "blocked"),
+      },
+    },
+    skuAccess,
+  };
+}
+
 const DEFAULT_ACCESS = {
   decision: "full_access" as const,
   capabilities: {
@@ -405,8 +448,8 @@ export const compositeRouter = createTRPCRouter({
           return domain ?? null;
         })(),
         activeBrandId
-          ? ensureBrandAccessContext({
-              ...ctx,
+          ? resolveReadonlyBrandAccessContext({
+              db,
               brandId: activeBrandId,
               role: activeBrandRole,
             })

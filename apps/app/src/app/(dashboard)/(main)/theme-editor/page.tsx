@@ -1,6 +1,7 @@
 /**
  * Theme editor route entry.
  */
+import { PlanSelectorShell } from "@/components/billing/plan-selector-shell";
 import { ThemeEditorPage } from "@/components/theme-editor";
 import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
@@ -29,7 +30,9 @@ export default async function Page() {
 
   return (
     <HydrateClient>
-      <ThemeEditorPage />
+      <PlanSelectorShell>
+        <ThemeEditorPage />
+      </PlanSelectorShell>
     </HydrateClient>
   );
 }

@@ -68,6 +68,7 @@ export async function createEnterpriseInvoice(
   invoiceUrl: string | null;
   status: string;
 }> {
+  // Validate the service window before sending Stripe a malformed unix timestamp.
   const {
     brandId,
     stripeCustomerId,
@@ -82,6 +83,15 @@ export async function createEnterpriseInvoice(
     footer,
     internalReference,
   } = opts;
+  const servicePeriodStartUnix = isoToUnix(servicePeriodStart);
+  const servicePeriodEndUnix = isoToUnix(servicePeriodEnd);
+
+  if (
+    servicePeriodStartUnix === undefined ||
+    servicePeriodEndUnix === undefined
+  ) {
+    throw new Error("Enterprise invoice service period must be a valid ISO date");
+  }
 
   const stripe = getStripeClient();
   const metadata = {
@@ -113,8 +123,8 @@ export async function createEnterpriseInvoice(
     description,
     metadata,
     period: {
-      start: Math.floor(new Date(servicePeriodStart).getTime() / 1000),
-      end: Math.floor(new Date(servicePeriodEnd).getTime() / 1000),
+      start: servicePeriodStartUnix,
+      end: servicePeriodEndUnix,
     },
   });
 

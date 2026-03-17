@@ -31,6 +31,7 @@ import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import {
   brandReadProcedure,
+  brandSkuWriteProcedure,
   brandWriteProcedure,
   createTRPCRouter,
 } from "../../init.js";
@@ -226,7 +227,7 @@ export const importRouter = createTRPCRouter({
    * 3. Trigger validate-and-stage background job
    * 4. Return job_id immediately
    */
-  start: brandWriteProcedure
+  start: brandSkuWriteProcedure
     .input(startImportSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;

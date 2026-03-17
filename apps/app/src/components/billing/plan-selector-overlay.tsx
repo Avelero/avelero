@@ -21,6 +21,8 @@ interface PlanSelectorOverlayProps {
   hasSubscription?: boolean;
   /** Whether the current subscription is scheduled to end at period close. */
   pendingCancellation?: boolean;
+  /** Whether the overlay should cover the viewport or only the current parent. */
+  position?: "fixed" | "absolute";
 }
 
 export function PlanSelectorOverlay({
@@ -32,15 +34,21 @@ export function PlanSelectorOverlay({
   hasImpact = false,
   hasSubscription = false,
   pendingCancellation = false,
+  position = "fixed",
 }: PlanSelectorOverlayProps) {
+  // Scope the overlay to the requested container so paywalls can preserve app chrome.
+  const overlayPositionClass = position === "absolute" ? "absolute" : "fixed";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-background">
+    <div
+      className={`${overlayPositionClass} inset-0 z-50 flex items-start justify-center overflow-y-auto bg-background`}
+    >
       {/* Close button */}
       {dismissible && onClose && (
         <button
           type="button"
           onClick={onClose}
-          className="fixed top-4 right-4 z-[60] flex h-8 w-8 items-center justify-center rounded-md text-secondary transition-colors hover:bg-accent hover:text-primary"
+          className={`${overlayPositionClass} top-4 right-4 z-[60] flex h-8 w-8 items-center justify-center rounded-md text-secondary transition-colors hover:bg-accent hover:text-primary`}
           aria-label="Close"
         >
           <Icons.X className="h-4 w-4" />

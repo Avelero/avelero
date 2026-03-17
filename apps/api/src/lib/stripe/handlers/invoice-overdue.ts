@@ -1,3 +1,6 @@
+/**
+ * Marks a brand as past due when Stripe emits an overdue invoice event.
+ */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import { brandBilling, brandBillingEvents, brandLifecycle } from "@v1/db/schema";
@@ -13,6 +16,7 @@ import {
 const log = billingLogger.child({ component: "handler:invoice-overdue" });
 
 export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
+  // Use receipt time for grace-period tracking and avoid reviving terminal lifecycle states.
   const invoice = event.data.object as Stripe.Invoice;
   const brandId = await resolveBrandIdForInvoice({ db, invoice });
 
@@ -37,30 +41,40 @@ export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
   });
 
   const [billing] = await db
-    .select({ pastDueSince: brandBilling.pastDueSince })
+    .select({
+      pastDueSince: brandBilling.pastDueSince,
+      phase: brandLifecycle.phase,
+    })
     .from(brandBilling)
+    .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brandBilling.brandId))
     .where(eq(brandBilling.brandId, brandId))
     .limit(1);
 
   const nowIso = new Date().toISOString();
+  const preservesTerminalPhase =
+    billing?.phase === "expired" ||
+    billing?.phase === "suspended" ||
+    billing?.phase === "cancelled";
 
-  await db
-    .update(brandBilling)
-    .set({
-      stripeCustomerId: getStripeId(invoice.customer),
-      pastDueSince: billing?.pastDueSince ?? unixToIso(invoice.due_date) ?? nowIso,
-      updatedAt: nowIso,
-    })
-    .where(eq(brandBilling.brandId, brandId));
+  if (!preservesTerminalPhase) {
+    await db
+      .update(brandBilling)
+      .set({
+        stripeCustomerId: getStripeId(invoice.customer),
+        pastDueSince: billing?.pastDueSince ?? nowIso,
+        updatedAt: nowIso,
+      })
+      .where(eq(brandBilling.brandId, brandId));
 
-  await db
-    .update(brandLifecycle)
-    .set({
-      phase: "past_due",
-      phaseChangedAt: nowIso,
-      updatedAt: nowIso,
-    })
-    .where(eq(brandLifecycle.brandId, brandId));
+    await db
+      .update(brandLifecycle)
+      .set({
+        phase: "past_due",
+        phaseChangedAt: nowIso,
+        updatedAt: nowIso,
+      })
+      .where(eq(brandLifecycle.brandId, brandId));
+  }
 
   await db.insert(brandBillingEvents).values({
     brandId,
@@ -78,8 +92,10 @@ export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
       stripeEventId: event.id,
       brandId,
       invoiceId: invoice.id,
-      phase: "past_due",
+      phase: preservesTerminalPhase ? billing?.phase : "past_due",
     },
-    "invoice overdue: brand marked past_due",
+    preservesTerminalPhase
+      ? "invoice overdue: preserved terminal lifecycle phase"
+      : "invoice overdue: brand marked past_due",
   );
 }

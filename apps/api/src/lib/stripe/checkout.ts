@@ -13,6 +13,38 @@ import { TIER_CONFIG, type BillingInterval, type PlanTier } from "./config.js";
  * `subscription_data` so that subsequent subscription webhooks carry the
  * `brand_id` and plan details.
  */
+function buildCheckoutMetadata(opts: {
+  brandId: string;
+  tier: PlanTier;
+  interval: BillingInterval;
+  includeImpact: boolean;
+}) {
+  return {
+    brand_id: opts.brandId,
+    plan_type: opts.tier,
+    billing_interval: opts.interval,
+    include_impact: String(opts.includeImpact),
+  };
+}
+
+/**
+ * Checks whether an open Checkout Session already matches the requested plan.
+ */
+function isMatchingOpenCheckoutSession(params: {
+  session: Stripe.Checkout.Session;
+  brandId: string;
+  metadata: Record<string, string>;
+}): boolean {
+  const { session, brandId, metadata } = params;
+  return (
+    session.mode === "subscription" &&
+    session.client_reference_id === brandId &&
+    session.metadata?.plan_type === metadata.plan_type &&
+    session.metadata?.billing_interval === metadata.billing_interval &&
+    session.metadata?.include_impact === metadata.include_impact
+  );
+}
+
 export async function createCheckoutSession(opts: {
   brandId: string;
   stripeCustomerId: string;
@@ -43,16 +75,50 @@ export async function createCheckoutSession(opts: {
   }
 
   const metadata = {
-    brand_id: brandId,
-    plan_type: tier,
-    billing_interval: interval,
-    include_impact: String(includeImpact),
+    ...buildCheckoutMetadata({
+      brandId,
+      tier,
+      interval,
+      includeImpact,
+    }),
   };
 
   const stripe = getStripeClient();
+  const openSessions = await stripe.checkout.sessions.list({
+    customer: stripeCustomerId,
+    limit: 20,
+    status: "open",
+  });
+
+  const reusableSession = openSessions.data.find((session) =>
+    isMatchingOpenCheckoutSession({
+      session,
+      brandId,
+      metadata,
+    }),
+  );
+
+  for (const session of openSessions.data) {
+    if (
+      session.mode !== "subscription" ||
+      session.client_reference_id !== brandId ||
+      session.id === reusableSession?.id
+    ) {
+      continue;
+    }
+
+    // Expire older brand-scoped sessions so only one subscription checkout can remain usable.
+    await stripe.checkout.sessions.expire(session.id);
+  }
+
+  if (reusableSession?.url) {
+    return { sessionId: reusableSession.id, url: reusableSession.url };
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: stripeCustomerId,
+    client_reference_id: brandId,
     line_items: lineItems,
     metadata,
     subscription_data: { metadata },

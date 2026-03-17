@@ -1,3 +1,6 @@
+/**
+ * Resolves brand access after Stripe deletes a subscription.
+ */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import {
@@ -18,6 +21,7 @@ const log = billingLogger.child({ component: "handler:subscription-deleted" });
 export async function handleSubscriptionDeleted(
   event: Stripe.Event,
 ): Promise<void> {
+  // Preserve paid entitlements until the subscription's remaining access window ends.
   const subscription = event.data.object as Stripe.Subscription;
   const brandId = await resolveBrandIdForSubscription({ db, subscription });
 
@@ -59,7 +63,9 @@ export async function handleSubscriptionDeleted(
   await db
     .update(brandPlan)
     .set({
-      hasImpactPredictions: false,
+      hasImpactPredictions: hasRemainingAccess
+        ? projection.hasImpactPredictions
+        : false,
       updatedAt: nowIso,
     })
     .where(eq(brandPlan.brandId, brandId));

@@ -860,9 +860,34 @@ jobs:
       - name: 🔗 Create Stripe Webhook for Preview
         id: stripe-webhook
         env:
+          ENABLE_PREVIEW_STRIPE_WEBHOOKS: ${{ vars.ENABLE_PREVIEW_STRIPE_WEBHOOKS }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
         run: |
+          if [[ "${ENABLE_PREVIEW_STRIPE_WEBHOOKS}" != "true" ]]; then
+            echo "Skipping automatic Stripe preview webhook registration."
+            echo "Set ENABLE_PREVIEW_STRIPE_WEBHOOKS=true only when previews use an isolated Stripe environment."
+            echo "webhook_id=" >> $GITHUB_OUTPUT
+            echo "webhook_secret=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           WEBHOOK_URL="${{ steps.urls.outputs.api_url }}/webhooks/stripe"
+          echo "Preparing Stripe webhook endpoint: $WEBHOOK_URL"
+
+          EXISTING_ENDPOINTS=$(curl -s -G https://api.stripe.com/v1/webhook_endpoints \
+            -u "${STRIPE_SECRET_KEY}:" \
+            -d "limit=100")
+
+          mapfile -t EXISTING_WEBHOOK_IDS < <(echo "$EXISTING_ENDPOINTS" | jq -r --arg url "$WEBHOOK_URL" '.data[] | select(.url == $url) | .id')
+
+          if [[ ${#EXISTING_WEBHOOK_IDS[@]} -gt 0 ]]; then
+            echo "Deleting ${#EXISTING_WEBHOOK_IDS[@]} existing Stripe webhook endpoint(s) for this preview URL"
+            for WEBHOOK_ID in "${EXISTING_WEBHOOK_IDS[@]}"; do
+              curl -s -X DELETE "https://api.stripe.com/v1/webhook_endpoints/${WEBHOOK_ID}" \
+                -u "${STRIPE_SECRET_KEY}:"
+            done
+          fi
+
           echo "Creating Stripe webhook endpoint: $WEBHOOK_URL"
 
           RESPONSE=$(curl -s -X POST https://api.stripe.com/v1/webhook_endpoints \
@@ -1314,18 +1339,20 @@ jobs:
           WEBHOOK_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev/webhooks/stripe"
           echo "Looking for Stripe webhook endpoint: $WEBHOOK_URL"
 
-          # List all webhook endpoints and find the one matching this PR's URL
+          # List all webhook endpoints and delete every one matching this PR's URL.
           ENDPOINTS=$(curl -s -G https://api.stripe.com/v1/webhook_endpoints \
             -u "${STRIPE_SECRET_KEY}:" \
             -d "limit=100")
 
-          WEBHOOK_ID=$(echo "$ENDPOINTS" | jq -r --arg url "$WEBHOOK_URL" '.data[] | select(.url == $url) | .id')
+          mapfile -t WEBHOOK_IDS < <(echo "$ENDPOINTS" | jq -r --arg url "$WEBHOOK_URL" '.data[] | select(.url == $url) | .id')
 
-          if [[ -n "$WEBHOOK_ID" && "$WEBHOOK_ID" != "null" ]]; then
-            echo "Deleting Stripe webhook endpoint: $WEBHOOK_ID"
-            curl -s -X DELETE "https://api.stripe.com/v1/webhook_endpoints/${WEBHOOK_ID}" \
-              -u "${STRIPE_SECRET_KEY}:"
-            echo "✅ Stripe webhook deleted"
+          if [[ ${#WEBHOOK_IDS[@]} -gt 0 ]]; then
+            echo "Deleting ${#WEBHOOK_IDS[@]} Stripe webhook endpoint(s)"
+            for WEBHOOK_ID in "${WEBHOOK_IDS[@]}"; do
+              curl -s -X DELETE "https://api.stripe.com/v1/webhook_endpoints/${WEBHOOK_ID}" \
+                -u "${STRIPE_SECRET_KEY}:"
+            done
+            echo "✅ Stripe webhook(s) deleted"
           else
             echo "No Stripe webhook found for $WEBHOOK_URL, skipping."
           fi

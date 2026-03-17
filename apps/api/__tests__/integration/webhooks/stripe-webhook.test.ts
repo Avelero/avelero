@@ -141,6 +141,51 @@ beforeEach(() => {
 });
 
 describe("Stripe webhook processing", () => {
+  it("serializes duplicate deliveries of the same event", async () => {
+    const eventType = `codex.webhook.race.${crypto.randomUUID()}`;
+    const { eventId, rawBody, signature } = await buildSignedWebhook({
+      eventType,
+      object: { id: `obj_${crypto.randomUUID()}` },
+    });
+
+    let handlerCalls = 0;
+    let releaseHandler!: () => void;
+    let resolveFirstCall!: () => void;
+    const handlerReleased = new Promise<void>((resolve) => {
+      releaseHandler = resolve;
+    });
+    const firstCallStarted = new Promise<void>((resolve) => {
+      resolveFirstCall = resolve;
+    });
+
+    registerWebhookHandler(eventType, async () => {
+      handlerCalls += 1;
+      if (handlerCalls === 1) {
+        resolveFirstCall();
+      }
+      await handlerReleased;
+    });
+
+    try {
+      const firstDispatch = verifyAndDispatch(rawBody, signature);
+      await firstCallStarted;
+
+      const secondDispatch = verifyAndDispatch(rawBody, signature);
+      await new Promise((resolve) => setTimeout(resolve, 25));
+
+      expect(handlerCalls).toBe(1);
+
+      releaseHandler();
+      await Promise.all([firstDispatch, secondDispatch]);
+
+      const storedEvent = await getWebhookEvent(eventId);
+      expect(storedEvent).not.toBeNull();
+      expect(storedEvent?.processedAt).not.toBeNull();
+    } finally {
+      await cleanupWebhookEvent(eventId);
+    }
+  });
+
   it("does not emit a second route-level error log when a handler already logged the failure", async () => {
     const eventType = `codex.webhook.failure.${crypto.randomUUID()}`;
     const { eventId, rawBody, signature } = await buildSignedWebhook({

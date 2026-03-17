@@ -72,9 +72,16 @@ async function addBrandMember(
 async function setBrandBillingState(params: {
   brandId: string;
   stripeSubscriptionId: string;
+  updatedAt?: string;
+  planType?: "starter" | "growth" | "scale" | null;
+  billingInterval?: "monthly" | "yearly" | null;
 }) {
   const now = new Date().toISOString();
   const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const updatedAt = params.updatedAt ?? now;
+  const planType = params.planType === undefined ? "starter" : params.planType;
+  const billingInterval =
+    params.billingInterval === undefined ? "monthly" : params.billingInterval;
 
   await testDb
     .insert(schema.brandLifecycle)
@@ -103,6 +110,8 @@ async function setBrandBillingState(params: {
     .insert(schema.brandPlan)
     .values({
       brandId: params.brandId,
+      planType,
+      billingInterval,
       skuAnnualLimit: 10,
       skuOnboardingLimit: 5,
       skuCountAtYearStart: 0,
@@ -112,6 +121,8 @@ async function setBrandBillingState(params: {
     .onConflictDoUpdate({
       target: schema.brandPlan.brandId,
       set: {
+        planType,
+        billingInterval,
         skuAnnualLimit: 10,
         skuOnboardingLimit: 5,
         skuCountAtYearStart: 0,
@@ -129,7 +140,7 @@ async function setBrandBillingState(params: {
       stripeSubscriptionId: params.stripeSubscriptionId,
       currentPeriodStart: now,
       currentPeriodEnd: thirtyDaysFromNow.toISOString(),
-      updatedAt: now,
+      updatedAt,
     })
     .onConflictDoUpdate({
       target: schema.brandBilling.brandId,
@@ -139,7 +150,7 @@ async function setBrandBillingState(params: {
         stripeSubscriptionId: params.stripeSubscriptionId,
         currentPeriodStart: now,
         currentPeriodEnd: thirtyDaysFromNow.toISOString(),
-        updatedAt: now,
+        updatedAt,
       },
     });
 }
@@ -159,6 +170,7 @@ describe("brand.billing.getStatus", () => {
     await setBrandBillingState({
       brandId,
       stripeSubscriptionId,
+      updatedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
     });
 
     const stripe = getStripeClient();
@@ -181,6 +193,81 @@ describe("brand.billing.getStatus", () => {
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to refresh billing status",
       });
+    } finally {
+      retrieveSpy.mockRestore();
+    }
+  });
+
+  it("skips the live Stripe refresh while the local projection is still fresh", async () => {
+    const brandId = await createTestBrand("Billing Status Fresh Projection Brand");
+    const stripeSubscriptionId = "sub_billing_status_fresh";
+
+    await addBrandMember(ownerId, brandId);
+    await setBrandBillingState({
+      brandId,
+      stripeSubscriptionId,
+      updatedAt: new Date().toISOString(),
+    });
+
+    const stripe = getStripeClient();
+    const retrieveSpy = spyOn(
+      stripe.subscriptions,
+      "retrieve",
+    ).mockRejectedValue(new Error("Stripe API unavailable"));
+
+    try {
+      const caller = appRouter.createCaller(
+        createMockContext({
+          userId: ownerId,
+          userEmail: ownerEmail,
+          brandId,
+          role: "owner",
+        }),
+      );
+
+      const result = await caller.brand.billing.getStatus();
+
+      expect(result.stripe_customer_id).toBe("cus_billing_status_test");
+      expect(retrieveSpy).not.toHaveBeenCalled();
+    } finally {
+      retrieveSpy.mockRestore();
+    }
+  });
+
+  it("refreshes the live Stripe projection when plan metadata is missing", async () => {
+    const brandId = await createTestBrand("Billing Status Missing Plan Metadata Brand");
+    const stripeSubscriptionId = "sub_billing_status_missing_plan";
+
+    await addBrandMember(ownerId, brandId);
+    await setBrandBillingState({
+      brandId,
+      stripeSubscriptionId,
+      updatedAt: new Date().toISOString(),
+      planType: null,
+      billingInterval: null,
+    });
+
+    const stripe = getStripeClient();
+    const retrieveSpy = spyOn(
+      stripe.subscriptions,
+      "retrieve",
+    ).mockRejectedValue(new Error("Stripe API unavailable"));
+
+    try {
+      const caller = appRouter.createCaller(
+        createMockContext({
+          userId: ownerId,
+          userEmail: ownerEmail,
+          brandId,
+          role: "owner",
+        }),
+      );
+
+      await expect(caller.brand.billing.getStatus()).rejects.toMatchObject({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to refresh billing status",
+      });
+      expect(retrieveSpy).toHaveBeenCalled();
     } finally {
       retrieveSpy.mockRestore();
     }

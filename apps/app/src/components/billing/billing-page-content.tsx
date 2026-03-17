@@ -3,21 +3,14 @@
 /**
  * Renders the customer-facing billing page with plan status, invoices, and billing actions.
  */
+import { formatBillingDate } from "@/lib/format-billing-date";
 import { useTRPC } from "@/trpc/client";
 import { usePlanSelector } from "@/components/billing/plan-selector-context";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Skeleton } from "@v1/ui/skeleton";
-import { useQuery } from "@tanstack/react-query";
+import { toast } from "@v1/ui/sonner";
 import { PLAN_DISPLAY, formatPrice, type PlanTier } from "./plan-features";
-
-/** Format a date string deterministically to avoid hydration mismatches. */
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  const day = d.getUTCDate().toString().padStart(2, "0");
-  const month = (d.getUTCMonth() + 1).toString().padStart(2, "0");
-  const year = d.getUTCFullYear();
-  return `${day}/${month}/${year}`;
-}
 
 export function BillingPageContent() {
   // Reuse the shared plan-selector overlay instead of introducing a second billing modal.
@@ -25,12 +18,43 @@ export function BillingPageContent() {
   const { open: openPlanSelector } = usePlanSelector();
 
   const statusQuery = useQuery(trpc.brand.billing.getStatus.queryOptions());
-  const portalQuery = useQuery(trpc.brand.billing.getPortalUrl.queryOptions());
   const invoicesQuery = useQuery(
     trpc.brand.billing.listInvoices.queryOptions(),
   );
+  const portalMutation = useMutation(
+    trpc.brand.billing.getPortalUrl.mutationOptions({
+      onError: () => {
+        toast.error("Failed to open billing portal");
+      },
+    }),
+  );
 
   const status = statusQuery.data;
+
+  // Handle billing-status failures explicitly so the page does not get stuck in a loading skeleton.
+  if (statusQuery.isError) {
+    return (
+      <div className="w-full max-w-[700px] border p-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <h6 className="text-foreground">Billing unavailable</h6>
+            <p className="text-sm text-secondary">
+              We could not load your current billing status. Please try again.
+            </p>
+          </div>
+          <div>
+            <Button
+              variant="outline"
+              onClick={() => void statusQuery.refetch()}
+              disabled={statusQuery.isFetching}
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!status) {
     return (
@@ -103,8 +127,19 @@ export function BillingPageContent() {
   const periodLabel = interval === "yearly" ? "/year" : "/month";
   const showPlanSelectorButton = status.billing_mode === "stripe_checkout";
   const planSelectorLabel = status.pending_cancellation ? "Renew" : "Upgrade";
+  const canManageBilling = !!status.stripe_customer_id;
 
   const invoices = invoicesQuery.data ?? [];
+  const openBillingPortal = async () => {
+    // Create the short-lived portal session only when the user explicitly asks for it.
+    const portal = await portalMutation.mutateAsync();
+    if (!portal.url) {
+      toast.error("No billing portal is available for this brand yet.");
+      return;
+    }
+
+    window.open(portal.url, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <div className="w-full max-w-[700px] flex flex-col gap-12">
@@ -127,7 +162,8 @@ export function BillingPageContent() {
                   ? "Your plan will end on "
                   : "Your subscription will auto renew on "}
                 <span className="text-primary">
-                  {formatDate(status.current_period_end)}
+                  {formatBillingDate(status.current_period_end) ??
+                    status.current_period_end}
                 </span>
                 .
               </p>
@@ -142,7 +178,8 @@ export function BillingPageContent() {
               <p className="text-sm text-destructive">
                 Payment is past due. Update your payment method before{" "}
                 {status.grace_ends_at
-                  ? formatDate(status.grace_ends_at)
+                  ? (formatBillingDate(status.grace_ends_at) ??
+                    status.grace_ends_at)
                   : "the grace period ends"}
                 .
               </p>
@@ -150,18 +187,15 @@ export function BillingPageContent() {
           </div>
           <div className="flex items-center gap-3">
             {showPlanSelectorButton ? (
-              <Button onClick={openPlanSelector}>
-                {planSelectorLabel}
-              </Button>
+              <Button onClick={openPlanSelector}>{planSelectorLabel}</Button>
             ) : null}
-            {portalQuery.data?.url ? (
+            {canManageBilling ? (
               <Button
                 variant="outline"
-                onClick={() => {
-                  window.open(portalQuery.data?.url ?? "", "_blank");
-                }}
+                onClick={() => void openBillingPortal()}
+                disabled={portalMutation.isPending}
               >
-                Manage billing
+                {portalMutation.isPending ? "Opening..." : "Manage billing"}
               </Button>
             ) : null}
           </div>
@@ -224,7 +258,7 @@ export function BillingPageContent() {
               className="grid grid-cols-4 border-b border-border last:border-b-0"
             >
               <div className="px-4 py-2.5 type-p text-primary">
-                {formatDate(inv.createdAt)}
+                {formatBillingDate(inv.createdAt) ?? inv.createdAt}
               </div>
               <div className="px-4 py-2.5 type-p text-primary">
                 {inv.total != null
@@ -262,14 +296,13 @@ export function BillingPageContent() {
                 period.
               </p>
             </div>
-            {portalQuery.data?.url ? (
+            {canManageBilling ? (
               <Button
                 variant="destructive"
-                onClick={() => {
-                  window.open(portalQuery.data?.url ?? "", "_blank");
-                }}
+                onClick={() => void openBillingPortal()}
+                disabled={portalMutation.isPending}
               >
-                Cancel
+                {portalMutation.isPending ? "Opening..." : "Cancel"}
               </Button>
             ) : null}
           </div>

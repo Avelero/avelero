@@ -6,8 +6,10 @@
  * environment variables.
  */
 
-export type PlanTier = "starter" | "growth" | "scale";
-export type BillingInterval = "monthly" | "yearly";
+export const PLAN_TIERS = ["starter", "growth", "scale"] as const;
+export type PlanTier = (typeof PLAN_TIERS)[number];
+export const BILLING_INTERVALS = ["monthly", "yearly"] as const;
+export type BillingInterval = (typeof BILLING_INTERVALS)[number];
 export type ProductLine = "avelero" | "impact";
 
 export interface TierPrices {
@@ -65,6 +67,44 @@ export const TIER_CONFIG: Record<PlanTier, TierConfig> = {
     },
   },
 };
+
+/**
+ * Fails fast when a required Stripe price ID is missing from the environment.
+ */
+export function assertPriceIdsConfigured(): void {
+  for (const [tier, config] of Object.entries(TIER_CONFIG)) {
+    for (const [interval, prices] of Object.entries(config.prices)) {
+      if (!prices.avelero) {
+        throw new Error(
+          `Missing STRIPE_PRICE_ID_AVELERO_${tier.toUpperCase()}_${interval.toUpperCase()}`,
+        );
+      }
+
+      if (!prices.impact) {
+        throw new Error(
+          `Missing STRIPE_PRICE_ID_IMPACT_${tier.toUpperCase()}_${interval.toUpperCase()}`,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Checks whether an arbitrary metadata value is a supported billing tier.
+ */
+export function isPlanTier(value: unknown): value is PlanTier {
+  return typeof value === "string" && PLAN_TIERS.includes(value as PlanTier);
+}
+
+/**
+ * Checks whether an arbitrary metadata value is a supported billing interval.
+ */
+export function isBillingInterval(value: unknown): value is BillingInterval {
+  return (
+    typeof value === "string" &&
+    BILLING_INTERVALS.includes(value as BillingInterval)
+  );
+}
 
 /**
  * Reverse-lookup: given a Stripe Price ID, determine the tier, product line,

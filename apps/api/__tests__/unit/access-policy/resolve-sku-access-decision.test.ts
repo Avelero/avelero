@@ -171,6 +171,48 @@ describe("resolveSkuAccessDecision", () => {
     expect(atCap.remainingCreateBudget).toBe(0);
   });
 
+  it("does not enforce the trial cap when access has been elevated above trial", () => {
+    const elevatedTrialAccess = buildBrandAccess({
+      decision: "full_access",
+      phase: "trial",
+    });
+
+    const result = resolveSkuAccessDecision({
+      brandAccess: elevatedTrialAccess,
+      snapshot: buildSnapshot({
+        lifecycle: {
+          phase: "trial",
+          trialStartedAt: "2025-03-10T00:00:00.000Z",
+          trialEndsAt: "2026-03-10T00:00:00.000Z",
+        },
+        billing: {
+          billingMode: null,
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
+          billingAccessOverride: "temporary_allow",
+          billingOverrideExpiresAt: null,
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          pastDueSince: null,
+          pendingCancellation: false,
+        },
+        plan: {
+          skuAnnualLimit: null,
+          skuOnboardingLimit: null,
+          skuLimitOverride: null,
+          skuCountAtYearStart: null,
+          skuCountAtOnboardingStart: null,
+        },
+      }),
+      intendedCreateCount: 0,
+      currentNonGhostSkuCount: 50_000,
+      trialStartedAt: "2025-03-10T00:00:00.000Z",
+    });
+
+    expect(result.status).toBe("allowed");
+    expect(result.remainingCreateBudget).toBeNull();
+  });
+
   it("blocks when intended create count exceeds remaining budget", () => {
     const result = resolveSkuAccessDecision({
       brandAccess: buildBrandAccess(),

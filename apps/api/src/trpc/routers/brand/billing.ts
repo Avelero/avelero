@@ -9,7 +9,7 @@
  * - getStatus: Current billing state
  * - getPortalUrl: Stripe Customer Portal link
  */
-import { desc, eq } from "@v1/db/queries";
+import { desc, eq, sql } from "@v1/db/queries";
 import { brandBilling, brandBillingInvoices, brandLifecycle, brandPlan, brands } from "@v1/db/schema";
 import { billingLogger } from "@v1/logger/billing";
 import { TRPCError } from "@trpc/server";
@@ -37,6 +37,34 @@ import {
 } from "../../init.js";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
+const STRIPE_PROJECTION_SYNC_MAX_AGE_MS = 5 * 60_000;
+
+/**
+ * Decides whether the local Stripe subscription projection is stale enough to refresh.
+ */
+function shouldSyncStripeProjection(params: {
+  billingMode: string | null;
+  stripeSubscriptionId: string | null;
+  updatedAt: string | null;
+}): boolean {
+  if (
+    params.billingMode !== "stripe_checkout" ||
+    !params.stripeSubscriptionId
+  ) {
+    return false;
+  }
+
+  if (!params.updatedAt) {
+    return true;
+  }
+
+  const updatedAtMs = new Date(params.updatedAt).getTime();
+  if (Number.isNaN(updatedAtMs)) {
+    return true;
+  }
+
+  return Date.now() - updatedAtMs > STRIPE_PROJECTION_SYNC_MAX_AGE_MS;
+}
 
 export const billingRouter = createTRPCRouter({
   /**
@@ -119,14 +147,21 @@ export const billingRouter = createTRPCRouter({
       }
 
       try {
-        const session = await createCheckoutSession({
-          brandId,
-          stripeCustomerId,
-          tier: input.tier,
-          interval: input.interval,
-          includeImpact: input.include_impact,
-          successUrl: `${APP_URL}/settings/billing?checkout=success`,
-          cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
+        const session = await db.transaction(async (tx) => {
+          // Serialize checkout creation per brand so duplicate clicks cannot create parallel sessions.
+          await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtext(${`stripe_checkout:${brandId}`}))`,
+          );
+
+          return createCheckoutSession({
+            brandId,
+            stripeCustomerId,
+            tier: input.tier,
+            interval: input.interval,
+            includeImpact: input.include_impact,
+            successUrl: `${APP_URL}/settings/billing?checkout=success`,
+            cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
+          });
         });
 
         return { url: session.url };
@@ -227,7 +262,7 @@ export const billingRouter = createTRPCRouter({
       });
     }
 
-    const [plan] = await db
+    let [plan] = await db
       .select({
         planType: brandPlan.planType,
         billingInterval: brandPlan.billingInterval,
@@ -236,6 +271,34 @@ export const billingRouter = createTRPCRouter({
       .from(brandPlan)
       .where(eq(brandPlan.brandId, brandId))
       .limit(1);
+
+    if (
+      billing.stripeSubscriptionId &&
+      (!plan?.planType || !plan.billingInterval)
+    ) {
+      try {
+        await syncStripeSubscriptionProjectionById({
+          db,
+          subscriptionId: billing.stripeSubscriptionId,
+          brandId,
+        });
+      } catch (err) {
+        log.error(
+          { brandId, operation: "syncStripeSubscriptionProjectionById", err },
+          "failed to backfill plan interval before adding impact",
+        );
+      }
+
+      [plan] = await db
+        .select({
+          planType: brandPlan.planType,
+          billingInterval: brandPlan.billingInterval,
+          hasImpactPredictions: brandPlan.hasImpactPredictions,
+        })
+        .from(brandPlan)
+        .where(eq(brandPlan.brandId, brandId))
+        .limit(1);
+    }
 
     if (!plan?.planType || !plan.billingInterval) {
       throw new TRPCError({
@@ -337,19 +400,34 @@ export const billingRouter = createTRPCRouter({
       .select({
         billingMode: brandBilling.billingMode,
         stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+        updatedAt: brandBilling.updatedAt,
       })
       .from(brandBilling)
       .where(eq(brandBilling.brandId, brandId))
       .limit(1);
 
+    const [planLink] = await db
+      .select({
+        planType: brandPlan.planType,
+        billingInterval: brandPlan.billingInterval,
+      })
+      .from(brandPlan)
+      .where(eq(brandPlan.brandId, brandId))
+      .limit(1);
+
     if (
-      billingLink?.billingMode === "stripe_checkout" &&
-      billingLink.stripeSubscriptionId
+      shouldSyncStripeProjection({
+        billingMode: billingLink?.billingMode ?? null,
+        stripeSubscriptionId: billingLink?.stripeSubscriptionId ?? null,
+        updatedAt: billingLink?.updatedAt ?? null,
+      }) ||
+      (billingLink?.stripeSubscriptionId &&
+        (!planLink?.planType || !planLink.billingInterval))
     ) {
       try {
         await syncStripeSubscriptionProjectionById({
           db,
-          subscriptionId: billingLink.stripeSubscriptionId,
+          subscriptionId: billingLink!.stripeSubscriptionId!,
           brandId,
         });
       } catch (err) {
@@ -414,7 +492,7 @@ export const billingRouter = createTRPCRouter({
       skus_created_this_year: skuAccess.annual.used,
       sku_onboarding_limit: plan?.skuOnboardingLimit ?? null,
       skus_created_onboarding: skuAccess.onboarding.used,
-      has_payment_method: !!billing?.stripeSubscriptionId,
+      has_active_subscription: !!billing?.stripeSubscriptionId,
       stripe_customer_id: billing?.stripeCustomerId ?? null,
     };
   }),
@@ -452,7 +530,7 @@ export const billingRouter = createTRPCRouter({
    * Get a Stripe Customer Portal URL for managing payment methods
    * and viewing invoice history.
    */
-  getPortalUrl: brandBillingProcedure.query(async ({ ctx }) => {
+  getPortalUrl: brandBillingProcedure.mutation(async ({ ctx }) => {
     const { brandId, db } = ctx;
 
     const [billing] = await db

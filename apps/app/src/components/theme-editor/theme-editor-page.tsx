@@ -3,6 +3,8 @@
 /**
  * Theme editor page shell and providers.
  */
+import { BlockedAccessScreen } from "@/components/access/blocked-access-screen";
+import { PaymentRequiredOverlay } from "@/components/access/payment-required-overlay";
 import { Header } from "@/components/header";
 import { UnsavedChangesModal } from "@/components/modals/unsaved-changes-modal";
 import { Sidebar } from "@/components/sidebar";
@@ -52,13 +54,25 @@ function ThemeEditorContent() {
   const { hasUnsavedChanges, resetDrafts } = useDesignEditor();
   const trpc = useTRPC();
   const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
+  const access = initQuery.data?.access;
+  const activeBrand = initQuery.data?.activeBrand;
 
   const { pendingUrl, confirmNavigation, cancelNavigation } =
     useNavigationBlocker({
       shouldBlock: hasUnsavedChanges,
       onDiscard: resetDrafts,
     });
-  const hasTopBanner = initQuery.data?.access.banner !== "none";
+  const hasTopBanner = access?.banner !== "none";
+  const blockedReason =
+    access?.overlay === "suspended" ||
+    access?.overlay === "temporary_blocked" ||
+    access?.overlay === "cancelled"
+      ? access.overlay
+      : access?.overlay === "payment_required" && access.phase === "trial"
+        ? "trial_expired"
+        : null;
+  const showPaymentRequiredOverlay =
+    access?.overlay === "payment_required" && access.phase !== "trial";
 
   return (
     <div className="relative h-full">
@@ -72,6 +86,13 @@ function ThemeEditorContent() {
               <DesignPreview />
             </div>
           </div>
+          {blockedReason && activeBrand ? (
+            <BlockedAccessScreen
+              reason={blockedReason}
+              brandId={activeBrand.id}
+            />
+          ) : null}
+          {showPaymentRequiredOverlay ? <PaymentRequiredOverlay /> : null}
         </div>
       </div>
 

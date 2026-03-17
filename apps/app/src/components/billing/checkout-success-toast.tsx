@@ -1,7 +1,7 @@
 "use client";
 
 import { sonnerToast } from "@v1/ui/sonner";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 /**
@@ -12,6 +12,7 @@ import { useEffect, useRef } from "react";
  */
 export function CheckoutReturnHandler() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const router = useRouter();
   const handledRef = useRef(false);
 
@@ -29,9 +30,15 @@ export function CheckoutReturnHandler() {
       sonnerToast("Checkout was cancelled. You can try again anytime.");
     }
 
-    // Clear the query param from URL
-    router.replace("/settings/billing", { scroll: false });
-  }, [searchParams, router]);
+    // Clear only the checkout flag so unrelated billing filters survive the redirect.
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("checkout");
+    const nextUrl = nextParams.size > 0
+      ? `${pathname}?${nextParams.toString()}`
+      : pathname;
+
+    router.replace(nextUrl, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   return null;
 }

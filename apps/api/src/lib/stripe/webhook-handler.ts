@@ -2,7 +2,7 @@
  * Verifies and dispatches Stripe webhooks with idempotency tracking and structured logging.
  */
 import { db } from "@v1/db/client";
-import { eq } from "@v1/db/queries";
+import { eq, sql } from "@v1/db/queries";
 import { stripeWebhookEvents } from "@v1/db/schema";
 import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
@@ -13,6 +13,7 @@ const log = billingLogger.child({ component: "webhook-dispatcher" });
 type WebhookHandler = (event: Stripe.Event) => Promise<void>;
 
 const handlers: Record<string, WebhookHandler | undefined> = {};
+const WEBHOOK_LOCK_NAMESPACE = "stripe_webhook";
 
 /**
  * Register a handler for a Stripe webhook event type.
@@ -46,6 +47,34 @@ export class LoggedWebhookProcessingError extends Error {
     this.name = "LoggedWebhookProcessingError";
     this.cause = cause;
   }
+}
+
+/**
+ * Persists the webhook row before dispatch so failed handlers still leave an
+ * unprocessed record behind for later retries.
+ */
+async function ensureWebhookEventRow(params: {
+  stripeEventId: string;
+  eventType: string;
+}): Promise<void> {
+  await db
+    .insert(stripeWebhookEvents)
+    .values({
+      stripeEventId: params.stripeEventId,
+      eventType: params.eventType,
+      processedAt: null,
+    })
+    .onConflictDoNothing({
+      target: stripeWebhookEvents.stripeEventId,
+    });
+}
+
+/**
+ * Returns the advisory-lock key used to serialize duplicate deliveries of the
+ * same Stripe event.
+ */
+function getWebhookLockKey(stripeEventId: string): string {
+  return `${WEBHOOK_LOCK_NAMESPACE}:${stripeEventId}`;
 }
 
 /**
@@ -101,82 +130,82 @@ export async function verifyAndDispatch(
     );
   }
 
-  // 2. Idempotency check — only skip if the event was fully processed
-  const [existing] = await db
-    .select({
-      id: stripeWebhookEvents.id,
-      processedAt: stripeWebhookEvents.processedAt,
-    })
-    .from(stripeWebhookEvents)
-    .where(eq(stripeWebhookEvents.stripeEventId, event.id))
-    .limit(1);
-
-  if (existing?.processedAt) {
-    return { received: true };
-  }
-
-  // 3. Insert event row (unprocessed). ON CONFLICT handles the race where
-  //    two concurrent deliveries of the same event both pass the SELECT.
-  if (!existing) {
-    await db
-      .insert(stripeWebhookEvents)
-      .values({
-        stripeEventId: event.id,
-        eventType: event.type,
-        processedAt: null,
-      })
-      .onConflictDoNothing({
-        target: stripeWebhookEvents.stripeEventId,
-      });
-  }
-
-  // 4. Dispatch to handler
-  const handler = handlers[event.type];
-
-  if (!handler) {
-    log.info(
-      { stripeEventId: event.id, eventType: event.type },
-      "unhandled event type, skipping",
-    );
-    await markProcessed({
-      stripeEventId: event.id,
-      eventType: event.type,
-    });
-    return { received: true };
-  }
-
-  const startMs = Date.now();
-
-  try {
-    await handler(event);
-  } catch (err) {
-    const durationMs = Date.now() - startMs;
-    log.error(
-      {
-        stripeEventId: event.id,
-        eventType: event.type,
-        durationMs,
-        err,
-      },
-      "webhook handler failed",
-    );
-    throw new LoggedWebhookProcessingError("Webhook handler failed", err);
-  }
-
-  await markProcessed({
+  // 2. Persist the event row up front so failed handlers leave a retryable record.
+  await ensureWebhookEventRow({
     stripeEventId: event.id,
     eventType: event.type,
   });
 
-  const durationMs = Date.now() - startMs;
-  log.info(
-    {
+  const startMs = Date.now();
+  let didDispatchHandler = false;
+
+  // 3. Hold a database-level lock for this Stripe event so duplicate deliveries
+  //    cannot run the handler in parallel.
+  await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${getWebhookLockKey(event.id)}))`,
+    );
+
+    const [existing] = await tx
+      .select({
+        processedAt: stripeWebhookEvents.processedAt,
+      })
+      .from(stripeWebhookEvents)
+      .where(eq(stripeWebhookEvents.stripeEventId, event.id))
+      .limit(1);
+
+    if (existing?.processedAt) {
+      return;
+    }
+
+    const handler = handlers[event.type];
+
+    if (!handler) {
+      log.info(
+        { stripeEventId: event.id, eventType: event.type },
+        "unhandled event type, skipping",
+      );
+      await markProcessed({
+        stripeEventId: event.id,
+        eventType: event.type,
+      });
+      return;
+    }
+
+    try {
+      await handler(event);
+      didDispatchHandler = true;
+    } catch (err) {
+      const durationMs = Date.now() - startMs;
+      log.error(
+        {
+          stripeEventId: event.id,
+          eventType: event.type,
+          durationMs,
+          err,
+        },
+        "webhook handler failed",
+      );
+      throw new LoggedWebhookProcessingError("Webhook handler failed", err);
+    }
+
+    await markProcessed({
       stripeEventId: event.id,
       eventType: event.type,
-      durationMs,
-    },
-    "webhook processed",
-  );
+    });
+  });
+
+  if (didDispatchHandler) {
+    const durationMs = Date.now() - startMs;
+    log.info(
+      {
+        stripeEventId: event.id,
+        eventType: event.type,
+        durationMs,
+      },
+      "webhook processed",
+    );
+  }
 
   return { received: true };
 }

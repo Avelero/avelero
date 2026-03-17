@@ -1,3 +1,6 @@
+/**
+ * Activates a brand after Stripe Checkout completes and billing metadata is valid.
+ */
 import { db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import {
@@ -7,7 +10,13 @@ import {
 } from "@v1/db/schema";
 import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
-import { TIER_CONFIG, type BillingInterval, type PlanTier } from "../config.js";
+import {
+  TIER_CONFIG,
+  isBillingInterval,
+  isPlanTier,
+  type BillingInterval,
+  type PlanTier,
+} from "../config.js";
 import {
   isoToDate,
   syncStripeSubscriptionProjectionById,
@@ -18,6 +27,7 @@ const log = billingLogger.child({ component: "handler:checkout-completed" });
 export async function handleCheckoutCompleted(
   event: Stripe.Event,
 ): Promise<void> {
+  // Validate the Checkout payload before projecting plan state into the database.
   const session = event.data.object as Stripe.Checkout.Session;
   const metadata = session.metadata ?? {};
   const brandId = metadata.brand_id;
@@ -39,10 +49,12 @@ export async function handleCheckoutCompleted(
     return;
   }
 
-  const planType = metadata.plan_type as PlanTier | undefined;
-  const billingInterval = metadata.billing_interval as
-    | BillingInterval
-    | undefined;
+  const planType = isPlanTier(metadata.plan_type)
+    ? metadata.plan_type
+    : undefined;
+  const billingInterval = isBillingInterval(metadata.billing_interval)
+    ? metadata.billing_interval
+    : undefined;
   const includeImpact = metadata.include_impact === "true";
   const subscriptionId =
     typeof session.subscription === "string"
@@ -62,6 +74,21 @@ export async function handleCheckoutCompleted(
     });
     currentPeriodStart = projection.currentPeriodStart;
     currentPeriodEnd = projection.currentPeriodEnd;
+  }
+
+  if (
+    (metadata.plan_type || metadata.billing_interval) &&
+    (!planType || !billingInterval)
+  ) {
+    log.warn(
+      {
+        stripeEventId: event.id,
+        sessionId: session.id,
+        brandId,
+        metadata,
+      },
+      "checkout metadata contained an invalid plan or billing interval",
+    );
   }
 
   if (planType && billingInterval) {

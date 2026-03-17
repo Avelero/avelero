@@ -74,7 +74,9 @@ export function Sidebar({
     }
   };
 
-  const topOffsetClass = hasTopBanner ? "top-24 h-[calc(100vh-96px)]" : "top-14 h-[calc(100vh-56px)]";
+  const topOffsetClass = hasTopBanner
+    ? "top-28 h-[calc(100vh-112px)] sm:top-24 sm:h-[calc(100vh-96px)]"
+    : "top-14 h-[calc(100vh-56px)]";
 
   return (
     <aside

@@ -62,16 +62,62 @@ interface EnterpriseInvoiceSheetProps {
   onSubmit: (payload: EnterpriseInvoicePayload) => void;
 }
 
+/**
+ * Serializes a picked local calendar day to the start of that UTC day.
+ */
 function toIsoDayStart(date: Date): string {
-  const value = new Date(date);
-  value.setUTCHours(0, 0, 0, 0);
-  return value.toISOString();
+  return new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0),
+  ).toISOString();
 }
 
+/**
+ * Serializes a picked local calendar day to the end of that UTC day.
+ */
 function toIsoDayEnd(date: Date): string {
-  const value = new Date(date);
-  value.setUTCHours(23, 59, 59, 0);
-  return value.toISOString();
+  return new Date(
+    Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      23,
+      59,
+      59,
+      0,
+    ),
+  ).toISOString();
+}
+
+/**
+ * Adds whole calendar years in local time for date-picker previews.
+ */
+function addLocalYears(date: Date, years: number): Date {
+  return new Date(
+    date.getFullYear() + years,
+    date.getMonth(),
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+    date.getMilliseconds(),
+  );
+}
+
+/**
+ * Parses a cents input only when the operator entered a whole positive integer.
+ */
+function parseWholeCents(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isSafeInteger(parsed)) {
+    return null;
+  }
+
+  return parsed;
 }
 
 export function EnterpriseInvoiceSheet({
@@ -138,24 +184,21 @@ export function EnterpriseInvoiceSheet({
 
   const servicePeriodEnd = useMemo(() => {
     if (!servicePeriodStart) return null;
-    const value = new Date(servicePeriodStart);
-    value.setUTCFullYear(value.getUTCFullYear() + 1);
-    return value;
+    return addLocalYears(servicePeriodStart, 1);
   }, [servicePeriodStart]);
+  const parsedAmountCents = parseWholeCents(amountCents);
 
   const canSubmit =
     recipientName.trim().length > 0 &&
     recipientEmail.trim().length > 0 &&
     description.trim().length > 0 &&
     servicePeriodStart !== null &&
-    amountCents.trim().length > 0 &&
-    !Number.isNaN(Number.parseInt(amountCents, 10)) &&
-    Number.parseInt(amountCents, 10) > 0;
+    parsedAmountCents !== null &&
+    parsedAmountCents > 0;
 
   const handleSubmit = () => {
-    const parsedAmount = Number.parseInt(amountCents, 10);
-
-    if (!canSubmit || Number.isNaN(parsedAmount) || !servicePeriodStart) return;
+    // Reuse the validated cents parser so decimals are rejected instead of truncated.
+    if (!canSubmit || parsedAmountCents === null || !servicePeriodStart) return;
 
     onSubmit({
       recipient_name: recipientName.trim(),
@@ -169,7 +212,7 @@ export function EnterpriseInvoiceSheet({
         recipientAddressPostalCode.trim() || undefined,
       recipient_address_country: recipientAddressCountry.trim() || undefined,
       description: description.trim(),
-      amount_cents: parsedAmount,
+      amount_cents: parsedAmountCents,
       service_period_start: toIsoDayStart(servicePeriodStart),
       due_date: dueDate ? toIsoDayEnd(dueDate) : undefined,
       footer: footer.trim() || undefined,

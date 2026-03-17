@@ -1,8 +1,8 @@
-"use client";
-
 /**
  * Mounts the shared plan-selector overlay and hydrates it from billing state.
  */
+"use client";
+
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -48,7 +48,7 @@ function PlanSelectorOverlayRenderer() {
         status?.billing_interval as "monthly" | "yearly" | null ?? null
       }
       hasImpact={status?.has_impact_predictions ?? false}
-      hasSubscription={status?.has_payment_method ?? false}
+      hasSubscription={status?.has_active_subscription ?? false}
       pendingCancellation={status?.pending_cancellation ?? false}
     />
   );

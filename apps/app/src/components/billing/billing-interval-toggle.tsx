@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@v1/ui/cn";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 interface BillingIntervalToggleProps {
   interval: "monthly" | "yearly";
@@ -24,7 +24,7 @@ export function BillingIntervalToggle({
     }
   }, [interval]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     measure();
   }, [measure]);
 

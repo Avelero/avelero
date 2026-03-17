@@ -19,12 +19,22 @@ export function resolveSkuAccessDecision(
     Number.isFinite(input.intendedCreateCount)
       ? Math.max(0, Math.trunc(input.intendedCreateCount))
       : 0;
-  const { annual, onboarding, trial, remainingCreateBudget } = deriveSkuBudget({
+  const derivedBudget = deriveSkuBudget({
     snapshot: input.snapshot,
     currentNonGhostSkuCount: input.currentNonGhostSkuCount,
     trialStartedAt: input.trialStartedAt,
     evaluationDate: input.evaluationDate,
   });
+  const trial =
+    input.brandAccess.decision === "trial_active" ? derivedBudget.trial : null;
+  const remainingCreateBudget = [derivedBudget.annual, derivedBudget.onboarding, trial]
+    .map((budget) => budget?.remaining ?? null)
+    .reduce<number | null>((smallest, remaining) => {
+      if (remaining === null) return smallest;
+      if (smallest === null) return remaining;
+      return Math.min(smallest, remaining);
+    }, null);
+  const { annual, onboarding } = derivedBudget;
 
   const wouldExceedIntendedCreateCount =
     remainingCreateBudget !== null &&

@@ -1,7 +1,7 @@
 /**
  * Verifies and dispatches Stripe webhooks with idempotency tracking and structured logging.
  */
-import { db } from "@v1/db/client";
+import { db, type DatabaseOrTransaction } from "@v1/db/client";
 import { eq, sql } from "@v1/db/queries";
 import { stripeWebhookEvents } from "@v1/db/schema";
 import { billingLogger } from "@v1/logger/billing";
@@ -79,13 +79,18 @@ function getWebhookLockKey(stripeEventId: string): string {
 
 /**
  * Marks a webhook event as fully processed once every side effect has succeeded.
+ *
+ * Accepts an optional transaction connection so the update participates in the
+ * same transaction as the handler side-effects, preserving atomicity.
  */
 async function markProcessed(params: {
   stripeEventId: string;
   eventType: string;
+  conn?: DatabaseOrTransaction;
 }): Promise<void> {
+  const conn = params.conn ?? db;
   try {
-    await db
+    await conn
       .update(stripeWebhookEvents)
       .set({ processedAt: new Date().toISOString() })
       .where(eq(stripeWebhookEvents.stripeEventId, params.stripeEventId));
@@ -168,6 +173,7 @@ export async function verifyAndDispatch(
       await markProcessed({
         stripeEventId: event.id,
         eventType: event.type,
+        conn: tx,
       });
       return;
     }
@@ -192,6 +198,7 @@ export async function verifyAndDispatch(
     await markProcessed({
       stripeEventId: event.id,
       eventType: event.type,
+      conn: tx,
     });
   });
 

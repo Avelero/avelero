@@ -178,10 +178,13 @@ describe("Stripe webhook processing", () => {
       releaseHandler();
       await Promise.all([firstDispatch, secondDispatch]);
 
+      expect(handlerCalls).toBe(1);
+
       const storedEvent = await getWebhookEvent(eventId);
       expect(storedEvent).not.toBeNull();
       expect(storedEvent?.processedAt).not.toBeNull();
     } finally {
+      releaseHandler();
       await cleanupWebhookEvent(eventId);
     }
   });
@@ -242,27 +245,31 @@ describe("Stripe webhook processing", () => {
       // Keep the handler side effects empty so only the processed-at write can fail.
     });
 
-    // Direct property assignment bypasses spyOn's reliance on
-    // Object.getOwnPropertyDescriptor, which doesn't work through the
-    // lazy-init Proxy that wraps the Drizzle db instance.
-    const originalUpdate = appDb.update.bind(appDb);
-    const mockUpdate = ((table: unknown) => {
-      if (table === schema.stripeWebhookEvents) {
-        return {
-          set() {
+    // Intercept the transaction callback so that the `tx` object's `.update()`
+    // is poisoned for stripeWebhookEvents. This mirrors the real failure mode
+    // where markProcessed (now running inside the transaction) cannot persist
+    // processed_at.
+    const originalTransaction = appDb.transaction.bind(appDb);
+    (appDb as any).transaction = async (fn: (tx: any) => Promise<any>, ...rest: any[]) => {
+      return originalTransaction(async (tx: any) => {
+        const originalTxUpdate = tx.update.bind(tx);
+        tx.update = (table: unknown) => {
+          if (table === schema.stripeWebhookEvents) {
             return {
-              where: async () => {
-                throw new Error("failed to persist processed_at");
+              set() {
+                return {
+                  where: async () => {
+                    throw new Error("failed to persist processed_at");
+                  },
+                };
               },
-            };
-          },
-        } as any;
-      }
-
-      return originalUpdate(table as never);
-    }) as typeof appDb.update;
-
-    (appDb as any).update = mockUpdate;
+            } as any;
+          }
+          return originalTxUpdate(table as never);
+        };
+        return fn(tx);
+      }, ...rest);
+    };
 
     try {
       const { logs } = await captureBillingLogs(async () => {
@@ -291,8 +298,7 @@ describe("Stripe webhook processing", () => {
       expect(successLogs).toHaveLength(0);
       expect(markProcessedFailureLogs).toHaveLength(1);
     } finally {
-      // Remove the override so the Proxy falls back to the real _db.update
-      (appDb as any).update = undefined;
+      (appDb as any).transaction = undefined;
       await cleanupWebhookEvent(eventId);
     }
   });

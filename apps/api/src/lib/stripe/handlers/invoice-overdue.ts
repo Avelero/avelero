@@ -2,7 +2,7 @@
  * Marks a brand as past due when Stripe emits an overdue invoice event.
  */
 import { db } from "@v1/db/client";
-import { eq } from "@v1/db/queries";
+import { and, eq, notInArray } from "@v1/db/queries";
 import { brandBilling, brandBillingEvents, brandLifecycle } from "@v1/db/schema";
 import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
@@ -66,6 +66,9 @@ export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
       })
       .where(eq(brandBilling.brandId, brandId));
 
+    // Use a conditional update so a concurrent request that sets a terminal phase
+    // (expired / suspended / cancelled) between our SELECT and this UPDATE is not
+    // overwritten back to past_due.
     await db
       .update(brandLifecycle)
       .set({
@@ -73,7 +76,12 @@ export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
         phaseChangedAt: nowIso,
         updatedAt: nowIso,
       })
-      .where(eq(brandLifecycle.brandId, brandId));
+      .where(
+        and(
+          eq(brandLifecycle.brandId, brandId),
+          notInArray(brandLifecycle.phase, ["expired", "suspended", "cancelled"]),
+        ),
+      );
   }
 
   await db.insert(brandBillingEvents).values({

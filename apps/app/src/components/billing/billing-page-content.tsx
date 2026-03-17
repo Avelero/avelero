@@ -32,7 +32,9 @@ export function BillingPageContent() {
   const status = statusQuery.data;
 
   // Handle billing-status failures explicitly so the page does not get stuck in a loading skeleton.
-  if (statusQuery.isError) {
+  // Only show the error state when there is no cached data; a background refetch error should not
+  // hide previously loaded billing details.
+  if (statusQuery.isError && !status) {
     return (
       <div className="w-full max-w-[700px] border p-6">
         <div className="flex flex-col gap-4">

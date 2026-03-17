@@ -11,6 +11,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { assertPriceIdsConfigured } from "./lib/stripe/config.js";
+import { billingLogger } from "@v1/logger/billing";
 import { websocketManager } from "./lib/websocket-manager.js";
 import { healthRouter } from "./routes/health.js";
 import { integrationRoutes } from "./routes/integrations/index.js";
@@ -18,7 +19,14 @@ import { webhookRoutes } from "./routes/webhooks/index.js";
 import { createTRPCContext } from "./trpc/init.js";
 import { appRouter } from "./trpc/routers/_app.js";
 
-assertPriceIdsConfigured();
+try {
+  assertPriceIdsConfigured();
+} catch (err) {
+  billingLogger.warn(
+    { err },
+    "Stripe price IDs not fully configured — billing routes will fail at call time",
+  );
+}
 
 const app = new Hono();
 

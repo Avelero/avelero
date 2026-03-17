@@ -38,9 +38,12 @@ export default async function BillingPage({
   ]);
 
   if (phase === "trial" && hasCheckoutReturn) {
+    // Do NOT mount CheckoutReturnHandler here — it clears ?checkout immediately,
+    // which causes the server to re-evaluate while phase is still "trial" and
+    // redirect the user to /settings before billing status updates.
+    // The toast will be shown once the phase transitions and the normal branch renders.
     return (
       <HydrateClient>
-        <CheckoutReturnHandler />
         <div className="w-full max-w-[700px] border p-6">
           <div className="flex flex-col gap-1.5">
             <h6 className="text-foreground">Finalizing billing</h6>

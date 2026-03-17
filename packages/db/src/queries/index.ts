@@ -38,6 +38,7 @@ export {
   inArray,
   isNull,
   lt,
+  notInArray,
   or,
   sql,
   SQL,

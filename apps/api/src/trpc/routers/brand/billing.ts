@@ -425,7 +425,8 @@ export const billingRouter = createTRPCRouter({
         stripeSubscriptionId: billingLink?.stripeSubscriptionId ?? null,
         updatedAt: billingLink?.updatedAt ?? null,
       }) ||
-      (billingLink?.stripeSubscriptionId &&
+      (billingLink?.billingMode === "stripe_checkout" &&
+        billingLink?.stripeSubscriptionId &&
         (!planLink?.planType || !planLink.billingInterval))
     ) {
       try {

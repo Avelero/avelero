@@ -96,8 +96,11 @@ export async function handleInvoicePaymentFailed(
       invoiceId: invoice.id,
       attemptCount: invoice.attempt_count,
       nextPaymentAttempt: invoice.next_payment_attempt,
-      phase: "past_due",
+      phaseUpdated: !preservesTerminalPhase,
+      phase: preservesTerminalPhase ? billing?.phase : "past_due",
     },
-    "invoice payment failed: brand marked past_due",
+    preservesTerminalPhase
+      ? "invoice payment failed: terminal phase preserved, skipping past_due transition"
+      : "invoice payment failed: brand marked past_due",
   );
 }

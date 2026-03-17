@@ -79,13 +79,13 @@ export async function backfillBrandSubscriptionFoundations(
     await tx.execute(sql`
       INSERT INTO brand_plan (
         brand_id,
-        skus_created_this_year,
-        skus_created_onboarding
+        sku_count_at_year_start,
+        sku_count_at_onboarding_start
       )
       SELECT
         b.id,
-        0,
-        0
+        NULL,
+        NULL
       FROM brands b
       LEFT JOIN brand_plan bp
         ON bp.brand_id = b.id

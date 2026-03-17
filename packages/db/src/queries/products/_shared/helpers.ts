@@ -141,8 +141,6 @@ export async function loadVariantsForProducts(
       name: productVariants.name,
       description: productVariants.description,
       imagePath: productVariants.imagePath,
-      // Ghost variant flag
-      isGhost: productVariants.isGhost,
     })
     .from(productVariants)
     .where(inArray(productVariants.productId, [...productIds]))
@@ -235,7 +233,6 @@ export async function loadVariantsForProducts(
       updated_at: row.updated_at,
       attributes: attributesByVariant.get(row.id) ?? [],
       hasOverrides,
-      isGhost: row.isGhost,
     });
     map.set(row.product_id, collection);
   }
@@ -459,9 +456,9 @@ export async function loadCategoryPathsForProducts(
 export interface ProductPassportData {
   /** UPID of the first variant's passport (for viewing the public passport) */
   firstVariantUpid: string | null;
-  /** Total number of non-ghost variants for this product */
+  /** Total number of variants for this product */
   variantCount: number;
-  /** Number of non-ghost variants that have a non-empty barcode */
+  /** Number of variants that have a non-empty barcode */
   variantsWithBarcode: number;
 }
 
@@ -469,11 +466,9 @@ export interface ProductPassportData {
  * Batch loads passport data for multiple products.
  *
  * For each product, fetches:
- * - firstVariantUpid: The UPID for URL navigation:
- *   first non-ghost variant with a passport (by creation order),
- *   falling back to first ghost variant with a passport
- * - variantCount: Total number of non-ghost variants
- * - variantsWithBarcode: Number of non-ghost variants with a non-empty barcode
+ * - firstVariantUpid: The first variant passport UPID by creation order
+ * - variantCount: Total number of variants
+ * - variantsWithBarcode: Number of variants with a non-empty barcode
  *
  * Optimizes N+1 query problems when loading product lists with passport info.
  */
@@ -487,15 +482,13 @@ export async function loadPassportDataForProducts(
   // Import the passport table schema
   const { productPassports } = await import("../../../schema");
 
-  // Load all variants so URL candidate selection can fall back to ghost variants.
-  // Metrics still only count non-ghost variants.
+  // Load all variants so aggregation can be resolved in one pass.
   const variantRows = await db
     .select({
       id: productVariants.id,
       productId: productVariants.productId,
       barcode: productVariants.barcode,
       createdAt: productVariants.createdAt,
-      isGhost: productVariants.isGhost,
     })
     .from(productVariants)
     .where(inArray(productVariants.productId, [...productIds]))
@@ -503,32 +496,25 @@ export async function loadPassportDataForProducts(
 
   // Build maps for metrics and ordered variant ids per product.
   const orderedVariantIdsByProduct = new Map<string, string[]>();
-  const variantIsGhostById = new Map<string, boolean>();
   const variantCountByProduct = new Map<string, number>();
   const variantsWithBarcodeByProduct = new Map<string, number>();
 
   for (const row of variantRows) {
-    variantIsGhostById.set(row.id, row.isGhost);
-
     const productVariantIds =
       orderedVariantIdsByProduct.get(row.productId) ?? [];
     productVariantIds.push(row.id);
     orderedVariantIdsByProduct.set(row.productId, productVariantIds);
 
-    if (!row.isGhost) {
-      // Count only non-ghost variants in table metrics.
-      variantCountByProduct.set(
-        row.productId,
-        (variantCountByProduct.get(row.productId) ?? 0) + 1,
-      );
+    variantCountByProduct.set(
+      row.productId,
+      (variantCountByProduct.get(row.productId) ?? 0) + 1,
+    );
 
-      // Count non-ghost variants with barcodes.
-      if (row.barcode && row.barcode.trim() !== "") {
-        variantsWithBarcodeByProduct.set(
-          row.productId,
-          (variantsWithBarcodeByProduct.get(row.productId) ?? 0) + 1,
-        );
-      }
+    if (row.barcode && row.barcode.trim() !== "") {
+      variantsWithBarcodeByProduct.set(
+        row.productId,
+        (variantsWithBarcodeByProduct.get(row.productId) ?? 0) + 1,
+      );
     }
   }
 
@@ -563,27 +549,18 @@ export async function loadPassportDataForProducts(
     }
   }
 
-  // Resolve per-product URL UPID:
-  // 1) first non-ghost variant with passport UPID
-  // 2) fallback to first ghost variant with passport UPID
+  // Resolve the first passport UPID for each product by variant creation order.
   for (const productId of productIds) {
     const orderedVariantIds = orderedVariantIdsByProduct.get(productId) ?? [];
 
-    let firstNonGhostUpid: string | null = null;
-    let firstGhostUpid: string | null = null;
+    let firstVariantUpid: string | null = null;
     for (const variantId of orderedVariantIds) {
       const upid = passportByVariant.get(variantId);
-      if (!upid) continue;
-
-      if (variantIsGhostById.get(variantId) === true) {
-        if (!firstGhostUpid) firstGhostUpid = upid;
-      } else if (!firstNonGhostUpid) {
-        firstNonGhostUpid = upid;
+      if (upid) {
+        firstVariantUpid = upid;
+        break;
       }
-
-      if (firstNonGhostUpid && firstGhostUpid) break;
     }
-    const firstVariantUpid = firstNonGhostUpid ?? firstGhostUpid ?? null;
 
     map.set(productId, {
       firstVariantUpid,

@@ -70,7 +70,6 @@ export async function listVariantsForProduct(
       upid: productVariants.upid,
       created_at: productVariants.createdAt,
       updated_at: productVariants.updatedAt,
-      isGhost: productVariants.isGhost,
     })
     .from(productVariants)
     .where(eq(productVariants.productId, productId))
@@ -129,7 +128,6 @@ export async function listVariantsForProduct(
     created_at: row.created_at,
     updated_at: row.updated_at,
     attributes: attributesByVariant.get(row.id) ?? [],
-    isGhost: row.isGhost,
   }));
 }
 

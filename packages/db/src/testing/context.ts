@@ -61,6 +61,7 @@ interface SyncContext {
    */
   matchIdentifier: MatchIdentifier;
   productsTotal?: number;
+  remainingSkuBudget: number | null;
   onProgress?: (progress: {
     productsProcessed: number;
     productsTotal?: number;
@@ -177,6 +178,7 @@ interface CreateSyncContextOptions {
    */
   matchIdentifier?: MatchIdentifier;
   productsTotal?: number;
+  remainingSkuBudget?: number | null;
   onProgress?: (progress: {
     productsProcessed: number;
     productsTotal?: number;
@@ -224,6 +226,7 @@ export function createTestSyncContext(
     isPrimary: options.isPrimary ?? true,
     matchIdentifier: options.matchIdentifier ?? "barcode",
     productsTotal: options.productsTotal,
+    remainingSkuBudget: options.remainingSkuBudget ?? null,
     onProgress: options.onProgress,
   };
 }

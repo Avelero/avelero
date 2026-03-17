@@ -42,6 +42,7 @@ export default async function SidebarLayout({
 
   const access = workflowInit.access;
   const isBlocked = isSidebarContentBlocked(access.overlay);
+  const hasTopBanner = access.banner !== "none";
   const blockedReason = isSidebarContentBlocked(access.overlay)
     ? access.overlay
     : access.overlay === "payment_required" && access.phase === "trial"
@@ -87,7 +88,7 @@ export default async function SidebarLayout({
         <div className="relative h-full">
           <Header disableNotifications={isBlocked} />
           <div className="flex flex-row justify-start h-[calc(100%_-_56px)]">
-            <Sidebar />
+            <Sidebar hasTopBanner={hasTopBanner} />
             <div className="relative w-[calc(100%_-_56px)] h-full ml-[56px]">
               <RealtimeWrapper>
                 {children}

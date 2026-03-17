@@ -289,8 +289,8 @@ export async function createBrand(
       skuOnboardingLimit: null,
       skuLimitOverride: null,
       skuYearStart: null,
-      skusCreatedThisYear: 0,
-      skusCreatedOnboarding: 0,
+      skuCountAtYearStart: null,
+      skuCountAtOnboardingStart: null,
       maxSeats: null,
     });
 

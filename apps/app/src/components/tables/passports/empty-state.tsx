@@ -1,6 +1,17 @@
+/**
+ * Empty states for the passports listing experience.
+ */
 "use client";
 
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@v1/ui/tooltip";
 import Link from "next/link";
 
 interface BaseProps {
@@ -8,7 +19,8 @@ interface BaseProps {
   description?: string;
   action?:
     | { label: string; onClick: () => void }
-    | { label: string; href: string };
+    | { label: string; href: string }
+    | { label: string; disabledReason: string };
 }
 
 function EmptyPanel({ title, description, action }: BaseProps) {
@@ -21,7 +33,20 @@ function EmptyPanel({ title, description, action }: BaseProps) {
         ) : null}
         {action ? (
           <div className="pt-2">
-            {"href" in action ? (
+            {"disabledReason" in action ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button variant="default" size="default" disabled>
+                        {action.label}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{action.disabledReason}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : "href" in action ? (
               <Button asChild variant="default" size="default">
                 <Link href={action.href} prefetch>
                   {action.label}
@@ -40,11 +65,23 @@ function EmptyPanel({ title, description, action }: BaseProps) {
 }
 
 export function NoPassports() {
+  const trpc = useTRPC();
+  const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
+  const isSkuBlocked = initQuery.data?.sku.status === "blocked";
+
   return (
     <EmptyPanel
       title="No passports yet"
       description="Create your first Digital Product Passport to get started."
-      action={{ label: "Create passport", href: "/passports/create" }}
+      action={
+        isSkuBlocked
+          ? {
+              label: "Create passport",
+              disabledReason:
+                "You've reached your SKU limit. Upgrade your plan to add more products.",
+            }
+          : { label: "Create passport", href: "/passports/create" }
+      }
     />
   );
 }

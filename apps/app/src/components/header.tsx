@@ -7,6 +7,7 @@ import { AnimatedAveleroIcon } from "@/components/animated-avelero-icon";
 import { HeaderNavigation } from "@/components/header-navigation";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 import { DataControl } from "@/components/theme-editor/data-control";
+import { cn } from "@v1/ui/cn";
 import { UserMenu } from "@/components/user-menu";
 import { Icons } from "@v1/ui/icons";
 import Link from "next/link";
@@ -15,22 +16,26 @@ interface HeaderProps {
   hideUserMenu?: boolean;
   disableLogoLink?: boolean;
   disableNotifications?: boolean;
+  hasTopBanner?: boolean;
   variant?: "default" | "editor";
 }
 
 export function Header({
+  // Offset the sticky header when a billing banner is mounted above the app chrome.
   hideUserMenu,
   disableLogoLink,
   disableNotifications = false,
+  hasTopBanner = false,
   variant = "default",
 }: HeaderProps) {
   // Switch the leading chrome depending on whether the editor is active.
   const logoIsLink = !disableLogoLink;
   const isEditor = variant === "editor";
+  const topOffsetClass = hasTopBanner ? "top-10" : "top-0";
 
   return (
     <header
-      className="sticky top-0 z-50 border-b bg-background"
+      className={cn("sticky z-50 border-b bg-background", topOffsetClass)}
       style={{ height: "56px" }}
     >
       <div className="flex h-full">

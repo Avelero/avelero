@@ -16,6 +16,7 @@ export interface BrandAccessSnapshotRow {
       | "past_due"
       | "suspended"
       | "cancelled";
+    trialStartedAt: string | null;
     trialEndsAt: string | null;
   } | null;
   billing: {
@@ -33,8 +34,8 @@ export interface BrandAccessSnapshotRow {
     skuAnnualLimit: number | null;
     skuOnboardingLimit: number | null;
     skuLimitOverride: number | null;
-    skusCreatedThisYear: number;
-    skusCreatedOnboarding: number;
+    skuCountAtYearStart: number | null;
+    skuCountAtOnboardingStart: number | null;
   } | null;
 }
 
@@ -55,6 +56,7 @@ export async function getBrandAccessSnapshot(
     .select({
       brandId: brands.id,
       lifecyclePhase: brandLifecycle.phase,
+      lifecycleTrialStartedAt: brandLifecycle.trialStartedAt,
       lifecycleTrialEndsAt: brandLifecycle.trialEndsAt,
       billingMode: brandBilling.billingMode,
       stripeCustomerId: brandBilling.stripeCustomerId,
@@ -68,8 +70,8 @@ export async function getBrandAccessSnapshot(
       skuAnnualLimit: brandPlan.skuAnnualLimit,
       skuOnboardingLimit: brandPlan.skuOnboardingLimit,
       skuLimitOverride: brandPlan.skuLimitOverride,
-      skusCreatedThisYear: brandPlan.skusCreatedThisYear,
-      skusCreatedOnboarding: brandPlan.skusCreatedOnboarding,
+      skuCountAtYearStart: brandPlan.skuCountAtYearStart,
+      skuCountAtOnboardingStart: brandPlan.skuCountAtOnboardingStart,
     })
     .from(brands)
     .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brands.id))
@@ -92,6 +94,7 @@ export async function getBrandAccessSnapshot(
     lifecycle: row.lifecyclePhase
       ? {
           phase: row.lifecyclePhase as LifecyclePhase,
+          trialStartedAt: row.lifecycleTrialStartedAt,
           trialEndsAt: row.lifecycleTrialEndsAt,
         }
       : null,
@@ -112,14 +115,14 @@ export async function getBrandAccessSnapshot(
       row.skuAnnualLimit !== null ||
       row.skuOnboardingLimit !== null ||
       row.skuLimitOverride !== null ||
-      row.skusCreatedThisYear !== null ||
-      row.skusCreatedOnboarding !== null
+      row.skuCountAtYearStart !== null ||
+      row.skuCountAtOnboardingStart !== null
         ? {
             skuAnnualLimit: row.skuAnnualLimit,
             skuOnboardingLimit: row.skuOnboardingLimit,
             skuLimitOverride: row.skuLimitOverride,
-            skusCreatedThisYear: row.skusCreatedThisYear ?? 0,
-            skusCreatedOnboarding: row.skusCreatedOnboarding ?? 0,
+            skuCountAtYearStart: row.skuCountAtYearStart,
+            skuCountAtOnboardingStart: row.skuCountAtOnboardingStart,
           }
         : null,
   };

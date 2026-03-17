@@ -149,7 +149,6 @@ const syncVariantInputSchema = z.object({
   attributeValueIds: z.array(z.string().uuid()).optional().default([]),
   sku: z.string().max(100).optional(),
   barcode: barcodeSchema,
-  isGhost: z.boolean().optional(),
 });
 
 // =============================================================================
@@ -568,9 +567,14 @@ export const productVariantsRouter = createTRPCRouter({
         );
 
         resolveSkuDecisionWithIntendedCount({
+          role: skuCtx.role,
           brandAccess: skuCtx.brandAccess,
           snapshot: skuCtx.brandAccessSnapshot,
           intendedCreateCount: 1,
+          currentNonGhostSkuCount: skuCtx.currentNonGhostSkuCount,
+          trialStartedAt:
+            skuCtx.brandAccessSnapshot.lifecycle?.trialStartedAt ?? null,
+          evaluationDate: skuCtx.currentDatabaseDate,
         });
 
         // Normalize and validate barcode uniqueness
@@ -884,9 +888,14 @@ export const productVariantsRouter = createTRPCRouter({
         );
 
         resolveSkuDecisionWithIntendedCount({
+          role: skuCtx.role,
           brandAccess: skuCtx.brandAccess,
           snapshot: skuCtx.brandAccessSnapshot,
           intendedCreateCount: input.variants.length,
+          currentNonGhostSkuCount: skuCtx.currentNonGhostSkuCount,
+          trialStartedAt:
+            skuCtx.brandAccessSnapshot.lifecycle?.trialStartedAt ?? null,
+          evaluationDate: skuCtx.currentDatabaseDate,
         });
 
         // ── Barcode Validation ────────────────────────────────────────────────
@@ -1374,9 +1383,14 @@ export const productVariantsRouter = createTRPCRouter({
         }
 
         resolveSkuDecisionWithIntendedCount({
+          role: skuCtx.role,
           brandAccess: skuCtx.brandAccess,
           snapshot: skuCtx.brandAccessSnapshot,
           intendedCreateCount: toCreate.length,
+          currentNonGhostSkuCount: skuCtx.currentNonGhostSkuCount,
+          trialStartedAt:
+            skuCtx.brandAccessSnapshot.lifecycle?.trialStartedAt ?? null,
+          evaluationDate: skuCtx.currentDatabaseDate,
         });
 
         // Find variants to delete (existing but not in input)
@@ -1485,7 +1499,6 @@ export const productVariantsRouter = createTRPCRouter({
                 upid,
                 sku: variantInput.sku ?? null,
                 barcode: barcodeToStore,
-                isGhost: variantInput.isGhost ?? false,
               })
               .returning({
                 id: productVariants.id,
@@ -1533,8 +1546,6 @@ export const productVariantsRouter = createTRPCRouter({
               updatePayload.sku = variantInput.sku;
             if (barcodeToStore !== undefined)
               updatePayload.barcode = barcodeToStore;
-            if (variantInput.isGhost !== undefined)
-              updatePayload.isGhost = variantInput.isGhost;
 
             if (Object.keys(updatePayload).length > 1) {
               await tx

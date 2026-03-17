@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * Displays a single selectable plan card inside the billing selector.
+ */
 import { cn } from "@v1/ui/cn";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
@@ -17,15 +20,20 @@ interface PlanCardProps {
   isCurrentPlan?: boolean;
   isLoading?: boolean;
   disabled?: boolean;
+  currentPlanActionLabel?: string;
+  onCurrentPlanSelect?: () => void;
 }
 
 export function PlanCard({
+  // Render the current plan differently so renew and change-plan states stay clear.
   tier,
   interval,
   onSelect,
   isCurrentPlan,
   isLoading,
   disabled,
+  currentPlanActionLabel,
+  onCurrentPlanSelect,
 }: PlanCardProps) {
   const display = PLAN_DISPLAY[tier];
 
@@ -63,9 +71,24 @@ export function PlanCard({
       {/* CTA — right below price */}
       <div className="mt-4">
         {isCurrentPlan ? (
-          <Button variant="outline" className="w-full" disabled>
-            Current plan
-          </Button>
+          onCurrentPlanSelect ? (
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={disabled || isLoading}
+              onClick={onCurrentPlanSelect}
+            >
+              {isLoading ? (
+                <Icons.Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                currentPlanActionLabel
+              )}
+            </Button>
+          ) : (
+            <Button variant="outline" className="w-full" disabled>
+              Current plan
+            </Button>
+          )
         ) : (
           <Button
             className="w-full"

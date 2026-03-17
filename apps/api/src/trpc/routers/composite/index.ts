@@ -3,7 +3,6 @@ import { and, asc, desc, eq, sql } from "@v1/db/queries";
 import {
   type BrandMembershipListItem,
   type UserInviteSummaryRow,
-  getBrandAccessSnapshot,
   getBrandsByUserId,
   getOwnerCountsByBrandIds,
   listPendingInvitesForEmail,
@@ -42,14 +41,13 @@ import { getAppUrl } from "@v1/utils/envs";
  * - composite.catalogContent (renamed from brandCatalogContent in Phase 6)
  */
 import { isOwnerEquivalentRole } from "../../../config/roles.js";
-import { resolveBrandAccessDecision } from "../../../lib/access-policy/resolve-brand-access-decision.js";
 import {
   SKU_WARNING_THRESHOLD,
   TRIAL_UNIVERSAL_CAP,
-  resolveSkuAccessDecision,
 } from "../../../lib/access-policy/resolve-sku-access-decision.js";
 import { brandIdOptionalSchema } from "../../../schemas/brand.js";
 import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
+import { ensureBrandAccessContext } from "../../middleware/auth/brand.js";
 import {
   type AuthenticatedTRPCContext,
   brandReadProcedure,
@@ -380,9 +378,9 @@ export const compositeRouter = createTRPCRouter({
     const activeMembership = memberships.find(
       (membership) => membership.id === activeBrandId,
     );
-    const activeBrandRole = activeMembership?.role ?? null;
+    const activeBrandRole = activeMembership?.role ?? ctx.role ?? null;
 
-    const [brands, invites, verifiedDomain, accessSnapshot] = await Promise.all(
+    const [brands, invites, verifiedDomain, accessContext] = await Promise.all(
       [
         mapWorkflowBrands(db, memberships),
         (async () => {
@@ -406,30 +404,26 @@ export const compositeRouter = createTRPCRouter({
             .limit(1);
           return domain ?? null;
         })(),
-        activeBrandId ? getBrandAccessSnapshot(db, activeBrandId) : null,
+        activeBrandId
+          ? ensureBrandAccessContext({
+              ...ctx,
+              brandId: activeBrandId,
+              role: activeBrandRole,
+            })
+          : null,
       ],
     );
 
-    const resolvedAccess = accessSnapshot
-      ? resolveBrandAccessDecision({
-          role: activeBrandRole,
-          snapshot: accessSnapshot,
-        })
+    const resolvedAccess = accessContext
+      ? accessContext.brandAccess
       : DEFAULT_ACCESS;
 
-    const resolvedSku = accessSnapshot
-      ? resolveSkuAccessDecision({
-          brandAccess: resolvedAccess,
-          snapshot: accessSnapshot,
-          intendedCreateCount: 0,
-        })
+    const resolvedSku = accessContext
+      ? accessContext.skuAccess
       : DEFAULT_SKU;
 
     const accessCapabilities = {
       ...resolvedAccess.capabilities,
-      canCreateSkus:
-        resolvedAccess.capabilities.canWriteBrandData &&
-        resolvedSku.status !== "blocked",
     };
 
     return {

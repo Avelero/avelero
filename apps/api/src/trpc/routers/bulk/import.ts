@@ -1,4 +1,3 @@
-import { tasks } from "@trigger.dev/sdk/v3";
 /**
  * Bulk import lifecycle router.
  *
@@ -10,6 +9,7 @@ import { tasks } from "@trigger.dev/sdk/v3";
  * - dismiss: Clean up staging data for failed imports
  * - exportCorrections: Generate Excel file with failed rows for correction
  */
+import { tasks } from "@trigger.dev/sdk/v3";
 import {
   createImportJob,
   deleteAllImportRowsForJob,
@@ -31,7 +31,6 @@ import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import {
   brandReadProcedure,
-  brandSkuWriteProcedure,
   brandWriteProcedure,
   createTRPCRouter,
 } from "../../init.js";
@@ -227,7 +226,7 @@ export const importRouter = createTRPCRouter({
    * 3. Trigger validate-and-stage background job
    * 4. Return job_id immediately
    */
-  start: brandSkuWriteProcedure
+  start: brandWriteProcedure
     .input(startImportSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;

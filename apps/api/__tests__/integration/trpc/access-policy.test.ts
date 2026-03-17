@@ -6,6 +6,7 @@ import * as schema from "@v1/db/schema";
 import {
   createTestBrand,
   createTestProduct,
+  createTestVariant,
   createTestUser,
   testDb,
 } from "@v1/db/testing";
@@ -66,8 +67,8 @@ async function setBrandSubscriptionState(params: {
   skuAnnualLimit?: number | null;
   skuOnboardingLimit?: number | null;
   skuLimitOverride?: number | null;
-  skusCreatedThisYear?: number;
-  skusCreatedOnboarding?: number;
+  skuCountAtYearStart?: number;
+  skuCountAtOnboardingStart?: number;
 }) {
   const now = new Date().toISOString();
 
@@ -137,8 +138,8 @@ async function setBrandSubscriptionState(params: {
       skuOnboardingLimit: params.skuOnboardingLimit ?? null,
       skuLimitOverride: params.skuLimitOverride ?? null,
       skuYearStart: null,
-      skusCreatedThisYear: params.skusCreatedThisYear ?? 0,
-      skusCreatedOnboarding: params.skusCreatedOnboarding ?? 0,
+      skuCountAtYearStart: params.skuCountAtYearStart ?? 0,
+      skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? 0,
       billingInterval: params.billingInterval ?? null,
       maxSeats: null,
       updatedAt: now,
@@ -149,8 +150,8 @@ async function setBrandSubscriptionState(params: {
         skuAnnualLimit: params.skuAnnualLimit ?? null,
         skuOnboardingLimit: params.skuOnboardingLimit ?? null,
         skuLimitOverride: params.skuLimitOverride ?? null,
-        skusCreatedThisYear: params.skusCreatedThisYear ?? 0,
-        skusCreatedOnboarding: params.skusCreatedOnboarding ?? 0,
+        skuCountAtYearStart: params.skuCountAtYearStart ?? 0,
+        skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? 0,
         billingInterval: params.billingInterval ?? null,
         updatedAt: now,
       },
@@ -183,8 +184,8 @@ describe("Access policy enforcement (tRPC)", () => {
       brandId,
       phase: "active",
       skuAnnualLimit: 500,
-      skusCreatedThisYear: 0,
-      skusCreatedOnboarding: 0,
+      skuCountAtYearStart: 0,
+      skuCountAtOnboardingStart: 0,
     });
   });
 
@@ -351,12 +352,15 @@ describe("Access policy enforcement (tRPC)", () => {
       brandId,
       phase: "active",
       skuAnnualLimit: 1,
-      skusCreatedThisYear: 1,
-      skusCreatedOnboarding: 0,
+      skuCountAtYearStart: 0,
+      skuCountAtOnboardingStart: 0,
     });
 
     const product = await createTestProduct(brandId, {
       productHandle: `sku-limit-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    await createTestVariant(product.id, {
+      sku: `existing-${Math.random().toString(36).slice(2, 8)}`,
     });
 
     const caller = appRouter.createCaller(
@@ -370,5 +374,47 @@ describe("Access policy enforcement (tRPC)", () => {
       }),
       ACCESS_ERROR_TOKENS.SKU_LIMIT_REACHED,
     );
+  });
+
+  it("allows avelero SKU mutations even when the SKU budget is exhausted", async () => {
+    const aveleroUserEmail = `avelero-sku-${Math.random().toString(36).slice(2, 8)}@example.com`;
+    const aveleroUserId = await createTestUser(aveleroUserEmail);
+
+    await testDb.insert(schema.brandMembers).values({
+      brandId,
+      userId: aveleroUserId,
+      role: "avelero",
+    });
+
+    await setBrandSubscriptionState({
+      brandId,
+      phase: "active",
+      skuAnnualLimit: 1,
+      skuCountAtYearStart: 0,
+      skuCountAtOnboardingStart: 0,
+    });
+
+    const product = await createTestProduct(brandId, {
+      productHandle: `avelero-sku-limit-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    await createTestVariant(product.id, {
+      sku: `existing-avelero-${Math.random().toString(36).slice(2, 8)}`,
+    });
+
+    const caller = appRouter.createCaller(
+      createMockContext({
+        brandId,
+        userId: aveleroUserId,
+        userEmail: aveleroUserEmail,
+        role: "avelero",
+      }),
+    );
+
+    await expect(
+      caller.products.variants.create({
+        productHandle: product.productHandle,
+        attributeValueIds: [],
+      }),
+    ).resolves.toBeDefined();
   });
 });

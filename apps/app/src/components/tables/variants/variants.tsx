@@ -1,3 +1,6 @@
+/**
+ * Variant table renderer for attribute and no-attribute passport variants.
+ */
 "use client";
 
 import type {
@@ -6,6 +9,7 @@ import type {
   VariantMetadata,
 } from "@/components/forms/passport/blocks/variant-block";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { getEffectiveVariantValues } from "@/lib/variant-utils";
 import { extractHex } from "@/utils/extract-hex";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -15,6 +19,7 @@ import { SingleAttributeTable } from "./single-attribute";
 
 interface VariantTableProps {
   dimensions: VariantDimension[];
+  productName?: string;
   variantMetadata: Record<string, VariantMetadata>;
   setVariantMetadata: React.Dispatch<
     React.SetStateAction<Record<string, VariantMetadata>>
@@ -54,6 +59,7 @@ interface VariantTableProps {
 
 export function VariantTable({
   dimensions,
+  productName,
   variantMetadata,
   setVariantMetadata,
   explicitVariants,
@@ -89,12 +95,7 @@ export function VariantTable({
 
   // Get values array for a dimension (handles both standard and custom inline)
   const getDimensionValues = (dim: VariantDimension): string[] => {
-    if (dim.isCustomInline) {
-      // Custom inline values are raw strings; ignore empty placeholders
-      return (dim.customValues ?? []).map((v) => v.trim()).filter(Boolean);
-    }
-    // Standard attributes: values are brand value IDs
-    return dim.values ?? [];
+    return getEffectiveVariantValues(dim);
   };
 
   // Get effective values for each dimension
@@ -146,24 +147,21 @@ export function VariantTable({
     [setVariantMetadata],
   );
 
+  // Filter to only dimensions that have values.
+  const dimensionsWithValues = effectiveDimensions.filter(
+    (dimension) => dimension.effectiveValues.length > 0,
+  );
+
   // Case 0: Explicit variants (imported without attributes)
-  if (
-    explicitVariants &&
-    explicitVariants.length > 0 &&
-    dimensions.length === 0
-  ) {
+  if (explicitVariants && explicitVariants.length > 0) {
     return (
       <NoAttributesTable
+        productName={productName}
         explicitVariants={explicitVariants}
         setExplicitVariants={setExplicitVariants!}
       />
     );
   }
-
-  // Filter to only dimensions that have values
-  const dimensionsWithValues = effectiveDimensions.filter(
-    (d) => d.effectiveValues.length > 0,
-  );
 
   // No variants yet (no dimension has values)
   if (dimensionsWithValues.length === 0) {

@@ -11,9 +11,14 @@ import { BrandDropdown } from "./select/brand-select";
 
 interface SidebarProps {
   variant?: "default" | "editor";
+  hasTopBanner?: boolean;
 }
 
-export function Sidebar({ variant = "default" }: SidebarProps) {
+export function Sidebar({
+  variant = "default",
+  hasTopBanner = false,
+}: SidebarProps) {
+  // Offset the fixed rail when a billing banner is mounted above the header.
   const [isExpanded, setIsExpanded] = useState(false);
   const [isBrandPopupOpen, setIsBrandPopupOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -69,15 +74,18 @@ export function Sidebar({ variant = "default" }: SidebarProps) {
     }
   };
 
+  const topOffsetClass = hasTopBanner ? "top-24 h-[calc(100vh-96px)]" : "top-14 h-[calc(100vh-56px)]";
+
   return (
     <aside
       ref={sidebarRef}
       className={cn(
-        "fixed top-0 z-50 flex mt-14 h-[calc(100vh-56px)]",
+        "fixed z-50 flex",
         "flex-col flex-shrink-0 p-2 gap-2",
         "bg-background border-r border-border",
         "desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px]",
         "transition-all duration-200 ease-out",
+        topOffsetClass,
         isExpanded ? "w-60" : "w-14", // 56px collapsed rail is preserved
       )}
       onMouseEnter={handleMouseEnter}

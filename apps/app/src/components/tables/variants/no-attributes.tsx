@@ -1,10 +1,15 @@
+/**
+ * No-attribute variant table for explicit passport variants.
+ */
 "use client";
 
 import type { ExplicitVariant } from "@/components/forms/passport/blocks/variant-block";
+import { getNoAttributeVariantLabel } from "@/lib/variant-utils";
 import { Input } from "@v1/ui/input";
 import type * as React from "react";
 
 interface NoAttributesTableProps {
+  productName?: string;
   explicitVariants: ExplicitVariant[];
   setExplicitVariants: React.Dispatch<React.SetStateAction<ExplicitVariant[]>>;
 }
@@ -14,6 +19,7 @@ interface NoAttributesTableProps {
  * Case 0: When there are explicit variants but no dimensions.
  */
 export function NoAttributesTable({
+  productName,
   explicitVariants,
   setExplicitVariants,
 }: NoAttributesTableProps) {
@@ -27,14 +33,20 @@ export function NoAttributesTable({
       {explicitVariants.map((variant, idx) => {
         // Use index-based key since array position is the stable identity
         // Using editable fields (sku/barcode) causes focus loss when transitioning from empty to non-empty
+        const isLastRow = idx === explicitVariants.length - 1;
+
         return (
           <div
             // biome-ignore lint/suspicious/noArrayIndexKey: Index is intentional - using editable fields (sku/barcode) causes focus loss when transitioning from empty to non-empty
             key={`variant-${idx}`}
-            className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] h-10 border-b border-border"
+            className={`grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] h-10 border-b border-border ${isLastRow ? "border-b-0" : ""}`}
           >
             <div className="px-4 flex items-center type-p text-primary">
-              {variant.sku || variant.barcode || `Variant ${idx + 1}`}
+              {getNoAttributeVariantLabel({
+                index: idx,
+                total: explicitVariants.length,
+                productName,
+              })}
             </div>
             <div
               className="border-l border-border"
@@ -46,6 +58,7 @@ export function NoAttributesTable({
                   setExplicitVariants((prev) => {
                     const next = [...prev];
                     next[idx] = {
+                      ...next[idx],
                       sku: e.target.value,
                       barcode: next[idx]?.barcode ?? "",
                     };
@@ -66,6 +79,7 @@ export function NoAttributesTable({
                   setExplicitVariants((prev) => {
                     const next = [...prev];
                     next[idx] = {
+                      ...next[idx],
                       sku: next[idx]?.sku ?? "",
                       barcode: e.target.value,
                     };

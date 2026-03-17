@@ -1,6 +1,16 @@
+/**
+ * Variant dimension editor for passport product forms.
+ */
 "use client";
 
+import {
+  generateVariantCombinationKeys,
+  getEffectiveVariantValues,
+  getOrderedEnabledVariantKeys,
+  variantDimensionHasValues,
+} from "@/lib/variant-utils";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { useTRPC } from "@/trpc/client";
 import {
   DndContext,
   type DragEndEvent,
@@ -16,6 +26,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useQuery } from "@tanstack/react-query";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@v1/ui/button";
 
@@ -36,6 +47,12 @@ import {
   SelectSearch,
   SelectTrigger,
 } from "@v1/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@v1/ui/tooltip";
 import Link from "next/link";
 import * as React from "react";
 import { createPortal } from "react-dom";
@@ -68,58 +85,11 @@ export interface VariantMetadata {
 }
 
 export interface ExplicitVariant {
+  id?: string;
+  upid?: string;
+  hasOverrides?: boolean;
   sku: string;
   barcode: string;
-}
-
-// ============================================================================
-// Utilities
-// ============================================================================
-
-/**
- * Gets the effective values for a dimension, handling both standard and custom inline attributes.
- */
-function getEffectiveValues(dim: VariantDimension): string[] {
-  if (dim.isCustomInline) {
-    return (dim.customValues ?? []).map((v) => v.trim()).filter(Boolean);
-  }
-  return dim.values ?? [];
-}
-
-/**
- * Checks if a dimension has any values.
- */
-function dimensionHasValues(dim: VariantDimension): boolean {
-  return getEffectiveValues(dim).length > 0;
-}
-
-/**
- * Generates cartesian product of dimension values.
- * Returns array of pipe-separated keys.
- */
-function generateAllCombinationKeys(dimensions: VariantDimension[]): string[] {
-  // Get effective values for each dimension
-  const effectiveDimensions = dimensions
-    .map((dim) => getEffectiveValues(dim))
-    .filter((vals) => vals.length > 0);
-
-  if (effectiveDimensions.length === 0) return [];
-
-  // Generate cartesian product
-  const generateCombos = (dims: string[][]): string[][] => {
-    if (dims.length === 0) return [[]];
-    const [first, ...rest] = dims;
-    const restCombos = generateCombos(rest);
-    const result: string[][] = [];
-    for (const value of first!) {
-      for (const combo of restCombos) {
-        result.push([value, ...combo]);
-      }
-    }
-    return result;
-  };
-
-  return generateCombos(effectiveDimensions).map((combo) => combo.join("|"));
 }
 
 // ============================================================================
@@ -284,6 +254,7 @@ export type ExpandedVariantMappings = Map<
 >;
 
 interface VariantSectionProps {
+  productName?: string;
   dimensions: VariantDimension[];
   setDimensions: React.Dispatch<React.SetStateAction<VariantDimension[]>>;
   variantMetadata: Record<string, VariantMetadata>;
@@ -332,9 +303,12 @@ interface VariantSectionProps {
   setExpandedVariantMappings?: React.Dispatch<
     React.SetStateAction<ExpandedVariantMappings>
   >;
+  /** Inline error for unresolved variant transitions */
+  variantsError?: string;
 }
 
 export function VariantSection({
+  productName,
   dimensions,
   setDimensions,
   variantMetadata,
@@ -350,6 +324,7 @@ export function VariantSection({
   onNavigateToVariant,
   expandedVariantMappings: externalExpandedMappings,
   setExpandedVariantMappings: setExternalExpandedMappings,
+  variantsError,
 }: VariantSectionProps) {
   const { brandAttributes } = useBrandCatalog();
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -478,11 +453,11 @@ export function VariantSection({
     // We need to map positions in the key (which only includes dimensions with values)
     const oldDimsWithValues = dimensions
       .map((d, i) => ({ dim: d, originalIndex: i }))
-      .filter((item) => dimensionHasValues(item.dim));
+      .filter((item) => variantDimensionHasValues(item.dim));
 
     const newDimsWithValues = next
       .map((d, i) => ({ dim: d, originalIndex: i }))
-      .filter((item) => dimensionHasValues(item.dim));
+      .filter((item) => variantDimensionHasValues(item.dim));
 
     // Create a mapping from old key position to new key position
     // Keys are structured as: value0|value1|value2 where position corresponds to dimension order
@@ -583,13 +558,125 @@ export function VariantSection({
     setExpandedId(newDim.id);
   };
 
+  /**
+   * Materializes attribute-based variants into explicit no-attribute rows.
+   */
+  const buildExplicitVariantsFromAttributeState = React.useCallback(
+    (sourceDimensions: VariantDimension[]): ExplicitVariant[] => {
+      const orderedKeys = getOrderedEnabledVariantKeys(
+        sourceDimensions,
+        enabledVariantKeys,
+      );
+
+      return orderedKeys.map((key) => {
+        const metadata = variantMetadata[key] ?? {};
+        const savedVariant = effectiveSavedVariants.get(key);
+
+        return {
+          id: savedVariant?.id,
+          upid: savedVariant?.upid,
+          hasOverrides: savedVariant?.hasOverrides,
+          sku: metadata.sku ?? savedVariant?.sku ?? "",
+          barcode: metadata.barcode ?? savedVariant?.barcode ?? "",
+        };
+      });
+    },
+    [effectiveSavedVariants, enabledVariantKeys, variantMetadata],
+  );
+
+  /**
+   * Converts the current attribute state back into explicit no-attribute variants.
+   */
+  const materializeExplicitVariants = React.useCallback(
+    (sourceDimensions: VariantDimension[]) => {
+      const nextExplicitVariants =
+        buildExplicitVariantsFromAttributeState(sourceDimensions);
+
+      setExplicitVariants?.(
+        nextExplicitVariants.length > 0
+          ? nextExplicitVariants
+          : [{ sku: "", barcode: "" }],
+      );
+      setEnabledVariantKeys(new Set<string>());
+      setVariantMetadata({});
+      setCollapsedVariantMappings(new Map());
+    },
+    [
+      buildExplicitVariantsFromAttributeState,
+      setCollapsedVariantMappings,
+      setEnabledVariantKeys,
+      setExplicitVariants,
+      setVariantMetadata,
+    ],
+  );
+
+  /**
+   * Maps explicit no-attribute variants onto ordered attribute combinations.
+   */
+  const promoteExplicitVariantsToAttributeState = React.useCallback(
+    (orderedKeys: string[]): boolean => {
+      const nextExplicitVariants = explicitVariants ?? [];
+
+      if (nextExplicitVariants.length === 0) {
+        setEnabledVariantKeys(new Set(orderedKeys));
+        return true;
+      }
+
+      if (orderedKeys.length < nextExplicitVariants.length) {
+        return false;
+      }
+
+      const nextMetadata: Record<string, VariantMetadata> = {};
+      const nextMappings = new Map<
+        string,
+        { id: string; upid: string; hasOverrides: boolean }
+      >();
+
+      for (const [index, key] of orderedKeys.entries()) {
+        const explicitVariant = nextExplicitVariants[index];
+        if (!explicitVariant) {
+          continue;
+        }
+
+        if (explicitVariant.sku || explicitVariant.barcode) {
+          nextMetadata[key] = {
+            sku: explicitVariant.sku || undefined,
+            barcode: explicitVariant.barcode || undefined,
+          };
+        }
+
+        if (explicitVariant.id && explicitVariant.upid) {
+          nextMappings.set(key, {
+            id: explicitVariant.id,
+            upid: explicitVariant.upid,
+            hasOverrides: explicitVariant.hasOverrides ?? false,
+          });
+        }
+      }
+
+      setEnabledVariantKeys(new Set(orderedKeys));
+      setVariantMetadata(nextMetadata);
+      setCollapsedVariantMappings(nextMappings);
+      setExplicitVariants?.([]);
+
+      return true;
+    },
+    [
+      explicitVariants,
+      setCollapsedVariantMappings,
+      setEnabledVariantKeys,
+      setExplicitVariants,
+      setVariantMetadata,
+    ],
+  );
+
   const handleUpdateDimension = (index: number, updated: VariantDimension) => {
     // Get old dimension info before update
     const oldDimensionCount = dimensions.filter((d) =>
-      dimensionHasValues(d),
+      variantDimensionHasValues(d),
     ).length;
     const oldDimension = dimensions[index];
-    const oldValuesList = getEffectiveValues(oldDimension!);
+    const oldValuesList = getEffectiveVariantValues(oldDimension!);
     const oldValues = new Set(oldValuesList);
 
     setDimensions((prev) => {
@@ -602,11 +689,11 @@ export function VariantSection({
     const newDimensions = [...dimensions];
     newDimensions[index] = updated;
     const newDimensionCount = newDimensions.filter((d) =>
-      dimensionHasValues(d),
+      variantDimensionHasValues(d),
     ).length;
-    const newValuesList = getEffectiveValues(updated);
+    const newValuesList = getEffectiveVariantValues(updated);
     const newValues = new Set(newValuesList);
-    const newKeys = generateAllCombinationKeys(newDimensions);
+    const newKeys = generateVariantCombinationKeys(newDimensions);
     const newKeysSet = new Set(newKeys);
 
     // For custom inline attributes, detect if values are being EDITED (same position, different content)
@@ -697,6 +784,28 @@ export function VariantSection({
     // Determine added and removed values (works for both standard AND custom attributes)
     const addedValues = [...newValues].filter((v) => !oldValues.has(v));
     const removedValues = [...oldValues].filter((v) => !newValues.has(v));
+
+    // When all attribute values are removed, switch back to explicit no-attribute rows.
+    if (oldDimensionCount > 0 && newDimensionCount === 0) {
+      if ((explicitVariants?.length ?? 0) > 0) {
+        setEnabledVariantKeys(new Set<string>());
+        setVariantMetadata({});
+        setCollapsedVariantMappings(new Map());
+      } else {
+        materializeExplicitVariants(dimensions);
+      }
+      return;
+    }
+
+    // When explicit variants exist, wait until there are enough combinations to map them safely.
+    if ((explicitVariants?.length ?? 0) > 0 && newDimensionCount > 0) {
+      if (!promoteExplicitVariantsToAttributeState(newKeys)) {
+        setEnabledVariantKeys(new Set<string>());
+        setVariantMetadata({});
+        setCollapsedVariantMappings(new Map());
+      }
+      return;
+    }
 
     // Check if we have any variants to preserve:
     // 1. Saved variants (from DB with UPIDs)
@@ -815,7 +924,7 @@ export function VariantSection({
 
       // Calculate the correct insertion position for the key
       const newDimsWithValues = newDimensions.filter((d) =>
-        dimensionHasValues(d),
+        variantDimensionHasValues(d),
       );
       const keyInsertPosition = newDimsWithValues.findIndex(
         (d) => d.id === updated.id,
@@ -1060,7 +1169,7 @@ export function VariantSection({
         // For added values: expand existing variants like Shopify
         if (addedValues.length > 0 && newDimensionCount === oldDimensionCount) {
           const dimsWithValues = newDimensions.filter((d) =>
-            dimensionHasValues(d),
+            variantDimensionHasValues(d),
           );
           const keyPosition = dimsWithValues.findIndex(
             (d) => d.id === updated.id,
@@ -1124,7 +1233,7 @@ export function VariantSection({
         // This handles the case where a user removes a value and then re-adds it
         if (addedValues.length > 0 && savedVariants && savedVariants.size > 0) {
           const dimsWithValues = newDimensions.filter((d) =>
-            dimensionHasValues(d),
+            variantDimensionHasValues(d),
           );
           const keyPosition = dimsWithValues.findIndex(
             (d) => d.id === updated.id,
@@ -1190,10 +1299,25 @@ export function VariantSection({
 
     // Calculate new dimensions after deletion
     const newDimensions = dimensions.filter((_, i) => i !== index);
-    const newKeys = generateAllCombinationKeys(newDimensions);
+    const newKeys = generateVariantCombinationKeys(newDimensions);
     const newKeysSet = new Set(newKeys);
+    const nextDimensionCount = newDimensions.filter((dimension) =>
+      variantDimensionHasValues(dimension),
+    ).length;
 
     setDimensions(newDimensions);
+
+    // When deleting the final valued dimension, keep each current variant as an explicit row.
+    if (nextDimensionCount === 0) {
+      if ((explicitVariants?.length ?? 0) > 0) {
+        setEnabledVariantKeys(new Set<string>());
+        setVariantMetadata({});
+        setCollapsedVariantMappings(new Map());
+      } else {
+        materializeExplicitVariants(dimensions);
+      }
+      return;
+    }
 
     // SHOPIFY-LIKE BEHAVIOR: Collapse variants when dimension is removed
     // Build variantsToPreserve map from all sources, including all enabled variants
@@ -1337,9 +1461,12 @@ export function VariantSection({
   const activeDimension = activeId
     ? dimensions.find((d) => d.id === activeId)
     : null;
+  const trpc = useTRPC();
+  const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
+  const isSkuBlocked = initQuery.data?.sku.status === "blocked";
 
   const hasVariants =
-    dimensions.some((d) => dimensionHasValues(d)) ||
+    dimensions.some((d) => variantDimensionHasValues(d)) ||
     (explicitVariants && explicitVariants.length > 0);
 
   const hasDimensions = dimensions.length > 0;
@@ -1354,12 +1481,31 @@ export function VariantSection({
           productHandle &&
           savedVariants &&
           savedVariants.size > 0 && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/passports/edit/${productHandle}/variant/new`}>
-                <Icons.Plus className="h-4 w-4" />
-                <span className="px-1">Add variant</span>
-              </Link>
-            </Button>
+            isSkuBlocked ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button variant="outline" size="sm" disabled>
+                        <Icons.Plus className="h-4 w-4" />
+                        <span className="px-1">Add variant</span>
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    You've reached your SKU limit. Upgrade your plan to add
+                    more variants.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/passports/edit/${productHandle}/variant/new`}>
+                  <Icons.Plus className="h-4 w-4" />
+                  <span className="px-1">Add variant</span>
+                </Link>
+              </Button>
+            )
           )}
       </div>
 
@@ -1481,6 +1627,7 @@ export function VariantSection({
       {hasVariants && (
         <VariantTable
           dimensions={dimensions}
+          productName={productName}
           variantMetadata={variantMetadata}
           setVariantMetadata={setVariantMetadata}
           explicitVariants={explicitVariants}
@@ -1493,6 +1640,11 @@ export function VariantSection({
           onNavigateToVariant={onNavigateToVariant}
         />
       )}
+      {variantsError ? (
+        <div className="px-4 pb-4">
+          <p className="type-small text-destructive">{variantsError}</p>
+        </div>
+      ) : null}
     </div>
   );
 }

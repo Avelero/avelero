@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * Mounts the shared plan-selector overlay and hydrates it from billing state.
+ */
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -22,6 +25,7 @@ export function PlanSelectorShell({ children }: { children: ReactNode }) {
 
 /** Reads context + billing state, renders overlay when open. */
 function PlanSelectorOverlayRenderer() {
+  // Load billing status only while the overlay is open to keep the shell lightweight.
   const { isOpen, close } = usePlanSelector();
   const trpc = useTRPC();
   const statusQuery = useQuery({
@@ -44,6 +48,8 @@ function PlanSelectorOverlayRenderer() {
         status?.billing_interval as "monthly" | "yearly" | null ?? null
       }
       hasImpact={status?.has_impact_predictions ?? false}
+      hasSubscription={status?.has_payment_method ?? false}
+      pendingCancellation={status?.pending_cancellation ?? false}
     />
   );
 }

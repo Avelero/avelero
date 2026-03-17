@@ -64,6 +64,23 @@ import {
 
 const PROGRESS_UPDATE_INTERVAL = 5;
 
+export class SkuLimitExceededError extends Error {
+  requested: number;
+  remaining: number;
+
+  /**
+   * Formats the sync-specific SKU budget failure shown in job output.
+   */
+  constructor(requested: number, remaining: number) {
+    super(
+      `This sync would create ${requested.toLocaleString("en-US")} new SKUs, but you only have ${remaining.toLocaleString("en-US")} remaining. Upgrade your plan or reduce new products before syncing again.`,
+    );
+    this.name = "SkuLimitExceededError";
+    this.requested = requested;
+    this.remaining = remaining;
+  }
+}
+
 export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
   const syncStart = Date.now();
   console.log(`[SYNC] Starting sync for ${ctx.productsTotal} products...`);
@@ -565,6 +582,16 @@ async function processBatch(
   result.timing.compute = Date.now() - computeStart;
   result.affectedProductIds = Array.from(affectedProductIds);
 
+  if (
+    ctx.remainingSkuBudget !== null &&
+    allPendingOps.variantCreates.length > ctx.remainingSkuBudget
+  ) {
+    throw new SkuLimitExceededError(
+      allPendingOps.variantCreates.length,
+      ctx.remainingSkuBudget,
+    );
+  }
+
   // PHASE 4: Execute all batch operations (PARALLELIZED where possible)
   // Note: Database-level throttling in realtime.broadcast_domain_changes() ensures
   // only one broadcast per domain/brand per second, preventing message flooding.
@@ -744,6 +771,13 @@ async function processBatch(
       })),
     );
     result.queries.variantCreates += 1; // One more query for passport creation
+
+    if (ctx.remainingSkuBudget !== null) {
+      ctx.remainingSkuBudget = Math.max(
+        0,
+        ctx.remainingSkuBudget - allPendingOps.variantCreates.length,
+      );
+    }
   }
 
   // GROUP 4: Variant links and attributes (SEQUENTIAL to avoid deadlocks)

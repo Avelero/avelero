@@ -1,3 +1,6 @@
+/**
+ * Stripe helpers for mutating live subscriptions.
+ */
 import { getStripeClient } from "./client.js";
 import {
   TIER_CONFIG,
@@ -19,6 +22,7 @@ export async function addImpactToSubscription(opts: {
   tier: PlanTier;
   interval: BillingInterval;
 }): Promise<void> {
+  // Fetch the latest subscription state so add-on updates stay idempotent.
   const { stripeSubscriptionId, tier, interval } = opts;
   const stripe = getStripeClient();
 
@@ -54,6 +58,7 @@ export async function addImpactToSubscription(opts: {
 export async function removeImpactFromSubscription(opts: {
   stripeSubscriptionId: string;
 }): Promise<void> {
+  // Fetch the latest subscription state so add-on removals stay idempotent.
   const { stripeSubscriptionId } = opts;
   const stripe = getStripeClient();
 
@@ -89,6 +94,7 @@ export async function updateSubscriptionPlan(opts: {
   newInterval: BillingInterval;
   hasImpact: boolean;
 }): Promise<void> {
+  // Swap the active plan items and clear any scheduled cancellation in the same update.
   const { stripeSubscriptionId, newTier, newInterval, hasImpact } = opts;
   const stripe = getStripeClient();
 
@@ -139,6 +145,7 @@ export async function updateSubscriptionPlan(opts: {
 
   await stripe.subscriptions.update(stripeSubscriptionId, {
     items,
+    cancel_at_period_end: false,
     metadata: {
       plan_type: newTier,
       billing_interval: newInterval,

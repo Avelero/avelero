@@ -24,6 +24,8 @@ export const productVariants = pgTable(
     barcode: text("barcode"),
     sku: text("sku"),
     upid: text("upid"),
+    // Legacy ghost flag kept for rollout safety. New application logic ignores it.
+    isGhost: boolean("is_ghost").default(false).notNull(),
     // Display override columns (nullable = inherit from product)
     // When populated, these take precedence over product-level values for DPP rendering
     name: text("name"),
@@ -32,9 +34,6 @@ export const productVariants = pgTable(
     // Source tracking: which integration wrote this data
     sourceIntegration: text("source_integration"),
     sourceExternalId: text("source_external_id"),
-    // Ghost variant flag: true for system-created default variants (invisible to users)
-    // Ghost variants exist for publishing purposes but should not be shown in UI
-    isGhost: boolean("is_ghost").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

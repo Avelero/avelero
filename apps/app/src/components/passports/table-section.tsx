@@ -482,7 +482,6 @@ function TableContent({
     trpc.products.list.queryOptions({
       cursor,
       limit: pageSize,
-      includeVariants: true,
       includeAttributes: true,
       filters: filterState.groups.length > 0 ? filterState : undefined,
       search: search?.trim() || undefined,
@@ -493,13 +492,8 @@ function TableContent({
   const tableRows = useMemo<PassportTableRow[]>(() => {
     const list = productsResponse?.data ?? [];
     return list.map((p: any) => {
-      const variants: any[] = Array.isArray(p.variants) ? p.variants : [];
       const attributes = p.attributes ?? {};
       const tags = Array.isArray(attributes.tags) ? attributes.tags : [];
-
-      // Filter out ghost variants using the explicit isGhost flag.
-      // Ghost variants exist for publishing purposes but should be invisible to users.
-      const visibleVariants = variants.filter((v: any) => !v.isGhost);
 
       return {
         id: p.id,
@@ -514,7 +508,7 @@ function TableContent({
         imagePath: p.image_path ?? (p as any).imagePath ?? null,
         createdAt: p.created_at ?? p.createdAt ?? "",
         updatedAt: p.updated_at ?? p.updatedAt ?? "",
-        variantCount: visibleVariants.length,
+        variantCount: p.variant_count ?? 0,
         variantsWithBarcode: p.variants_with_barcode ?? 0,
         tags: tags.map((t: any) => ({
           id: t.id ?? t.tag_id ?? "",
@@ -594,7 +588,6 @@ function TableContent({
       trpc.products.list.queryOptions({
         cursor: meta?.cursor ?? undefined,
         limit: pageSize,
-        includeVariants: true,
         includeAttributes: true,
         filters: filterState.groups.length > 0 ? filterState : undefined,
         search: search?.trim() || undefined,
@@ -619,7 +612,6 @@ function TableContent({
       trpc.products.list.queryOptions({
         cursor: prevCursor,
         limit: pageSize,
-        includeVariants: true,
         includeAttributes: true,
         filters: filterState.groups.length > 0 ? filterState : undefined,
         search: search?.trim() || undefined,
@@ -633,7 +625,6 @@ function TableContent({
       trpc.products.list.queryOptions({
         cursor: undefined,
         limit: pageSize,
-        includeVariants: true,
         includeAttributes: true,
         filters: filterState.groups.length > 0 ? filterState : undefined,
         search: search?.trim() || undefined,
@@ -653,7 +644,6 @@ function TableContent({
       trpc.products.list.queryOptions({
         cursor: lastCursor,
         limit: pageSize,
-        includeVariants: true,
         includeAttributes: true,
         filters: filterState.groups.length > 0 ? filterState : undefined,
         search: search?.trim() || undefined,

@@ -4,6 +4,7 @@
  * Form state management hook for creating and editing passport-level product data.
  */
 import type {
+  ExplicitVariant,
   ExpandedVariantMappings,
   VariantDimension,
   VariantMetadata,
@@ -23,6 +24,10 @@ import {
   isPercentageWithinBounds,
   toPercentageUnits,
 } from "@/lib/percentage-utils";
+import {
+  generateVariantCombinationKeys,
+  variantDimensionHasValues,
+} from "@/lib/variant-utils";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
@@ -50,7 +55,7 @@ export interface PassportFormValues {
   // Variants (new generic attribute system)
   variantDimensions: VariantDimension[];
   variantMetadata: Record<string, VariantMetadata>;
-  explicitVariants: Array<{ sku: string; barcode: string }>;
+  explicitVariants: ExplicitVariant[];
   /**
    * Tracks which variant combinations are enabled (exist).
    * Keys are pipe-separated value IDs, e.g., "red-value-id|S-value-id".
@@ -97,6 +102,16 @@ interface UsePassportFormOptions {
   initialData?: unknown;
 }
 
+/**
+ * Builds the default explicit variant row for no-attribute products.
+ */
+function createEmptyExplicitVariant(): ExplicitVariant {
+  return {
+    sku: "",
+    barcode: "",
+  };
+}
+
 const initialFormValues: PassportFormValues = {
   name: "",
   productHandle: "",
@@ -109,7 +124,7 @@ const initialFormValues: PassportFormValues = {
   tagIds: [],
   variantDimensions: [],
   variantMetadata: {},
-  explicitVariants: [],
+  explicitVariants: [createEmptyExplicitVariant()],
   enabledVariantKeys: new Set<string>(),
   expandedVariantMappings: new Map(),
   materialData: [],
@@ -141,7 +156,7 @@ function normalizeToGtin14(barcode: string): string {
  */
 function computeHasBarcodeErrors(
   variantMetadata: Record<string, { sku?: string; barcode?: string }>,
-  explicitVariants: Array<{ sku: string; barcode: string }>,
+  explicitVariants: ExplicitVariant[],
   enabledVariantKeys: Set<string>,
 ): boolean {
   // Collect all barcodes from enabled variants
@@ -196,6 +211,7 @@ export interface PassportFormValidationErrors {
   name?: string;
   productHandle?: string;
   description?: string;
+  variants?: string;
   materials?: string;
   carbonKgCo2e?: string;
   waterLiters?: string;
@@ -297,11 +313,71 @@ function getPassportValidationErrors(
   return mapValidationErrors(errors);
 }
 
+/**
+ * Returns an inline variants error when explicit rows cannot be mapped safely.
+ */
+function getVariantStructureError(
+  values: PassportFormValues,
+): string | undefined {
+  const dimensionsWithValues = values.variantDimensions.filter((dimension) =>
+    variantDimensionHasValues(dimension),
+  );
+
+  if (dimensionsWithValues.length === 0) {
+    return undefined;
+  }
+
+  if (values.explicitVariants.length === 0) {
+    return undefined;
+  }
+
+  const combinationCount = generateVariantCombinationKeys(
+    values.variantDimensions,
+  ).length;
+
+  if (combinationCount < values.explicitVariants.length) {
+    return `Add at least ${values.explicitVariants.length} variant combinations before saving to preserve the existing no-attribute variants.`;
+  }
+
+  return undefined;
+}
+
 function stripTrailingZeros(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") return "";
   const str = String(value);
   if (str.includes(".")) return str.replace(/\.?0+$/, "");
   return str;
+}
+
+/**
+ * Builds a cache/version fingerprint that changes when product or variant data changes.
+ */
+function buildProductDataVersion(data: any): string | null {
+  if (!data) return null;
+
+  const variants = Array.isArray(data.variants) ? data.variants : [];
+  const variantVersions = variants
+    .map((variant: any) => {
+      const variantId = variant.upid ?? variant.id ?? "";
+      const updatedAt = variant.updated_at ?? variant.updatedAt ?? "";
+      const sku = variant.sku ?? "";
+      const barcode = variant.barcode ?? "";
+      const attributes = Array.isArray(variant.attributes)
+        ? variant.attributes
+            .map((attribute: any) => attribute.value_id ?? attribute.valueId ?? "")
+            .filter(Boolean)
+            .join("|")
+        : "";
+
+      return `${variantId}:${updatedAt}:${sku}:${barcode}:${attributes}`;
+    })
+    .sort()
+    .join(",");
+
+  const status = data.status ?? "unpublished";
+  const updatedAt = data.updated_at ?? data.updatedAt ?? "";
+
+  return `${data.id}:${status}:${updatedAt}:${variants.length}:${variantVersions}`;
 }
 
 // ============================================================================
@@ -416,18 +492,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   // This allows re-hydration when navigating back after external changes (e.g., variant deletion, status change)
   const lastHydratedDataVersionRef = React.useRef<string | null>(null);
   const currentDataVersion = React.useMemo(() => {
-    if (!passportFormQuery.data) return null;
-    const data = passportFormQuery.data as any;
-    // Use a combination of fields that would change when the product is modified
-    // Include status and updated_at to catch external changes (e.g., status toggle from list view)
-    const variants = data.variants ?? [];
-    const variantKeys = variants
-      .map((v: any) => v.upid || v.id)
-      .sort()
-      .join(",");
-    const status = data.status ?? "unpublished";
-    const updatedAt = data.updated_at ?? data.updatedAt ?? "";
-    return `${data.id}:${status}:${updatedAt}:${variants.length}:${variantKeys}`;
+    return buildProductDataVersion(passportFormQuery.data);
   }, [passportFormQuery.data]);
 
   const state: PassportFormState = React.useMemo(
@@ -435,31 +500,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     [formValues, validationErrors, hasAttemptedSubmit],
   );
 
-  // Compute a map of variant value keys -> variant info for navigation in edit mode
-  // The key is pipe-separated value IDs matching the format used in variantMetadata
-  // Includes all variant data needed for delete warnings and navigation
-  // Track the ghost variant (system-created default variant) separately.
-  // This is used to preserve the UPID when transitioning from 0 to 1 attribute value.
-  const defaultVariantUpid = React.useMemo(() => {
-    if (!isEditMode || !passportFormQuery.data) return null;
-
-    const payload = passportFormQuery.data as any;
-    const variants = Array.isArray(payload?.variants) ? payload.variants : [];
-
-    // Find the ghost variant using the explicit isGhost flag
-    for (const variant of variants) {
-      const upid = variant.upid ?? variant.unique_product_id;
-      if (!upid) continue;
-
-      // Use explicit isGhost flag to identify ghost variants
-      if (variant.isGhost) {
-        return upid;
-      }
-    }
-
-    return null;
-  }, [isEditMode, passportFormQuery.data]);
-
+  // Compute a map of variant value keys -> variant info for navigation in edit mode.
   const savedVariantsMap = React.useMemo(() => {
     if (!isEditMode || !passportFormQuery.data)
       return new Map<
@@ -618,6 +659,209 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     [],
   );
 
+  /**
+   * Builds the local form state from a fetched product payload.
+   */
+  const buildHydratedValuesFromPayload = React.useCallback(
+    (payload: any): PassportFormValues => {
+      const variants = Array.isArray(payload?.variants) ? payload.variants : [];
+
+      // Build dimensions and metadata from variant attributes
+      // Store brand attribute value IDs so custom names (e.g. "Sky Blue") rehydrate correctly
+      const dimensionMap = new Map<
+        string,
+        {
+          attributeId: string;
+          name: string;
+          values: Set<string>;
+        }
+      >();
+      const metadata: Record<string, VariantMetadata> = {};
+
+      for (const variant of variants) {
+        const attrs = variant.attributes ?? [];
+        const valueKeys: string[] = [];
+
+        for (const attr of attrs) {
+          const attrId = attr.attribute_id ?? attr.attributeId;
+          const brandValueId = attr.value_id ?? attr.valueId;
+          const attrName =
+            attr.attribute_name ?? attr.attributeName ?? "Unknown";
+          if (attrId && brandValueId) {
+            if (!dimensionMap.has(attrId)) {
+              dimensionMap.set(attrId, {
+                attributeId: attrId,
+                name: attrName,
+                values: new Set(),
+              });
+            }
+
+            const dim = dimensionMap.get(attrId)!;
+            // Store the brand attribute value ID (not taxonomy_value_id)
+            dim.values.add(brandValueId);
+            valueKeys.push(brandValueId);
+          }
+        }
+
+        // Build metadata key using brand value IDs
+        if (valueKeys.length > 0) {
+          const key = valueKeys.join("|");
+          metadata[key] = {
+            sku: variant.sku ?? "",
+            barcode: variant.barcode ?? "",
+          };
+        }
+      }
+
+      // Convert to dimensions array
+      const variantDimensions: VariantDimension[] = Array.from(
+        dimensionMap.values(),
+      ).map((dimension, idx) => ({
+        id: `dim-${idx}`,
+        attributeId: dimension.attributeId,
+        attributeName: dimension.name,
+        values: Array.from(dimension.values),
+      }));
+
+      // Compute enabled variant keys from actual existing variants
+      // This allows heterogeneous products where not all combinations exist
+      const enabledVariantKeys = new Set<string>();
+      for (const variant of variants) {
+        const attrs = variant.attributes ?? [];
+        const valueKeys = attrs
+          .map((attribute: any) => attribute.value_id ?? attribute.valueId)
+          .filter(Boolean);
+        if (valueKeys.length > 0) {
+          enabledVariantKeys.add(valueKeys.join("|"));
+        }
+      }
+
+      // Build explicit variants when the product currently has no attribute dimensions.
+      const explicitVariants: ExplicitVariant[] =
+        variantDimensions.length === 0
+          ? variants.length > 0
+            ? variants.map((variant: any) => ({
+                id: variant.id,
+                upid: variant.upid ?? variant.unique_product_id ?? undefined,
+                hasOverrides: variant.hasOverrides ?? false,
+                sku: variant.sku ?? "",
+                barcode: variant.barcode ?? "",
+              }))
+            : [createEmptyExplicitVariant()]
+          : [];
+
+      const attributes = payload.attributes ?? {};
+      const materials =
+        attributes.materials?.map((material: any) => ({
+          materialId:
+            material.brand_material_id ?? material.material_id ?? material.materialId,
+          percentage:
+            typeof material.percentage === "string"
+              ? Number(material.percentage)
+              : material.percentage,
+        })) ?? [];
+
+      // Group journey rows by (sortIndex, stepType) and aggregate operator_ids
+      // The database stores one row per operator, so we need to re-group them
+      const journeySteps = (() => {
+        const rawJourney = attributes.journey ?? [];
+        const grouped = new Map<
+          string,
+          { sortIndex: number; stepType: string; operatorIds: string[] }
+        >();
+
+        for (const step of rawJourney) {
+          const sortIndex = step.sort_index ?? step.sortIndex ?? 0;
+          const stepType = step.step_type ?? step.stepType ?? "";
+          const key = `${sortIndex}|${stepType}`;
+
+          // Get operator ID from any of the possible field names
+          const operatorId = step.operator_id ?? step.operatorId ?? null;
+
+          if (!grouped.has(key)) {
+            grouped.set(key, { sortIndex, stepType, operatorIds: [] });
+          }
+
+          if (operatorId) {
+            grouped.get(key)!.operatorIds.push(operatorId);
+          }
+        }
+
+        // Sort by sortIndex and return as array
+        return Array.from(grouped.values()).sort(
+          (a, b) => a.sortIndex - b.sortIndex,
+        );
+      })();
+
+      const tagIds =
+        attributes.tags
+          ?.map((tag: any) => tag.tag_id ?? tag.tagId)
+          .filter(Boolean) ?? [];
+      const environment = attributes.environment ?? {};
+      const weight = attributes.weight ?? {};
+
+      return {
+        ...initialFormValues,
+        name: payload.name ?? "",
+        productHandle: payload.productHandle ?? payload.product_handle ?? "",
+        description: payload.description ?? "",
+        imageFile: null,
+        existingImageUrl: payload.imagePath ?? payload.image_path ?? null,
+        categoryId: payload.categoryId ?? payload.category_id ?? null,
+        seasonId: payload.seasonId ?? payload.season_id ?? null,
+        manufacturerId:
+          payload.manufacturerId ?? payload.manufacturer_id ?? null,
+        tagIds,
+        variantDimensions,
+        variantMetadata: metadata,
+        explicitVariants,
+        enabledVariantKeys,
+        materialData: materials,
+        journeySteps,
+        carbonKgCo2e: stripTrailingZeros(
+          environment.carbonKgCo2e ?? environment.carbon_kg_co2e ?? "",
+        ),
+        waterLiters: stripTrailingZeros(
+          environment.waterLiters ?? environment.water_liters ?? "",
+        ),
+        weightGrams: stripTrailingZeros(weight.weight ?? ""),
+        status: payload.status ?? "unpublished",
+      };
+    },
+    [],
+  );
+
+  /**
+   * Applies fetched product data to local form state and refreshes the saved snapshot.
+   */
+  const applyHydratedPayload = React.useCallback(
+    (payload: any, dataVersion: string | null) => {
+      const nextValues = buildHydratedValuesFromPayload(payload);
+
+      setFields(nextValues);
+      hydratedValuesRef.current = nextValues;
+      metadataRef.current = {
+        productId: payload.id,
+        productHandle: payload.product_handle ?? productHandle ?? undefined,
+      };
+      setInitialSnapshot(JSON.stringify(computeComparableState(nextValues)));
+      setHasAttemptedSubmit(false);
+
+      // Set database publishing state
+      const status = payload.status as "published" | "unpublished" | undefined;
+      setDbPublishingStatus(status ?? "unpublished");
+
+      hasHydratedRef.current = true;
+      lastHydratedDataVersionRef.current = dataVersion;
+    },
+    [
+      buildHydratedValuesFromPayload,
+      computeComparableState,
+      productHandle,
+      setFields,
+    ],
+  );
+
   // Hydrate form from API data
   React.useEffect(() => {
     if (!passportFormQuery.error) return;
@@ -638,186 +882,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       return;
     }
 
-    const payload = passportFormQuery.data as any;
-    const variants = Array.isArray(payload?.variants) ? payload.variants : [];
-
-    // Build dimensions and metadata from variant attributes
-    // Store brand attribute value IDs so custom names (e.g. "Sky Blue") rehydrate correctly
-    const dimensionMap = new Map<
-      string,
-      {
-        attributeId: string;
-        name: string;
-        values: Set<string>;
-      }
-    >();
-    const metadata: Record<string, VariantMetadata> = {};
-
-    for (const variant of variants) {
-      const attrs = variant.attributes ?? [];
-      const valueKeys: string[] = [];
-
-      for (const attr of attrs) {
-        const attrId = attr.attribute_id ?? attr.attributeId;
-        const brandValueId = attr.value_id ?? attr.valueId;
-        const attrName = attr.attribute_name ?? attr.attributeName ?? "Unknown";
-        if (attrId && brandValueId) {
-          if (!dimensionMap.has(attrId)) {
-            dimensionMap.set(attrId, {
-              attributeId: attrId,
-              name: attrName,
-              values: new Set(),
-            });
-          }
-
-          const dim = dimensionMap.get(attrId)!;
-          // Store the brand attribute value ID (not taxonomy_value_id)
-          dim.values.add(brandValueId);
-          valueKeys.push(brandValueId);
-        }
-      }
-
-      // Build metadata key using brand value IDs
-      if (valueKeys.length > 0) {
-        const key = valueKeys.join("|");
-        metadata[key] = {
-          sku: variant.sku ?? "",
-          barcode: variant.barcode ?? "",
-        };
-      }
-    }
-
-    // Convert to dimensions array
-    const variantDimensions: VariantDimension[] = Array.from(
-      dimensionMap.values(),
-    ).map((d, idx) => ({
-      id: `dim-${idx}`,
-      attributeId: d.attributeId,
-      attributeName: d.name,
-      values: Array.from(d.values),
-    }));
-
-    // Compute enabled variant keys from actual existing variants
-    // This allows heterogeneous products where not all combinations exist
-    const enabledVariantKeys = new Set<string>();
-    for (const variant of variants) {
-      const attrs = variant.attributes ?? [];
-      const valueKeys = attrs
-        .map((a: any) => a.value_id ?? a.valueId)
-        .filter(Boolean);
-      if (valueKeys.length > 0) {
-        enabledVariantKeys.add(valueKeys.join("|"));
-      }
-    }
-
-    // Handle explicit variants (no attributes)
-    // Filter out ghost variants using the explicit isGhost flag.
-    // Ghost variants exist in the database for publishing purposes but should be invisible to users.
-    const explicitVariants: Array<{ sku: string; barcode: string }> = [];
-    if (variantDimensions.length === 0 && variants.length > 0) {
-      for (const v of variants) {
-        // Use explicit isGhost flag instead of heuristic
-        if (!v.isGhost) {
-          explicitVariants.push({ sku: v.sku ?? "", barcode: v.barcode ?? "" });
-        }
-      }
-    }
-
-    const attributes = payload.attributes ?? {};
-    const materials =
-      attributes.materials?.map((m: any) => ({
-        materialId: m.brand_material_id ?? m.material_id ?? m.materialId,
-        percentage:
-          typeof m.percentage === "string"
-            ? Number(m.percentage)
-            : m.percentage,
-      })) ?? [];
-    // Group journey rows by (sortIndex, stepType) and aggregate operator_ids
-    // The database stores one row per operator, so we need to re-group them
-    const journeySteps = (() => {
-      const rawJourney = attributes.journey ?? [];
-      const grouped = new Map<
-        string,
-        { sortIndex: number; stepType: string; operatorIds: string[] }
-      >();
-
-      for (const s of rawJourney) {
-        const sortIndex = s.sort_index ?? s.sortIndex ?? 0;
-        const stepType = s.step_type ?? s.stepType ?? "";
-        const key = `${sortIndex}|${stepType}`;
-
-        // Get operator ID from any of the possible field names
-        const operatorId = s.operator_id ?? s.operatorId ?? null;
-
-        if (!grouped.has(key)) {
-          grouped.set(key, { sortIndex, stepType, operatorIds: [] });
-        }
-
-        if (operatorId) {
-          grouped.get(key)!.operatorIds.push(operatorId);
-        }
-      }
-
-      // Sort by sortIndex and return as array
-      return Array.from(grouped.values()).sort(
-        (a, b) => a.sortIndex - b.sortIndex,
-      );
-    })();
-    const tagIds =
-      attributes.tags?.map((t: any) => t.tag_id ?? t.tagId).filter(Boolean) ??
-      [];
-    const environment = attributes.environment ?? {};
-    const weight = attributes.weight ?? {};
-
-    const nextValues: PassportFormValues = {
-      ...initialFormValues,
-      name: payload.name ?? "",
-      productHandle: payload.productHandle ?? payload.product_handle ?? "",
-      description: payload.description ?? "",
-      imageFile: null,
-      existingImageUrl: payload.imagePath ?? payload.image_path ?? null,
-      categoryId: payload.categoryId ?? payload.category_id ?? null,
-      seasonId: payload.seasonId ?? payload.season_id ?? null,
-      manufacturerId: payload.manufacturerId ?? payload.manufacturer_id ?? null,
-      tagIds,
-      variantDimensions,
-      variantMetadata: metadata,
-      explicitVariants,
-      enabledVariantKeys,
-      materialData: materials,
-      journeySteps,
-      carbonKgCo2e: stripTrailingZeros(
-        environment.carbonKgCo2e ?? environment.carbon_kg_co2e ?? "",
-      ),
-      waterLiters: stripTrailingZeros(
-        environment.waterLiters ?? environment.water_liters ?? "",
-      ),
-      weightGrams: stripTrailingZeros(weight.weight ?? ""),
-      status: payload.status ?? "unpublished",
-    };
-
-    setFields(nextValues);
-    // Store the hydrated values so we can revert to them when discarding changes
-    hydratedValuesRef.current = nextValues;
-    metadataRef.current = {
-      productId: payload.id,
-      productHandle: payload.product_handle ?? productHandle ?? undefined,
-    };
-    setInitialSnapshot(JSON.stringify(computeComparableState(nextValues)));
-    setHasAttemptedSubmit(false);
-
-    // Set database publishing state
-    const status = payload.status as "published" | "unpublished" | undefined;
-    setDbPublishingStatus(status ?? "unpublished");
-
-    hasHydratedRef.current = true;
-    lastHydratedDataVersionRef.current = currentDataVersion;
+    applyHydratedPayload(passportFormQuery.data, currentDataVersion);
   }, [
+    applyHydratedPayload,
     computeComparableState,
     isEditMode,
     passportFormQuery.data,
-    setFields,
-    productHandle,
     currentDataVersion,
   ]);
 
@@ -836,6 +906,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const validate = React.useCallback((): PassportFormValidationErrors => {
     setHasAttemptedSubmit(true);
     const errors = getPassportValidationErrors(formValues);
+    const variantError = getVariantStructureError(formValues);
+    if (variantError) {
+      errors.variants = variantError;
+    }
     setValidationErrors(errors);
     return errors;
   }, [formValues]);
@@ -1149,7 +1223,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               attributeValueIds: string[];
               sku?: string;
               barcode?: string;
-              isGhost?: boolean;
             }> = [];
 
             for (const key of formValues.enabledVariantKeys) {
@@ -1180,22 +1253,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
                   attributeValueIds: resolvedValueIds,
                   sku: metadata?.sku || undefined,
                   barcode: metadata?.barcode || undefined,
-                  isGhost: false, // Variants with attributes are always real (non-ghost)
                 });
               }
-            }
-
-            // If there's exactly one variant being synced without a UPID (new variant), and we have
-            // a ghost variant, reuse its UPID. This preserves the UPID when transitioning from 0 to 1
-            // attribute value (e.g., adding "Black" to a product that had no color attribute - the
-            // ghost variant becomes the "Black" variant and is converted from ghost to real).
-            if (
-              variantsForSync.length === 1 &&
-              !variantsForSync[0]!.upid &&
-              defaultVariantUpid
-            ) {
-              variantsForSync[0]!.upid = defaultVariantUpid;
-              variantsForSync[0]!.isGhost = false; // Convert ghost to real
             }
 
             if (variantsForSync.length > 0) {
@@ -1204,30 +1263,20 @@ export function usePassportForm(options?: UsePassportFormOptions) {
                 variants: variantsForSync,
               });
             }
-          } else if (formValues.explicitVariants.length > 0) {
-            await syncVariantsMutation.mutateAsync({
-              productHandle: effectiveProductHandle,
-              variants: formValues.explicitVariants.map((v) => ({
-                attributeValueIds: [],
-                sku: v.sku || undefined,
-                barcode: v.barcode || undefined,
-                isGhost: false, // Explicit variants are always real (non-ghost)
-              })),
-            });
           } else {
-            // No dimensions and no explicit variants - create/update a ghost variant.
-            // Every product must have at least one variant (even without attribute values) to be publishable.
-            // This ghost variant will be converted to a real variant if the user later adds attributes.
-            // Preserve the existing ghost variant's UPID if it exists to avoid unnecessary recreation.
+            const explicitVariantsForSync =
+              formValues.explicitVariants.length > 0
+                ? formValues.explicitVariants
+                : [createEmptyExplicitVariant()];
+
             await syncVariantsMutation.mutateAsync({
               productHandle: effectiveProductHandle,
-              variants: [
-                {
-                  attributeValueIds: [],
-                  upid: defaultVariantUpid ?? undefined,
-                  isGhost: true,
-                },
-              ],
+              variants: explicitVariantsForSync.map((variant) => ({
+                upid: variant.upid || undefined,
+                attributeValueIds: [],
+                sku: variant.sku || undefined,
+                barcode: variant.barcode || undefined,
+              })),
             });
           }
 
@@ -1241,117 +1290,46 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             });
           }
 
-          // First, refetch the critical queries so savedVariantsMap and brandAttributeValuesByAttribute
-          // are updated with fresh data BEFORE we update local state with resolved brand value IDs.
-          // This prevents the brief UI flash where all variants show "new" badges.
-          await Promise.all([
-            queryClient.refetchQueries({
-              queryKey: trpc.products.get.queryKey({
-                handle: effectiveProductHandle,
-              }),
+          // Refresh both the saved product payload and brand catalog before
+          // rebuilding local form state from the canonical server response.
+          const productQueryOptions = trpc.products.get.queryOptions({
+            handle: effectiveProductHandle,
+            includeVariants: true,
+            includeAttributes: true,
+          });
+
+          // This page is keyed by the handle-based product query, so invalidate
+          // and refetch that exact cache entry before rebuilding local state.
+          await queryClient.invalidateQueries({
+            queryKey: productQueryOptions.queryKey,
+            exact: true,
+          });
+
+          const [refreshedProduct] = await Promise.all([
+            queryClient.fetchQuery({
+              ...productQueryOptions,
+              staleTime: 0,
             }),
             queryClient.refetchQueries({
               queryKey: trpc.composite.catalogContent.queryKey(),
             }),
           ]);
 
-          let normalizedVariantState:
-            | Pick<
-                PassportFormValues,
-                "variantDimensions" | "enabledVariantKeys" | "variantMetadata"
-              >
-            | undefined;
-
-          // Now update dimension values to use resolved brand value IDs.
-          if (resolvedVariant.tokenMaps.length > 0) {
-            let resolvedIndex = 0;
-            const updatedDimensions = formValues.variantDimensions.map(
-              (dim) => {
-                const hasValues = dim.isCustomInline
-                  ? (dim.customValues ?? []).some((v) => v.trim().length > 0)
-                  : dim.values.length > 0;
-
-                if (!hasValues) return dim;
-
-                const tokenMap = resolvedVariant.tokenMaps[resolvedIndex];
-                const resolvedDim = resolvedVariant.dimensions[resolvedIndex];
-                resolvedIndex += 1;
-
-                if (!tokenMap || dim.isCustomInline) return dim;
-
-                // Replace values with resolved brand value IDs
-                const updatedValues = dim.values.map(
-                  (valueId) => tokenMap.get(valueId) ?? valueId,
-                );
-
-                return {
-                  ...dim,
-                  attributeId: resolvedDim?.attribute_id ?? dim.attributeId,
-                  values: updatedValues,
-                };
-              },
-            );
-
-            // Update enabledVariantKeys with resolved brand value IDs
-            const updatedEnabledKeys = new Set<string>();
-            for (const key of formValues.enabledVariantKeys) {
-              const tokens = key.split("|");
-              const resolvedTokens = tokens.map((token, idx) => {
-                const tokenMap = resolvedVariant.tokenMaps[idx];
-                return tokenMap?.get(token) ?? token;
-              });
-              updatedEnabledKeys.add(resolvedTokens.join("|"));
-            }
-
-            // Update variantMetadata keys with resolved brand value IDs
-            const updatedMetadata: Record<
-              string,
-              { sku?: string; barcode?: string }
-            > = {};
-            for (const [key, value] of Object.entries(
-              formValues.variantMetadata,
-            )) {
-              const tokens = key.split("|");
-              const resolvedTokens = tokens.map((token, idx) => {
-                const tokenMap = resolvedVariant.tokenMaps[idx];
-                return tokenMap?.get(token) ?? token;
-              });
-              updatedMetadata[resolvedTokens.join("|")] = value;
-            }
-
-            normalizedVariantState = {
-              variantDimensions: updatedDimensions,
-              enabledVariantKeys: updatedEnabledKeys,
-              variantMetadata: updatedMetadata,
-            };
-          }
-
-          const nextExistingImageUrl =
-            imagePath ?? formValues.existingImageUrl ?? null;
-
-          setFields({
-            ...(normalizedVariantState ?? {}),
-            imageFile: null,
-            existingImageUrl: nextExistingImageUrl,
-          });
-          setHasAttemptedSubmit(false);
-          setValidationErrors({});
-          setInitialSnapshot(
-            JSON.stringify(
-              computeComparableState({
-                ...formValues,
-                ...(normalizedVariantState ?? {}),
-                imageFile: null,
-                existingImageUrl: nextExistingImageUrl,
-              }),
-            ),
+          applyHydratedPayload(
+            refreshedProduct,
+            buildProductDataVersion(refreshedProduct),
           );
+          setValidationErrors({});
 
           // Invalidate other queries in the background (fire-and-forget)
           void queryClient.invalidateQueries({
             queryKey: trpc.products.get.queryKey({
               id: metadataRef.current.productId,
             }),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: productQueryOptions.queryKey,
+            exact: true,
           });
           void queryClient.invalidateQueries({
             queryKey: trpc.products.list.queryKey(),
@@ -1378,7 +1356,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             attributeValueIds: string[];
             sku?: string;
             barcode?: string;
-            isGhost?: boolean;
           }> = [];
 
           for (const key of formValues.enabledVariantKeys) {
@@ -1402,7 +1379,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
                 attributeValueIds: resolvedValueIds,
                 sku: metadata?.sku || undefined,
                 barcode: metadata?.barcode || undefined,
-                isGhost: false, // Variants with attributes are always real (non-ghost)
               });
             }
           }
@@ -1413,26 +1389,19 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               variants: variantsForSync,
             });
           }
-        } else if (
-          formValues.explicitVariants.length > 0 &&
-          targetProductHandle
-        ) {
-          await syncVariantsMutation.mutateAsync({
-            productHandle: targetProductHandle,
-            variants: formValues.explicitVariants.map((v) => ({
-              attributeValueIds: [],
-              sku: v.sku || undefined,
-              barcode: v.barcode || undefined,
-              isGhost: false, // Explicit variants are always real (non-ghost)
-            })),
-          });
         } else if (targetProductHandle) {
-          // No dimensions and no explicit variants - create a ghost variant.
-          // Every product must have at least one variant (even without attribute values) to be publishable.
-          // This ghost variant will be converted to a real variant if the user later adds attributes.
+          const explicitVariantsForSync =
+            formValues.explicitVariants.length > 0
+              ? formValues.explicitVariants
+              : [createEmptyExplicitVariant()];
+
           await syncVariantsMutation.mutateAsync({
             productHandle: targetProductHandle,
-            variants: [{ attributeValueIds: [], isGhost: true }],
+            variants: explicitVariantsForSync.map((variant) => ({
+              attributeValueIds: [],
+              sku: variant.sku || undefined,
+              barcode: variant.barcode || undefined,
+            })),
           });
         }
 
@@ -1509,6 +1478,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     },
     [
       computeComparableState,
+      applyHydratedPayload,
       formValues,
       isEditMode,
       queryClient,
@@ -1522,7 +1492,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       syncVariantsMutation,
       buildPath,
       resetFormValues,
-      setFields,
       savedVariantsMap,
     ],
   );

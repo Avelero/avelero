@@ -1,3 +1,6 @@
+/**
+ * Brand plan schema definitions, including SKU entitlement snapshots.
+ */
 import { sql } from "drizzle-orm";
 import {
   boolean,
@@ -33,10 +36,8 @@ export const brandPlan = pgTable(
     skuOnboardingLimit: integer("sku_onboarding_limit"),
     skuLimitOverride: integer("sku_limit_override"),
     skuYearStart: date("sku_year_start", { mode: "date" }),
-    skusCreatedThisYear: integer("skus_created_this_year").notNull().default(0),
-    skusCreatedOnboarding: integer("skus_created_onboarding")
-      .notNull()
-      .default(0),
+    skuCountAtYearStart: integer("sku_count_at_year_start"),
+    skuCountAtOnboardingStart: integer("sku_count_at_onboarding_start"),
     billingInterval: text("billing_interval"),
     hasImpactPredictions: boolean("has_impact_predictions")
       .notNull()
@@ -67,12 +68,12 @@ export const brandPlan = pgTable(
       sql`sku_limit_override IS NULL OR sku_limit_override >= 0`,
     ),
     check(
-      "brand_plan_skus_created_this_year_check",
-      sql`skus_created_this_year >= 0`,
+      "brand_plan_sku_count_at_year_start_check",
+      sql`sku_count_at_year_start IS NULL OR sku_count_at_year_start >= 0`,
     ),
     check(
-      "brand_plan_skus_created_onboarding_check",
-      sql`skus_created_onboarding >= 0`,
+      "brand_plan_sku_count_at_onboarding_start_check",
+      sql`sku_count_at_onboarding_start IS NULL OR sku_count_at_onboarding_start >= 0`,
     ),
     check(
       "brand_plan_billing_interval_check",

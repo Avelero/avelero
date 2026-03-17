@@ -25,6 +25,14 @@ import { logger, task, tasks } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
 import {
+  countNonGhostSkus,
+  deriveSkuBudget,
+  getBrandAccessSnapshot,
+  getCurrentDatabaseDate,
+  lazyExpireOnboardingLimitIfNeeded,
+  lazyResetAnnualPeriodIfNeeded,
+} from "@v1/db/queries/brand";
+import {
   type NormalizedRowData,
   type NormalizedVariant,
   getImportJobStatus,
@@ -72,6 +80,23 @@ interface CommitStats {
   weightSet: number;
   imagesProcessed: number;
   imagesFailed: number;
+}
+
+class BulkImportSkuLimitExceededError extends Error {
+  requested: number;
+  remaining: number;
+
+  /**
+   * Formats the descriptive SKU-budget failure returned to bulk import callers.
+   */
+  constructor(requested: number, remaining: number) {
+    super(
+      `This import would create ${requested.toLocaleString("en-US")} new SKUs, but you only have ${remaining.toLocaleString("en-US")} remaining. Upgrade your plan or reduce the import size.`,
+    );
+    this.name = "BulkImportSkuLimitExceededError";
+    this.requested = requested;
+    this.remaining = remaining;
+  }
 }
 
 /** Image upload task for rate-limited processing */
@@ -237,6 +262,89 @@ const IMAGE_TIMEOUT_MS = 60_000;
 /** Email from address */
 const EMAIL_FROM = "Avelero <noreply@welcome.avelero.com>";
 
+/**
+ * Counts how many new variants this import job would create if fully committed.
+ */
+async function countPendingVariantCreatesForJob(
+  database: Database,
+  jobId: string,
+): Promise<number> {
+  const rows = await database
+    .select({
+      normalized: importRows.normalized,
+    })
+    .from(importRows)
+    .where(
+      and(
+        eq(importRows.jobId, jobId),
+        inArray(importRows.status, ["PENDING", "PENDING_WITH_WARNINGS"]),
+      ),
+    );
+
+  return rows.reduce((total, row) => {
+    const normalized = row.normalized as NormalizedRowData | null;
+    if (!normalized) {
+      return total;
+    }
+
+    return (
+      total +
+      normalized.variants.filter((variant) => variant.action === "CREATE")
+        .length
+    );
+  }, 0);
+}
+
+/**
+ * Resolves the live SKU budget and throws before any import writes if over budget.
+ */
+async function runSkuBudgetPreflight(
+  database: Database,
+  brandId: string,
+  jobId: string,
+): Promise<void> {
+  let snapshot = await getBrandAccessSnapshot(database, brandId);
+  const currentDatabaseDate = await getCurrentDatabaseDate(database);
+
+  const annualReset = await lazyResetAnnualPeriodIfNeeded(
+    database,
+    brandId,
+    currentDatabaseDate,
+  );
+  const onboardingExpiry = await lazyExpireOnboardingLimitIfNeeded(
+    database,
+    brandId,
+    snapshot.lifecycle?.trialStartedAt ?? null,
+    currentDatabaseDate,
+  );
+
+  if (annualReset.wasReset || onboardingExpiry.wasExpired) {
+    snapshot = await getBrandAccessSnapshot(database, brandId);
+  }
+
+  const currentNonGhostSkuCount = await countNonGhostSkus(database, brandId);
+  const intendedCreateCount = await countPendingVariantCreatesForJob(
+    database,
+    jobId,
+  );
+  const { remainingCreateBudget } = deriveSkuBudget({
+    snapshot,
+    currentNonGhostSkuCount,
+    trialStartedAt: snapshot.lifecycle?.trialStartedAt ?? null,
+    evaluationDate: currentDatabaseDate,
+  });
+
+  if (
+    remainingCreateBudget !== null &&
+    intendedCreateCount > remainingCreateBudget
+  ) {
+    throw new BulkImportSkuLimitExceededError(
+      intendedCreateCount,
+      remainingCreateBudget,
+    );
+  }
+}
+
 // ============================================================================
 // Main Task
 // ============================================================================
@@ -283,6 +391,9 @@ export const commitToProduction = task({
           commitStartedAt: new Date().toISOString(),
         })
         .where(eq(importJobs.id, jobId));
+
+      // Fail fast when the staged import would exceed the brand's remaining SKU budget.
+      await runSkuBudgetPreflight(db, brandId, jobId);
 
       // Create Supabase client for storage operations
       const storageClient = createClient(
@@ -628,9 +739,40 @@ export const commitToProduction = task({
         .set({
           status: "FAILED",
           finishedAt: new Date().toISOString(),
-          summary: { error: errorMessage },
+          summary:
+            error instanceof BulkImportSkuLimitExceededError
+              ? {
+                  error: errorMessage,
+                  requestedNewSkus: error.requested,
+                  remainingSkuBudget: error.remaining,
+                }
+              : { error: errorMessage },
         })
         .where(eq(importJobs.id, jobId));
+
+      if (error instanceof BulkImportSkuLimitExceededError) {
+        try {
+          await publishNotificationEvent(db, {
+            event: "import_failure",
+            brandId,
+            actorUserId: payload.userId ?? null,
+            payload: {
+              jobId,
+              totalIssues: 0,
+              blockedProducts: 0,
+              warningProducts: 0,
+              errorSummary: errorMessage,
+            },
+          });
+        } catch (notificationError) {
+          logger.warn("Failed to publish import failure notification", {
+            error:
+              notificationError instanceof Error
+                ? notificationError.message
+                : "Unknown error",
+          });
+        }
+      }
 
       throw error;
     }

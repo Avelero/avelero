@@ -1,8 +1,11 @@
 "use client";
 
+/**
+ * Renders the customer-facing billing page with plan status, invoices, and billing actions.
+ */
 import { useTRPC } from "@/trpc/client";
+import { usePlanSelector } from "@/components/billing/plan-selector-context";
 import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
 import { Skeleton } from "@v1/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { PLAN_DISPLAY, formatPrice, type PlanTier } from "./plan-features";
@@ -17,7 +20,9 @@ function formatDate(dateStr: string): string {
 }
 
 export function BillingPageContent() {
+  // Reuse the shared plan-selector overlay instead of introducing a second billing modal.
   const trpc = useTRPC();
+  const { open: openPlanSelector } = usePlanSelector();
 
   const statusQuery = useQuery(trpc.brand.billing.getStatus.queryOptions());
   const portalQuery = useQuery(trpc.brand.billing.getPortalUrl.queryOptions());
@@ -96,6 +101,8 @@ export function BillingPageContent() {
   const basePrice =
     interval === "yearly" ? display?.yearlyPrice : display?.monthlyPrice;
   const periodLabel = interval === "yearly" ? "/year" : "/month";
+  const showPlanSelectorButton = status.billing_mode === "stripe_checkout";
+  const planSelectorLabel = status.pending_cancellation ? "Renew" : "Upgrade";
 
   const invoices = invoicesQuery.data ?? [];
 
@@ -141,16 +148,23 @@ export function BillingPageContent() {
               </p>
             )}
           </div>
-          {portalQuery.data?.url ? (
-            <Button
-              variant="outline"
-              onClick={() => {
-                window.open(portalQuery.data?.url ?? "", "_blank");
-              }}
-            >
-              Manage billing
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-3">
+            {showPlanSelectorButton ? (
+              <Button onClick={openPlanSelector}>
+                {planSelectorLabel}
+              </Button>
+            ) : null}
+            {portalQuery.data?.url ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  window.open(portalQuery.data?.url ?? "", "_blank");
+                }}
+              >
+                Manage billing
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -265,6 +279,7 @@ export function BillingPageContent() {
 }
 
 function formatInvoiceAmount(cents: number, currency: string): string {
+  // Keep invoice amounts human-readable without pulling in a heavier currency formatter here.
   const amount = cents / 100;
   const symbol = currency === "eur" ? "€" : currency === "usd" ? "$" : "";
   const formatted = amount.toLocaleString("en-US", {

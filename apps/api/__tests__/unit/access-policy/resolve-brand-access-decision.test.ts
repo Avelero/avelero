@@ -14,6 +14,7 @@ function buildSnapshot(
     brandId: "brand-1",
     lifecycle: {
       phase: "active",
+      trialStartedAt: null,
       trialEndsAt: null,
     },
     billing: {
@@ -31,8 +32,8 @@ function buildSnapshot(
       skuAnnualLimit: null,
       skuOnboardingLimit: null,
       skuLimitOverride: null,
-      skusCreatedThisYear: 0,
-      skusCreatedOnboarding: 0,
+      skuCountAtYearStart: null,
+      skuCountAtOnboardingStart: null,
     },
     ...overrides,
   };
@@ -69,6 +70,7 @@ describe("resolveBrandAccessDecision", () => {
       const snapshot = buildSnapshot({
         lifecycle: {
           phase: testCase.phase,
+          trialStartedAt: null,
           trialEndsAt: testCase.trialEndsAt ?? null,
         },
       });
@@ -88,6 +90,7 @@ describe("resolveBrandAccessDecision", () => {
     const snapshot = buildSnapshot({
       lifecycle: {
         phase: "trial",
+        trialStartedAt: null,
         trialEndsAt: now.toISOString(),
       },
     });
@@ -107,7 +110,7 @@ describe("resolveBrandAccessDecision", () => {
     const temporaryBlock = resolveBrandAccessDecision({
       role: "owner",
       snapshot: buildSnapshot({
-        lifecycle: { phase: "active", trialEndsAt: null },
+        lifecycle: { phase: "active", trialStartedAt: null, trialEndsAt: null },
         billing: {
           billingMode: null,
           stripeCustomerId: null,
@@ -128,7 +131,11 @@ describe("resolveBrandAccessDecision", () => {
     const temporaryAllow = resolveBrandAccessDecision({
       role: "owner",
       snapshot: buildSnapshot({
-        lifecycle: { phase: "suspended", trialEndsAt: null },
+        lifecycle: {
+          phase: "suspended",
+          trialStartedAt: null,
+          trialEndsAt: null,
+        },
         billing: {
           billingMode: null,
           stripeCustomerId: null,
@@ -149,7 +156,7 @@ describe("resolveBrandAccessDecision", () => {
     const expiredOverride = resolveBrandAccessDecision({
       role: "owner",
       snapshot: buildSnapshot({
-        lifecycle: { phase: "active", trialEndsAt: null },
+        lifecycle: { phase: "active", trialStartedAt: null, trialEndsAt: null },
         billing: {
           billingMode: null,
           stripeCustomerId: null,
@@ -172,7 +179,11 @@ describe("resolveBrandAccessDecision", () => {
     const result = resolveBrandAccessDecision({
       role: "avelero",
       snapshot: buildSnapshot({
-        lifecycle: { phase: "cancelled", trialEndsAt: null },
+        lifecycle: {
+          phase: "cancelled",
+          trialStartedAt: null,
+          trialEndsAt: null,
+        },
         billing: {
           billingMode: null,
           stripeCustomerId: null,
@@ -197,7 +208,11 @@ describe("resolveBrandAccessDecision", () => {
     const result = resolveBrandAccessDecision({
       role: "owner",
       snapshot: buildSnapshot({
-        lifecycle: { phase: "cancelled", trialEndsAt: null },
+        lifecycle: {
+          phase: "cancelled",
+          trialStartedAt: null,
+          trialEndsAt: null,
+        },
         billing: {
           billingMode: "stripe_checkout",
           stripeCustomerId: "cus_123",
@@ -222,7 +237,11 @@ describe("resolveBrandAccessDecision", () => {
     const result = resolveBrandAccessDecision({
       role: "owner",
       snapshot: buildSnapshot({
-        lifecycle: { phase: "past_due", trialEndsAt: null },
+        lifecycle: {
+          phase: "past_due",
+          trialStartedAt: null,
+          trialEndsAt: null,
+        },
         billing: {
           billingMode: "stripe_checkout",
           stripeCustomerId: "cus_123",

@@ -302,7 +302,7 @@ export const billingRouter = createTRPCRouter({
    * Get the current billing status for the brand.
    */
   getStatus: brandBillingProcedure.query(async ({ ctx }) => {
-    const { brandId, db, brandAccess } = ctx;
+    const { brandId, db, brandAccess, skuAccess } = ctx;
 
     const [billingLink] = await db
       .select({
@@ -346,8 +346,6 @@ export const billingRouter = createTRPCRouter({
         planSelectedAt: brandPlan.planSelectedAt,
         skuAnnualLimit: brandPlan.skuAnnualLimit,
         skuOnboardingLimit: brandPlan.skuOnboardingLimit,
-        skusCreatedThisYear: brandPlan.skusCreatedThisYear,
-        skusCreatedOnboarding: brandPlan.skusCreatedOnboarding,
       })
       .from(brandPlan)
       .where(eq(brandPlan.brandId, brandId))
@@ -376,9 +374,9 @@ export const billingRouter = createTRPCRouter({
       pending_cancellation: billing?.pendingCancellation ?? false,
       grace_ends_at: brandAccess.graceEndsAt,
       sku_annual_limit: plan?.skuAnnualLimit ?? null,
-      skus_created_this_year: plan?.skusCreatedThisYear ?? 0,
+      skus_created_this_year: skuAccess.annual.used,
       sku_onboarding_limit: plan?.skuOnboardingLimit ?? null,
-      skus_created_onboarding: plan?.skusCreatedOnboarding ?? 0,
+      skus_created_onboarding: skuAccess.onboarding.used,
       has_payment_method: !!billing?.stripeSubscriptionId,
       stripe_customer_id: billing?.stripeCustomerId ?? null,
     };

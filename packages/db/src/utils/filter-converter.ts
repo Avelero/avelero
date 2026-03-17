@@ -1223,9 +1223,9 @@ function buildSeasonClause(
  * Builds barcode status clause for filtering products by barcode completion status.
  *
  * Options:
- * - complete: All non-ghost variants have barcodes
- * - incomplete: Some but not all non-ghost variants have barcodes
- * - none: No non-ghost variants have barcodes
+ * - complete: All variants have barcodes
+ * - incomplete: Some but not all variants have barcodes
+ * - none: No variants have barcodes
  */
 function buildBarcodeStatusClause(
   schema: SchemaRefs,
@@ -1240,40 +1240,40 @@ function buildBarcodeStatusClause(
   for (const status of statuses) {
     switch (status) {
       case "complete":
-        // All non-ghost variants have barcodes (and there is at least one variant)
+        // All variants have barcodes (and there is at least one variant).
         statusConditions.push(sql`(
           (SELECT COUNT(*) FROM ${schema.productVariants} pv
-           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false) > 0
+           WHERE pv.product_id = ${schema.products.id}) > 0
           AND
           (SELECT COUNT(*) FROM ${schema.productVariants} pv
-           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false) =
+           WHERE pv.product_id = ${schema.products.id}) =
           (SELECT COUNT(*) FROM ${schema.productVariants} pv
-           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+           WHERE pv.product_id = ${schema.products.id}
            AND pv.barcode IS NOT NULL AND pv.barcode != '')
         )`);
         break;
       case "incomplete":
-        // Some but not all non-ghost variants have barcodes
+        // Some but not all variants have barcodes.
         statusConditions.push(sql`(
           (SELECT COUNT(*) FROM ${schema.productVariants} pv
-           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+           WHERE pv.product_id = ${schema.products.id}
            AND pv.barcode IS NOT NULL AND pv.barcode != '') > 0
           AND
           (SELECT COUNT(*) FROM ${schema.productVariants} pv
-           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+           WHERE pv.product_id = ${schema.products.id}
            AND pv.barcode IS NOT NULL AND pv.barcode != '') <
           (SELECT COUNT(*) FROM ${schema.productVariants} pv
-           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false)
+           WHERE pv.product_id = ${schema.products.id})
         )`);
         break;
       case "none":
-        // No non-ghost variants have barcodes (but has at least one non-ghost variant)
+        // No variants have barcodes (but the product has at least one variant).
         statusConditions.push(sql`(
           (SELECT COUNT(*) FROM ${schema.productVariants} pv
-           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false) > 0
+           WHERE pv.product_id = ${schema.products.id}) > 0
           AND
           (SELECT COUNT(*) FROM ${schema.productVariants} pv
-           WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+           WHERE pv.product_id = ${schema.products.id}
            AND pv.barcode IS NOT NULL AND pv.barcode != '') = 0
         )`);
         break;
@@ -1297,16 +1297,16 @@ function buildBarcodeStatusClause(
         ? sql`NOT ${statusConditions[0]}`
         : sql`NOT (${or(...statusConditions)})`;
     case "is empty":
-      // Products with no variants at all
+      // Products with no variants at all.
       return sql`NOT EXISTS (
         SELECT 1 FROM ${schema.productVariants} pv
-        WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+        WHERE pv.product_id = ${schema.products.id}
       )`;
     case "is not empty":
-      // Products with at least one variant
+      // Products with at least one variant.
       return sql`EXISTS (
         SELECT 1 FROM ${schema.productVariants} pv
-        WHERE pv.product_id = ${schema.products.id} AND pv.is_ghost = false
+        WHERE pv.product_id = ${schema.products.id}
       )`;
     default:
       return null;

@@ -12,6 +12,7 @@ function buildSnapshot(
     brandId: "brand-1",
     lifecycle: {
       phase: "active",
+      trialStartedAt: null,
       trialEndsAt: null,
     },
     billing: {
@@ -29,8 +30,8 @@ function buildSnapshot(
       skuAnnualLimit: 100,
       skuOnboardingLimit: null,
       skuLimitOverride: null,
-      skusCreatedThisYear: 0,
-      skusCreatedOnboarding: 0,
+      skuCountAtYearStart: 0,
+      skuCountAtOnboardingStart: 0,
     },
     ...overrides,
   };
@@ -70,10 +71,13 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 100,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
-          skusCreatedThisYear: 79,
-          skusCreatedOnboarding: 0,
+          skuCountAtYearStart: 0,
+          skuCountAtOnboardingStart: null,
         },
       }),
+      intendedCreateCount: 0,
+      currentNonGhostSkuCount: 79,
+      trialStartedAt: null,
     });
     expect(seventyNine.status).toBe("allowed");
 
@@ -84,10 +88,13 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 100,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
-          skusCreatedThisYear: 80,
-          skusCreatedOnboarding: 0,
+          skuCountAtYearStart: 0,
+          skuCountAtOnboardingStart: null,
         },
       }),
+      intendedCreateCount: 0,
+      currentNonGhostSkuCount: 80,
+      trialStartedAt: null,
     });
     expect(eighty.status).toBe("warning");
 
@@ -98,10 +105,13 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 100,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
-          skusCreatedThisYear: 100,
-          skusCreatedOnboarding: 0,
+          skuCountAtYearStart: 0,
+          skuCountAtOnboardingStart: null,
         },
       }),
+      intendedCreateCount: 0,
+      currentNonGhostSkuCount: 100,
+      trialStartedAt: null,
     });
     expect(hundred.status).toBe("blocked");
   });
@@ -117,16 +127,20 @@ describe("resolveSkuAccessDecision", () => {
       snapshot: buildSnapshot({
         lifecycle: {
           phase: "trial",
+          trialStartedAt: "2025-03-10T00:00:00.000Z",
           trialEndsAt: "2026-03-10T00:00:00.000Z",
         },
         plan: {
           skuAnnualLimit: null,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
-          skusCreatedThisYear: 49_999,
-          skusCreatedOnboarding: 49_999,
+          skuCountAtYearStart: null,
+          skuCountAtOnboardingStart: null,
         },
       }),
+      intendedCreateCount: 0,
+      currentNonGhostSkuCount: 49_999,
+      trialStartedAt: "2025-03-10T00:00:00.000Z",
     });
 
     expect(nearCap.status).toBe("warning");
@@ -137,16 +151,20 @@ describe("resolveSkuAccessDecision", () => {
       snapshot: buildSnapshot({
         lifecycle: {
           phase: "trial",
+          trialStartedAt: "2025-03-10T00:00:00.000Z",
           trialEndsAt: "2026-03-10T00:00:00.000Z",
         },
         plan: {
           skuAnnualLimit: null,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
-          skusCreatedThisYear: 50_000,
-          skusCreatedOnboarding: 50_000,
+          skuCountAtYearStart: null,
+          skuCountAtOnboardingStart: null,
         },
       }),
+      intendedCreateCount: 0,
+      currentNonGhostSkuCount: 50_000,
+      trialStartedAt: "2025-03-10T00:00:00.000Z",
     });
 
     expect(atCap.status).toBe("blocked");
@@ -161,11 +179,13 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 10,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
-          skusCreatedThisYear: 9,
-          skusCreatedOnboarding: 0,
+          skuCountAtYearStart: 0,
+          skuCountAtOnboardingStart: null,
         },
       }),
       intendedCreateCount: 2,
+      currentNonGhostSkuCount: 9,
+      trialStartedAt: null,
     });
 
     expect(result.status).toBe("blocked");
@@ -187,12 +207,98 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 100,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
-          skusCreatedThisYear: 0,
-          skusCreatedOnboarding: 0,
+          skuCountAtYearStart: 0,
+          skuCountAtOnboardingStart: null,
         },
       }),
+      intendedCreateCount: 0,
+      currentNonGhostSkuCount: 0,
+      trialStartedAt: null,
     });
 
     expect(result.status).toBe("blocked");
+  });
+
+  it("ignores onboarding limits after the onboarding year ends", () => {
+    const result = resolveSkuAccessDecision({
+      brandAccess: buildBrandAccess(),
+      snapshot: buildSnapshot({
+        lifecycle: {
+          phase: "active",
+          trialStartedAt: "2024-01-01T00:00:00.000Z",
+          trialEndsAt: null,
+        },
+        plan: {
+          skuAnnualLimit: 500,
+          skuOnboardingLimit: 10,
+          skuLimitOverride: null,
+          skuCountAtYearStart: 90,
+          skuCountAtOnboardingStart: 0,
+        },
+      }),
+      intendedCreateCount: 1,
+      currentNonGhostSkuCount: 100,
+      trialStartedAt: "2024-01-01T00:00:00.000Z",
+    });
+
+    expect(result.onboarding.limit).toBeNull();
+    expect(result.status).toBe("allowed");
+  });
+
+  it("uses the provided evaluation date for onboarding checks", () => {
+    const result = resolveSkuAccessDecision({
+      brandAccess: buildBrandAccess(),
+      snapshot: buildSnapshot({
+        lifecycle: {
+          phase: "active",
+          trialStartedAt: "2025-03-17T12:00:00.000Z",
+          trialEndsAt: null,
+        },
+        plan: {
+          skuAnnualLimit: 500,
+          skuOnboardingLimit: 10,
+          skuLimitOverride: null,
+          skuCountAtYearStart: 0,
+          skuCountAtOnboardingStart: 2,
+        },
+      }),
+      intendedCreateCount: 0,
+      currentNonGhostSkuCount: 5,
+      trialStartedAt: "2025-03-17T12:00:00.000Z",
+      evaluationDate: "2026-03-17T11:59:59.000Z",
+    });
+
+    expect(result.onboarding.limit).toBe(10);
+    expect(result.onboarding.used).toBe(3);
+  });
+
+  it("does not enforce annual or onboarding limits before snapshots are initialized", () => {
+    const result = resolveSkuAccessDecision({
+      brandAccess: buildBrandAccess(),
+      snapshot: buildSnapshot({
+        lifecycle: {
+          phase: "active",
+          trialStartedAt: "2025-03-01T00:00:00.000Z",
+          trialEndsAt: null,
+        },
+        plan: {
+          skuAnnualLimit: 500,
+          skuOnboardingLimit: 2_500,
+          skuLimitOverride: null,
+          skuCountAtYearStart: null,
+          skuCountAtOnboardingStart: null,
+        },
+      }),
+      intendedCreateCount: 200,
+      currentNonGhostSkuCount: 1_250,
+      trialStartedAt: "2025-03-01T00:00:00.000Z",
+    });
+
+    expect(result.annual.limit).toBeNull();
+    expect(result.annual.used).toBe(0);
+    expect(result.onboarding.limit).toBeNull();
+    expect(result.onboarding.used).toBe(0);
+    expect(result.remainingCreateBudget).toBeNull();
+    expect(result.status).toBe("allowed");
   });
 });

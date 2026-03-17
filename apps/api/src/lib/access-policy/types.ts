@@ -45,6 +45,7 @@ export interface BrandAccessSnapshot {
   brandId: string;
   lifecycle: {
     phase: BrandLifecyclePhase;
+    trialStartedAt: string | null;
     trialEndsAt: string | null;
   } | null;
   billing: {
@@ -62,8 +63,8 @@ export interface BrandAccessSnapshot {
     skuAnnualLimit: number | null;
     skuOnboardingLimit: number | null;
     skuLimitOverride: number | null;
-    skusCreatedThisYear: number;
-    skusCreatedOnboarding: number;
+    skuCountAtYearStart: number | null;
+    skuCountAtOnboardingStart: number | null;
   } | null;
 }
 
@@ -99,7 +100,10 @@ export interface SkuAccessBudget {
 export interface ResolveSkuAccessDecisionInput {
   brandAccess: ResolvedBrandAccessDecision;
   snapshot: BrandAccessSnapshot;
-  intendedCreateCount?: number;
+  intendedCreateCount: number;
+  currentNonGhostSkuCount: number;
+  trialStartedAt: Date | string | null;
+  evaluationDate?: Date | string | null;
 }
 
 export interface ResolvedSkuAccessDecision {

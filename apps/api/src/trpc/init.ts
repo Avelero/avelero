@@ -14,7 +14,7 @@ import { getBrandAccessSnapshot } from "@v1/db/queries/brand";
 import { platformAdminAllowlist } from "@v1/db/schema";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
-import { type Role, isRole } from "../config/roles";
+import { ROLES, type Role, isRole } from "../config/roles";
 import { resolveBrandAccessDecision } from "../lib/access-policy/resolve-brand-access-decision.js";
 import { resolveSkuAccessDecision } from "../lib/access-policy/resolve-sku-access-decision.js";
 import type {
@@ -75,6 +75,10 @@ export interface TRPCContext {
   brandAccess?: ResolvedBrandAccessDecision | null;
   /** Resolved SKU policy decision for the active brand, when requested. */
   skuAccess?: ResolvedSkuAccessDecision | null;
+  /** Live SKU count used to derive usage and write budgets. */
+  currentNonGhostSkuCount?: number | null;
+  /** Database-backed current date reused for SKU period evaluation. */
+  currentDatabaseDate?: Date | null;
   /** Raw lifecycle/billing/plan snapshot used to compute access decisions. */
   brandAccessSnapshot?: BrandAccessSnapshot | null;
   /** Shared Drizzle database connection used for transactional work. */
@@ -96,6 +100,8 @@ export type BrandScopedTRPCContext = AuthenticatedTRPCContext & {
 export type BrandAccessTRPCContext = BrandScopedTRPCContext & {
   brandAccess: ResolvedBrandAccessDecision;
   skuAccess: ResolvedSkuAccessDecision;
+  currentNonGhostSkuCount: number;
+  currentDatabaseDate: Date;
   brandAccessSnapshot: BrandAccessSnapshot;
 };
 
@@ -304,6 +310,8 @@ const withResolvedBrandAccess = t.middleware(async ({ ctx, next }) => {
       ...brandCtx,
       brandAccess: accessContext.brandAccess,
       skuAccess: accessContext.skuAccess,
+      currentNonGhostSkuCount: accessContext.currentNonGhostSkuCount,
+      currentDatabaseDate: accessContext.currentDatabaseDate,
       brandAccessSnapshot: accessContext.snapshot,
     },
   });
@@ -372,17 +380,25 @@ export function assertResolvedBrandBillingAccess(
 }
 
 export function resolveSkuDecisionWithIntendedCount(params: {
+  role?: Role | null;
   brandAccess: ResolvedBrandAccessDecision;
   snapshot: BrandAccessSnapshot;
   intendedCreateCount: number;
+  currentNonGhostSkuCount: number;
+  trialStartedAt: Date | string | null;
+  evaluationDate?: Date | string | null;
 }): ResolvedSkuAccessDecision {
+  // Resolve the intended write against the caller's current live SKU budget.
   const decision = resolveSkuAccessDecision({
     brandAccess: params.brandAccess,
     snapshot: params.snapshot,
     intendedCreateCount: params.intendedCreateCount,
+    currentNonGhostSkuCount: params.currentNonGhostSkuCount,
+    trialStartedAt: params.trialStartedAt,
+    evaluationDate: params.evaluationDate,
   });
 
-  if (decision.status === "blocked") {
+  if (params.role !== ROLES.AVELERO && decision.status === "blocked") {
     throw accessSkuLimitReached();
   }
 
@@ -557,6 +573,12 @@ export const brandBillingProcedure = protectedProcedure
 export const brandSkuWriteProcedure = brandWriteProcedure.use(
   t.middleware(({ ctx, next }) => {
     const brandCtx = ctx as BrandAccessTRPCContext;
+
+    if (brandCtx.role === ROLES.AVELERO) {
+      return next({
+        ctx: brandCtx,
+      });
+    }
 
     if (
       brandCtx.brandAccess.capabilities.canWriteBrandData &&

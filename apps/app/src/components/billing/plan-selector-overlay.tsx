@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * Full-screen wrapper for the reusable plan-selector experience.
+ */
 import { Icons } from "@v1/ui/icons";
 import { PlanSelector } from "./plan-selector";
 
@@ -14,14 +17,21 @@ interface PlanSelectorOverlayProps {
   currentInterval?: "monthly" | "yearly" | null;
   /** Whether Impact Predictions is currently active. */
   hasImpact?: boolean;
+  /** Whether the brand currently has a live Stripe subscription to modify. */
+  hasSubscription?: boolean;
+  /** Whether the current subscription is scheduled to end at period close. */
+  pendingCancellation?: boolean;
 }
 
 export function PlanSelectorOverlay({
+  // Render the selector in a reusable full-screen shell for paywalls and settings.
   dismissible = true,
   onClose,
   currentPlan = null,
   currentInterval = null,
   hasImpact = false,
+  hasSubscription = false,
+  pendingCancellation = false,
 }: PlanSelectorOverlayProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-background">
@@ -43,6 +53,8 @@ export function PlanSelectorOverlay({
           currentPlan={currentPlan}
           currentInterval={currentInterval}
           hasImpact={hasImpact}
+          hasSubscription={hasSubscription}
+          pendingCancellation={pendingCancellation}
           context="paywall"
         />
 

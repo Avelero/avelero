@@ -899,11 +899,11 @@ export type Database = {
           plan_selected_at: string | null;
           plan_type: string | null;
           sku_annual_limit: number | null;
+          sku_count_at_onboarding_start: number;
+          sku_count_at_year_start: number;
           sku_limit_override: number | null;
           sku_onboarding_limit: number | null;
           sku_year_start: string | null;
-          skus_created_onboarding: number;
-          skus_created_this_year: number;
           updated_at: string;
         };
         Insert: {
@@ -916,11 +916,11 @@ export type Database = {
           plan_selected_at?: string | null;
           plan_type?: string | null;
           sku_annual_limit?: number | null;
+          sku_count_at_onboarding_start?: number;
+          sku_count_at_year_start?: number;
           sku_limit_override?: number | null;
           sku_onboarding_limit?: number | null;
           sku_year_start?: string | null;
-          skus_created_onboarding?: number;
-          skus_created_this_year?: number;
           updated_at?: string;
         };
         Update: {
@@ -933,11 +933,11 @@ export type Database = {
           plan_selected_at?: string | null;
           plan_type?: string | null;
           sku_annual_limit?: number | null;
+          sku_count_at_onboarding_start?: number;
+          sku_count_at_year_start?: number;
           sku_limit_override?: number | null;
           sku_onboarding_limit?: number | null;
           sku_year_start?: string | null;
-          skus_created_onboarding?: number;
-          skus_created_this_year?: number;
           updated_at?: string;
         };
         Relationships: [

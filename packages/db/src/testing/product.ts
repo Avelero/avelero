@@ -26,7 +26,6 @@ export interface CreateTestVariantOptions {
   upid?: string;
   sku?: string;
   barcode?: string | null;
-  isGhost?: boolean;
 }
 
 export interface TestProduct {
@@ -101,7 +100,6 @@ export async function createTestVariant(
       upid,
       sku: options.sku ?? null,
       barcode: options.barcode ?? null,
-      isGhost: options.isGhost ?? false,
     })
     .returning({
       id: schema.productVariants.id,

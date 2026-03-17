@@ -142,6 +142,8 @@ export interface SyncContext {
   matchIdentifier: MatchIdentifier;
   /** Total products to process (fetched before sync starts) */
   productsTotal?: number;
+  /** Remaining SKU budget carried across sync batches; null means unlimited. */
+  remainingSkuBudget: number | null;
   /** Callback to report progress during sync */
   onProgress?: (progress: SyncProgress) => Promise<void>;
 }

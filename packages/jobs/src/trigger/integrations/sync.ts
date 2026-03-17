@@ -12,6 +12,14 @@ import { createClient } from "@supabase/supabase-js";
 import { logger, metadata, task } from "@trigger.dev/sdk/v3";
 import { serviceDb as db } from "@v1/db/client";
 import {
+  countNonGhostSkus,
+  deriveSkuBudget,
+  getBrandAccessSnapshot,
+  getCurrentDatabaseDate,
+  lazyExpireOnboardingLimitIfNeeded,
+  lazyResetAnnualPeriodIfNeeded,
+} from "@v1/db/queries/brand";
+import {
   createSyncJob,
   getBrandIntegration,
   getIntegrationById,
@@ -41,6 +49,39 @@ interface SyncIntegrationPayload {
   brandId: string;
   /** Trigger type for the sync job */
   triggerType?: "manual" | "scheduled" | "webhook";
+}
+
+/**
+ * Loads the remaining SKU budget after applying lazy annual and onboarding maintenance.
+ */
+async function loadRemainingSkuBudget(brandId: string): Promise<number | null> {
+  let snapshot = await getBrandAccessSnapshot(db, brandId);
+  const currentDatabaseDate = await getCurrentDatabaseDate(db);
+
+  const annualReset = await lazyResetAnnualPeriodIfNeeded(
+    db,
+    brandId,
+    currentDatabaseDate,
+  );
+  const onboardingExpiry = await lazyExpireOnboardingLimitIfNeeded(
+    db,
+    brandId,
+    snapshot.lifecycle?.trialStartedAt ?? null,
+    currentDatabaseDate,
+  );
+
+  if (annualReset.wasReset || onboardingExpiry.wasExpired) {
+    snapshot = await getBrandAccessSnapshot(db, brandId);
+  }
+
+  const currentNonGhostSkuCount = await countNonGhostSkus(db, brandId);
+
+  return deriveSkuBudget({
+    snapshot,
+    currentNonGhostSkuCount,
+    trialStartedAt: snapshot.lifecycle?.trialStartedAt ?? null,
+    evaluationDate: currentDatabaseDate,
+  }).remainingCreateBudget;
 }
 
 // =============================================================================
@@ -200,6 +241,8 @@ export const syncIntegration = task({
         });
       };
 
+      const remainingSkuBudget = await loadRemainingSkuBudget(brandId);
+
       // Build sync context
       const ctx: SyncContext = {
         db,
@@ -214,6 +257,7 @@ export const syncIntegration = task({
         matchIdentifier:
           (brandIntegration.matchIdentifier as "barcode" | "sku") ?? "barcode",
         productsTotal,
+        remainingSkuBudget,
         onProgress,
       };
 

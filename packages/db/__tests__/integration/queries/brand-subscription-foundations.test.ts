@@ -33,8 +33,8 @@ describe("Brand subscription foundations", () => {
       .select({
         brandId: schema.brandPlan.brandId,
         planType: schema.brandPlan.planType,
-        skusCreatedThisYear: schema.brandPlan.skusCreatedThisYear,
-        skusCreatedOnboarding: schema.brandPlan.skusCreatedOnboarding,
+        skuCountAtYearStart: schema.brandPlan.skuCountAtYearStart,
+        skuCountAtOnboardingStart: schema.brandPlan.skuCountAtOnboardingStart,
       })
       .from(schema.brandPlan)
       .where(eq(schema.brandPlan.brandId, brandId))
@@ -59,8 +59,8 @@ describe("Brand subscription foundations", () => {
 
     expect(plan).toBeDefined();
     expect(plan?.planType).toBeNull();
-    expect(plan?.skusCreatedThisYear).toBe(0);
-    expect(plan?.skusCreatedOnboarding).toBe(0);
+    expect(plan?.skuCountAtYearStart).toBeNull();
+    expect(plan?.skuCountAtOnboardingStart).toBeNull();
 
     expect(billing).toBeDefined();
     expect(billing?.billingMode).toBeNull();
@@ -88,8 +88,8 @@ describe("Brand subscription foundations", () => {
     const [plan] = await testDb
       .select({
         id: schema.brandPlan.id,
-        skusCreatedThisYear: schema.brandPlan.skusCreatedThisYear,
-        skusCreatedOnboarding: schema.brandPlan.skusCreatedOnboarding,
+        skuCountAtYearStart: schema.brandPlan.skuCountAtYearStart,
+        skuCountAtOnboardingStart: schema.brandPlan.skuCountAtOnboardingStart,
       })
       .from(schema.brandPlan)
       .where(eq(schema.brandPlan.brandId, legacyBrandId))
@@ -107,8 +107,8 @@ describe("Brand subscription foundations", () => {
     expect(lifecycle?.id).toBeDefined();
     expect(lifecycle?.phase).toBe("demo");
     expect(plan?.id).toBeDefined();
-    expect(plan?.skusCreatedThisYear).toBe(0);
-    expect(plan?.skusCreatedOnboarding).toBe(0);
+    expect(plan?.skuCountAtYearStart).toBeNull();
+    expect(plan?.skuCountAtOnboardingStart).toBeNull();
     expect(billing?.id).toBeDefined();
     expect(billing?.planCurrency).toBe("EUR");
     expect(billing?.billingAccessOverride).toBe("none");
@@ -141,15 +141,15 @@ describe("Brand subscription foundations", () => {
     expect(pgError?.constraint_name).toBe("brand_lifecycle_phase_check");
   });
 
-  it("enforces non-negative counter constraint on brand_plan", async () => {
+  it("enforces non-negative snapshot constraint on brand_plan", async () => {
     const brandId = await createTestBrand("Constraint Plan Brand");
 
     let error: Error | null = null;
     try {
       await testDb.insert(schema.brandPlan).values({
         brandId,
-        skusCreatedThisYear: -1,
-        skusCreatedOnboarding: 0,
+        skuCountAtYearStart: -1,
+        skuCountAtOnboardingStart: 0,
       });
     } catch (caught) {
       error = caught as Error;
@@ -159,7 +159,7 @@ describe("Brand subscription foundations", () => {
     const pgError = (error as any)?.cause;
     expect(pgError?.code).toBe("23514");
     expect(pgError?.constraint_name).toBe(
-      "brand_plan_skus_created_this_year_check",
+      "brand_plan_sku_count_at_year_start_check",
     );
   });
 

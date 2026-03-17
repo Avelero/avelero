@@ -32,6 +32,7 @@ export interface NotificationEventPayloadMap {
     totalIssues: number;
     blockedProducts: number;
     warningProducts: number;
+    errorSummary?: string | null;
     correctionDownloadUrl?: string | null;
     correctionExpiresAt?: string | null;
     correctionFilename?: string | null;
@@ -101,29 +102,42 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
   },
   import_failure: {
     audience: "brand_members",
-    resolve: (payload) => ({
-      type: "import_failure",
-      title:
-        payload.totalIssues > 0
-          ? `${payload.totalIssues} product${payload.totalIssues === 1 ? "" : "s"} had issues during import`
-          : "Some products had issues during import",
-      message: `Download the error report to review product corrections ${ACTION_PLACEHOLDER}.`,
-      resourceType: "import_job",
-      resourceId: payload.jobId,
-      actionUrl: "/passports",
-      actionData: {
-        kind: "download",
-        label: "here",
-        url: payload.correctionDownloadUrl ?? undefined,
-        expiresAt: payload.correctionExpiresAt ?? undefined,
-        filename: payload.correctionFilename ?? undefined,
-        regenerate: {
-          type: "import_corrections",
-          jobId: payload.jobId,
-        },
-      },
-      expiresInMs: NOTIFICATION_DEFAULT_EXPIRES_MS,
-    }),
+    resolve: (payload) => {
+      const hasCorrectionReport =
+        payload.totalIssues > 0 || Boolean(payload.correctionDownloadUrl);
+
+      return {
+        type: "import_failure",
+        title:
+          payload.totalIssues > 0
+            ? `${payload.totalIssues} product${payload.totalIssues === 1 ? "" : "s"} had issues during import`
+            : "Import could not be completed",
+        message: hasCorrectionReport
+          ? `Download the error report to review product corrections ${ACTION_PLACEHOLDER}.`
+          : `${payload.errorSummary ?? "Review the import settings and try again."} ${ACTION_PLACEHOLDER}`,
+        resourceType: "import_job",
+        resourceId: payload.jobId,
+        actionUrl: "/passports",
+        actionData: hasCorrectionReport
+          ? {
+              kind: "download",
+              label: "here",
+              url: payload.correctionDownloadUrl ?? undefined,
+              expiresAt: payload.correctionExpiresAt ?? undefined,
+              filename: payload.correctionFilename ?? undefined,
+              regenerate: {
+                type: "import_corrections",
+                jobId: payload.jobId,
+              },
+            }
+          : {
+              kind: "link",
+              label: "open imports",
+              url: "/passports",
+            },
+        expiresInMs: NOTIFICATION_DEFAULT_EXPIRES_MS,
+      };
+    },
   },
   export_ready: {
     audience: "actor_only",

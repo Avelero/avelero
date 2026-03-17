@@ -23,6 +23,7 @@ export default async function BillingPage() {
 
   batchPrefetch([
     trpc.brand.billing.getStatus.queryOptions(),
+    trpc.brand.billing.getPortalUrl.queryOptions(),
     trpc.brand.billing.listInvoices.queryOptions(),
   ]);
 

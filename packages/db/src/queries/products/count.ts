@@ -61,7 +61,7 @@ export async function resolveSelectedProductIds(
 }
 
 /**
- * Computes selected product + variant summary counts (excluding ghost variants).
+ * Computes selected product + variant summary counts.
  */
 export async function getProductSelectionCounts(
   db: Database,
@@ -88,7 +88,6 @@ export async function getProductSelectionCounts(
       and(
         eq(products.brandId, brandId),
         inArray(productVariants.productId, productIds),
-        eq(productVariants.isGhost, false),
       ),
     );
 

@@ -1,3 +1,6 @@
+/**
+ * Passports list page with SKU-aware creation controls and warnings.
+ */
 import {
   ControlBar,
   ControlBarLeft,
@@ -11,10 +14,11 @@ import {
   DataSectionSkeleton,
 } from "@/components/passports/data-section";
 import { ExportButton } from "@/components/passports/export-button";
+import { SkuLimitBanner } from "@/components/products/sku-limit-banner";
 import { SelectionProvider } from "@/components/passports/selection-context";
 import { TableSection } from "@/components/passports/table-section";
 import { TableSectionSkeleton } from "@/components/tables/passports/table-skeleton";
-import { shouldBlockSidebarContent } from "@/lib/brand-access";
+import { getDashboardInit, isSidebarContentBlocked } from "@/lib/brand-access";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { Button } from "@v1/ui/button";
 import Link from "next/link";
@@ -25,16 +29,18 @@ import { Suspense } from "react";
 export default async function PassportsPage() {
   await connection();
 
-  // Skip page prefetches when the active brand is blocked.
-  if (await shouldBlockSidebarContent()) {
+  const initDashboard = await getDashboardInit();
+  if (isSidebarContentBlocked(initDashboard.access.overlay)) {
     return null;
   }
+  const isSkuBlocked = initDashboard.sku.status === "blocked";
+  const skuLimitMessage =
+    "You've reached your SKU limit. Upgrade your plan to add more products.";
 
   batchPrefetch([
     trpc.summary.productStatus.queryOptions(),
     trpc.products.list.queryOptions({
       limit: 50,
-      includeVariants: true,
       includeAttributes: true,
     }),
     trpc.composite.catalogContent.queryOptions(),
@@ -53,32 +59,50 @@ export default async function PassportsPage() {
             </ControlBarLeft>
             <ControlBarRight>
               <ExportButton />
-              <ImportProductsModal />
-              <Button
-                variant="default"
-                size="default"
-                asChild
-                className="min-w-[82px]"
-              >
-                <Link href="/passports/create" prefetch>
+              <ImportProductsModal
+                disabled={isSkuBlocked}
+                disabledReason={skuLimitMessage}
+              />
+              {isSkuBlocked ? (
+                <Button
+                  variant="default"
+                  size="default"
+                  className="min-w-[82px]"
+                  disabled
+                  title={skuLimitMessage}
+                >
                   <span className="px-1">Create</span>
-                </Link>
-              </Button>
+                </Button>
+              ) : (
+                <Button
+                  variant="default"
+                  size="default"
+                  asChild
+                  className="min-w-[82px]"
+                >
+                  <Link href="/passports/create" prefetch>
+                    <span className="px-1">Create</span>
+                  </Link>
+                </Button>
+              )}
             </ControlBarRight>
           </ControlBar>
           <div className="flex w-full h-full justify-center items-start p-8 overflow-y-auto scrollbar-hide">
             <div className="w-full">
-              <div className="flex flex-col gap-12">
-                <ErrorBoundary errorComponent={ErrorFallback}>
-                  <Suspense fallback={<DataSectionSkeleton />}>
-                    <DataSection />
-                  </Suspense>
-                </ErrorBoundary>
-                <ErrorBoundary errorComponent={ErrorFallback}>
-                  <Suspense fallback={<TableSectionSkeleton />}>
-                    <TableSection />
-                  </Suspense>
-                </ErrorBoundary>
+              <div className="flex flex-col gap-6">
+                <SkuLimitBanner sku={initDashboard.sku} />
+                <div className="flex flex-col gap-12">
+                  <ErrorBoundary errorComponent={ErrorFallback}>
+                    <Suspense fallback={<DataSectionSkeleton />}>
+                      <DataSection />
+                    </Suspense>
+                  </ErrorBoundary>
+                  <ErrorBoundary errorComponent={ErrorFallback}>
+                    <Suspense fallback={<TableSectionSkeleton />}>
+                      <TableSection />
+                    </Suspense>
+                  </ErrorBoundary>
+                </div>
               </div>
             </div>
           </div>

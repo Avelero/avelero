@@ -308,6 +308,7 @@ function ProductFormInner({
   const nameInputRef = React.useRef<HTMLInputElement>(null);
   const descriptionRef = React.useRef<HTMLTextAreaElement>(null);
   const productHandleInputRef = React.useRef<HTMLInputElement>(null);
+  const variantsSectionRef = React.useRef<HTMLDivElement>(null);
   const materialsSectionRef = React.useRef<HTMLDivElement>(null);
   const environmentSectionRef = React.useRef<HTMLDivElement>(null);
 
@@ -343,6 +344,7 @@ function ProductFormInner({
         "name",
         "description",
         "productHandle",
+        "variants",
         "materials",
         "carbonKgCo2e",
         "waterLiters",
@@ -364,6 +366,11 @@ function ProductFormInner({
       } else if (firstInvalidField === "productHandle") {
         productHandleInputRef.current?.focus();
         productHandleInputRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else if (firstInvalidField === "variants") {
+        variantsSectionRef.current?.scrollIntoView({
           behavior: "smooth",
           block: "center",
         });
@@ -466,8 +473,10 @@ function ProductFormInner({
               tagIds={state.tagIds}
               setTagIds={(value) => setField("tagIds", value)}
             />
-            <VariantSection
-              dimensions={state.variantDimensions}
+            <div ref={variantsSectionRef}>
+              <VariantSection
+                productName={state.name}
+                dimensions={state.variantDimensions}
               setDimensions={(value) => {
                 if (typeof value === "function") {
                   updateField("variantDimensions", value);
@@ -514,7 +523,13 @@ function ProductFormInner({
                   setField("expandedVariantMappings", value);
                 }
               }}
-            />
+                variantsError={
+                  state.hasAttemptedSubmit
+                    ? state.validationErrors.variants
+                    : undefined
+                }
+              />
+            </div>
             <EnvironmentSection
               carbonKgCo2e={state.carbonKgCo2e}
               setCarbonKgCo2e={(value) => setField("carbonKgCo2e", value)}

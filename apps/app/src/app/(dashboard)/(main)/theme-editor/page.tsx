@@ -1,3 +1,6 @@
+/**
+ * Theme editor route entry.
+ */
 import { ThemeEditorPage } from "@/components/theme-editor";
 import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
@@ -9,9 +12,11 @@ export const metadata: Metadata = {
 };
 
 export default async function Page() {
+  // Prefetch editor and dashboard chrome data for a fully hydrated client render.
   await connection();
 
   // Prefetch theme editor and header data for hydration on refresh.
+  prefetch(trpc.composite.initDashboard.queryOptions());
   prefetch(trpc.brand.theme.get.queryOptions());
   prefetch(trpc.notifications.getUnreadCount.queryOptions());
   prefetch(

@@ -247,7 +247,7 @@ describe("Stripe webhook processing", () => {
       expect(markProcessedFailureLogs).toHaveLength(1);
     } finally {
       // Remove the override so the Proxy falls back to the real _db.update
-      delete (appDb as any).update;
+      (appDb as any).update = undefined;
       await cleanupWebhookEvent(eventId);
     }
   });

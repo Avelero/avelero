@@ -78,7 +78,12 @@ export async function handleSubscriptionUpdated(
         phaseChangedAt: nowIso,
         updatedAt: nowIso,
       })
-      .where(eq(brandLifecycle.brandId, brandId));
+      .where(
+        and(
+          eq(brandLifecycle.brandId, brandId),
+          notInArray(brandLifecycle.phase, ["expired", "suspended", "cancelled"]),
+        ),
+      );
   }
 
   const pendingCancellation = isStripeSubscriptionPendingCancellation(subscription);

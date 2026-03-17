@@ -147,30 +147,31 @@ export const billingRouter = createTRPCRouter({
       }
 
       // Serialize checkout creation per brand so duplicate clicks cannot create parallel sessions.
-      // Uses a session-level advisory lock so it spans both the DB check and the Stripe call.
-      await db.execute(
-        sql`select pg_advisory_lock(hashtext(${`stripe_checkout:${brandId}`}))`,
-      );
-
+      // Uses pg_advisory_xact_lock inside a transaction that also spans the Stripe call,
+      // guaranteeing lock and unlock happen on the same connection.
       try {
-        const session = await createCheckoutSession({
-          brandId,
-          stripeCustomerId,
-          tier: input.tier,
-          interval: input.interval,
-          includeImpact: input.include_impact,
-          successUrl: `${APP_URL}/settings/billing?checkout=success`,
-          cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
+        const { url } = await db.transaction(async (tx) => {
+          await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtext(${`stripe_checkout:${brandId}`}))`,
+          );
+
+          const session = await createCheckoutSession({
+            brandId,
+            stripeCustomerId,
+            tier: input.tier,
+            interval: input.interval,
+            includeImpact: input.include_impact,
+            successUrl: `${APP_URL}/settings/billing?checkout=success`,
+            cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
+          });
+
+          return { url: session.url };
         });
 
-        return { url: session.url };
+        return { url };
       } catch (err) {
         log.error({ brandId, operation: "createCheckoutSession", tier: input.tier, interval: input.interval, err }, "checkout session creation failed");
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create checkout session" });
-      } finally {
-        await db.execute(
-          sql`select pg_advisory_unlock(hashtext(${`stripe_checkout:${brandId}`}))`,
-        );
       }
     }),
 

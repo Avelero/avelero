@@ -2,7 +2,7 @@
  * Activates a brand after Stripe Checkout completes and billing metadata is valid.
  */
 import { db } from "@v1/db/client";
-import { eq } from "@v1/db/queries";
+import { and, eq, notInArray } from "@v1/db/queries";
 import {
   brandBillingEvents,
   brandLifecycle,
@@ -118,7 +118,12 @@ export async function handleCheckoutCompleted(
       phaseChangedAt: nowIso,
       updatedAt: nowIso,
     })
-    .where(eq(brandLifecycle.brandId, brandId));
+    .where(
+      and(
+        eq(brandLifecycle.brandId, brandId),
+        notInArray(brandLifecycle.phase, ["suspended"]),
+      ),
+    );
 
   await db.insert(brandBillingEvents).values({
     brandId,

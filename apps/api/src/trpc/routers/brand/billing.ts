@@ -146,16 +146,13 @@ export const billingRouter = createTRPCRouter({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to set up billing" });
       }
 
-      try {
-        // Serialize checkout creation per brand so duplicate clicks cannot create parallel sessions.
-        // The lock is released as soon as the transaction commits — Stripe calls happen outside
-        // the transaction to avoid holding a DB connection open for the full Stripe round-trip.
-        await db.transaction(async (tx) => {
-          await tx.execute(
-            sql`select pg_advisory_xact_lock(hashtext(${`stripe_checkout:${brandId}`}))`,
-          );
-        });
+      // Serialize checkout creation per brand so duplicate clicks cannot create parallel sessions.
+      // Uses a session-level advisory lock so it spans both the DB check and the Stripe call.
+      await db.execute(
+        sql`select pg_advisory_lock(hashtext(${`stripe_checkout:${brandId}`}))`,
+      );
 
+      try {
         const session = await createCheckoutSession({
           brandId,
           stripeCustomerId,
@@ -170,6 +167,10 @@ export const billingRouter = createTRPCRouter({
       } catch (err) {
         log.error({ brandId, operation: "createCheckoutSession", tier: input.tier, interval: input.interval, err }, "checkout session creation failed");
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create checkout session" });
+      } finally {
+        await db.execute(
+          sql`select pg_advisory_unlock(hashtext(${`stripe_checkout:${brandId}`}))`,
+        );
       }
     }),
 

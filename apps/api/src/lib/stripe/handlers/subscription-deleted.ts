@@ -2,7 +2,7 @@
  * Resolves brand access after Stripe deletes a subscription.
  */
 import { db } from "@v1/db/client";
-import { eq } from "@v1/db/queries";
+import { and, eq, notInArray } from "@v1/db/queries";
 import {
   brandBilling,
   brandBillingEvents,
@@ -81,7 +81,12 @@ export async function handleSubscriptionDeleted(
         phaseChangedAt: nowIso,
         updatedAt: nowIso,
       })
-      .where(eq(brandLifecycle.brandId, brandId));
+      .where(
+        and(
+          eq(brandLifecycle.brandId, brandId),
+          notInArray(brandLifecycle.phase, ["expired", "suspended", "cancelled"]),
+        ),
+      );
   } else if (isBillingFailure) {
     resolvedPhase = "expired";
     await db

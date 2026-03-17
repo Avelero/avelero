@@ -894,8 +894,14 @@ jobs:
             -u "${STRIPE_SECRET_KEY}:" \
             -d "url=${WEBHOOK_URL}" \
             -d "enabled_events[]=checkout.session.completed" \
+            -d "enabled_events[]=invoice.created" \
+            -d "enabled_events[]=invoice.finalized" \
+            -d "enabled_events[]=invoice.updated" \
+            -d "enabled_events[]=invoice.overdue" \
             -d "enabled_events[]=invoice.paid" \
             -d "enabled_events[]=invoice.payment_failed" \
+            -d "enabled_events[]=invoice.voided" \
+            -d "enabled_events[]=invoice.marked_uncollectible" \
             -d "enabled_events[]=customer.subscription.updated" \
             -d "enabled_events[]=customer.subscription.deleted")
 

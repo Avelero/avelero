@@ -1340,8 +1340,14 @@ jobs:
           fi
       - name: 🗑️ Delete Stripe Webhook for Preview
         env:
+          ENABLE_PREVIEW_STRIPE_WEBHOOKS: ${{ vars.ENABLE_PREVIEW_STRIPE_WEBHOOKS }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
         run: |
+          if [[ "${ENABLE_PREVIEW_STRIPE_WEBHOOKS}" != "true" ]]; then
+            echo "Skipping Stripe webhook cleanup (ENABLE_PREVIEW_STRIPE_WEBHOOKS is not enabled)."
+            exit 0
+          fi
+
           WEBHOOK_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev/webhooks/stripe"
           echo "Looking for Stripe webhook endpoint: $WEBHOOK_URL"
 

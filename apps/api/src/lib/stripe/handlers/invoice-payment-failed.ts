@@ -38,35 +38,45 @@ export async function handleInvoicePaymentFailed(
   });
 
   const [billing] = await db
-    .select({ pastDueSince: brandBilling.pastDueSince })
+    .select({
+      pastDueSince: brandBilling.pastDueSince,
+      phase: brandLifecycle.phase,
+    })
     .from(brandBilling)
+    .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brandBilling.brandId))
     .where(eq(brandBilling.brandId, brandId))
     .limit(1);
 
   const nowIso = new Date().toISOString();
+  const preservesTerminalPhase =
+    billing?.phase === "expired" ||
+    billing?.phase === "suspended" ||
+    billing?.phase === "cancelled";
 
-  await db
-    .update(brandBilling)
-    .set({
-      stripeCustomerId: getStripeId(invoice.customer),
-      pastDueSince: billing?.pastDueSince ?? nowIso,
-      updatedAt: nowIso,
-    })
-    .where(eq(brandBilling.brandId, brandId));
+  if (!preservesTerminalPhase) {
+    await db
+      .update(brandBilling)
+      .set({
+        stripeCustomerId: getStripeId(invoice.customer),
+        pastDueSince: billing?.pastDueSince ?? nowIso,
+        updatedAt: nowIso,
+      })
+      .where(eq(brandBilling.brandId, brandId));
 
-  await db
-    .update(brandLifecycle)
-    .set({
-      phase: "past_due",
-      phaseChangedAt: nowIso,
-      updatedAt: nowIso,
-    })
-    .where(
-      and(
-        eq(brandLifecycle.brandId, brandId),
-        notInArray(brandLifecycle.phase, ["expired", "suspended", "cancelled"]),
-      ),
-    );
+    await db
+      .update(brandLifecycle)
+      .set({
+        phase: "past_due",
+        phaseChangedAt: nowIso,
+        updatedAt: nowIso,
+      })
+      .where(
+        and(
+          eq(brandLifecycle.brandId, brandId),
+          notInArray(brandLifecycle.phase, ["expired", "suspended", "cancelled"]),
+        ),
+      );
+  }
 
   await db.insert(brandBillingEvents).values({
     brandId,

@@ -48,7 +48,13 @@ function createMockContext(options: {
     role: "owner",
     db: testDb,
     loaders: {} as any,
-    supabase: {} as any,
+    supabase: {
+      storage: {
+        from: () => ({
+          getPublicUrl: () => ({ data: { publicUrl: "" } }),
+        }),
+      },
+    } as any,
     supabaseAdmin: null,
     geo: { ip: null },
   };

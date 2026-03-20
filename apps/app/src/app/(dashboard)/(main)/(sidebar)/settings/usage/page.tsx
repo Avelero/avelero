@@ -2,7 +2,7 @@
  * Server page for the billing usage view.
  */
 import { UsagePageContent } from "@/components/billing/usage-page-content";
-import { getDashboardInit, shouldBlockSidebarContent } from "@/lib/brand-access";
+import { shouldBlockSidebarContent } from "@/lib/brand-access";
 import {
   HydrateClient,
   getQueryClient,
@@ -17,8 +17,6 @@ export default async function UsagePage() {
   if (await shouldBlockSidebarContent()) {
     return null;
   }
-
-  await getDashboardInit();
 
   // Resolve the usage query before dehydration so the client does not hydrate
   // from a pending state while the server rendered the completed payload.

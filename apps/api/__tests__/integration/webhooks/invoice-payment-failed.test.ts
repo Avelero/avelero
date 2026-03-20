@@ -172,17 +172,19 @@ function buildInvoicePaymentFailedEvent(params: {
 describe("invoice.payment_failed handler", () => {
   it("warns and skips past-due billing state when the lifecycle row is missing", async () => {
     const restoreAppDb = bindAppDbToTestDb();
-    const brandId = await createTestBrand("Invoice Payment Failed Missing Lifecycle");
-    const event = buildInvoicePaymentFailedEvent({
-      brandId,
-      customerId: "cus_invoice_payment_failed_missing_lifecycle",
-    });
-
-    await testDb.insert(schema.brandBilling).values({
-      brandId,
-    });
-
     try {
+      const brandId = await createTestBrand(
+        "Invoice Payment Failed Missing Lifecycle",
+      );
+      const event = buildInvoicePaymentFailedEvent({
+        brandId,
+        customerId: "cus_invoice_payment_failed_missing_lifecycle",
+      });
+
+      await testDb.insert(schema.brandBilling).values({
+        brandId,
+      });
+
       const { logs } = await captureBillingLogs(async () =>
         handleInvoicePaymentFailed(event),
       );

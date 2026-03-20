@@ -43,8 +43,6 @@ import {
   useTriggerSyncProgress,
 } from "@/hooks/use-job-progress";
 import { useUserQuerySuspense } from "@/hooks/use-user";
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
 import { getConnectorFields } from "@v1/integrations";
 import { Button } from "@v1/ui/button";
 import {
@@ -57,12 +55,6 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { Skeleton } from "@v1/ui/skeleton";
 import { toast } from "@v1/ui/sonner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@v1/ui/tooltip";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -131,12 +123,9 @@ export function IntegrationDetailSkeleton() {
 export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const trpc = useTRPC();
   const { data: connectionData } = useIntegrationBySlugQuerySuspense(slug);
   const { data: user } = useUserQuerySuspense();
-  const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
   const brandId = user?.brand_id ?? null;
-  const isSkuBlocked = initQuery.data?.sku.status === "blocked";
 
   // Check for claim parameter (from Shopify App Store install flow)
   const claimShop = searchParams.get("claim");
@@ -702,31 +691,13 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isSkuBlocked ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button variant="outline" disabled>
-                        {isSyncing ? "Syncing..." : "Sync now"}
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    You've reached your SKU limit. Upgrade your plan to sync
-                    more products.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={handleTriggerSync}
-                disabled={isSyncing || status !== "active"}
-              >
-                {isSyncing ? "Syncing..." : "Sync now"}
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              onClick={handleTriggerSync}
+              disabled={isSyncing || status !== "active"}
+            >
+              {isSyncing ? "Syncing..." : "Sync now"}
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

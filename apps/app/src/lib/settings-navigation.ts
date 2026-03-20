@@ -1,3 +1,6 @@
+/**
+ * Settings navigation metadata used by the sidebar and header breadcrumbs.
+ */
 export type SettingsNavMatch = "exact" | "prefix";
 
 export type SettingsNavIconKey =
@@ -92,10 +95,12 @@ export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
 ];
 
 function normalizePath(pathname: string) {
+  // Normalize trailing slashes so route matching is consistent.
   return pathname.replace(/\/+$/, "") || "/";
 }
 
 function matchesSettingsNavItem(pathname: string, item: SettingsNavItem) {
+  // Match a pathname against a settings nav item using its configured strategy.
   const normalizedPath = normalizePath(pathname);
   const normalizedHref = normalizePath(item.href);
   const match = item.match ?? "exact";
@@ -111,10 +116,12 @@ function matchesSettingsNavItem(pathname: string, item: SettingsNavItem) {
 }
 
 function getAllSettingsNavItems() {
+  // Flatten grouped settings nav items into a single list for lookups.
   return SETTINGS_NAV_GROUPS.flatMap((group) => group.items);
 }
 
 function decodeSlug(slug: string) {
+  // Decode URL-safe slugs without throwing on malformed input.
   try {
     return decodeURIComponent(slug);
   } catch {
@@ -123,6 +130,7 @@ function decodeSlug(slug: string) {
 }
 
 function formatSettingsDetailLabel(slug: string) {
+  // Convert a route slug into a human-readable breadcrumb label.
   return decodeSlug(slug)
     .split("-")
     .filter(Boolean)
@@ -131,6 +139,7 @@ function formatSettingsDetailLabel(slug: string) {
 }
 
 export function getActiveSettingsNavItem(pathname: string) {
+  // Resolve the active settings nav item for the current pathname.
   const normalizedPath = normalizePath(pathname);
 
   for (const item of getAllSettingsNavItems()) {
@@ -145,6 +154,7 @@ export function getActiveSettingsNavItem(pathname: string) {
 export function getSettingsHeaderBreadcrumbs(
   pathname: string,
 ): SettingsHeaderBreadcrumbItem[] | null {
+  // Build settings-specific header breadcrumbs from the current pathname.
   const normalizedPath = normalizePath(pathname);
   const segments = normalizedPath.split("/").filter(Boolean);
 
@@ -159,7 +169,6 @@ export function getSettingsHeaderBreadcrumbs(
     const slug = segments[2];
 
     return [
-      { label: "Settings", href: "/settings" },
       {
         label: integrationsItem?.label ?? "Integrations",
         href: integrationsItem?.href ?? "/settings/integrations",

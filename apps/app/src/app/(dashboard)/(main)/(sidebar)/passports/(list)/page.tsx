@@ -14,7 +14,6 @@ import {
   DataSectionSkeleton,
 } from "@/components/passports/data-section";
 import { ExportButton } from "@/components/passports/export-button";
-import { SkuLimitBanner } from "@/components/products/sku-limit-banner";
 import { SelectionProvider } from "@/components/passports/selection-context";
 import { TableSection } from "@/components/passports/table-section";
 import { TableSectionSkeleton } from "@/components/tables/passports/table-skeleton";
@@ -33,11 +32,9 @@ export default async function PassportsPage() {
   if (isSidebarContentBlocked(initDashboard.access.overlay)) {
     return null;
   }
-  const isSkuBlocked = initDashboard.sku.status === "blocked";
-  const skuLimitMessage =
-    "You've reached your SKU limit. Upgrade your plan to add more products.";
 
   batchPrefetch([
+    trpc.brand.billing.getStatus.queryOptions(),
     trpc.summary.productStatus.queryOptions(),
     trpc.products.list.queryOptions({
       limit: 50,
@@ -59,39 +56,22 @@ export default async function PassportsPage() {
             </ControlBarLeft>
             <ControlBarRight>
               <ExportButton />
-              <ImportProductsModal
-                disabled={isSkuBlocked}
-                disabledReason={skuLimitMessage}
-              />
-              {isSkuBlocked ? (
-                <Button
-                  variant="default"
-                  size="default"
-                  className="min-w-[82px]"
-                  disabled
-                  title={skuLimitMessage}
-                >
+              <ImportProductsModal />
+              <Button
+                variant="default"
+                size="default"
+                asChild
+                className="min-w-[82px]"
+              >
+                <Link href="/passports/create" prefetch>
                   <span className="px-1">Create</span>
-                </Button>
-              ) : (
-                <Button
-                  variant="default"
-                  size="default"
-                  asChild
-                  className="min-w-[82px]"
-                >
-                  <Link href="/passports/create" prefetch>
-                    <span className="px-1">Create</span>
-                  </Link>
-                </Button>
-              )}
+                </Link>
+              </Button>
             </ControlBarRight>
           </ControlBar>
           <div className="flex w-full h-full justify-center items-start p-8 overflow-y-auto scrollbar-hide">
             <div className="w-full">
-              <div className="flex flex-col gap-6">
-                <SkuLimitBanner sku={initDashboard.sku} />
-                <div className="flex flex-col gap-12">
+              <div className="flex flex-col gap-12">
                   <ErrorBoundary errorComponent={ErrorFallback}>
                     <Suspense fallback={<DataSectionSkeleton />}>
                       <DataSection />
@@ -102,7 +82,6 @@ export default async function PassportsPage() {
                       <TableSection />
                     </Suspense>
                   </ErrorBoundary>
-                </div>
               </div>
             </div>
           </div>

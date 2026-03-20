@@ -25,11 +25,8 @@ import { logger, task, tasks } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
 import {
-  countBrandSkusInActiveWindow,
-  deriveSkuBudget,
-  getBrandAccessSnapshot,
-  getCurrentDatabaseTimestamp,
-  resolveActiveSkuWindow,
+  VariantGlobalCapExceededError,
+  countBrandSkus,
 } from "@v1/db/queries/brand";
 import {
   type NormalizedRowData,
@@ -79,23 +76,6 @@ interface CommitStats {
   weightSet: number;
   imagesProcessed: number;
   imagesFailed: number;
-}
-
-class BulkImportSkuLimitExceededError extends Error {
-  requested: number;
-  remaining: number;
-
-  /**
-   * Formats the descriptive SKU-budget failure returned to bulk import callers.
-   */
-  constructor(requested: number, remaining: number) {
-    super(
-      `This import would create ${requested.toLocaleString("en-US")} new SKUs, but you only have ${remaining.toLocaleString("en-US")} remaining. Upgrade your plan or reduce the import size.`,
-    );
-    this.name = "BulkImportSkuLimitExceededError";
-    this.requested = requested;
-    this.remaining = remaining;
-  }
 }
 
 /** Image upload task for rate-limited processing */
@@ -224,6 +204,7 @@ interface PendingProductionOps {
 const {
   importJobs,
   importRows,
+  brandPlan,
   // Production tables
   products,
   productVariants,
@@ -295,42 +276,36 @@ async function countPendingVariantCreatesForJob(
 }
 
 /**
- * Resolves the live SKU budget and throws before any import writes if over budget.
+ * Resolves the global variant cap and throws before any import writes if over budget.
  */
-async function runSkuBudgetPreflight(
+async function runVariantGlobalCapPreflight(
   database: Database,
   brandId: string,
   jobId: string,
 ): Promise<void> {
-  const snapshot = await getBrandAccessSnapshot(database, brandId);
-  const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(database);
-  const activeSkuWindow = resolveActiveSkuWindow({
-    snapshot,
-    evaluationDate: currentDatabaseTimestamp,
-  });
-  const currentSkuUsageCount = await countBrandSkusInActiveWindow(
-    database,
-    brandId,
-    activeSkuWindow,
-  );
+  const totalExistingVariants = await countBrandSkus(database, brandId);
   const intendedCreateCount = await countPendingVariantCreatesForJob(
     database,
     jobId,
   );
-  const { remainingCreateBudget } = deriveSkuBudget({
-    snapshot,
-    currentSkuUsageCount,
-    evaluationDate: currentDatabaseTimestamp,
-  });
+  const [planRow] = await database
+    .select({
+      variantGlobalCap: brandPlan.variantGlobalCap,
+    })
+    .from(brandPlan)
+    .where(eq(brandPlan.brandId, brandId))
+    .limit(1);
 
   if (
-    remainingCreateBudget !== null &&
-    intendedCreateCount > remainingCreateBudget
+    planRow?.variantGlobalCap !== null &&
+    planRow?.variantGlobalCap !== undefined &&
+    totalExistingVariants + intendedCreateCount > planRow.variantGlobalCap
   ) {
-    throw new BulkImportSkuLimitExceededError(
+    throw new VariantGlobalCapExceededError({
       intendedCreateCount,
-      remainingCreateBudget,
-    );
+      totalExistingVariants,
+      cap: planRow.variantGlobalCap,
+    });
   }
 }
 
@@ -381,8 +356,8 @@ export const commitToProduction = task({
         })
         .where(eq(importJobs.id, jobId));
 
-      // Fail fast when the staged import would exceed the brand's remaining SKU budget.
-      await runSkuBudgetPreflight(db, brandId, jobId);
+      // Fail fast when the staged import would exceed the global variant cap.
+      await runVariantGlobalCapPreflight(db, brandId, jobId);
 
       // Create Supabase client for storage operations
       const storageClient = createClient(
@@ -729,17 +704,18 @@ export const commitToProduction = task({
           status: "FAILED",
           finishedAt: new Date().toISOString(),
           summary:
-            error instanceof BulkImportSkuLimitExceededError
+            error instanceof VariantGlobalCapExceededError
               ? {
                   error: errorMessage,
-                  requestedNewSkus: error.requested,
-                  remainingSkuBudget: error.remaining,
+                  requestedNewVariants: error.intendedCreateCount,
+                  totalExistingVariants: error.totalExistingVariants,
+                  variantGlobalCap: error.cap,
                 }
               : { error: errorMessage },
         })
         .where(eq(importJobs.id, jobId));
 
-      if (error instanceof BulkImportSkuLimitExceededError) {
+      if (error instanceof VariantGlobalCapExceededError) {
         try {
           await publishNotificationEvent(db, {
             event: "import_failure",

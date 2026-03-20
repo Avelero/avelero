@@ -147,15 +147,6 @@ const {
  */
 const BATCH_SIZE = 250;
 
-/**
- * Valid status values for products (new publishing model)
- * - 'unpublished': Draft, never been published (default)
- * - 'published': Has been published at least once
- * - 'scheduled': Scheduled for future publication
- */
-const VALID_STATUSES = ["unpublished", "published", "scheduled"] as const;
-type ValidStatus = (typeof VALID_STATUSES)[number];
-
 // ============================================================================
 // Main Task
 // ============================================================================
@@ -203,7 +194,6 @@ export const validateAndStage = task({
         const firstVariant = firstProduct?.variants[0];
         logger.info("Debug: First product parsed data", {
           productHandle: firstProduct?.productHandle,
-          status: firstProduct?.status,
           tags: firstProduct?.tags,
           productLevelData: {
             materials: firstProduct?.materials,
@@ -349,7 +339,7 @@ export const validateAndStage = task({
               categoryId: null,
               seasonId: null,
               manufacturerId: null,
-              status: product.status || "unpublished",
+              status: "unpublished",
               rowStatus: "BLOCKED",
               errors: duplicateErrors,
               variants: [],
@@ -972,18 +962,8 @@ function computeNormalizedRowData(
   // NON-BLOCKING VALIDATION: Field errors that don't prevent product creation
   // ========================================================================
 
-  // Validate status field
-  let validatedStatus = product.status || "unpublished";
-  if (product.status && product.status.trim() !== "") {
-    const normalizedStatus = product.status.toLowerCase().trim();
-    if (!VALID_STATUSES.includes(normalizedStatus as ValidStatus)) {
-      warningErrors.push({
-        field: "Status",
-        message: `Invalid status: "${product.status}". Must be one of: ${VALID_STATUSES.join(", ")}. Defaulting to "unpublished".`,
-      });
-      validatedStatus = "unpublished"; // Default to unpublished on error
-    }
-  }
+  // Bulk imports always stage products as unpublished so publishing remains an explicit action.
+  const validatedStatus = "unpublished";
 
   // Validate category format (hierarchical with " > " delimiter)
   let categoryId: string | null = null;

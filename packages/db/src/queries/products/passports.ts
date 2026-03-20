@@ -31,7 +31,7 @@ import {
  * @throws Error if the variant doesn't have a UPID
  */
 export async function createProductPassport(
-  db: Database,
+  db: DatabaseOrTransaction,
   variantId: string,
   brandId: string,
 ) {
@@ -155,7 +155,10 @@ export async function getPassportByUpid(db: Database, upid: string) {
  * @param variantId - The variant ID to look up
  * @returns The passport if found, or null
  */
-export async function getPassportByVariantId(db: Database, variantId: string) {
+export async function getPassportByVariantId(
+  db: DatabaseOrTransaction,
+  variantId: string,
+) {
   const [passport] = await db
     .select({
       id: productPassports.id,
@@ -472,7 +475,7 @@ export async function batchSyncPassportMetadata(
  * @returns The existing or newly created passport
  */
 export async function getOrCreatePassport(
-  db: Database,
+  db: DatabaseOrTransaction,
   variantId: string,
   brandId: string,
 ) {

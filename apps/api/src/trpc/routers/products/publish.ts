@@ -9,7 +9,14 @@
  * - publish.product: Publish all variants of a product
  * - publish.bulk: Publish multiple products at once
  */
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import type { Database, DatabaseOrTransaction } from "@v1/db/client";
+import {
+  PublishLimitExceededError,
+  enforcePublishCapacity,
+} from "@v1/db/queries/brand";
+import type { PublishCapacityResult } from "@v1/db/queries/brand";
+import { publishNotificationEvent } from "@v1/db/queries/notifications";
 import {
   getPublishingState,
   getOrCreatePassport,
@@ -33,18 +40,27 @@ import {
 } from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
+type BrandDb = DatabaseOrTransaction;
+
+interface ProductPublishSummary {
+  productId: string;
+  status: string;
+  variantCount: number;
+}
 
 /**
  * Resolve the owning product for a variant inside the active brand.
  */
 async function getVariantPublishTarget(
-  db: BrandContext["db"],
+  db: BrandDb,
   brandId: string,
   variantId: string,
 ): Promise<{ productId: string } | null> {
   // Constrain the lookup to the active brand so publish cannot cross brand boundaries.
   const [target] = await db
-    .select({ productId: productVariants.productId })
+    .select({
+      productId: productVariants.productId,
+    })
     .from(productVariants)
     .innerJoin(products, eq(products.id, productVariants.productId))
     .where(
@@ -56,38 +72,55 @@ async function getVariantPublishTarget(
 }
 
 /**
- * Count variants for a product inside the active brand.
+ * Count variants and current status for one or more products inside the active brand.
  */
-async function countProductVariants(
-  db: BrandContext["db"],
+async function getProductPublishSummaries(
+  db: BrandDb,
   brandId: string,
-  productId: string,
-): Promise<number | null> {
-  // Read all matching variants so publish can keep the existing no-variants guard.
-  const variants = await db
-    .select({ id: productVariants.id })
-    .from(productVariants)
-    .innerJoin(products, eq(products.id, productVariants.productId))
-    .where(and(eq(products.id, productId), eq(products.brandId, brandId)));
-
-  if (variants.length === 0) {
-    const [product] = await db
-      .select({ id: products.id })
-      .from(products)
-      .where(and(eq(products.id, productId), eq(products.brandId, brandId)))
-      .limit(1);
-
-    return product ? 0 : null;
+  productIds: string[],
+): Promise<ProductPublishSummary[]> {
+  // Read the current product status alongside variant counts for publish enforcement.
+  if (productIds.length === 0) {
+    return [];
   }
 
-  return variants.length;
+  const rows = await db
+    .select({
+      productId: products.id,
+      status: products.status,
+      variantCount: productVariants.id,
+    })
+    .from(products)
+    .leftJoin(productVariants, eq(productVariants.productId, products.id))
+    .where(and(eq(products.brandId, brandId), inArray(products.id, productIds)));
+
+  const summaries = new Map<string, ProductPublishSummary>();
+  for (const row of rows) {
+    const existing = summaries.get(row.productId);
+    if (existing) {
+      if (row.variantCount) {
+        existing.variantCount += 1;
+      }
+      continue;
+    }
+
+    summaries.set(row.productId, {
+      productId: row.productId,
+      status: row.status,
+      variantCount: row.variantCount ? 1 : 0,
+    });
+  }
+
+  return productIds
+    .map((productId) => summaries.get(productId))
+    .filter((summary): summary is ProductPublishSummary => Boolean(summary));
 }
 
 /**
  * Flip the supplied products into published status.
  */
 async function setProductsPublished(
-  db: BrandContext["db"],
+  db: BrandDb,
   brandId: string,
   productIds: string[],
 ): Promise<string[]> {
@@ -96,13 +129,21 @@ async function setProductsPublished(
     return [];
   }
 
+  const publishedAt = new Date().toISOString();
   const updated = await db
     .update(products)
     .set({
       status: "published",
-      updatedAt: new Date().toISOString(),
+      publishedAt,
+      updatedAt: publishedAt,
     })
-    .where(and(eq(products.brandId, brandId), inArray(products.id, productIds)))
+    .where(
+      and(
+        eq(products.brandId, brandId),
+        inArray(products.id, productIds),
+        sql`${products.status} <> 'published'`,
+      ),
+    )
     .returning({ id: products.id });
 
   return updated.map((row) => row.id);
@@ -123,6 +164,42 @@ async function revalidateProjectedPassports(
     revalidatePassports(identifiers.upids),
     revalidateBarcodes(brandId, identifiers.barcodes),
   ]);
+}
+
+// =============================================================================
+// NOTIFICATION HELPER
+// =============================================================================
+
+const PUBLISH_NOTIFICATION_THRESHOLD = 0.9;
+
+/**
+ * Publishes a publish-limit warning notification if the brand crossed the 90% threshold.
+ * Piggybacks on data already computed by enforcePublishCapacity — no extra queries.
+ * Deduplication ensures only one active notification per budget kind.
+ */
+async function maybePublishLimitNotification(params: {
+  db: Database;
+  brandId: string;
+  capacityResult: PublishCapacityResult;
+  publishedCount: number;
+}): Promise<void> {
+  const { capacityResult, publishedCount } = params;
+  if (!capacityResult.budgetKind || capacityResult.limit == null || capacityResult.limit === 0) return;
+
+  const newUsed = capacityResult.used + publishedCount;
+  const utilization = newUsed / capacityResult.limit;
+  if (utilization < PUBLISH_NOTIFICATION_THRESHOLD) return;
+
+  await publishNotificationEvent(params.db, {
+    event: "sku_limit_warning",
+    brandId: params.brandId,
+    payload: {
+      brandId: params.brandId,
+      budgetKind: capacityResult.budgetKind,
+      used: newUsed,
+      limit: capacityResult.limit,
+    },
+  });
 }
 
 // =============================================================================
@@ -167,27 +244,56 @@ export const publishRouter = createTRPCRouter({
       const { db, brandId } = ctx as BrandContext;
 
       try {
-        const target = await getVariantPublishTarget(
-          db,
-          brandId,
-          input.variantId,
-        );
-        if (!target) {
-          throw badRequest("Variant not found");
-        }
+        const publishResult = await db.transaction(async (tx) => {
+          // Load the owning product so publish can enforce capacity only on real transitions.
+          const target = await getVariantPublishTarget(
+            tx,
+            brandId,
+            input.variantId,
+          );
+          if (!target) {
+            throw badRequest("Variant not found");
+          }
 
-        const { passport, isNew } = await getOrCreatePassport(
-          db,
-          input.variantId,
-          brandId,
-        );
-        if (!passport) {
-          throw badRequest("Failed to create or retrieve passport");
-        }
+          const summaries = await getProductPublishSummaries(tx, brandId, [
+            target.productId,
+          ]);
+          const summary = summaries[0] ?? null;
+          if (!summary) {
+            throw badRequest("Product not found");
+          }
+          if (summary.variantCount === 0) {
+            throw badRequest("No variants found for product");
+          }
 
-        await setProductsPublished(db, brandId, [target.productId]);
-        await markPassportDirty(db, passport.id);
-        const projection = await projectSinglePassport(db, passport.id);
+          let capacityResult: PublishCapacityResult | null = null;
+          const publishedCount = summary.status !== "published" ? summary.variantCount : 0;
+
+          if (summary.status !== "published") {
+            capacityResult = await enforcePublishCapacity(tx, brandId, summary.variantCount);
+          }
+
+          const { passport, isNew } = await getOrCreatePassport(
+            tx,
+            input.variantId,
+            brandId,
+          );
+          if (!passport) {
+            throw badRequest("Failed to create or retrieve passport");
+          }
+
+          await setProductsPublished(tx, brandId, [target.productId]);
+          await markPassportDirty(tx, passport.id);
+
+          return {
+            passportId: passport.id,
+            isNew,
+            capacityResult,
+            publishedCount,
+          };
+        });
+
+        const projection = await projectSinglePassport(db, publishResult.passportId);
 
         if (!projection.found || !projection.version || !projection.passport) {
           throw badRequest(projection.error ?? "Failed to project passport");
@@ -200,17 +306,29 @@ export const publishRouter = createTRPCRouter({
             : [],
         });
 
+        if (publishResult.capacityResult) {
+          maybePublishLimitNotification({
+            db,
+            brandId,
+            capacityResult: publishResult.capacityResult,
+            publishedCount: publishResult.publishedCount,
+          }).catch(() => {});
+        }
+
         return {
           success: true,
           variantId: input.variantId,
           passport: {
             id: projection.passport.id,
             upid: projection.passport.upid,
-            isNew,
+            isNew: publishResult.isNew,
           },
           version: projection.version,
         };
       } catch (error) {
+        if (error instanceof PublishLimitExceededError) {
+          throw badRequest(error.message);
+        }
         throw wrapError(error, "Failed to publish variant");
       }
     }),
@@ -229,19 +347,31 @@ export const publishRouter = createTRPCRouter({
       const { db, brandId } = ctx as BrandContext;
 
       try {
-        const variantCount = await countProductVariants(
-          db,
-          brandId,
-          input.productId,
-        );
-        if (variantCount === null) {
-          throw badRequest("Product not found");
-        }
-        if (variantCount === 0) {
-          throw badRequest("No variants found for product");
-        }
+        const txResult = await db.transaction(async (tx) => {
+          // Re-check the product state inside one transaction so publish capacity cannot race.
+          const rows = await getProductPublishSummaries(tx, brandId, [
+            input.productId,
+          ]);
+          const summary = rows[0] ?? null;
+          if (!summary) {
+            throw badRequest("Product not found");
+          }
+          if (summary.variantCount === 0) {
+            throw badRequest("No variants found for product");
+          }
 
-        await setProductsPublished(db, brandId, [input.productId]);
+          let capacityResult: PublishCapacityResult | null = null;
+          const publishedCount = summary.status !== "published" ? summary.variantCount : 0;
+
+          if (summary.status !== "published") {
+            capacityResult = await enforcePublishCapacity(tx, brandId, summary.variantCount);
+          }
+
+          await setProductsPublished(tx, brandId, [input.productId]);
+
+          return { summary, capacityResult, publishedCount };
+        });
+
         await markPassportsDirtyByProductIds(db, brandId, [input.productId]);
         const projection = await projectDirtyPassports(db, brandId, {
           productIds: [input.productId],
@@ -252,16 +382,28 @@ export const publishRouter = createTRPCRouter({
           barcodes: projection.barcodes,
         });
 
+        if (txResult.capacityResult) {
+          maybePublishLimitNotification({
+            db,
+            brandId,
+            capacityResult: txResult.capacityResult,
+            publishedCount: txResult.publishedCount,
+          }).catch(() => {});
+        }
+
         return {
           success: true,
           productId: input.productId,
-          count: variantCount,
+          count: txResult.summary.variantCount,
           failed: 0,
           passportsProjected: projection.totalPassportsProjected,
           versionsCreated: projection.versionsCreated,
           versionsSkippedUnchanged: projection.versionsSkippedUnchanged,
         };
       } catch (error) {
+        if (error instanceof PublishLimitExceededError) {
+          throw badRequest(error.message);
+        }
         throw wrapError(error, "Failed to publish product");
       }
     }),
@@ -281,25 +423,54 @@ export const publishRouter = createTRPCRouter({
 
       try {
         const uniqueProductIds = Array.from(new Set(input.productIds));
-        const updatedProductIds = await setProductsPublished(
+        const publishResult = await db.transaction(async (tx) => {
+          // Enforce the publish budget only for products that are not already published.
+          const summaries = await getProductPublishSummaries(
+            tx,
+            brandId,
+            uniqueProductIds,
+          );
+          const intendedPublishCount = summaries
+            .filter((summary) => summary.status !== "published")
+            .reduce((total, summary) => total + summary.variantCount, 0);
+
+          const capacityResult = await enforcePublishCapacity(tx, brandId, intendedPublishCount);
+
+          return {
+            updatedProductIds: await setProductsPublished(
+              tx,
+              brandId,
+              uniqueProductIds,
+            ),
+            foundProductCount: summaries.length,
+            capacityResult,
+            intendedPublishCount,
+          };
+        });
+        const dirtyResult = await markPassportsDirtyByProductIds(
           db,
           brandId,
           uniqueProductIds,
         );
-        const dirtyResult = await markPassportsDirtyByProductIds(
+
+        maybePublishLimitNotification({
           db,
           brandId,
-          updatedProductIds,
-        );
+          capacityResult: publishResult.capacityResult,
+          publishedCount: publishResult.intendedPublishCount,
+        }).catch(() => {});
 
         return {
           success: true,
-          totalProductsPublished: updatedProductIds.length,
+          totalProductsPublished: publishResult.updatedProductIds.length,
           totalVariantsPublished: dirtyResult.marked,
-          totalFailed: uniqueProductIds.length - updatedProductIds.length,
-          productsMarkedDirty: updatedProductIds.length,
+          totalFailed: uniqueProductIds.length - publishResult.foundProductCount,
+          productsMarkedDirty: publishResult.foundProductCount,
         };
       } catch (error) {
+        if (error instanceof PublishLimitExceededError) {
+          throw badRequest(error.message);
+        }
         throw wrapError(error, "Failed to bulk publish products");
       }
     }),

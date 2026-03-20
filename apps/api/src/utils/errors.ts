@@ -81,6 +81,7 @@ export const ACCESS_ERROR_TOKENS = {
   TEMPORARY_BLOCKED: "ACCESS_TEMPORARY_BLOCKED",
   CANCELLED: "ACCESS_CANCELLED",
   SKU_LIMIT_REACHED: "ACCESS_SKU_LIMIT_REACHED",
+  PUBLISH_LIMIT_REACHED: "ACCESS_PUBLISH_LIMIT_REACHED",
 } as const;
 
 function accessForbidden(token: string, detail: string): TRPCError {
@@ -126,6 +127,13 @@ export function accessSkuLimitReached(): TRPCError {
   return accessForbidden(
     ACCESS_ERROR_TOKENS.SKU_LIMIT_REACHED,
     "SKU creation limit reached. Upgrade or contact support to increase your limit.",
+  );
+}
+
+export function accessPublishLimitReached(): TRPCError {
+  return accessForbidden(
+    ACCESS_ERROR_TOKENS.PUBLISH_LIMIT_REACHED,
+    "Passport publish limit reached. Unpublish existing passports or upgrade your plan to continue.",
   );
 }
 

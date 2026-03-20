@@ -1,7 +1,7 @@
 /**
  * Static plan feature data for the plan selector UI.
  *
- * Defines tier display info (prices, SKU limits, descriptions) and
+ * Defines tier display info (prices, passport publish limits, descriptions) and
  * the feature comparison list used in plan cards.
  */
 
@@ -26,7 +26,7 @@ export interface PlanDisplay {
   impactMonthlyPrice: number | null;
   /** Impact Predictions yearly add-on price (total). null = custom. */
   impactYearlyPrice: number | null;
-  /** Display string for SKU limit. */
+  /** Display string for the yearly passport publish limit. */
   skuLimit: string;
   /** Whether this is the recommended plan. */
   recommended?: boolean;

@@ -3,13 +3,14 @@
  */
 "use client";
 
+import { SkuLimitBanner } from "@/components/products/sku-limit-banner";
 import { useTRPC } from "@/trpc/client";
 import { Skeleton } from "@v1/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { SkuUsageBar } from "./sku-usage-bar";
 
 const ONBOARDING_TOOLTIP =
-  "In your first paid year you have a higher onboarding SKU limit. Your regular yearly limit starts after that.";
+  "In your first paid year you have a higher onboarding passport publish limit. Your regular yearly limit starts after that.";
 
 /**
  * Renders the single active SKU budget for the brand's current lifecycle phase.
@@ -47,9 +48,9 @@ export function UsagePageContent() {
     return (
       <div className="w-full max-w-[700px]">
         <div className="border p-6">
-          <h6 className="text-foreground">SKU Usage</h6>
+          <h6 className="text-foreground">Passport Usage</h6>
           <p className="mt-1 text-sm text-secondary">
-            SKU limits are not enforced during demo access.
+            Passport publish limits are not enforced during demo access.
           </p>
         </div>
       </div>
@@ -58,21 +59,45 @@ export function UsagePageContent() {
 
   const description =
     phase === "trial"
-      ? "During trial you can create up to 50 SKUs. When you subscribe, your paid SKU usage starts fresh."
-      : "Track your SKU usage across billing periods.";
+      ? "During trial you can publish up to 50 passports. When you subscribe, your paid passport usage starts fresh."
+      : "Track your passport publishing usage across billing periods.";
   const label =
     activeSkuBudget.kind === "trial"
-      ? "trial SKUs used"
+      ? "trial passports published"
       : activeSkuBudget.kind === "onboarding"
-        ? "onboarding SKUs used"
-        : "new SKUs used this year";
+        ? "onboarding passports published"
+        : "passports published this year";
   const infoTooltip =
     activeSkuBudget.kind === "onboarding" ? ONBOARDING_TOOLTIP : undefined;
 
+  // Derive SKU status for the limit banner from billing data.
+  const skuStatus: "allowed" | "warning" | "blocked" =
+    activeSkuBudget.remaining !== null && activeSkuBudget.remaining <= 0
+      ? "blocked"
+      : activeSkuBudget.utilization !== null && activeSkuBudget.utilization >= 0.8
+        ? "warning"
+        : "allowed";
+
   return (
-    <div className="w-full max-w-[700px]">
+    <div className="w-full max-w-[700px] space-y-4">
+      <SkuLimitBanner
+        sku={{
+          status: skuStatus,
+          activeBudget: {
+            kind: activeSkuBudget.kind,
+            phase: activeSkuBudget.phase,
+            limit: activeSkuBudget.limit,
+            used: activeSkuBudget.used,
+            remaining: activeSkuBudget.remaining,
+            utilization: activeSkuBudget.utilization,
+            windowStartAt: activeSkuBudget.window_start_at,
+            windowEndAt: activeSkuBudget.window_end_at,
+            isFirstPaidYear: activeSkuBudget.is_first_paid_year,
+          },
+        }}
+      />
       <div className="border p-6">
-        <h6 className="text-foreground">SKU Usage</h6>
+        <h6 className="text-foreground">Passport Usage</h6>
         <p className="mt-1 text-sm text-secondary">{description}</p>
         <div className="mt-4 space-y-4">
           <SkuUsageBar

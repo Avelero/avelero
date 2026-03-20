@@ -57,7 +57,6 @@ export interface ParsedProduct {
   description?: string;
   manufacturerName?: string;
   imagePath?: string;
-  status?: string;
   categoryPath?: string;
   seasonName?: string;
   tags: string[];
@@ -190,7 +189,6 @@ export const EXPECTED_COLUMNS = [
   "Manufacturer",
   "Description",
   "Image",
-  "Status",
   "Category",
   "Season",
   "Tags",
@@ -230,7 +228,6 @@ const COLUMN_TO_INTERNAL: Record<string, string> = {
   Manufacturer: "Manufacturer",
   Description: "Description",
   Image: "Image",
-  Status: "Status",
   Category: "Category",
   Season: "Season",
   Tags: "Tags",
@@ -707,7 +704,6 @@ export async function parseExcelFile(
         description: rowData.Description,
         manufacturerName: rowData.Manufacturer,
         imagePath: rowData.Image,
-        status: rowData.Status?.toLowerCase(),
         categoryPath: rowData.Category,
         seasonName: rowData.Season,
         tags: parseSemicolonSeparated(rowData.Tags),
@@ -752,7 +748,7 @@ export function validateTemplateMatch(headers: string[]): {
     if (!headerSet.has(expected)) missingColumns.push(expected);
   }
   for (const header of headers) {
-    if (!expectedSet.has(header) && header !== "UPID")
+    if (!expectedSet.has(header) && header !== "UPID" && header !== "Status")
       extraColumns.push(header);
   }
 

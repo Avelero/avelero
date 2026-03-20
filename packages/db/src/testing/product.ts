@@ -20,6 +20,7 @@ export interface CreateTestProductOptions {
   productHandle?: string;
   description?: string;
   status?: string;
+  publishedAt?: string | null;
 }
 
 export interface CreateTestVariantOptions {
@@ -66,7 +67,10 @@ export async function createTestProduct(
       name,
       productHandle,
       description: options.description,
-      status: options.status ?? "draft",
+      status: options.status ?? "unpublished",
+      publishedAt:
+        options.publishedAt ??
+        (options.status === "published" ? new Date().toISOString() : null),
     })
     .returning({
       id: schema.products.id,

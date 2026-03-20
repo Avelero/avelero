@@ -333,6 +333,7 @@ export async function projectStripeSubscription(opts: {
         hasImpactPredictions: projection.hasImpactPredictions,
         skuAnnualLimit: tierConfig.skuAnnualLimit,
         skuOnboardingLimit: tierConfig.skuOnboardingLimit,
+        variantGlobalCap: tierConfig.variantGlobalCap,
         updatedAt: nowIso,
       })
       .where(eq(brandPlan.brandId, brandId));

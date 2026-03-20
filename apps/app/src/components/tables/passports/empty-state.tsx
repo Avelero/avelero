@@ -3,8 +3,6 @@
  */
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import {
   Tooltip,
@@ -65,23 +63,11 @@ function EmptyPanel({ title, description, action }: BaseProps) {
 }
 
 export function NoPassports() {
-  const trpc = useTRPC();
-  const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
-  const isSkuBlocked = initQuery.data?.sku.status === "blocked";
-
   return (
     <EmptyPanel
       title="No passports yet"
       description="Create your first Digital Product Passport to get started."
-      action={
-        isSkuBlocked
-          ? {
-              label: "Create passport",
-              disabledReason:
-                "You've reached your SKU limit. Upgrade your plan to add more products.",
-            }
-          : { label: "Create passport", href: "/passports/create" }
-      }
+      action={{ label: "Create passport", href: "/passports/create" }}
     />
   );
 }

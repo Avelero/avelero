@@ -4,7 +4,7 @@
 import { tasks } from "@trigger.dev/sdk/v3";
 import { and, asc, desc, eq, inArray, isNull, sql } from "@v1/db/queries";
 import {
-  countBrandSkusInActiveWindow,
+  countPublishedPassportsInActiveWindow,
   computeNextBrandIdForUser,
   createBrand,
   createBrandInvites,
@@ -521,14 +521,15 @@ export const platformAdminRouter = createTRPCRouter({
               snapshot,
               evaluationDate: currentDatabaseTimestamp,
             });
-            const currentSkuUsageCount = await countBrandSkusInActiveWindow(
-              ctx.db,
-              row.id,
-              activeSkuWindow,
-            );
+            const currentPublishUsageCount =
+              await countPublishedPassportsInActiveWindow(
+                ctx.db,
+                row.id,
+                activeSkuWindow,
+              );
             const derivedBudget = deriveSkuBudget({
               snapshot,
-              currentSkuUsageCount,
+              currentPublishUsageCount,
               evaluationDate: currentDatabaseTimestamp,
             });
 
@@ -685,14 +686,15 @@ export const platformAdminRouter = createTRPCRouter({
           snapshot: accessSnapshot,
           evaluationDate: currentDatabaseTimestamp,
         });
-        const currentSkuUsageCount = await countBrandSkusInActiveWindow(
-          ctx.db,
-          input.brand_id,
-          activeSkuWindow,
-        );
+        const currentPublishUsageCount =
+          await countPublishedPassportsInActiveWindow(
+            ctx.db,
+            input.brand_id,
+            activeSkuWindow,
+          );
         const derivedBudget = deriveSkuBudget({
           snapshot: accessSnapshot,
-          currentSkuUsageCount,
+          currentPublishUsageCount,
           evaluationDate: currentDatabaseTimestamp,
         });
 

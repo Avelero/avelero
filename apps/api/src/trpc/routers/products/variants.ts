@@ -12,11 +12,8 @@
  */
 import type { DatabaseOrTransaction } from "@v1/db/client";
 import {
-  countBrandSkusInActiveWindow,
-  getBrandAccessSnapshot,
-  getCurrentDatabaseTimestamp,
-  lockBrandPlanRowForSkuUsage,
-  resolveActiveSkuWindow,
+  VariantGlobalCapExceededError,
+  enforceVariantGlobalCap,
 } from "@v1/db/queries/brand";
 import { and, eq, inArray } from "@v1/db/queries";
 import {
@@ -70,56 +67,14 @@ import type {
   BrandAccessTRPCContext,
 } from "../../init.js";
 import {
-  assertResolvedBrandWriteAccess,
   brandReadProcedure,
   brandSkuWriteProcedure,
   brandWriteProcedure,
   createTRPCRouter,
-  resolveSkuDecisionWithIntendedCount,
 } from "../../init.js";
-import { resolveBrandAccessDecision } from "../../../lib/access-policy/resolve-brand-access-decision.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 type BrandDb = DatabaseOrTransaction;
-
-/**
- * Locks the brand SKU row and validates that the intended create count still fits the live window budget.
- */
-async function enforceSkuCreateCapacity(params: {
-  db: BrandDb;
-  brandId: string;
-  role: BrandAccessTRPCContext["role"];
-  intendedCreateCount: number;
-}): Promise<void> {
-  // Serialize concurrent SKU writes for the same brand before re-reading anchors and usage.
-  await lockBrandPlanRowForSkuUsage(params.db, params.brandId);
-
-  const snapshot = await getBrandAccessSnapshot(params.db, params.brandId);
-  const evaluationDate = await getCurrentDatabaseTimestamp(params.db);
-  const activeSkuWindow = resolveActiveSkuWindow({
-    snapshot,
-    evaluationDate,
-  });
-  const currentSkuUsageCount = await countBrandSkusInActiveWindow(
-    params.db,
-    params.brandId,
-    activeSkuWindow,
-  );
-  const brandAccess = resolveBrandAccessDecision({
-    role: params.role ?? null,
-    snapshot,
-  });
-
-  assertResolvedBrandWriteAccess(brandAccess);
-  resolveSkuDecisionWithIntendedCount({
-    role: params.role,
-    brandAccess,
-    snapshot,
-    intendedCreateCount: params.intendedCreateCount,
-    currentSkuUsageCount,
-    evaluationDate,
-  });
-}
 
 // =============================================================================
 // INPUT SCHEMAS
@@ -684,12 +639,7 @@ export const productVariantsRouter = createTRPCRouter({
         // Use transaction to ensure atomicity - if any step fails, rollback
         const variant = await db.transaction(async (tx) => {
           // Re-check SKU capacity inside the transaction so concurrent writes cannot oversubscribe the brand.
-          await enforceSkuCreateCapacity({
-            db: tx,
-            brandId,
-            role: skuCtx.role,
-            intendedCreateCount: 1,
-          });
+          await enforceVariantGlobalCap(tx, brandId, 1);
 
           // Create variant
           const [newVariant] = await tx
@@ -754,6 +704,9 @@ export const productVariantsRouter = createTRPCRouter({
           throw badRequest(
             "This barcode is already used by another variant in your brand",
           );
+        }
+        if (error instanceof VariantGlobalCapExceededError) {
+          throw badRequest(error.message);
         }
         throw wrapError(error, "Failed to create variant");
       }
@@ -992,12 +945,7 @@ export const productVariantsRouter = createTRPCRouter({
 
         await db.transaction(async (tx) => {
           // Re-check SKU capacity inside the transaction so batch creates see the latest live usage.
-          await enforceSkuCreateCapacity({
-            db: tx,
-            brandId,
-            role: skuCtx.role,
-            intendedCreateCount: input.variants.length,
-          });
+          await enforceVariantGlobalCap(tx, brandId, input.variants.length);
 
           for (let i = 0; i < input.variants.length; i++) {
             const variantInput = input.variants[i]!;
@@ -1085,6 +1033,9 @@ export const productVariantsRouter = createTRPCRouter({
           throw badRequest(
             "One or more barcodes are already used by another variant in your brand",
           );
+        }
+        if (error instanceof VariantGlobalCapExceededError) {
+          throw badRequest(error.message);
         }
         throw wrapError(error, "Failed to batch create variants");
       }
@@ -1518,12 +1469,7 @@ export const productVariantsRouter = createTRPCRouter({
           }
 
           // Re-check SKU capacity after deletions so sync writes can replace variants without false blocks.
-          await enforceSkuCreateCapacity({
-            db: tx,
-            brandId,
-            role: skuCtx.role,
-            intendedCreateCount: toCreate.length,
-          });
+          await enforceVariantGlobalCap(tx, brandId, toCreate.length);
 
           // Create new variants
           for (let i = 0; i < toCreate.length; i++) {
@@ -1674,6 +1620,9 @@ export const productVariantsRouter = createTRPCRouter({
           throw badRequest(
             "One or more barcodes are already used by another variant in your brand",
           );
+        }
+        if (error instanceof VariantGlobalCapExceededError) {
+          throw badRequest(error.message);
         }
         throw wrapError(error, "Failed to sync variants");
       }

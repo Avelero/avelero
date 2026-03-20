@@ -21,6 +21,9 @@ export interface ProductSelectionCounts {
   selectedVariants: number;
   variantsWithBarcode: number;
   variantsWithoutBarcode: number;
+  selectedPublishedProducts: number;
+  selectedUnpublishedProducts: number;
+  publishableVariants: number;
 }
 
 /**
@@ -74,23 +77,38 @@ export async function getProductSelectionCounts(
       selectedVariants: 0,
       variantsWithBarcode: 0,
       variantsWithoutBarcode: 0,
+      selectedPublishedProducts: 0,
+      selectedUnpublishedProducts: 0,
+      publishableVariants: 0,
     };
   }
 
-  const [countRow] = await db
-    .select({
-      selectedVariants: sql<number>`count(*)::int`,
-      variantsWithBarcode: sql<number>`count(*) filter (where ${productVariants.barcode} is not null and btrim(${productVariants.barcode}) <> '')::int`,
-    })
-    .from(productVariants)
-    .innerJoin(products, eq(productVariants.productId, products.id))
-    .where(
-      and(
-        eq(products.brandId, brandId),
-        inArray(productVariants.productId, productIds),
+  const [countRows, productStatusRows] = await Promise.all([
+    db
+      .select({
+        selectedVariants: sql<number>`count(*)::int`,
+        variantsWithBarcode: sql<number>`count(*) filter (where ${productVariants.barcode} is not null and btrim(${productVariants.barcode}) <> '')::int`,
+        publishableVariants: sql<number>`count(*) filter (where ${products.status} <> 'published')::int`,
+      })
+      .from(productVariants)
+      .innerJoin(products, eq(productVariants.productId, products.id))
+      .where(
+        and(
+          eq(products.brandId, brandId),
+          inArray(productVariants.productId, productIds),
+        ),
       ),
-    );
+    db
+      .select({
+        selectedPublishedProducts: sql<number>`count(*) filter (where ${products.status} = 'published')::int`,
+        selectedUnpublishedProducts: sql<number>`count(*) filter (where ${products.status} <> 'published')::int`,
+      })
+      .from(products)
+      .where(and(eq(products.brandId, brandId), inArray(products.id, productIds))),
+  ]);
 
+  const countRow = countRows[0];
+  const productStatusRow = productStatusRows[0];
   const selectedVariants = countRow?.selectedVariants ?? 0;
   const variantsWithBarcode = countRow?.variantsWithBarcode ?? 0;
 
@@ -99,5 +117,9 @@ export async function getProductSelectionCounts(
     selectedVariants,
     variantsWithBarcode,
     variantsWithoutBarcode: selectedVariants - variantsWithBarcode,
+    selectedPublishedProducts: productStatusRow?.selectedPublishedProducts ?? 0,
+    selectedUnpublishedProducts:
+      productStatusRow?.selectedUnpublishedProducts ?? 0,
+    publishableVariants: countRow?.publishableVariants ?? 0,
   };
 }

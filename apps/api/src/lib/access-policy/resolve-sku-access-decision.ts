@@ -13,25 +13,27 @@ export { TRIAL_SKU_CAP };
 export function resolveSkuAccessDecision(
   input: ResolveSkuAccessDecisionInput,
 ): ResolvedSkuAccessDecision {
-  // Sanitize the requested create count before applying budget checks.
-  const intendedCreateCount =
-    typeof input.intendedCreateCount === "number" &&
-    Number.isFinite(input.intendedCreateCount)
-      ? Math.max(0, Math.trunc(input.intendedCreateCount))
+  // Sanitize the requested publish count before applying budget checks.
+  const intendedPublishCount =
+    typeof input.intendedPublishCount === "number" &&
+    Number.isFinite(input.intendedPublishCount)
+      ? Math.max(0, Math.trunc(input.intendedPublishCount))
       : 0;
   const derivedBudget = deriveSkuBudget({
     snapshot: input.snapshot,
+    currentPublishUsageCount:
+      input.currentPublishUsageCount ?? input.currentSkuUsageCount,
     currentSkuUsageCount:
       input.currentSkuUsageCount ?? input.currentNonGhostSkuCount ?? 0,
     evaluationDate: input.evaluationDate,
   });
   const activeBudget = derivedBudget.activeBudget;
-  const remainingCreateBudget = activeBudget.remaining;
+  const remainingPublishBudget = activeBudget.remaining;
   const { annual, onboarding, trial } = derivedBudget;
 
-  const wouldExceedIntendedCreateCount =
-    remainingCreateBudget !== null &&
-    intendedCreateCount > remainingCreateBudget;
+  const wouldExceedIntendedPublishCount =
+    remainingPublishBudget !== null &&
+    intendedPublishCount > remainingPublishBudget;
 
   const maxUtilization = Math.max(
     activeBudget.utilization ?? 0,
@@ -42,11 +44,11 @@ export function resolveSkuAccessDecision(
 
   const writeAllowed = input.brandAccess.capabilities.canWriteBrandData;
   const noRemaining =
-    remainingCreateBudget !== null && remainingCreateBudget <= 0;
+    remainingPublishBudget !== null && remainingPublishBudget <= 0;
 
   let status: ResolvedSkuAccessDecision["status"] = "allowed";
 
-  if (!writeAllowed || noRemaining || wouldExceedIntendedCreateCount) {
+  if (!writeAllowed || noRemaining || wouldExceedIntendedPublishCount) {
     status = "blocked";
   } else if (maxUtilization >= SKU_WARNING_THRESHOLD) {
     status = "warning";
@@ -60,8 +62,8 @@ export function resolveSkuAccessDecision(
     warningThreshold: SKU_WARNING_THRESHOLD,
     trialCap: TRIAL_SKU_CAP,
     trialUniversalCap: TRIAL_SKU_CAP,
-    remainingCreateBudget,
-    intendedCreateCount,
-    wouldExceedIntendedCreateCount,
+    remainingPublishBudget,
+    intendedPublishCount,
+    wouldExceedIntendedPublishCount,
   };
 }

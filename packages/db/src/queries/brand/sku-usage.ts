@@ -4,7 +4,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { DatabaseOrTransaction } from "../../client";
 import { brandPlan, productVariants, products } from "../../schema";
-import type { BrandAccessSnapshotRow } from "./access";
+import { getBrandAccessSnapshot, type BrandAccessSnapshotRow } from "./access";
 
 type DateLike = Date | string;
 
@@ -43,7 +43,73 @@ export interface DerivedSkuBudgetState {
   annual: DerivedSkuAccessBudget;
   onboarding: DerivedSkuAccessBudget;
   trial: DerivedSkuAccessBudget | null;
-  remainingCreateBudget: number | null;
+  remainingPublishBudget: number | null;
+}
+
+export interface PublishCapacityResult {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  budgetKind: ActiveSkuBudgetKind | null;
+}
+
+export interface VariantGlobalCapResult {
+  total: number;
+  cap: number | null;
+  remaining: number | null;
+  utilization: number | null;
+}
+
+/**
+ * Describes a publish-window capacity violation for customer-facing mutations.
+ */
+export class PublishLimitExceededError extends Error {
+  intendedPublishCount: number;
+  used: number;
+  limit: number;
+  remaining: number;
+
+  constructor(params: {
+    intendedPublishCount: number;
+    used: number;
+    limit: number;
+  }) {
+    const remaining = Math.max(0, params.limit - params.used);
+    super(
+      `Publishing ${params.intendedPublishCount.toLocaleString("en-US")} passports would exceed your current limit of ${params.limit.toLocaleString("en-US")}. You have ${remaining.toLocaleString("en-US")} remaining in this window.`,
+    );
+    this.name = "PublishLimitExceededError";
+    this.intendedPublishCount = params.intendedPublishCount;
+    this.used = params.used;
+    this.limit = params.limit;
+    this.remaining = remaining;
+  }
+}
+
+/**
+ * Describes a global variant-cap violation for create-heavy background writes.
+ */
+export class VariantGlobalCapExceededError extends Error {
+  intendedCreateCount: number;
+  totalExistingVariants: number;
+  cap: number;
+  remaining: number;
+
+  constructor(params: {
+    intendedCreateCount: number;
+    totalExistingVariants: number;
+    cap: number;
+  }) {
+    const remaining = Math.max(0, params.cap - params.totalExistingVariants);
+    super(
+      `Creating ${params.intendedCreateCount.toLocaleString("en-US")} new variants would exceed the global variant cap of ${params.cap.toLocaleString("en-US")}. You have ${remaining.toLocaleString("en-US")} remaining.`,
+    );
+    this.name = "VariantGlobalCapExceededError";
+    this.intendedCreateCount = params.intendedCreateCount;
+    this.totalExistingVariants = params.totalExistingVariants;
+    this.cap = params.cap;
+    this.remaining = remaining;
+  }
 }
 
 /**
@@ -314,6 +380,39 @@ export async function countBrandSkusInActiveWindow(
 }
 
 /**
+ * Counts currently published passports whose latest publish timestamp falls inside the active window.
+ */
+export async function countPublishedPassportsInActiveWindow(
+  dbOrTx: DatabaseOrTransaction,
+  brandId: string,
+  window: ResolvedActiveSkuWindow,
+): Promise<number> {
+  if (!window.kind || !window.windowStartAt) {
+    return 0;
+  }
+
+  const windowPredicate = window.windowEndAt
+    ? sql`${products.publishedAt} >= ${window.windowStartAt} AND ${products.publishedAt} < ${window.windowEndAt}`
+    : sql`${products.publishedAt} >= ${window.windowStartAt}`;
+
+  const [row] = await dbOrTx
+    .select({
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(
+      and(
+        eq(products.brandId, brandId),
+        eq(products.status, "published"),
+        windowPredicate,
+      ),
+    );
+
+  return row?.count ?? 0;
+}
+
+/**
  * Reads the database server's current UTC timestamp for exact SKU window boundaries.
  */
 export async function getCurrentDatabaseTimestamp(
@@ -344,13 +443,16 @@ export async function getCurrentDatabaseDate(
  */
 export function deriveSkuBudget(params: {
   snapshot: Pick<BrandAccessSnapshotRow, "lifecycle" | "plan">;
+  currentPublishUsageCount?: number;
   currentSkuUsageCount?: number;
   currentNonGhostSkuCount?: number;
   trialStartedAt?: DateLike | null;
   evaluationDate?: DateLike | null;
 }): DerivedSkuBudgetState {
   const usageCount = sanitizeCount(
-    params.currentSkuUsageCount ?? params.currentNonGhostSkuCount,
+    params.currentPublishUsageCount ??
+      params.currentSkuUsageCount ??
+      params.currentNonGhostSkuCount,
   );
   const activeWindow = resolveActiveSkuWindow({
     snapshot: params.snapshot,
@@ -375,7 +477,7 @@ export function deriveSkuBudget(params: {
     annual,
     onboarding,
     trial,
-    remainingCreateBudget: activeBudget.remaining,
+    remainingPublishBudget: activeBudget.remaining,
   };
 }
 
@@ -389,6 +491,85 @@ export async function lockBrandPlanRowForSkuUsage(
   await dbOrTx.execute(
     sql`SELECT ${brandPlan.id} FROM ${brandPlan} WHERE ${brandPlan.brandId} = ${brandId} FOR UPDATE`,
   );
+}
+
+/**
+ * Enforces publish capacity inside the active billing window using a serialized brand-plan lock.
+ */
+export async function enforcePublishCapacity(
+  dbOrTx: DatabaseOrTransaction,
+  brandId: string,
+  intendedPublishCount: number,
+): Promise<PublishCapacityResult> {
+  const sanitizedIntendedPublishCount = sanitizeCount(intendedPublishCount);
+  await lockBrandPlanRowForSkuUsage(dbOrTx, brandId);
+
+  const snapshot = await getBrandAccessSnapshot(dbOrTx, brandId);
+  const evaluationDate = await getCurrentDatabaseTimestamp(dbOrTx);
+  const activeWindow = resolveActiveSkuWindow({
+    snapshot,
+    evaluationDate,
+  });
+  const used = await countPublishedPassportsInActiveWindow(
+    dbOrTx,
+    brandId,
+    activeWindow,
+  );
+  const limit = sanitizeLimit(activeWindow.limit);
+  const remaining = limit === null ? null : Math.max(0, limit - used);
+
+  if (limit !== null && used + sanitizedIntendedPublishCount > limit) {
+    throw new PublishLimitExceededError({
+      intendedPublishCount: sanitizedIntendedPublishCount,
+      used,
+      limit,
+    });
+  }
+
+  return {
+    used,
+    limit,
+    remaining,
+    budgetKind: activeWindow.kind,
+  };
+}
+
+/**
+ * Enforces the infrastructure-only global variant cap for create paths.
+ */
+export async function enforceVariantGlobalCap(
+  dbOrTx: DatabaseOrTransaction,
+  brandId: string,
+  intendedCreateCount: number,
+): Promise<VariantGlobalCapResult> {
+  const sanitizedIntendedCreateCount = sanitizeCount(intendedCreateCount);
+  const total = await countBrandSkus(dbOrTx, brandId);
+  const [plan] = await dbOrTx
+    .select({
+      variantGlobalCap: brandPlan.variantGlobalCap,
+    })
+    .from(brandPlan)
+    .where(eq(brandPlan.brandId, brandId))
+    .limit(1);
+
+  const cap = sanitizeLimit(plan?.variantGlobalCap);
+  const remaining = cap === null ? null : Math.max(0, cap - total);
+  const utilization = cap === null ? null : cap === 0 ? 1 : total / cap;
+
+  if (cap !== null && total + sanitizedIntendedCreateCount > cap) {
+    throw new VariantGlobalCapExceededError({
+      intendedCreateCount: sanitizedIntendedCreateCount,
+      totalExistingVariants: total,
+      cap,
+    });
+  }
+
+  return {
+    total,
+    cap,
+    remaining,
+    utilization,
+  };
 }
 
 /**

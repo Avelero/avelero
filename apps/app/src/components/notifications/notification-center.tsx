@@ -356,6 +356,8 @@ function getNotificationIcon(type: string) {
       return <Icons.Download className="h-4 w-4" />;
     case "invite_accepted":
       return <Icons.UserRound className="h-4 w-4" />;
+    case "sku_limit_warning":
+      return <Icons.AlertTriangle className="h-4 w-4 text-amber-600" />;
     default:
       return <Icons.Bell className="h-4 w-4" />;
   }

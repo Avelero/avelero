@@ -24,6 +24,7 @@ export async function createProduct(
     manufacturerId?: string;
     imagePath?: string;
     status?: string;
+    publishedAt?: string | null;
   },
 ) {
   let created:
@@ -46,6 +47,7 @@ export async function createProduct(
         manufacturerId: input.manufacturerId ?? null,
         imagePath: input.imagePath ?? null,
         status: input.status ?? "unpublished",
+        publishedAt: input.publishedAt ?? null,
       })
       .returning({ id: products.id, productHandle: products.productHandle });
 
@@ -77,6 +79,7 @@ export async function updateProduct(
     manufacturerId?: string | null;
     imagePath?: string | null;
     status?: string | null;
+    publishedAt?: string | null;
   },
 ) {
   let updated: { id: string; variantIds?: readonly string[] } | undefined;
@@ -97,6 +100,8 @@ export async function updateProduct(
       updateData.manufacturerId = input.manufacturerId;
     if (input.imagePath !== undefined) updateData.imagePath = input.imagePath;
     if (input.status !== undefined) updateData.status = input.status;
+    if (input.publishedAt !== undefined)
+      updateData.publishedAt = input.publishedAt;
 
     // If no content fields to update, return early without modifying anything
     if (Object.keys(updateData).length === 0) {

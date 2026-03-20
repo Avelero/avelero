@@ -207,6 +207,7 @@ export interface BulkUpdateResult {
  */
 export interface BulkUpdateFields {
   status?: string | null;
+  publishedAt?: string | null;
   categoryId?: string | null;
   seasonId?: string | null;
 }

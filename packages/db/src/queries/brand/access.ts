@@ -34,6 +34,7 @@ export interface BrandAccessSnapshotRow {
     skuAnnualLimit: number | null;
     skuOnboardingLimit: number | null;
     skuLimitOverride: number | null;
+    variantGlobalCap?: number | null;
     firstPaidStartedAt?: string | null;
     annualUsageAnchorAt?: string | null;
     skuCountAtYearStart?: number | null;
@@ -72,6 +73,7 @@ export async function getBrandAccessSnapshot(
       skuAnnualLimit: brandPlan.skuAnnualLimit,
       skuOnboardingLimit: brandPlan.skuOnboardingLimit,
       skuLimitOverride: brandPlan.skuLimitOverride,
+      variantGlobalCap: brandPlan.variantGlobalCap,
       firstPaidStartedAt: brandPlan.firstPaidStartedAt,
       annualUsageAnchorAt: brandPlan.annualUsageAnchorAt,
     })
@@ -117,12 +119,14 @@ export async function getBrandAccessSnapshot(
       row.skuAnnualLimit !== null ||
       row.skuOnboardingLimit !== null ||
       row.skuLimitOverride !== null ||
+      row.variantGlobalCap !== null ||
       row.firstPaidStartedAt !== null ||
       row.annualUsageAnchorAt !== null
         ? {
             skuAnnualLimit: row.skuAnnualLimit,
             skuOnboardingLimit: row.skuOnboardingLimit,
             skuLimitOverride: row.skuLimitOverride,
+            variantGlobalCap: row.variantGlobalCap,
             firstPaidStartedAt: row.firstPaidStartedAt,
             annualUsageAnchorAt: row.annualUsageAnchorAt,
           }

@@ -63,6 +63,7 @@ export interface BrandAccessSnapshot {
     skuAnnualLimit: number | null;
     skuOnboardingLimit: number | null;
     skuLimitOverride: number | null;
+    variantGlobalCap?: number | null;
     firstPaidStartedAt?: string | null;
     annualUsageAnchorAt?: string | null;
     skuCountAtYearStart?: number | null;
@@ -110,7 +111,8 @@ export interface ActiveSkuBudget extends SkuAccessBudget {
 export interface ResolveSkuAccessDecisionInput {
   brandAccess: ResolvedBrandAccessDecision;
   snapshot: BrandAccessSnapshot;
-  intendedCreateCount: number;
+  intendedPublishCount: number;
+  currentPublishUsageCount?: number;
   currentSkuUsageCount?: number;
   currentNonGhostSkuCount?: number;
   trialStartedAt?: Date | string | null;
@@ -125,7 +127,7 @@ export interface ResolvedSkuAccessDecision {
   warningThreshold: number;
   trialCap: number;
   trialUniversalCap?: number;
-  remainingCreateBudget: number | null;
-  intendedCreateCount: number;
-  wouldExceedIntendedCreateCount: boolean;
+  remainingPublishBudget: number | null;
+  intendedPublishCount: number;
+  wouldExceedIntendedPublishCount: boolean;
 }

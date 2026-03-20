@@ -2,6 +2,11 @@
 import "../../setup";
 
 import { beforeEach, describe, expect, it } from "bun:test";
+import {
+  countPublishedPassportsInActiveWindow,
+  getBrandAccessSnapshot,
+  resolveActiveSkuWindow,
+} from "@v1/db/queries/brand";
 import * as schema from "@v1/db/schema";
 import {
   createTestBrand,
@@ -48,6 +53,13 @@ function createMockContext(params: {
     supabaseAdmin: null,
     geo: { ip: null },
   };
+}
+
+/**
+ * Creates an ISO timestamp a fixed number of days before the current time.
+ */
+function daysAgo(dayCount: number): string {
+  return new Date(Date.now() - dayCount * 24 * 60 * 60 * 1000).toISOString();
 }
 
 async function setBrandSubscriptionState(params: {
@@ -355,84 +367,90 @@ describe("Access policy enforcement (tRPC)", () => {
     }
   });
 
-  it("blocks SKU mutation with ACCESS_SKU_LIMIT_REACHED when over budget", async () => {
-    const paidAnchor = new Date(
-      Date.now() - 2 * 365 * 24 * 60 * 60 * 1000,
-    ).toISOString();
+  it("allows SKU mutation when the publish budget is exhausted", async () => {
+    const paidAnchor = daysAgo(400);
+    const publishedAt = daysAgo(7);
     await setBrandSubscriptionState({
       brandId,
       phase: "active",
       skuAnnualLimit: 1,
+      skuOnboardingLimit: 1,
       firstPaidStartedAt: paidAnchor,
       annualUsageAnchorAt: paidAnchor,
       skuCountAtYearStart: 0,
       skuCountAtOnboardingStart: 0,
     });
 
-    const product = await createTestProduct(brandId, {
-      productHandle: `sku-limit-${Math.random().toString(36).slice(2, 8)}`,
+    const publishedProduct = await createTestProduct(brandId, {
+      productHandle: `published-budget-${Math.random().toString(36).slice(2, 8)}`,
+      status: "published",
+      publishedAt,
     });
-    await createTestVariant(product.id, {
+    await createTestVariant(publishedProduct.id, {
       sku: `existing-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    const draftProduct = await createTestProduct(brandId, {
+      productHandle: `sku-limit-${Math.random().toString(36).slice(2, 8)}`,
     });
 
     const caller = appRouter.createCaller(
       createMockContext({ brandId, userId, userEmail, role: "owner" }),
     );
 
-    await expectToken(
+    await expect(
       caller.products.variants.create({
-        productHandle: product.productHandle,
+        productHandle: draftProduct.productHandle,
         attributeValueIds: [],
       }),
-      ACCESS_ERROR_TOKENS.SKU_LIMIT_REACHED,
-    );
+    ).resolves.toBeDefined();
   });
 
-  it("allows avelero SKU mutations even when the SKU budget is exhausted", async () => {
-    const aveleroUserEmail = `avelero-sku-${Math.random().toString(36).slice(2, 8)}@example.com`;
-    const aveleroUserId = await createTestUser(aveleroUserEmail);
-
-    await testDb.insert(schema.brandMembers).values({
-      brandId,
-      userId: aveleroUserId,
-      role: "avelero",
-    });
-
-    const paidAnchor = new Date(
-      Date.now() - 2 * 365 * 24 * 60 * 60 * 1000,
-    ).toISOString();
+  it("blocks publish mutation when the publish budget is exhausted", async () => {
+    const paidAnchor = daysAgo(400);
+    const publishedAt = daysAgo(7);
     await setBrandSubscriptionState({
       brandId,
       phase: "active",
       skuAnnualLimit: 1,
+      skuOnboardingLimit: 1,
       firstPaidStartedAt: paidAnchor,
       annualUsageAnchorAt: paidAnchor,
       skuCountAtYearStart: 0,
       skuCountAtOnboardingStart: 0,
     });
 
-    const product = await createTestProduct(brandId, {
-      productHandle: `avelero-sku-limit-${Math.random().toString(36).slice(2, 8)}`,
+    const publishedProduct = await createTestProduct(brandId, {
+      productHandle: `published-cap-${Math.random().toString(36).slice(2, 8)}`,
+      status: "published",
+      publishedAt,
     });
-    await createTestVariant(product.id, {
-      sku: `existing-avelero-${Math.random().toString(36).slice(2, 8)}`,
+    await createTestVariant(publishedProduct.id, {
+      sku: `existing-published-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    const draftProduct = await createTestProduct(brandId, {
+      productHandle: `publish-limit-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    await createTestVariant(draftProduct.id, {
+      sku: `pending-publish-${Math.random().toString(36).slice(2, 8)}`,
+    });
+    const snapshot = await getBrandAccessSnapshot(testDb, brandId);
+    const activeWindow = resolveActiveSkuWindow({
+      snapshot,
+      evaluationDate: new Date(),
     });
 
     const caller = appRouter.createCaller(
-      createMockContext({
-        brandId,
-        userId: aveleroUserId,
-        userEmail: aveleroUserEmail,
-        role: "avelero",
-      }),
+      createMockContext({ brandId, userId, userEmail, role: "owner" }),
     );
 
+    expect(activeWindow.kind).toBe("annual");
+    expect(
+      await countPublishedPassportsInActiveWindow(testDb, brandId, activeWindow),
+    ).toBe(1);
     await expect(
-      caller.products.variants.create({
-        productHandle: product.productHandle,
-        attributeValueIds: [],
+      caller.products.publish.product({
+        productId: draftProduct.id,
       }),
-    ).resolves.toBeDefined();
+    ).rejects.toThrow("would exceed your current limit");
   });
 });

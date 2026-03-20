@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
 import { and, eq, inArray } from "@v1/db/queries";
+import type { Database } from "@v1/db/client";
+import {
+  PublishLimitExceededError,
+  enforcePublishCapacity,
+} from "@v1/db/queries/brand";
+import type { PublishCapacityResult } from "@v1/db/queries/brand";
+import { publishNotificationEvent } from "@v1/db/queries/notifications";
 /**
  * Products domain router implementation.
  *
@@ -123,6 +130,90 @@ async function collectPublicProductVariantIdentifiers(
       ),
     ),
   };
+}
+
+interface ProductPublishTransitionSummary {
+  productId: string;
+  status: string;
+  variantCount: number;
+}
+
+const PUBLISH_NOTIFICATION_THRESHOLD = 0.9;
+
+/**
+ * Publishes a publish-limit warning notification if the brand crossed the 90% threshold.
+ * Piggybacks on data already computed by enforcePublishCapacity — no extra queries.
+ */
+async function maybePublishLimitNotification(params: {
+  db: Database;
+  brandId: string;
+  capacityResult: PublishCapacityResult;
+  publishedCount: number;
+}): Promise<void> {
+  const { capacityResult, publishedCount } = params;
+  if (!capacityResult.budgetKind || capacityResult.limit == null || capacityResult.limit === 0) return;
+
+  const newUsed = capacityResult.used + publishedCount;
+  const utilization = newUsed / capacityResult.limit;
+  if (utilization < PUBLISH_NOTIFICATION_THRESHOLD) return;
+
+  await publishNotificationEvent(params.db, {
+    event: "sku_limit_warning",
+    brandId: params.brandId,
+    payload: {
+      brandId: params.brandId,
+      budgetKind: capacityResult.budgetKind,
+      used: newUsed,
+      limit: capacityResult.limit,
+    },
+  });
+}
+
+/**
+ * Loads the current status and variant count for the targeted products.
+ */
+async function getProductPublishTransitionSummaries(
+  ctx: BrandContext,
+  brandId: string,
+  productIds: string[],
+): Promise<ProductPublishTransitionSummary[]> {
+  // Scope the lookup to one brand so publish enforcement cannot cross tenants.
+  if (productIds.length === 0) {
+    return [];
+  }
+
+  const rows = await ctx.db
+    .select({
+      productId: products.id,
+      status: products.status,
+      variantId: productVariants.id,
+    })
+    .from(products)
+    .leftJoin(productVariants, eq(productVariants.productId, products.id))
+    .where(and(eq(products.brandId, brandId), inArray(products.id, productIds)));
+
+  const summaries = new Map<string, ProductPublishTransitionSummary>();
+  for (const row of rows) {
+    const existing = summaries.get(row.productId);
+    if (existing) {
+      if (row.variantId) {
+        existing.variantCount += 1;
+      }
+      continue;
+    }
+
+    summaries.set(row.productId, {
+      productId: row.productId,
+      status: row.status,
+      variantCount: row.variantId ? 1 : 0,
+    });
+  }
+
+  return productIds
+    .map((productId) => summaries.get(productId))
+    .filter(
+      (summary): summary is ProductPublishTransitionSummary => Boolean(summary),
+    );
 }
 
 /**
@@ -446,6 +537,8 @@ export const productsRouter = createTRPCRouter({
           manufacturerId: input.manufacturer_id ?? null,
           imagePath: input.image_path ?? null,
           status: input.status ?? undefined,
+          publishedAt:
+            input.status === "published" ? new Date().toISOString() : undefined,
         };
 
         const product = await createProduct(
@@ -493,15 +586,80 @@ export const productsRouter = createTRPCRouter({
         // Check if this is a bulk operation (has selection property)
         if ("selection" in input) {
           const selection = input.selection;
+          const selectedProductIds =
+            selection.mode === "all"
+              ? await resolveSelectedProductIds(brandCtx.db, brandId, {
+                  selectionMode: "all",
+                  includeIds: [],
+                  excludeIds: selection.excludeIds ?? [],
+                  filterState: selection.filters ?? null,
+                  searchQuery: selection.search ?? null,
+                })
+              : selection.ids;
+          const publishTransitionTimestamp =
+            input.status !== undefined ? new Date().toISOString() : undefined;
+          const publishSummaries =
+            input.status === "published"
+              ? await getProductPublishTransitionSummaries(
+                  brandCtx,
+                  brandId,
+                  selectedProductIds,
+                )
+              : [];
+          const intendedPublishCount = publishSummaries
+            .filter((summary) => summary.status !== "published")
+            .reduce((total, summary) => total + summary.variantCount, 0);
+
+          let bulkCapacityResult: Awaited<ReturnType<typeof enforcePublishCapacity>> | null = null;
+          if (input.status === "published") {
+            await brandCtx.db.transaction(async (tx) => {
+              // Enforce the publish budget and capture current usage for notification check.
+              bulkCapacityResult = await enforcePublishCapacity(tx, brandId, intendedPublishCount);
+            });
+          }
+
           const bulkUpdates = {
             status: input.status ?? undefined,
+            publishedAt:
+              input.status === "unpublished" || input.status === "scheduled"
+                ? null
+                : undefined,
             categoryId: input.category_id ?? undefined,
             seasonId: input.season_id ?? undefined,
           };
 
           // Bulk update based on selection mode
           let result: { updated: number; productIds?: string[] };
-          if (selection.mode === "all") {
+          if (input.status === "published") {
+            const unpublishedProductIds = publishSummaries
+              .filter((summary) => summary.status !== "published")
+              .map((summary) => summary.productId);
+            const alreadyPublishedProductIds = publishSummaries
+              .filter((summary) => summary.status === "published")
+              .map((summary) => summary.productId);
+            const [publishedTransitionResult, publishedNoopResult] =
+              await Promise.all([
+                bulkUpdateProductsByIds(brandCtx.db, brandId, unpublishedProductIds, {
+                  ...bulkUpdates,
+                  publishedAt: publishTransitionTimestamp,
+                }),
+                bulkUpdateProductsByIds(
+                  brandCtx.db,
+                  brandId,
+                  alreadyPublishedProductIds,
+                  bulkUpdates,
+                ),
+              ]);
+
+            result = {
+              updated:
+                publishedTransitionResult.updated + publishedNoopResult.updated,
+              productIds: [
+                ...(publishedTransitionResult.productIds ?? []),
+                ...(publishedNoopResult.productIds ?? []),
+              ],
+            };
+          } else if (selection.mode === "all") {
             result = await bulkUpdateProductsByFilter(
               brandCtx.db,
               brandId,
@@ -544,6 +702,15 @@ export const productsRouter = createTRPCRouter({
             }
           }
 
+          if (bulkCapacityResult) {
+            maybePublishLimitNotification({
+              db: brandCtx.db,
+              brandId,
+              capacityResult: bulkCapacityResult,
+              publishedCount: intendedPublishCount,
+            }).catch(() => {});
+          }
+
           return {
             success: true,
             updated: result.updated,
@@ -552,6 +719,39 @@ export const productsRouter = createTRPCRouter({
 
         // Single product update
         const payload: Record<string, unknown> = { id: input.id };
+        const currentProductState =
+          input.status !== undefined
+            ? (
+                await getProductPublishTransitionSummaries(
+                  brandCtx,
+                  brandId,
+                  [input.id],
+                )
+              )[0] ?? null
+            : null;
+
+        if (input.status !== undefined && !currentProductState) {
+          throw badRequest("Product not found");
+        }
+
+        let singleCapacityResult: Awaited<ReturnType<typeof enforcePublishCapacity>> | null = null;
+        const singlePublishedCount =
+          input.status === "published" &&
+          currentProductState &&
+          currentProductState.status !== "published"
+            ? currentProductState.variantCount
+            : 0;
+
+        if (singlePublishedCount > 0) {
+          await brandCtx.db.transaction(async (tx) => {
+            // Enforce the publish budget before transitioning this product to published.
+            singleCapacityResult = await enforcePublishCapacity(
+              tx,
+              brandId,
+              singlePublishedCount,
+            );
+          });
+        }
 
         // Only add fields to payload if they were explicitly provided in input
         if (input.product_handle !== undefined)
@@ -567,6 +767,17 @@ export const productsRouter = createTRPCRouter({
         if (input.image_path !== undefined)
           payload.imagePath = input.image_path;
         if (input.status !== undefined) payload.status = input.status;
+        if (input.status === "published") {
+          payload.publishedAt =
+            currentProductState?.status !== "published"
+              ? new Date().toISOString()
+              : undefined;
+        } else if (
+          input.status === "unpublished" ||
+          input.status === "scheduled"
+        ) {
+          payload.publishedAt = null;
+        }
 
         const product = await updateProduct(
           brandCtx.db,
@@ -615,8 +826,20 @@ export const productsRouter = createTRPCRouter({
           }
         }
 
+        if (singleCapacityResult) {
+          maybePublishLimitNotification({
+            db: brandCtx.db,
+            brandId,
+            capacityResult: singleCapacityResult,
+            publishedCount: singlePublishedCount,
+          }).catch(() => {});
+        }
+
         return createEntityResponse(product);
       } catch (error) {
+        if (error instanceof PublishLimitExceededError) {
+          throw badRequest(error.message);
+        }
         throw wrapError(error, "Failed to update product");
       }
     }),

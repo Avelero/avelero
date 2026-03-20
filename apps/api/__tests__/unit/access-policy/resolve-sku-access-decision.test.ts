@@ -216,8 +216,8 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: null,
         },
       }),
-      intendedCreateCount: 0,
-      currentNonGhostSkuCount: 79,
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 79,
       trialStartedAt: null,
     });
     expect(seventyNine.status).toBe("allowed");
@@ -234,8 +234,8 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: null,
         },
       }),
-      intendedCreateCount: 0,
-      currentNonGhostSkuCount: 80,
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 80,
       trialStartedAt: null,
     });
     expect(eighty.status).toBe("warning");
@@ -252,8 +252,8 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: null,
         },
       }),
-      intendedCreateCount: 0,
-      currentNonGhostSkuCount: 100,
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 100,
       trialStartedAt: null,
     });
     expect(hundred.status).toBe("blocked");
@@ -281,12 +281,12 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: null,
         },
       }),
-      intendedCreateCount: 0,
-      currentNonGhostSkuCount: 49,
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 49,
     });
 
     expect(nearCap.status).toBe("warning");
-    expect(nearCap.remainingCreateBudget).toBe(1);
+    expect(nearCap.remainingPublishBudget).toBe(1);
 
     const atCap = resolveSkuAccessDecision({
       brandAccess: trialAccess,
@@ -304,12 +304,12 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: null,
         },
       }),
-      intendedCreateCount: 0,
-      currentNonGhostSkuCount: 50,
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 50,
     });
 
     expect(atCap.status).toBe("blocked");
-    expect(atCap.remainingCreateBudget).toBe(0);
+    expect(atCap.remainingPublishBudget).toBe(0);
   });
 
   it("still enforces the trial cap while the lifecycle phase remains trial", () => {
@@ -345,15 +345,15 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: null,
         },
       }),
-      intendedCreateCount: 0,
-      currentNonGhostSkuCount: 50,
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 50,
     });
 
     expect(result.status).toBe("blocked");
-    expect(result.remainingCreateBudget).toBe(0);
+    expect(result.remainingPublishBudget).toBe(0);
   });
 
-  it("blocks when intended create count exceeds remaining budget", () => {
+  it("blocks when intended publish count exceeds remaining budget", () => {
     const result = resolveSkuAccessDecision({
       brandAccess: buildBrandAccess(),
       snapshot: buildSnapshot({
@@ -366,13 +366,13 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: null,
         },
       }),
-      intendedCreateCount: 2,
-      currentNonGhostSkuCount: 9,
+      intendedPublishCount: 2,
+      currentPublishUsageCount: 9,
       trialStartedAt: null,
     });
 
     expect(result.status).toBe("blocked");
-    expect(result.wouldExceedIntendedCreateCount).toBe(true);
+    expect(result.wouldExceedIntendedPublishCount).toBe(true);
   });
 
   it("forces blocked status when brand write access is blocked", () => {
@@ -395,8 +395,8 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: null,
         },
       }),
-      intendedCreateCount: 0,
-      currentNonGhostSkuCount: 0,
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 0,
       trialStartedAt: null,
     });
 
@@ -422,8 +422,8 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: 0,
         },
       }),
-      intendedCreateCount: 1,
-      currentNonGhostSkuCount: 100,
+      intendedPublishCount: 1,
+      currentPublishUsageCount: 100,
     });
 
     expect(result.onboarding.limit).toBeNull();
@@ -449,8 +449,8 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: 2,
         },
       }),
-      intendedCreateCount: 0,
-      currentNonGhostSkuCount: 5,
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 5,
       evaluationDate: "2026-03-17T11:59:59.000Z",
     });
 
@@ -477,15 +477,15 @@ describe("resolveSkuAccessDecision", () => {
           skuCountAtOnboardingStart: null,
         },
       }),
-      intendedCreateCount: 200,
-      currentNonGhostSkuCount: 1_250,
+      intendedPublishCount: 200,
+      currentPublishUsageCount: 1_250,
     });
 
     expect(result.annual.limit).toBeNull();
     expect(result.annual.used).toBe(0);
     expect(result.onboarding.limit).toBeNull();
     expect(result.onboarding.used).toBe(0);
-    expect(result.remainingCreateBudget).toBeNull();
+    expect(result.remainingPublishBudget).toBeNull();
     expect(result.status).toBe("allowed");
   });
 });

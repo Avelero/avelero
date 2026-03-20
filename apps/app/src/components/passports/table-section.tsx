@@ -1,3 +1,6 @@
+/**
+ * Passports table section with bulk actions, publish prechecks, and selection state.
+ */
 "use client";
 
 import { useDebounce } from "@/hooks/use-debounce";
@@ -6,9 +9,19 @@ import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+import { Button } from "@v1/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@v1/ui/dialog";
 import { toast } from "@v1/ui/sonner";
 import {
   Suspense,
@@ -47,7 +60,18 @@ export function TableSection() {
     excludeIds: [],
   });
   const [hasAnyPassports, setHasAnyPassports] = useState(false);
-  const [visibleProductIds, setVisibleProductIds] = useState<string[]>([]);
+  const [, setVisibleProductIds] = useState<string[]>([]);
+  const [publishLimitModal, setPublishLimitModal] = useState<{
+    open: boolean;
+    requested: number;
+    limit: number;
+    remaining: number;
+  }>({
+    open: false,
+    requested: 0,
+    limit: 0,
+    remaining: 0,
+  });
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -63,6 +87,7 @@ export function TableSection() {
   // Status change mutation
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const billingStatusQuery = useQuery(trpc.brand.billing.getStatus.queryOptions());
   const updateProductMutation = useMutation(
     trpc.products.update.mutationOptions({
       onSuccess: () => {
@@ -71,6 +96,12 @@ export function TableSection() {
           queryKey: [["products", "list"]],
         });
         void queryClient.invalidateQueries({ queryKey: [["summary"]] });
+        void queryClient.invalidateQueries({
+          queryKey: trpc.brand.billing.getStatus.queryKey(),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: trpc.composite.initDashboard.queryKey(),
+        });
       },
     }),
   );
@@ -218,9 +249,68 @@ export function TableSection() {
     setDeleteCount(0);
   }, []);
 
+  /**
+   * Loads the current selection counts and blocks when publishing would exceed the active budget.
+   */
+  const ensurePublishCapacity = useCallback(
+    async (selectionInput: { mode: "all"; excludeIds?: string[] } | { mode: "explicit"; includeIds: string[] }) => {
+      const [selectionCounts, billingStatus] = await Promise.all([
+        queryClient.fetchQuery(
+          trpc.products.count.queryOptions({
+            selection: selectionInput,
+            filterState:
+              selectionInput.mode === "all" && filterState.groups.length > 0
+                ? filterState
+                : undefined,
+            search:
+              selectionInput.mode === "all"
+                ? searchValue?.trim() || undefined
+                : undefined,
+          }),
+        ),
+        billingStatusQuery.data
+          ? Promise.resolve(billingStatusQuery.data)
+          : queryClient.fetchQuery(trpc.brand.billing.getStatus.queryOptions()),
+      ]);
+
+      const remaining = billingStatus.active_sku_budget.remaining;
+      const limit = billingStatus.active_sku_budget.limit;
+      const requested = selectionCounts.data.publishableVariants ?? 0;
+
+      if (remaining !== null && limit !== null && requested > remaining) {
+        setPublishLimitModal({
+          open: true,
+          requested,
+          limit,
+          remaining,
+        });
+        return false;
+      }
+
+      return true;
+    },
+    [
+      billingStatusQuery.data,
+      filterState,
+      queryClient,
+      searchValue,
+      trpc,
+    ],
+  );
+
   // Handle status change from row action (single product)
   const handleChangeStatus = useCallback(
-    (productId: string, status: "published" | "unpublished") => {
+    async (productId: string, status: "published" | "unpublished") => {
+      if (status === "published") {
+        const allowed = await ensurePublishCapacity({
+          mode: "explicit",
+          includeIds: [productId],
+        });
+        if (!allowed) {
+          return;
+        }
+      }
+
       updateProductMutation.mutate(
         { id: productId, status },
         {
@@ -235,18 +325,17 @@ export function TableSection() {
         },
       );
     },
-    [updateProductMutation],
+    [ensurePublishCapacity, updateProductMutation],
   );
 
   // Handle bulk status change from Actions menu
   const handleChangeStatusSelected = useCallback(
-    (status: "published" | "unpublished" | "scheduled") => {
+    async (status: "published" | "unpublished" | "scheduled") => {
       if (selectedCount === 0) {
         toast.error("No products selected");
         return;
       }
 
-      // Build selection for bulk update
       const bulkSelection =
         selection.mode === "explicit"
           ? { mode: "explicit" as const, ids: selection.includeIds }
@@ -256,6 +345,20 @@ export function TableSection() {
               filters: filterState.groups.length > 0 ? filterState : undefined,
               search: searchValue?.trim() || undefined,
             };
+      const countSelection =
+        selection.mode === "explicit"
+          ? { mode: "explicit" as const, includeIds: selection.includeIds }
+          : {
+              mode: "all" as const,
+              excludeIds: selection.excludeIds,
+            };
+
+      if (status === "published") {
+        const allowed = await ensurePublishCapacity(countSelection);
+        if (!allowed) {
+          return;
+        }
+      }
 
       updateProductMutation.mutate(
         { selection: bulkSelection, status },
@@ -279,7 +382,14 @@ export function TableSection() {
         },
       );
     },
-    [selection, selectedCount, filterState, searchValue, updateProductMutation],
+    [
+      ensurePublishCapacity,
+      filterState,
+      searchValue,
+      selection,
+      selectedCount,
+      updateProductMutation,
+    ],
   );
 
   // Map UI field names to API field names
@@ -372,6 +482,42 @@ export function TableSection() {
         totalCount={deleteCount}
         onSuccess={handleDeleteSuccess}
       />
+
+      <Dialog
+        open={publishLimitModal.open}
+        onOpenChange={(open) =>
+          setPublishLimitModal((current) => ({ ...current, open }))
+        }
+      >
+        <DialogContent size="md" className="p-0 gap-0">
+          <DialogHeader className="px-6 py-4 border-b border-border">
+            <DialogTitle className="text-foreground">
+              Publish limit reached
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="px-6 py-4">
+            <DialogDescription className="text-secondary">
+              Publishing {publishLimitModal.requested.toLocaleString("en-US")} passports would exceed your limit of {publishLimitModal.limit.toLocaleString("en-US")}. You have {publishLimitModal.remaining.toLocaleString("en-US")} remaining. Reduce your selection or upgrade your plan.
+            </DialogDescription>
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setPublishLimitModal((current) => ({ ...current, open: false }))
+              }
+            >
+              Close
+            </Button>
+            <Button type="button" asChild>
+              <a href="/settings/billing">View plans</a>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

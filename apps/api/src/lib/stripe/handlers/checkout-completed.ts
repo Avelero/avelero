@@ -104,6 +104,7 @@ export async function handleCheckoutCompleted(
         planSelectedAt: nowIso,
         skuAnnualLimit: tierConfig.skuAnnualLimit,
         skuOnboardingLimit: tierConfig.skuOnboardingLimit,
+        variantGlobalCap: tierConfig.variantGlobalCap,
         updatedAt: nowIso,
       })
       .where(eq(brandPlan.brandId, brandId));

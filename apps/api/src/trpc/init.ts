@@ -32,7 +32,7 @@ import {
   accessCancelled,
   accessPastDueReadOnly,
   accessPaymentRequired,
-  accessSkuLimitReached,
+  accessPublishLimitReached,
   accessSuspended,
   accessTemporaryBlocked,
   forbidden,
@@ -386,21 +386,21 @@ export function resolveSkuDecisionWithIntendedCount(params: {
   role?: Role | null;
   brandAccess: ResolvedBrandAccessDecision;
   snapshot: BrandAccessSnapshot;
-  intendedCreateCount: number;
-  currentSkuUsageCount: number;
+  intendedPublishCount: number;
+  currentPublishUsageCount: number;
   evaluationDate?: Date | string | null;
 }): ResolvedSkuAccessDecision {
-  // Resolve the intended write against the caller's current live SKU budget.
+  // Resolve the intended publish against the caller's current live publish budget.
   const decision = resolveSkuAccessDecision({
     brandAccess: params.brandAccess,
     snapshot: params.snapshot,
-    intendedCreateCount: params.intendedCreateCount,
-    currentSkuUsageCount: params.currentSkuUsageCount,
+    intendedPublishCount: params.intendedPublishCount,
+    currentPublishUsageCount: params.currentPublishUsageCount,
     evaluationDate: params.evaluationDate,
   });
 
   if (params.role !== ROLES.AVELERO && decision.status === "blocked") {
-    throw accessSkuLimitReached();
+    throw accessPublishLimitReached();
   }
 
   return decision;

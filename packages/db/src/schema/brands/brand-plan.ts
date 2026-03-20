@@ -35,6 +35,7 @@ export const brandPlan = pgTable(
     skuAnnualLimit: integer("sku_annual_limit"),
     skuOnboardingLimit: integer("sku_onboarding_limit"),
     skuLimitOverride: integer("sku_limit_override"),
+    variantGlobalCap: integer("variant_global_cap"),
     firstPaidStartedAt: timestamp("first_paid_started_at", {
       withTimezone: true,
       mode: "string",
@@ -74,6 +75,10 @@ export const brandPlan = pgTable(
     check(
       "brand_plan_sku_limit_override_check",
       sql`sku_limit_override IS NULL OR sku_limit_override >= 0`,
+    ),
+    check(
+      "brand_plan_variant_global_cap_check",
+      sql`variant_global_cap IS NULL OR variant_global_cap >= 0`,
     ),
     check(
       "brand_plan_sku_count_at_year_start_check",

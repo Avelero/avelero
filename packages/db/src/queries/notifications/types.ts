@@ -12,7 +12,8 @@ export type NotificationType =
   | "qr_export_ready"
   | "invite_accepted"
   | "sync_complete"
-  | "sync_failure";
+  | "sync_failure"
+  | "sku_limit_warning";
 
 /**
  * Known resource types for polymorphic references
@@ -22,7 +23,10 @@ export type NotificationResourceType =
   | "export_job"
   | "qr_export_job"
   | "brand_invite"
-  | "sync_job";
+  | "sync_job"
+  | "sku_budget_trial"
+  | "sku_budget_onboarding"
+  | "sku_budget_annual";
 
 export interface ImportCorrectionsRegenerateAction {
   type: "import_corrections";

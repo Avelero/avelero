@@ -142,8 +142,10 @@ export interface SyncContext {
   matchIdentifier: MatchIdentifier;
   /** Total products to process (fetched before sync starts) */
   productsTotal?: number;
-  /** Remaining SKU budget carried across sync batches; null means unlimited. */
-  remainingSkuBudget: number | null;
+  /** Infrastructure-only global variant cap; null means unlimited. */
+  variantGlobalCap: number | null;
+  /** Running count of all existing variants before and during sync. */
+  totalExistingVariants: number;
   /** Callback to report progress during sync */
   onProgress?: (progress: SyncProgress) => Promise<void>;
 }

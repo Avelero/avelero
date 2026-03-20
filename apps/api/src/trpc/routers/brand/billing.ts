@@ -239,6 +239,7 @@ export const billingRouter = createTRPCRouter({
           hasImpactPredictions: input.include_impact,
           skuAnnualLimit: tierConfig.skuAnnualLimit,
           skuOnboardingLimit: tierConfig.skuOnboardingLimit,
+          variantGlobalCap: tierConfig.variantGlobalCap,
           updatedAt: new Date().toISOString(),
         })
         .where(eq(brandPlan.brandId, brandId));
@@ -463,9 +464,9 @@ export const billingRouter = createTRPCRouter({
         planType: brandPlan.planType,
         billingInterval: brandPlan.billingInterval,
         hasImpactPredictions: brandPlan.hasImpactPredictions,
-      planSelectedAt: brandPlan.planSelectedAt,
-      skuAnnualLimit: brandPlan.skuAnnualLimit,
-      skuOnboardingLimit: brandPlan.skuOnboardingLimit,
+        planSelectedAt: brandPlan.planSelectedAt,
+        skuAnnualLimit: brandPlan.skuAnnualLimit,
+        skuOnboardingLimit: brandPlan.skuOnboardingLimit,
       })
       .from(brandPlan)
       .where(eq(brandPlan.brandId, brandId))

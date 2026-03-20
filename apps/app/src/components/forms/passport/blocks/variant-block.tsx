@@ -10,7 +10,6 @@ import {
   variantDimensionHasValues,
 } from "@/lib/variant-utils";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
-import { useTRPC } from "@/trpc/client";
 import {
   DndContext,
   type DragEndEvent,
@@ -26,7 +25,6 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useQuery } from "@tanstack/react-query";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@v1/ui/button";
 
@@ -47,12 +45,6 @@ import {
   SelectSearch,
   SelectTrigger,
 } from "@v1/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@v1/ui/tooltip";
 import Link from "next/link";
 import * as React from "react";
 import { createPortal } from "react-dom";
@@ -1461,9 +1453,6 @@ export function VariantSection({
   const activeDimension = activeId
     ? dimensions.find((d) => d.id === activeId)
     : null;
-  const trpc = useTRPC();
-  const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
-  const isSkuBlocked = initQuery.data?.sku.status === "blocked";
 
   const hasVariants =
     dimensions.some((d) => variantDimensionHasValues(d)) ||
@@ -1481,31 +1470,12 @@ export function VariantSection({
           productHandle &&
           savedVariants &&
           savedVariants.size > 0 && (
-            isSkuBlocked ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button variant="outline" size="sm" disabled>
-                        <Icons.Plus className="h-4 w-4" />
-                        <span className="px-1">Add variant</span>
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    You've reached your SKU limit. Upgrade your plan to add
-                    more variants.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/passports/edit/${productHandle}/variant/new`}>
-                  <Icons.Plus className="h-4 w-4" />
-                  <span className="px-1">Add variant</span>
-                </Link>
-              </Button>
-            )
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/passports/edit/${productHandle}/variant/new`}>
+                <Icons.Plus className="h-4 w-4" />
+                <span className="px-1">Add variant</span>
+              </Link>
+            </Button>
           )}
       </div>
 

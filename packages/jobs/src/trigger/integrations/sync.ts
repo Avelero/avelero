@@ -11,13 +11,8 @@ import "../configure-trigger";
 import { createClient } from "@supabase/supabase-js";
 import { logger, metadata, task } from "@trigger.dev/sdk/v3";
 import { serviceDb as db } from "@v1/db/client";
-import {
-  countBrandSkusInActiveWindow,
-  deriveSkuBudget,
-  getBrandAccessSnapshot,
-  getCurrentDatabaseTimestamp,
-  resolveActiveSkuWindow,
-} from "@v1/db/queries/brand";
+import { eq } from "@v1/db/queries";
+import { countBrandSkus } from "@v1/db/queries/brand";
 import {
   createSyncJob,
   getBrandIntegration,
@@ -27,6 +22,7 @@ import {
   updateSyncJob,
 } from "@v1/db/queries/integrations";
 import { markPassportsDirtyByProductIds } from "@v1/db/queries/products";
+import { brandPlan } from "@v1/db/schema";
 import { decryptCredentials } from "@v1/db/utils";
 import {
   type FieldConfig,
@@ -48,29 +44,6 @@ interface SyncIntegrationPayload {
   brandId: string;
   /** Trigger type for the sync job */
   triggerType?: "manual" | "scheduled" | "webhook";
-}
-
-/**
- * Loads the remaining SKU budget from the brand's currently active SKU window.
- */
-async function loadRemainingSkuBudget(brandId: string): Promise<number | null> {
-  const snapshot = await getBrandAccessSnapshot(db, brandId);
-  const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(db);
-  const activeSkuWindow = resolveActiveSkuWindow({
-    snapshot,
-    evaluationDate: currentDatabaseTimestamp,
-  });
-  const currentSkuUsageCount = await countBrandSkusInActiveWindow(
-    db,
-    brandId,
-    activeSkuWindow,
-  );
-
-  return deriveSkuBudget({
-    snapshot,
-    currentSkuUsageCount,
-    evaluationDate: currentDatabaseTimestamp,
-  }).remainingCreateBudget;
 }
 
 // =============================================================================
@@ -230,7 +203,14 @@ export const syncIntegration = task({
         });
       };
 
-      const remainingSkuBudget = await loadRemainingSkuBudget(brandId);
+      const [planRow] = await db
+        .select({
+          variantGlobalCap: brandPlan.variantGlobalCap,
+        })
+        .from(brandPlan)
+        .where(eq(brandPlan.brandId, brandId))
+        .limit(1);
+      const totalExistingVariants = await countBrandSkus(db, brandId);
 
       // Build sync context
       const ctx: SyncContext = {
@@ -246,7 +226,8 @@ export const syncIntegration = task({
         matchIdentifier:
           (brandIntegration.matchIdentifier as "barcode" | "sku") ?? "barcode",
         productsTotal,
-        remainingSkuBudget,
+        variantGlobalCap: planRow?.variantGlobalCap ?? null,
+        totalExistingVariants,
         onProgress,
       };
 

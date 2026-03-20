@@ -3,7 +3,7 @@ import { and, asc, desc, eq, sql } from "@v1/db/queries";
 import {
   type BrandMembershipListItem,
   type UserInviteSummaryRow,
-  countBrandSkusInActiveWindow,
+  countPublishedPassportsInActiveWindow,
   getBrandAccessSnapshot,
   getBrandsByUserId,
   getCurrentDatabaseTimestamp,
@@ -332,7 +332,7 @@ async function resolveReadonlyBrandAccessContext(params: {
     snapshot,
     evaluationDate: currentDatabaseTimestamp,
   });
-  const currentSkuUsageCount = await countBrandSkusInActiveWindow(
+  const currentPublishUsageCount = await countPublishedPassportsInActiveWindow(
     params.db,
     params.brandId,
     activeSkuWindow,
@@ -344,8 +344,8 @@ async function resolveReadonlyBrandAccessContext(params: {
   const skuAccess = resolveSkuAccessDecision({
     brandAccess: resolvedBrandAccess,
     snapshot,
-    intendedCreateCount: 0,
-    currentSkuUsageCount,
+    intendedPublishCount: 0,
+    currentPublishUsageCount,
     evaluationDate: currentDatabaseTimestamp,
   });
 
@@ -353,11 +353,10 @@ async function resolveReadonlyBrandAccessContext(params: {
     brandAccess: {
       ...resolvedBrandAccess,
       capabilities: {
-        ...resolvedBrandAccess.capabilities,
-        canCreateSkus:
-          params.role === ROLES.AVELERO ||
-          (resolvedBrandAccess.capabilities.canWriteBrandData &&
-            skuAccess.status !== "blocked"),
+      ...resolvedBrandAccess.capabilities,
+      canCreateSkus:
+        params.role === ROLES.AVELERO ||
+        resolvedBrandAccess.capabilities.canWriteBrandData,
       },
     },
     skuAccess,
@@ -409,9 +408,9 @@ const DEFAULT_SKU = {
   },
   warningThreshold: SKU_WARNING_THRESHOLD,
   trialCap: TRIAL_SKU_CAP,
-  remainingCreateBudget: null as number | null,
-  intendedCreateCount: 0,
-  wouldExceedIntendedCreateCount: false,
+  remainingPublishBudget: null as number | null,
+  intendedPublishCount: 0,
+  wouldExceedIntendedPublishCount: false,
 };
 
 /**
@@ -515,7 +514,7 @@ export const compositeRouter = createTRPCRouter({
         status: resolvedSku.status,
         activeBudget: resolvedSku.activeBudget,
         warningThreshold: resolvedSku.warningThreshold,
-        remainingCreateBudget: resolvedSku.remainingCreateBudget,
+        remainingPublishBudget: resolvedSku.remainingPublishBudget,
       },
     };
   }),

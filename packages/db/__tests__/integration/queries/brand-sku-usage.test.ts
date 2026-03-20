@@ -6,8 +6,8 @@ import "../../setup";
 import { describe, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import {
-  countBrandSkusInActiveWindow,
   countBrandSkus,
+  countPublishedPassportsInActiveWindow,
   getBrandAccessSnapshot,
   isOnboardingYear,
   lazyExpireOnboardingLimitIfNeeded,
@@ -63,19 +63,6 @@ function daysFromNow(dayOffset: number): Date {
       date.getUTCDate() + dayOffset,
     ),
   );
-}
-
-/**
- * Sets a deterministic created-at timestamp for a test variant.
- */
-async function setVariantCreatedAt(
-  variantId: string,
-  createdAt: string,
-): Promise<void> {
-  await testDb
-    .update(schema.productVariants)
-    .set({ createdAt })
-    .where(eq(schema.productVariants.id, variantId));
 }
 
 /**
@@ -135,18 +122,26 @@ describe("brand sku usage queries", () => {
 
   it("derives annual windows from the paid anchor without mutating legacy snapshots", async () => {
     const brandId = await createTestBrand("Annual Reset Brand");
-    const product = await createTestProduct(brandId);
     const initialYearStart = yearsFromNow(-2);
     const annualUsageAnchorAt = "2024-01-15T00:00:00.000Z";
     const evaluationDate = "2026-03-20T12:00:00.000Z";
+    const beforeWindowProduct = await createTestProduct(brandId, {
+      status: "published",
+      publishedAt: "2025-12-31T23:59:59.000Z",
+    });
+    const insideWindowProduct = await createTestProduct(brandId, {
+      status: "published",
+      publishedAt: "2026-01-15T00:00:00.000Z",
+    });
+    const unpublishedProduct = await createTestProduct(brandId, {
+      status: "unpublished",
+      publishedAt: null,
+    });
 
-    const beforeWindow = await createTestVariant(product.id, { sku: "RESET-1" });
-    const insideWindowA = await createTestVariant(product.id, { sku: "RESET-2" });
-    const insideWindowB = await createTestVariant(product.id, { sku: "RESET-3" });
-
-    await setVariantCreatedAt(beforeWindow.id, "2025-12-31T23:59:59.000Z");
-    await setVariantCreatedAt(insideWindowA.id, "2026-01-15T00:00:00.000Z");
-    await setVariantCreatedAt(insideWindowB.id, "2026-03-01T12:00:00.000Z");
+    await createTestVariant(beforeWindowProduct.id, { sku: "RESET-1" });
+    await createTestVariant(insideWindowProduct.id, { sku: "RESET-2" });
+    await createTestVariant(insideWindowProduct.id, { sku: "RESET-3" });
+    await createTestVariant(unpublishedProduct.id, { sku: "RESET-4" });
 
     await upsertBrandPlan({
       brandId,
@@ -176,7 +171,7 @@ describe("brand sku usage queries", () => {
       snapshot,
       evaluationDate,
     });
-    const usageCount = await countBrandSkusInActiveWindow(
+    const usageCount = await countPublishedPassportsInActiveWindow(
       testDb,
       brandId,
       activeWindow,
@@ -225,15 +220,23 @@ describe("brand sku usage queries", () => {
     const brandId = await createTestBrand("Onboarding Expiry Brand");
     const firstPaidStartedAt = "2026-02-15T00:00:00.000Z";
     const evaluationDate = "2026-03-20T12:00:00.000Z";
-    const product = await createTestProduct(brandId);
+    const beforeWindowProduct = await createTestProduct(brandId, {
+      status: "published",
+      publishedAt: "2026-02-14T23:59:59.000Z",
+    });
+    const insideWindowProduct = await createTestProduct(brandId, {
+      status: "published",
+      publishedAt: "2026-02-15T00:00:00.000Z",
+    });
+    const scheduledProduct = await createTestProduct(brandId, {
+      status: "scheduled",
+      publishedAt: null,
+    });
 
-    const beforeWindow = await createTestVariant(product.id, { sku: "ONBOARD-1" });
-    const insideWindowA = await createTestVariant(product.id, { sku: "ONBOARD-2" });
-    const insideWindowB = await createTestVariant(product.id, { sku: "ONBOARD-3" });
-
-    await setVariantCreatedAt(beforeWindow.id, "2026-02-14T23:59:59.000Z");
-    await setVariantCreatedAt(insideWindowA.id, "2026-02-15T00:00:00.000Z");
-    await setVariantCreatedAt(insideWindowB.id, "2026-03-01T12:00:00.000Z");
+    await createTestVariant(beforeWindowProduct.id, { sku: "ONBOARD-1" });
+    await createTestVariant(insideWindowProduct.id, { sku: "ONBOARD-2" });
+    await createTestVariant(insideWindowProduct.id, { sku: "ONBOARD-3" });
+    await createTestVariant(scheduledProduct.id, { sku: "ONBOARD-4" });
 
     await upsertBrandPlan({
       brandId,
@@ -270,7 +273,7 @@ describe("brand sku usage queries", () => {
       snapshot,
       evaluationDate,
     });
-    const usageCount = await countBrandSkusInActiveWindow(
+    const usageCount = await countPublishedPassportsInActiveWindow(
       testDb,
       brandId,
       activeWindow,

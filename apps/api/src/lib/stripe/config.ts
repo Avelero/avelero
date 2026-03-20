@@ -20,6 +20,7 @@ export interface TierPrices {
 export interface TierConfig {
   skuAnnualLimit: number;
   skuOnboardingLimit: number;
+  variantGlobalCap: number;
   prices: Record<BillingInterval, TierPrices>;
 }
 
@@ -27,6 +28,7 @@ export const TIER_CONFIG: Record<PlanTier, TierConfig> = {
   starter: {
     skuAnnualLimit: 500,
     skuOnboardingLimit: 2_500,
+    variantGlobalCap: 50_000,
     prices: {
       monthly: {
         avelero: process.env.STRIPE_PRICE_ID_AVELERO_STARTER_MONTHLY!,
@@ -41,6 +43,7 @@ export const TIER_CONFIG: Record<PlanTier, TierConfig> = {
   growth: {
     skuAnnualLimit: 2_000,
     skuOnboardingLimit: 10_000,
+    variantGlobalCap: 250_000,
     prices: {
       monthly: {
         avelero: process.env.STRIPE_PRICE_ID_AVELERO_GROWTH_MONTHLY!,
@@ -55,6 +58,7 @@ export const TIER_CONFIG: Record<PlanTier, TierConfig> = {
   scale: {
     skuAnnualLimit: 10_000,
     skuOnboardingLimit: 50_000,
+    variantGlobalCap: 1_000_000,
     prices: {
       monthly: {
         avelero: process.env.STRIPE_PRICE_ID_AVELERO_SCALE_MONTHLY!,

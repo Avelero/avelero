@@ -11,6 +11,7 @@
  */
 
 import type { Database } from "@v1/db/client";
+import { VariantGlobalCapExceededError } from "@v1/db/queries/brand";
 import { and, eq, inArray } from "@v1/db/queries";
 import {
   type ProductIdentifierBatch,
@@ -63,23 +64,6 @@ import {
 } from "./processor";
 
 const PROGRESS_UPDATE_INTERVAL = 5;
-
-export class SkuLimitExceededError extends Error {
-  requested: number;
-  remaining: number;
-
-  /**
-   * Formats the sync-specific SKU budget failure shown in job output.
-   */
-  constructor(requested: number, remaining: number) {
-    super(
-      `This sync would create ${requested.toLocaleString("en-US")} new SKUs, but you only have ${remaining.toLocaleString("en-US")} remaining. Upgrade your plan or reduce new products before syncing again.`,
-    );
-    this.name = "SkuLimitExceededError";
-    this.requested = requested;
-    this.remaining = remaining;
-  }
-}
 
 export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
   const syncStart = Date.now();
@@ -583,13 +567,15 @@ async function processBatch(
   result.affectedProductIds = Array.from(affectedProductIds);
 
   if (
-    ctx.remainingSkuBudget !== null &&
-    allPendingOps.variantCreates.length > ctx.remainingSkuBudget
+    ctx.variantGlobalCap !== null &&
+    ctx.totalExistingVariants + allPendingOps.variantCreates.length >
+      ctx.variantGlobalCap
   ) {
-    throw new SkuLimitExceededError(
-      allPendingOps.variantCreates.length,
-      ctx.remainingSkuBudget,
-    );
+    throw new VariantGlobalCapExceededError({
+      intendedCreateCount: allPendingOps.variantCreates.length,
+      totalExistingVariants: ctx.totalExistingVariants,
+      cap: ctx.variantGlobalCap,
+    });
   }
 
   // PHASE 4: Execute all batch operations (PARALLELIZED where possible)
@@ -772,12 +758,7 @@ async function processBatch(
     );
     result.queries.variantCreates += 1; // One more query for passport creation
 
-    if (ctx.remainingSkuBudget !== null) {
-      ctx.remainingSkuBudget = Math.max(
-        0,
-        ctx.remainingSkuBudget - allPendingOps.variantCreates.length,
-      );
-    }
+    ctx.totalExistingVariants += allPendingOps.variantCreates.length;
   }
 
   // GROUP 4: Variant links and attributes (SEQUENTIAL to avoid deadlocks)

@@ -180,18 +180,8 @@ async function markVariantAsLegacyGhost(variantId: string) {
     .where(eq(schema.productVariants.id, variantId));
 }
 
-/**
- * Sets a deterministic created-at timestamp for a variant row.
- */
-async function setVariantCreatedAt(variantId: string, createdAt: string) {
-  await testDb
-    .update(schema.productVariants)
-    .set({ createdAt })
-    .where(eq(schema.productVariants.id, variantId));
-}
-
 describe("SKU reporting routes", () => {
-  it("brand.billing.getStatus returns active onboarding usage from variants inside the current window", async () => {
+  it("brand.billing.getStatus returns active onboarding usage from published passports inside the current window", async () => {
     const brandId = await createTestBrand("Billing Usage Brand");
     await addBrandMember(ownerId, brandId);
     const firstPaidStartedAt = new Date(
@@ -208,24 +198,32 @@ describe("SKU reporting routes", () => {
       skuCountAtOnboardingStart: 2,
     });
 
-    const product = await createTestProduct(brandId, {
-      productHandle: `billing-usage-${Math.random().toString(36).slice(2, 8)}`,
+    const beforeWindowProduct = await createTestProduct(brandId, {
+      productHandle: `billing-before-${Math.random().toString(36).slice(2, 8)}`,
+      status: "published",
+      publishedAt: new Date(
+        Date.now() - 14 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
     });
-    const beforeWindow = await createTestVariant(product.id, {
+    const insideWindowProduct = await createTestProduct(brandId, {
+      productHandle: `billing-usage-${Math.random().toString(36).slice(2, 8)}`,
+      status: "published",
+      publishedAt: firstPaidStartedAt,
+    });
+    const unpublishedProduct = await createTestProduct(brandId, {
+      productHandle: `billing-unpublished-${Math.random().toString(36).slice(2, 8)}`,
+      status: "unpublished",
+      publishedAt: null,
+    });
+    await createTestVariant(beforeWindowProduct.id, {
       sku: "billing-old",
     });
-    const insideWindowA = await createTestVariant(product.id, { sku: "billing-1" });
-    const insideWindowB = await createTestVariant(product.id, { sku: "billing-2" });
-    const legacyGhost = await createTestVariant(product.id, { sku: "billing-3" });
-    await setVariantCreatedAt(
-      beforeWindow.id,
-      new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-    );
-    await setVariantCreatedAt(insideWindowA.id, firstPaidStartedAt);
-    await setVariantCreatedAt(
-      insideWindowB.id,
-      new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    );
+    await createTestVariant(insideWindowProduct.id, { sku: "billing-1" });
+    await createTestVariant(insideWindowProduct.id, { sku: "billing-2" });
+    const legacyGhost = await createTestVariant(insideWindowProduct.id, {
+      sku: "billing-3",
+    });
+    await createTestVariant(unpublishedProduct.id, { sku: "billing-4" });
     await markVariantAsLegacyGhost(legacyGhost.id);
 
     const caller = appRouter.createCaller(
@@ -245,7 +243,7 @@ describe("SKU reporting routes", () => {
     expect(result.skus_created_onboarding).toBe(3);
   });
 
-  it("platformAdmin.brands.get returns derived annual usage for the active window", async () => {
+  it("platformAdmin.brands.get returns derived annual published-passport usage for the active window", async () => {
     const brandId = await createTestBrand("Admin Detail Brand");
     await addBrandMember(ownerId, brandId);
     const firstPaidStartedAt = new Date(
@@ -262,25 +260,26 @@ describe("SKU reporting routes", () => {
       skuCountAtOnboardingStart: 2,
     });
 
-    const product = await createTestProduct(brandId, {
-      productHandle: `admin-detail-${Math.random().toString(36).slice(2, 8)}`,
+    const beforeWindowProduct = await createTestProduct(brandId, {
+      productHandle: `admin-before-${Math.random().toString(36).slice(2, 8)}`,
+      status: "published",
+      publishedAt: new Date(
+        Date.now() - 400 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
     });
-    const beforeWindow = await createTestVariant(product.id, { sku: "detail-old" });
-    const insideWindowA = await createTestVariant(product.id, { sku: "detail-1" });
-    const insideWindowB = await createTestVariant(product.id, { sku: "detail-2" });
-    const legacyGhost = await createTestVariant(product.id, { sku: "detail-3" });
-    await setVariantCreatedAt(
-      beforeWindow.id,
-      new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString(),
-    );
-    await setVariantCreatedAt(
-      insideWindowA.id,
-      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    );
-    await setVariantCreatedAt(
-      insideWindowB.id,
-      new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    );
+    const insideWindowProduct = await createTestProduct(brandId, {
+      productHandle: `admin-detail-${Math.random().toString(36).slice(2, 8)}`,
+      status: "published",
+      publishedAt: new Date(
+        Date.now() - 30 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+    });
+    await createTestVariant(beforeWindowProduct.id, { sku: "detail-old" });
+    await createTestVariant(insideWindowProduct.id, { sku: "detail-1" });
+    await createTestVariant(insideWindowProduct.id, { sku: "detail-2" });
+    const legacyGhost = await createTestVariant(insideWindowProduct.id, {
+      sku: "detail-3",
+    });
     await markVariantAsLegacyGhost(legacyGhost.id);
 
     const caller = appRouter.createCaller(
@@ -334,47 +333,45 @@ describe("SKU reporting routes", () => {
       skuCountAtYearStart: null,
     });
 
+    const highBeforeWindowProduct = await createTestProduct(highUsageBrandId, {
+      productHandle: `high-before-${Math.random().toString(36).slice(2, 8)}`,
+      status: "published",
+      publishedAt: new Date(
+        Date.now() - 400 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+    });
     const highUsageProduct = await createTestProduct(highUsageBrandId, {
       productHandle: `high-usage-${Math.random().toString(36).slice(2, 8)}`,
+      status: "published",
+      publishedAt: new Date(
+        Date.now() - 30 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
     });
-    const highOld = await createTestVariant(highUsageProduct.id, { sku: "high-old" });
-    const highA = await createTestVariant(highUsageProduct.id, { sku: "high-1" });
-    const highB = await createTestVariant(highUsageProduct.id, { sku: "high-2" });
+    await createTestVariant(highBeforeWindowProduct.id, { sku: "high-old" });
+    await createTestVariant(highUsageProduct.id, { sku: "high-1" });
+    await createTestVariant(highUsageProduct.id, { sku: "high-2" });
     const highGhost = await createTestVariant(highUsageProduct.id, {
       sku: "high-3",
     });
-    await setVariantCreatedAt(
-      highOld.id,
-      new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString(),
-    );
-    await setVariantCreatedAt(
-      highA.id,
-      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    );
-    await setVariantCreatedAt(
-      highB.id,
-      new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    );
     await markVariantAsLegacyGhost(highGhost.id);
 
+    const lowBeforeWindowProduct = await createTestProduct(lowUsageBrandId, {
+      productHandle: `low-before-${Math.random().toString(36).slice(2, 8)}`,
+      status: "published",
+      publishedAt: new Date(
+        Date.now() - 500 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+    });
     const lowUsageProduct = await createTestProduct(lowUsageBrandId, {
       productHandle: `low-usage-${Math.random().toString(36).slice(2, 8)}`,
+      status: "published",
+      publishedAt: new Date(
+        Date.now() - 5 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
     });
-    const lowOldA = await createTestVariant(lowUsageProduct.id, { sku: "low-old-a" });
-    const lowOldB = await createTestVariant(lowUsageProduct.id, { sku: "low-old-b" });
-    const lowCurrent = await createTestVariant(lowUsageProduct.id, { sku: "low-1" });
-    await setVariantCreatedAt(
-      lowOldA.id,
-      new Date(Date.now() - 500 * 24 * 60 * 60 * 1000).toISOString(),
-    );
-    await setVariantCreatedAt(
-      lowOldB.id,
-      new Date(Date.now() - 450 * 24 * 60 * 60 * 1000).toISOString(),
-    );
-    await setVariantCreatedAt(
-      lowCurrent.id,
-      new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    );
+    await createTestVariant(lowBeforeWindowProduct.id, { sku: "low-old-a" });
+    await createTestVariant(lowBeforeWindowProduct.id, { sku: "low-old-b" });
+    await createTestVariant(lowUsageProduct.id, { sku: "low-1" });
 
     const uninitializedProduct = await createTestProduct(uninitializedBrandId, {
       productHandle: `uninitialized-${Math.random().toString(36).slice(2, 8)}`,

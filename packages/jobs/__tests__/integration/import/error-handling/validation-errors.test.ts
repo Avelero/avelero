@@ -11,7 +11,7 @@
  * - All template columns must be present (but can have empty values)
  *
  * Validated Fields:
- * - Status: Must be `unpublished`, `published`, `archived`, `scheduled`, or empty
+ * - Legacy Status column: ignored when present on old templates
  * - Category: Must exist in database (no auto-create), format must use ` > ` delimiter
  *
  * @module tests/integration/import/error-handling/validation-errors
@@ -29,12 +29,55 @@ import {
   testDb,
 } from "@v1/db/testing";
 import { ExcelBuilder, basicProduct } from "@v1/testing/bulk-import";
+import ExcelJS from "exceljs";
 import { loadBrandCatalog } from "../../../../src/lib/catalog-loader";
 import {
   type ParsedProduct,
   findDuplicateIdentifiers,
   parseExcelFile,
 } from "../../../../src/lib/excel";
+
+/**
+ * Builds a legacy import workbook that still includes the removed Status column.
+ */
+async function createLegacyStatusWorkbook(
+  status?: string,
+): Promise<Uint8Array> {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Products");
+
+  worksheet.addRow([]);
+  worksheet.addRow([
+    "Product Handle",
+    "Product Title",
+    "Manufacturer",
+    "Description",
+    "Image",
+    "Status",
+    "Category",
+    "Season",
+    "Tags",
+    "Barcode",
+    "SKU",
+  ]);
+  worksheet.addRow([]);
+  worksheet.addRow([
+    "legacy-status-product",
+    "Legacy Status Product",
+    "",
+    "",
+    "",
+    status ?? "",
+    "",
+    "",
+    "",
+    "1234567890123",
+    "SKU-001",
+  ]);
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return new Uint8Array(buffer as ArrayBuffer);
+}
 
 describe("Error Handling - Validation Errors", () => {
   let brandId: string;
@@ -84,8 +127,8 @@ describe("Error Handling - Validation Errors", () => {
     });
   });
 
-  describe("Status Validation", () => {
-    it("accepts valid status values", async () => {
+  describe("Legacy Status Column", () => {
+    it("ignores valid legacy status values while preserving raw input", async () => {
       const validStatuses = [
         "published",
         "unpublished",
@@ -94,49 +137,25 @@ describe("Error Handling - Validation Errors", () => {
       ];
 
       for (const status of validStatuses) {
-        const product = {
-          ...basicProduct,
-          handle: `status-${status}-product`,
-          status,
-        };
-
-        const excelBuffer = await ExcelBuilder.create({
-          products: [product],
-        });
-
+        const excelBuffer = await createLegacyStatusWorkbook(status);
         const parseResult = await parseExcelFile(excelBuffer);
-        expect(parseResult.products[0]?.status).toBe(status);
+        expect("status" in (parseResult.products[0] ?? {})).toBe(false);
+        expect(parseResult.products[0]?.rawData.Status).toBe(status);
       }
     });
 
-    it("accepts empty status value", async () => {
-      const product = {
-        ...basicProduct,
-        status: "",
-      };
-
-      const excelBuffer = await ExcelBuilder.create({
-        products: [product],
-      });
-
+    it("ignores an empty legacy status value", async () => {
+      const excelBuffer = await createLegacyStatusWorkbook("");
       const parseResult = await parseExcelFile(excelBuffer);
-      // Empty status should be undefined or empty
-      expect(parseResult.products[0]?.status).toBeFalsy();
+      expect("status" in (parseResult.products[0] ?? {})).toBe(false);
+      expect(parseResult.products[0]?.rawData.Status).toBeUndefined();
     });
 
-    it("parses invalid status value (validation happens later)", async () => {
-      const product = {
-        ...basicProduct,
-        status: "INVALID_STATUS",
-      };
-
-      const excelBuffer = await ExcelBuilder.create({
-        products: [product],
-      });
-
+    it("ignores invalid legacy status values", async () => {
+      const excelBuffer = await createLegacyStatusWorkbook("INVALID_STATUS");
       const parseResult = await parseExcelFile(excelBuffer);
-      // Parser captures the value (normalized to lowercase), validation happens in validate-and-stage
-      expect(parseResult.products[0]?.status).toBe("invalid_status");
+      expect("status" in (parseResult.products[0] ?? {})).toBe(false);
+      expect(parseResult.products[0]?.rawData.Status).toBe("INVALID_STATUS");
     });
   });
 
@@ -344,7 +363,6 @@ describe("Error Handling - Validation Errors", () => {
           {
             handle: "multi-issue-product",
             title: "", // Issue 1: empty title
-            status: "INVALID", // Issue 2: invalid status
             variants: [{ sku: "SKU-001", barcode: "1111111111111" }],
           },
         ],
@@ -352,10 +370,10 @@ describe("Error Handling - Validation Errors", () => {
 
       const parseResult = await parseExcelFile(excelBuffer);
 
-      // Parser captures all data (status normalized to lowercase); validation aggregation happens in validate-and-stage
+      // Parser captures the row; validation aggregation happens later in validate-and-stage.
       expect(parseResult.products).toHaveLength(1);
       expect(parseResult.products[0]?.name).toBe("");
-      expect(parseResult.products[0]?.status).toBe("invalid");
+      expect("status" in (parseResult.products[0] ?? {})).toBe(false);
     });
   });
 

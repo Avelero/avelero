@@ -1,5 +1,5 @@
 /**
- * SKU limit warning and blocked-state banner for the passports list page.
+ * Publish-limit warning and blocked-state banner for passport surfaces.
  */
 import Link from "next/link";
 import { Icons } from "@v1/ui/icons";
@@ -24,36 +24,36 @@ interface SkuLimitBannerProps {
 }
 
 /**
- * Formats SKU counts consistently across banner states.
+ * Formats publish counts consistently across banner states.
  */
 function formatCount(value: number): string {
   return value.toLocaleString("en-US");
 }
 
 /**
- * Maps the active budget kind to the copy used in the passports warning banner.
+ * Maps the active budget kind to the publish-limit banner copy.
  */
 function getBudgetCopy(budget: SkuBudget) {
   if (budget.kind === "trial") {
     return {
       blocked:
-        "You've reached your 50 SKU trial limit. Subscribe to continue adding products.",
-      warning: `You've used ${formatCount(budget.used)} of ${formatCount(budget.limit!)} trial SKUs. Subscribe before you hit the trial limit.`,
+        "You've reached your 50-passport trial publish limit. Subscribe to continue publishing passports.",
+      warning: `You've published ${formatCount(budget.used)} of ${formatCount(budget.limit!)} trial passports. Subscribe before you hit the trial limit.`,
       ctaLabel: "View plans",
     };
   }
 
   if (budget.kind === "onboarding") {
     return {
-      blocked: `You've reached your first-year onboarding SKU limit (${formatCount(budget.used)}/${formatCount(budget.limit!)} SKUs used). Upgrade your plan to add more products.`,
-      warning: `You've used ${formatCount(budget.used)} of ${formatCount(budget.limit!)} onboarding SKUs. Consider upgrading your plan before you hit the limit.`,
+      blocked: `You've reached your first-year onboarding passport publish limit (${formatCount(budget.used)}/${formatCount(budget.limit!)} passports published). Upgrade your plan to publish more passports.`,
+      warning: `You've published ${formatCount(budget.used)} of ${formatCount(budget.limit!)} onboarding passports. Consider upgrading before you hit the limit.`,
       ctaLabel: "View plans",
     };
   }
 
   return {
-    blocked: `You've reached your yearly SKU limit (${formatCount(budget.used)}/${formatCount(budget.limit!)} SKUs used). Upgrade your plan to add more products.`,
-    warning: `You've used ${formatCount(budget.used)} of ${formatCount(budget.limit!)} new SKUs this year. Consider upgrading your plan before you hit the limit.`,
+    blocked: `You've reached your yearly passport publish limit (${formatCount(budget.used)}/${formatCount(budget.limit!)} passports published). Upgrade your plan to publish more passports.`,
+    warning: `You've published ${formatCount(budget.used)} of ${formatCount(budget.limit!)} passports in this window. Consider upgrading before you hit the limit.`,
     ctaLabel: "View plans",
   };
 }
@@ -84,7 +84,7 @@ export function SkuLimitBanner({ sku }: SkuLimitBannerProps) {
         </div>
         <Link
           href="/settings/billing"
-          className="type-small !font-semibold underline underline-offset-2"
+          className="type-small !font-semibold underline underline-offset-2 shrink-0 whitespace-nowrap"
           prefetch
         >
           {ctaLabel}

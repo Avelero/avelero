@@ -12,7 +12,7 @@ import type {
 } from "@api/lib/access-policy/types.js";
 import type { TRPCContext } from "@api/trpc/init.ts";
 import {
-  countBrandSkusInActiveWindow,
+  countPublishedPassportsInActiveWindow,
   getCurrentDatabaseTimestamp,
   getBrandAccessSnapshot,
   resolveActiveSkuWindow,
@@ -157,12 +157,12 @@ export async function ensureBrandAccessContext(
     snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
   }
 
-  // Resolve the single active SKU window and count only existing variants created inside it.
+  // Resolve the single active publish window and count live published passports inside it.
   const activeSkuWindow = resolveActiveSkuWindow({
     snapshot,
     evaluationDate: currentDatabaseTimestamp,
   });
-  const currentSkuUsageCount = await countBrandSkusInActiveWindow(
+  const currentPublishUsageCount = await countPublishedPassportsInActiveWindow(
     ctx.db,
     ctx.brandId,
     activeSkuWindow,
@@ -175,8 +175,8 @@ export async function ensureBrandAccessContext(
   const skuAccess = resolveSkuAccessDecision({
     brandAccess: resolvedBrandAccess,
     snapshot,
-    intendedCreateCount: 0,
-    currentSkuUsageCount,
+    intendedPublishCount: 0,
+    currentPublishUsageCount,
     evaluationDate: currentDatabaseTimestamp,
   });
   const brandAccess: ResolvedBrandAccessDecision = {
@@ -185,8 +185,7 @@ export async function ensureBrandAccessContext(
       ...resolvedBrandAccess.capabilities,
       canCreateSkus:
         ctx.role === ROLES.AVELERO ||
-        (resolvedBrandAccess.capabilities.canWriteBrandData &&
-          skuAccess.status !== "blocked"),
+        resolvedBrandAccess.capabilities.canWriteBrandData,
     },
   };
 
@@ -194,7 +193,7 @@ export async function ensureBrandAccessContext(
     snapshot,
     brandAccess,
     skuAccess,
-    currentSkuUsageCount,
+    currentSkuUsageCount: currentPublishUsageCount,
     currentDatabaseTimestamp,
   };
 

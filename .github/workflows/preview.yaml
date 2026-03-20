@@ -861,21 +861,14 @@ jobs:
       - name: 🔗 Create Stripe Webhook for Preview
         id: stripe-webhook
         env:
-          ENABLE_PREVIEW_STRIPE_WEBHOOKS: ${{ vars.ENABLE_PREVIEW_STRIPE_WEBHOOKS }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
         run: |
-          if [[ "${ENABLE_PREVIEW_STRIPE_WEBHOOKS}" != "true" ]]; then
-            echo "Skipping automatic Stripe preview webhook registration."
-            echo "Set ENABLE_PREVIEW_STRIPE_WEBHOOKS=true only when previews use an isolated Stripe environment."
-            echo "webhook_id=" >> $GITHUB_OUTPUT
-            echo "webhook_secret=" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          set -euo pipefail
 
           WEBHOOK_URL="${{ steps.urls.outputs.api_url }}/webhooks/stripe"
           echo "Preparing Stripe webhook endpoint: $WEBHOOK_URL"
 
-          EXISTING_ENDPOINTS=$(curl -s -G https://api.stripe.com/v1/webhook_endpoints \
+          EXISTING_ENDPOINTS=$(curl -sS -G https://api.stripe.com/v1/webhook_endpoints \
             -u "${STRIPE_SECRET_KEY}:" \
             -d "limit=100")
 
@@ -884,14 +877,14 @@ jobs:
           if [[ ${#EXISTING_WEBHOOK_IDS[@]} -gt 0 ]]; then
             echo "Deleting ${#EXISTING_WEBHOOK_IDS[@]} existing Stripe webhook endpoint(s) for this preview URL"
             for WEBHOOK_ID in "${EXISTING_WEBHOOK_IDS[@]}"; do
-              curl -s -X DELETE "https://api.stripe.com/v1/webhook_endpoints/${WEBHOOK_ID}" \
+              curl -sS -X DELETE "https://api.stripe.com/v1/webhook_endpoints/${WEBHOOK_ID}" \
                 -u "${STRIPE_SECRET_KEY}:"
             done
           fi
 
           echo "Creating Stripe webhook endpoint: $WEBHOOK_URL"
 
-          RESPONSE=$(curl -s -X POST https://api.stripe.com/v1/webhook_endpoints \
+          RESPONSE=$(curl -sS -X POST https://api.stripe.com/v1/webhook_endpoints \
             -u "${STRIPE_SECRET_KEY}:" \
             -d "url=${WEBHOOK_URL}" \
             -d "enabled_events[]=checkout.session.completed" \
@@ -909,8 +902,8 @@ jobs:
           WEBHOOK_ID=$(echo "$RESPONSE" | jq -r '.id')
           WEBHOOK_SECRET=$(echo "$RESPONSE" | jq -r '.secret')
 
-          if [[ -z "$WEBHOOK_ID" || "$WEBHOOK_ID" == "null" ]]; then
-            echo "❌ Failed to create Stripe webhook endpoint"
+          if [[ -z "$WEBHOOK_ID" || "$WEBHOOK_ID" == "null" || -z "$WEBHOOK_SECRET" || "$WEBHOOK_SECRET" == "null" ]]; then
+            echo "❌ Failed to create Stripe webhook endpoint or retrieve webhook secret"
             echo "$RESPONSE" | jq .
             exit 1
           fi
@@ -920,7 +913,6 @@ jobs:
           echo "webhook_secret=$WEBHOOK_SECRET" >> $GITHUB_OUTPUT
 
       - name: ✅ Require Preview Stripe Webhook Secret
-        if: vars.ENABLE_PREVIEW_STRIPE_WEBHOOKS == 'true'
         run: |
           if [[ -z "${{ steps.stripe-webhook.outputs.webhook_secret }}" ]]; then
             echo "❌ Preview Stripe webhook secret was not produced."
@@ -929,7 +921,6 @@ jobs:
           fi
 
       - name: 🚀 Deploy PR API to Fly.io
-        if: vars.ENABLE_PREVIEW_STRIPE_WEBHOOKS == 'true'
         uses: superfly/fly-pr-review-apps@1.3.0
         with:
           name: pr-${{ github.event.number }}-avelero-api
@@ -951,41 +942,6 @@ jobs:
             DPP_URL=${{ steps.urls.outputs.dpp_url }}
             STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
             STRIPE_WEBHOOK_SECRET=${{ steps.stripe-webhook.outputs.webhook_secret }}
-            STRIPE_PRICE_ID_AVELERO_STARTER_MONTHLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_MONTHLY }}
-            STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY }}
-            STRIPE_PRICE_ID_AVELERO_GROWTH_MONTHLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_GROWTH_MONTHLY }}
-            STRIPE_PRICE_ID_AVELERO_GROWTH_YEARLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_GROWTH_YEARLY }}
-            STRIPE_PRICE_ID_AVELERO_SCALE_MONTHLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_SCALE_MONTHLY }}
-            STRIPE_PRICE_ID_AVELERO_SCALE_YEARLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_SCALE_YEARLY }}
-            STRIPE_PRICE_ID_IMPACT_STARTER_MONTHLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_STARTER_MONTHLY }}
-            STRIPE_PRICE_ID_IMPACT_STARTER_YEARLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_STARTER_YEARLY }}
-            STRIPE_PRICE_ID_IMPACT_GROWTH_MONTHLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_GROWTH_MONTHLY }}
-            STRIPE_PRICE_ID_IMPACT_GROWTH_YEARLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_GROWTH_YEARLY }}
-            STRIPE_PRICE_ID_IMPACT_SCALE_MONTHLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_SCALE_MONTHLY }}
-            STRIPE_PRICE_ID_IMPACT_SCALE_YEARLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_SCALE_YEARLY }}
-
-      - name: 🚀 Deploy PR API to Fly.io
-        if: vars.ENABLE_PREVIEW_STRIPE_WEBHOOKS != 'true'
-        uses: superfly/fly-pr-review-apps@1.3.0
-        with:
-          name: pr-${{ github.event.number }}-avelero-api
-          config: apps/api/fly-preview.yml
-          secrets: >
-            DATABASE_URL=${{ steps.creds.outputs.database_url }}
-            NEXT_PUBLIC_SUPABASE_URL=${{ steps.creds.outputs.supabase_url }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ steps.creds.outputs.supabase_anon_key }}
-            SUPABASE_SERVICE_KEY=${{ steps.creds.outputs.supabase_service_key }}
-            SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}
-            TRIGGER_SECRET_KEY=${{ secrets.TRIGGER_SECRET_KEY_PREVIEW }}
-            TRIGGER_PREVIEW_BRANCH=${{ github.head_ref }}
-            INTERNAL_API_KEY=${{ secrets.PREVIEW_INTERNAL_API_KEY }}
-            SHOPIFY_CLIENT_ID=${{ secrets.SHOPIFY_CLIENT_ID }}
-            SHOPIFY_CLIENT_SECRET=${{ secrets.SHOPIFY_CLIENT_SECRET }}
-            INTEGRATION_ENCRYPTION_KEY=${{ secrets.INTEGRATION_ENCRYPTION_KEY }}
-            API_URL=${{ steps.urls.outputs.api_url }}
-            APP_URL=${{ steps.urls.outputs.app_url }}
-            DPP_URL=${{ steps.urls.outputs.dpp_url }}
-            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
             STRIPE_PRICE_ID_AVELERO_STARTER_MONTHLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_MONTHLY }}
             STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY }}
             STRIPE_PRICE_ID_AVELERO_GROWTH_MONTHLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_GROWTH_MONTHLY }}

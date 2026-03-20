@@ -463,9 +463,9 @@ export const billingRouter = createTRPCRouter({
         planType: brandPlan.planType,
         billingInterval: brandPlan.billingInterval,
         hasImpactPredictions: brandPlan.hasImpactPredictions,
-        planSelectedAt: brandPlan.planSelectedAt,
-        skuAnnualLimit: brandPlan.skuAnnualLimit,
-        skuOnboardingLimit: brandPlan.skuOnboardingLimit,
+      planSelectedAt: brandPlan.planSelectedAt,
+      skuAnnualLimit: brandPlan.skuAnnualLimit,
+      skuOnboardingLimit: brandPlan.skuOnboardingLimit,
       })
       .from(brandPlan)
       .where(eq(brandPlan.brandId, brandId))
@@ -493,10 +493,25 @@ export const billingRouter = createTRPCRouter({
       past_due_since: billing?.pastDueSince ?? null,
       pending_cancellation: billing?.pendingCancellation ?? false,
       grace_ends_at: brandAccess.graceEndsAt,
+      active_sku_budget: {
+        kind: skuAccess.activeBudget.kind,
+        phase: skuAccess.activeBudget.phase,
+        limit: skuAccess.activeBudget.limit,
+        used: skuAccess.activeBudget.used,
+        remaining: skuAccess.activeBudget.remaining,
+        utilization: skuAccess.activeBudget.utilization,
+        window_start_at: skuAccess.activeBudget.windowStartAt,
+        window_end_at: skuAccess.activeBudget.windowEndAt,
+        is_first_paid_year: skuAccess.activeBudget.isFirstPaidYear,
+      },
       sku_annual_limit: plan?.skuAnnualLimit ?? null,
-      skus_created_this_year: skuAccess.annual.used,
       sku_onboarding_limit: plan?.skuOnboardingLimit ?? null,
-      skus_created_onboarding: skuAccess.onboarding.used,
+      skus_created_this_year: skuAccess.activeBudget.kind === "annual"
+        ? skuAccess.activeBudget.used
+        : 0,
+      skus_created_onboarding: skuAccess.activeBudget.kind === "onboarding"
+        ? skuAccess.activeBudget.used
+        : 0,
       has_active_subscription: !!billing?.stripeSubscriptionId,
       stripe_customer_id: billing?.stripeCustomerId ?? null,
     };

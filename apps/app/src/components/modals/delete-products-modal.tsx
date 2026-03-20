@@ -73,6 +73,12 @@ function DeleteProductsModal({
         });
         void queryClient.invalidateQueries({ queryKey: [["summary"]] });
         void queryClient.invalidateQueries({ queryKey: [["composite"]] });
+        void queryClient.invalidateQueries({
+          queryKey: trpc.brand.billing.getStatus.queryKey(),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: trpc.composite.initDashboard.queryKey(),
+        });
         onSuccess?.();
         onOpenChange(false);
       },

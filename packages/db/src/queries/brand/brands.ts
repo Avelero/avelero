@@ -288,6 +288,8 @@ export async function createBrand(
       skuAnnualLimit: null,
       skuOnboardingLimit: null,
       skuLimitOverride: null,
+      firstPaidStartedAt: null,
+      annualUsageAnchorAt: null,
       skuYearStart: null,
       skuCountAtYearStart: null,
       skuCountAtOnboardingStart: null,

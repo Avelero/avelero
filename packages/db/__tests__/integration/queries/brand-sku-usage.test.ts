@@ -1,16 +1,19 @@
 /**
- * Integration coverage for brand SKU usage queries and lazy period helpers.
+ * Integration coverage for brand SKU usage queries and anchor-derived window helpers.
  */
 import "../../setup";
 
 import { describe, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import {
+  countBrandSkusInActiveWindow,
   countBrandSkus,
+  getBrandAccessSnapshot,
   isOnboardingYear,
   lazyExpireOnboardingLimitIfNeeded,
   lazyResetAnnualPeriodIfNeeded,
-} from "../../../src/queries/brand/sku-usage";
+  resolveActiveSkuWindow,
+} from "../../../src/queries/brand";
 import * as schema from "../../../src/schema";
 import {
   createTestBrand,
@@ -63,29 +66,16 @@ function daysFromNow(dayOffset: number): Date {
 }
 
 /**
- * Computes the most recent annual boundary at or before today.
+ * Sets a deterministic created-at timestamp for a test variant.
  */
-function latestAnniversary(start: Date, today: Date): Date {
-  let anniversary = new Date(start.getTime());
-
-  while (
-    Date.UTC(
-      anniversary.getUTCFullYear() + 1,
-      anniversary.getUTCMonth(),
-      anniversary.getUTCDate(),
-    ) <=
-    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
-  ) {
-    anniversary = new Date(
-      Date.UTC(
-        anniversary.getUTCFullYear() + 1,
-        anniversary.getUTCMonth(),
-        anniversary.getUTCDate(),
-      ),
-    );
-  }
-
-  return anniversary;
+async function setVariantCreatedAt(
+  variantId: string,
+  createdAt: string,
+): Promise<void> {
+  await testDb
+    .update(schema.productVariants)
+    .set({ createdAt })
+    .where(eq(schema.productVariants.id, variantId));
 }
 
 /**
@@ -93,25 +83,34 @@ function latestAnniversary(start: Date, today: Date): Date {
  */
 async function upsertBrandPlan(params: {
   brandId: string;
+  firstPaidStartedAt?: string | null;
+  annualUsageAnchorAt?: string | null;
   skuYearStart?: Date | null;
   skuCountAtYearStart?: number | null;
   skuOnboardingLimit?: number | null;
   skuCountAtOnboardingStart?: number | null;
+  skuAnnualLimit?: number | null;
 }) {
   await testDb
     .insert(schema.brandPlan)
     .values({
       brandId: params.brandId,
+      firstPaidStartedAt: params.firstPaidStartedAt ?? null,
+      annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
       skuYearStart: params.skuYearStart ?? null,
       skuCountAtYearStart: params.skuCountAtYearStart ?? null,
+      skuAnnualLimit: params.skuAnnualLimit ?? null,
       skuOnboardingLimit: params.skuOnboardingLimit ?? null,
       skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? null,
     })
     .onConflictDoUpdate({
       target: schema.brandPlan.brandId,
       set: {
+        firstPaidStartedAt: params.firstPaidStartedAt ?? null,
+        annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
         skuYearStart: params.skuYearStart ?? null,
         skuCountAtYearStart: params.skuCountAtYearStart ?? null,
+        skuAnnualLimit: params.skuAnnualLimit ?? null,
         skuOnboardingLimit: params.skuOnboardingLimit ?? null,
         skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? null,
       },
@@ -134,23 +133,34 @@ describe("brand sku usage queries", () => {
     expect(await countBrandSkus(testDb, brandB)).toBe(1);
   });
 
-  it("lazily resets the annual snapshot to the live SKU count", async () => {
+  it("derives annual windows from the paid anchor without mutating legacy snapshots", async () => {
     const brandId = await createTestBrand("Annual Reset Brand");
     const product = await createTestProduct(brandId);
     const initialYearStart = yearsFromNow(-2);
-    const today = new Date();
+    const annualUsageAnchorAt = "2024-01-15T00:00:00.000Z";
+    const evaluationDate = "2026-03-20T12:00:00.000Z";
 
-    await createTestVariant(product.id, { sku: "RESET-1" });
-    await createTestVariant(product.id, { sku: "RESET-2" });
-    await createTestVariant(product.id, { sku: "RESET-3" });
+    const beforeWindow = await createTestVariant(product.id, { sku: "RESET-1" });
+    const insideWindowA = await createTestVariant(product.id, { sku: "RESET-2" });
+    const insideWindowB = await createTestVariant(product.id, { sku: "RESET-3" });
+
+    await setVariantCreatedAt(beforeWindow.id, "2025-12-31T23:59:59.000Z");
+    await setVariantCreatedAt(insideWindowA.id, "2026-01-15T00:00:00.000Z");
+    await setVariantCreatedAt(insideWindowB.id, "2026-03-01T12:00:00.000Z");
 
     await upsertBrandPlan({
       brandId,
+      annualUsageAnchorAt,
+      skuAnnualLimit: 500,
       skuYearStart: initialYearStart,
       skuCountAtYearStart: 1,
     });
 
-    const result = await lazyResetAnnualPeriodIfNeeded(testDb, brandId);
+    const result = await lazyResetAnnualPeriodIfNeeded(
+      testDb,
+      brandId,
+      evaluationDate,
+    );
 
     const [plan] = await testDb
       .select({
@@ -161,11 +171,26 @@ describe("brand sku usage queries", () => {
       .where(eq(schema.brandPlan.brandId, brandId))
       .limit(1);
 
-    expect(result.wasReset).toBe(true);
-    expect(plan?.skuCountAtYearStart).toBe(3);
-    expect(formatDateOnly(plan?.skuYearStart)).toBe(
-      formatDateOnly(latestAnniversary(initialYearStart, today)),
+    const snapshot = await getBrandAccessSnapshot(testDb, brandId);
+    const activeWindow = resolveActiveSkuWindow({
+      snapshot,
+      evaluationDate,
+    });
+    const usageCount = await countBrandSkusInActiveWindow(
+      testDb,
+      brandId,
+      activeWindow,
     );
+
+    expect(result.wasReset).toBe(false);
+    expect(plan?.skuCountAtYearStart).toBe(1);
+    expect(formatDateOnly(plan?.skuYearStart)).toBe(
+      formatDateOnly(initialYearStart),
+    );
+    expect(activeWindow.kind).toBe("annual");
+    expect(activeWindow.windowStartAt).toBe("2026-01-15T00:00:00.000Z");
+    expect(activeWindow.windowEndAt).toBe("2027-01-15T00:00:00.000Z");
+    expect(usageCount).toBe(2);
   });
 
   it("does not reset the annual period before the first anniversary", async () => {
@@ -196,24 +221,39 @@ describe("brand sku usage queries", () => {
     );
   });
 
-  it("expires onboarding limits after the first year and reports onboarding state", async () => {
+  it("derives onboarding state from first paid start without expiring stored limits", async () => {
     const brandId = await createTestBrand("Onboarding Expiry Brand");
-    const expiredTrialStartedAt = yearsFromNow(-2).toISOString();
-    const recentTrialStartedAt = daysFromNow(-30).toISOString();
+    const firstPaidStartedAt = "2026-02-15T00:00:00.000Z";
+    const evaluationDate = "2026-03-20T12:00:00.000Z";
+    const product = await createTestProduct(brandId);
+
+    const beforeWindow = await createTestVariant(product.id, { sku: "ONBOARD-1" });
+    const insideWindowA = await createTestVariant(product.id, { sku: "ONBOARD-2" });
+    const insideWindowB = await createTestVariant(product.id, { sku: "ONBOARD-3" });
+
+    await setVariantCreatedAt(beforeWindow.id, "2026-02-14T23:59:59.000Z");
+    await setVariantCreatedAt(insideWindowA.id, "2026-02-15T00:00:00.000Z");
+    await setVariantCreatedAt(insideWindowB.id, "2026-03-01T12:00:00.000Z");
 
     await upsertBrandPlan({
       brandId,
+      firstPaidStartedAt,
       skuOnboardingLimit: 2500,
       skuCountAtOnboardingStart: 10,
     });
 
-    expect(isOnboardingYear(recentTrialStartedAt)).toBe(true);
-    expect(isOnboardingYear(expiredTrialStartedAt)).toBe(false);
+    expect(isOnboardingYear(firstPaidStartedAt, "2027-02-14T23:59:59.000Z")).toBe(
+      true,
+    );
+    expect(isOnboardingYear(firstPaidStartedAt, "2027-02-15T00:00:00.000Z")).toBe(
+      false,
+    );
 
     const result = await lazyExpireOnboardingLimitIfNeeded(
       testDb,
       brandId,
-      expiredTrialStartedAt,
+      firstPaidStartedAt,
+      evaluationDate,
     );
 
     const [plan] = await testDb
@@ -225,19 +265,34 @@ describe("brand sku usage queries", () => {
       .where(eq(schema.brandPlan.brandId, brandId))
       .limit(1);
 
-    expect(result.wasExpired).toBe(true);
-    expect(plan?.skuOnboardingLimit).toBeNull();
+    const snapshot = await getBrandAccessSnapshot(testDb, brandId);
+    const activeWindow = resolveActiveSkuWindow({
+      snapshot,
+      evaluationDate,
+    });
+    const usageCount = await countBrandSkusInActiveWindow(
+      testDb,
+      brandId,
+      activeWindow,
+    );
+
+    expect(result.wasExpired).toBe(false);
+    expect(plan?.skuOnboardingLimit).toBe(2500);
     expect(plan?.skuCountAtOnboardingStart).toBe(10);
+    expect(activeWindow.kind).toBe("onboarding");
+    expect(activeWindow.windowStartAt).toBe("2026-02-15T00:00:00.000Z");
+    expect(activeWindow.windowEndAt).toBe("2027-02-15T00:00:00.000Z");
+    expect(usageCount).toBe(2);
   });
 
   it("accepts an explicit evaluation date for onboarding-year checks", () => {
-    const trialStartedAt = "2025-03-17T12:00:00.000Z";
+    const firstPaidStartedAt = "2025-03-17T12:00:00.000Z";
 
     expect(
-      isOnboardingYear(trialStartedAt, "2026-03-17T11:59:59.000Z"),
+      isOnboardingYear(firstPaidStartedAt, "2026-03-17T11:59:59.000Z"),
     ).toBe(true);
     expect(
-      isOnboardingYear(trialStartedAt, "2026-03-17T12:00:00.000Z"),
+      isOnboardingYear(firstPaidStartedAt, "2026-03-17T12:00:00.000Z"),
     ).toBe(false);
   });
 });

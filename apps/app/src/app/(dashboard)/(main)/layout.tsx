@@ -1,5 +1,7 @@
-import { PastDueBanner } from "@/components/access/past-due-banner";
-import { PendingCancellationBanner } from "@/components/access/pending-cancellation-banner";
+/**
+ * Main app layout redirect logic and top-banner shell.
+ */
+import { MainLayoutBannerShell } from "@/components/access/main-layout-banner-shell";
 import {
   INVITE_REQUIRED_LOGIN_PATH,
   getForceSignOutPath,
@@ -62,12 +64,11 @@ export default async function MainLayout({
   // and editor chrome can stay accessible when needed.
 
   return (
-    <div className="relative h-full min-h-0">
-      {access.banner === "past_due" ? <PastDueBanner /> : null}
-      {access.banner === "pending_cancellation" ? (
-        <PendingCancellationBanner accessUntil={access.currentPeriodEnd} />
-      ) : null}
-      <div className="relative h-full min-h-0">{children}</div>
-    </div>
+    <MainLayoutBannerShell
+      banner={access.banner}
+      accessUntil={access.currentPeriodEnd}
+    >
+      {children}
+    </MainLayoutBannerShell>
   );
 }

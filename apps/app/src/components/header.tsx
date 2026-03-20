@@ -31,12 +31,14 @@ export function Header({
   // Switch the leading chrome depending on whether the editor is active.
   const logoIsLink = !disableLogoLink;
   const isEditor = variant === "editor";
-  const topOffsetClass = hasTopBanner ? "top-14 sm:top-10" : "top-0";
+  const topOffset = hasTopBanner
+    ? "var(--app-top-banner-height, 40px)"
+    : "var(--app-top-banner-height, 0px)";
 
   return (
     <header
-      className={cn("sticky z-50 border-b bg-background", topOffsetClass)}
-      style={{ height: "56px" }}
+      className={cn("sticky z-50 border-b bg-background")}
+      style={{ height: "56px", top: topOffset }}
     >
       <div className="flex h-full">
         {/* Logo Section / Back Button */}

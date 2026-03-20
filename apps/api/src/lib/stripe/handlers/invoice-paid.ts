@@ -40,6 +40,12 @@ export async function handleInvoicePaid(event: Stripe.Event): Promise<void> {
   });
   const subscriptionId = getInvoiceSubscriptionId(invoice);
   const nowIso = new Date().toISOString();
+  const [existingLifecycle] = await db
+    .select({ phase: brandLifecycle.phase })
+    .from(brandLifecycle)
+    .where(eq(brandLifecycle.brandId, brandId))
+    .limit(1);
+  const shouldSyncPaidSkuAnchors = existingLifecycle?.phase !== "active";
 
   if (subscriptionId) {
     await syncStripeSubscriptionProjectionById({
@@ -47,6 +53,8 @@ export async function handleInvoicePaid(event: Stripe.Event): Promise<void> {
       subscriptionId,
       clearPastDue: true,
       brandId,
+      syncPaidSkuAnchors: shouldSyncPaidSkuAnchors,
+      allowAnnualAnchorRealignment: shouldSyncPaidSkuAnchors,
     });
   } else if (projectedInvoice.managedByAvelero) {
     await applyEnterpriseInvoiceEntitlement({
@@ -54,6 +62,8 @@ export async function handleInvoicePaid(event: Stripe.Event): Promise<void> {
       brandId,
       invoice,
       clearPastDue: true,
+      syncPaidSkuAnchors: shouldSyncPaidSkuAnchors,
+      allowAnnualAnchorRealignment: shouldSyncPaidSkuAnchors,
     });
   }
 

@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Displays the billing grace-period warning banner.
  */

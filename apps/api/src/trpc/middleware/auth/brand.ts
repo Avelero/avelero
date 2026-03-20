@@ -1,3 +1,6 @@
+/**
+ * Resolves and caches brand membership plus live access policy state for requests.
+ */
 import { ROLES, type Role, isRole } from "@api/config/roles.js";
 import { resolveBrandAccessDecision } from "@api/lib/access-policy/resolve-brand-access-decision.js";
 import { resolveSkuAccessDecision } from "@api/lib/access-policy/resolve-sku-access-decision.js";
@@ -9,11 +12,10 @@ import type {
 } from "@api/lib/access-policy/types.js";
 import type { TRPCContext } from "@api/trpc/init.ts";
 import {
-  countBrandSkus,
-  getCurrentDatabaseDate,
+  countBrandSkusInActiveWindow,
+  getCurrentDatabaseTimestamp,
   getBrandAccessSnapshot,
-  lazyExpireOnboardingLimitIfNeeded,
-  lazyResetAnnualPeriodIfNeeded,
+  resolveActiveSkuWindow,
 } from "@v1/db/queries/brand";
 import { logger } from "@v1/logger";
 
@@ -29,8 +31,8 @@ export type BrandAccessContextCache = {
   snapshot: BrandAccessSnapshot;
   brandAccess: ResolvedBrandAccessDecision;
   skuAccess: ResolvedSkuAccessDecision;
-  currentNonGhostSkuCount: number;
-  currentDatabaseDate: Date;
+  currentSkuUsageCount: number;
+  currentDatabaseTimestamp: Date;
 };
 
 type ContextWithBrandCache = TRPCContext & {
@@ -141,7 +143,7 @@ export async function ensureBrandAccessContext(
   }
 
   let snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
-  const currentDatabaseDate = await getCurrentDatabaseDate(ctx.db);
+  const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(ctx.db);
 
   if (
     snapshot.billing?.stripeSubscriptionId &&
@@ -155,25 +157,16 @@ export async function ensureBrandAccessContext(
     snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
   }
 
-  // Lazily advance SKU periods before resolving any derived usage budgets.
-  const resetResult = await lazyResetAnnualPeriodIfNeeded(
+  // Resolve the single active SKU window and count only existing variants created inside it.
+  const activeSkuWindow = resolveActiveSkuWindow({
+    snapshot,
+    evaluationDate: currentDatabaseTimestamp,
+  });
+  const currentSkuUsageCount = await countBrandSkusInActiveWindow(
     ctx.db,
     ctx.brandId,
-    currentDatabaseDate,
+    activeSkuWindow,
   );
-  const expiryResult = await lazyExpireOnboardingLimitIfNeeded(
-    ctx.db,
-    ctx.brandId,
-    snapshot.lifecycle?.trialStartedAt ?? null,
-    currentDatabaseDate,
-  );
-
-  if (resetResult.wasReset || expiryResult.wasExpired) {
-    snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
-  }
-
-  // Load the live SKU count used by the derived usage resolver.
-  const currentNonGhostSkuCount = await countBrandSkus(ctx.db, ctx.brandId);
 
   const resolvedBrandAccess = resolveBrandAccessDecision({
     role: ctx.role ?? null,
@@ -183,9 +176,8 @@ export async function ensureBrandAccessContext(
     brandAccess: resolvedBrandAccess,
     snapshot,
     intendedCreateCount: 0,
-    currentNonGhostSkuCount,
-    trialStartedAt: snapshot.lifecycle?.trialStartedAt ?? null,
-    evaluationDate: currentDatabaseDate,
+    currentSkuUsageCount,
+    evaluationDate: currentDatabaseTimestamp,
   });
   const brandAccess: ResolvedBrandAccessDecision = {
     ...resolvedBrandAccess,
@@ -202,8 +194,8 @@ export async function ensureBrandAccessContext(
     snapshot,
     brandAccess,
     skuAccess,
-    currentNonGhostSkuCount,
-    currentDatabaseDate,
+    currentSkuUsageCount,
+    currentDatabaseTimestamp,
   };
 
   contextWithCache[BRAND_ACCESS_CONTEXT_CACHE] = result;

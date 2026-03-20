@@ -29,11 +29,22 @@ export async function handleSubscriptionUpdated(
     return;
   }
 
+  // Detect whether this update is restoring paid access rather than a routine in-service refresh.
+  const [existingLifecycle] = await db
+    .select({ phase: brandLifecycle.phase })
+    .from(brandLifecycle)
+    .where(eq(brandLifecycle.brandId, brandId))
+    .limit(1);
+  const shouldSyncPaidSkuAnchors =
+    subscription.status === "active" && existingLifecycle?.phase !== "active";
+
   const { projection } = await projectStripeSubscription({
     db,
     subscription,
     clearPastDue: subscription.status === "active",
     knownBrandId: brandId,
+    syncPaidSkuAnchors: shouldSyncPaidSkuAnchors,
+    allowAnnualAnchorRealignment: shouldSyncPaidSkuAnchors,
   });
   const nowIso = new Date().toISOString();
   let resolvedPhase: string | null = null;

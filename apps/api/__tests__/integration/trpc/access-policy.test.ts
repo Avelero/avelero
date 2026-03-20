@@ -54,6 +54,7 @@ async function setBrandSubscriptionState(params: {
   brandId: string;
   phase: BrandPhase;
   trialEndsAt?: string | null;
+  trialStartedAt?: string | null;
   billingMode?: "stripe_checkout" | "stripe_invoice" | null;
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
@@ -67,6 +68,8 @@ async function setBrandSubscriptionState(params: {
   skuAnnualLimit?: number | null;
   skuOnboardingLimit?: number | null;
   skuLimitOverride?: number | null;
+  firstPaidStartedAt?: string | null;
+  annualUsageAnchorAt?: string | null;
   skuCountAtYearStart?: number;
   skuCountAtOnboardingStart?: number;
 }) {
@@ -79,7 +82,7 @@ async function setBrandSubscriptionState(params: {
       phase: params.phase,
       phaseChangedAt: now,
       trialEndsAt: params.trialEndsAt ?? null,
-      trialStartedAt: null,
+      trialStartedAt: params.trialStartedAt ?? null,
       cancelledAt: params.phase === "cancelled" ? now : null,
       hardDeleteAfter: null,
       updatedAt: now,
@@ -90,6 +93,7 @@ async function setBrandSubscriptionState(params: {
         phase: params.phase,
         phaseChangedAt: now,
         trialEndsAt: params.trialEndsAt ?? null,
+        trialStartedAt: params.trialStartedAt ?? null,
         cancelledAt: params.phase === "cancelled" ? now : null,
         updatedAt: now,
       },
@@ -137,6 +141,8 @@ async function setBrandSubscriptionState(params: {
       skuAnnualLimit: params.skuAnnualLimit ?? null,
       skuOnboardingLimit: params.skuOnboardingLimit ?? null,
       skuLimitOverride: params.skuLimitOverride ?? null,
+      firstPaidStartedAt: params.firstPaidStartedAt ?? null,
+      annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
       skuYearStart: null,
       skuCountAtYearStart: params.skuCountAtYearStart ?? 0,
       skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? 0,
@@ -150,6 +156,8 @@ async function setBrandSubscriptionState(params: {
         skuAnnualLimit: params.skuAnnualLimit ?? null,
         skuOnboardingLimit: params.skuOnboardingLimit ?? null,
         skuLimitOverride: params.skuLimitOverride ?? null,
+        firstPaidStartedAt: params.firstPaidStartedAt ?? null,
+        annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
         skuCountAtYearStart: params.skuCountAtYearStart ?? 0,
         skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? 0,
         billingInterval: params.billingInterval ?? null,
@@ -348,10 +356,15 @@ describe("Access policy enforcement (tRPC)", () => {
   });
 
   it("blocks SKU mutation with ACCESS_SKU_LIMIT_REACHED when over budget", async () => {
+    const paidAnchor = new Date(
+      Date.now() - 2 * 365 * 24 * 60 * 60 * 1000,
+    ).toISOString();
     await setBrandSubscriptionState({
       brandId,
       phase: "active",
       skuAnnualLimit: 1,
+      firstPaidStartedAt: paidAnchor,
+      annualUsageAnchorAt: paidAnchor,
       skuCountAtYearStart: 0,
       skuCountAtOnboardingStart: 0,
     });
@@ -386,10 +399,15 @@ describe("Access policy enforcement (tRPC)", () => {
       role: "avelero",
     });
 
+    const paidAnchor = new Date(
+      Date.now() - 2 * 365 * 24 * 60 * 60 * 1000,
+    ).toISOString();
     await setBrandSubscriptionState({
       brandId,
       phase: "active",
       skuAnnualLimit: 1,
+      firstPaidStartedAt: paidAnchor,
+      annualUsageAnchorAt: paidAnchor,
       skuCountAtYearStart: 0,
       skuCountAtOnboardingStart: 0,
     });

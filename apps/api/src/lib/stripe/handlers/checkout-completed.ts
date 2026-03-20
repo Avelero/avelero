@@ -18,7 +18,6 @@ import {
   type PlanTier,
 } from "../config.js";
 import {
-  isoToDate,
   syncStripeSubscriptionProjectionById,
 } from "../projection.js";
 
@@ -71,6 +70,8 @@ export async function handleCheckoutCompleted(
       subscriptionId,
       clearPastDue: true,
       brandId,
+      syncPaidSkuAnchors: true,
+      allowAnnualAnchorRealignment: true,
     });
     currentPeriodStart = projection.currentPeriodStart;
     currentPeriodEnd = projection.currentPeriodEnd;
@@ -101,9 +102,6 @@ export async function handleCheckoutCompleted(
         billingInterval,
         hasImpactPredictions: includeImpact,
         planSelectedAt: nowIso,
-        ...(currentPeriodStart
-          ? { skuYearStart: isoToDate(currentPeriodStart) }
-          : {}),
         skuAnnualLimit: tierConfig.skuAnnualLimit,
         skuOnboardingLimit: tierConfig.skuOnboardingLimit,
         updatedAt: nowIso,

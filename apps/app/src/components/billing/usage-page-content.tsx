@@ -1,3 +1,6 @@
+/**
+ * Renders SKU usage for the active brand using billing status data.
+ */
 "use client";
 
 import { useTRPC } from "@/trpc/client";
@@ -5,12 +8,19 @@ import { Skeleton } from "@v1/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { SkuUsageBar } from "./sku-usage-bar";
 
-export function UsagePageContent() {
-  const trpc = useTRPC();
-  const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
-  const sku = initQuery.data?.sku;
+const ONBOARDING_TOOLTIP =
+  "In your first paid year you have a higher onboarding SKU limit. Your regular yearly limit starts after that.";
 
-  if (!initQuery.data) {
+/**
+ * Renders the single active SKU budget for the brand's current lifecycle phase.
+ */
+export function UsagePageContent() {
+  // Load billing status so the usage page can render plan limits even when dashboard SKU snapshots lag behind.
+  const trpc = useTRPC();
+  const statusQuery = useQuery(trpc.brand.billing.getStatus.queryOptions());
+  const status = statusQuery.data;
+
+  if (!status) {
     return (
       <div className="w-full max-w-[700px]">
         <div className="border p-6">
@@ -30,41 +40,47 @@ export function UsagePageContent() {
     );
   }
 
-  const hasAnnual = sku?.annual.limit != null;
-  const hasOnboarding = sku?.onboarding.limit != null && sku.onboarding.limit > 0;
+  const activeSkuBudget = status.active_sku_budget;
+  const phase = activeSkuBudget.phase;
 
-  if (!sku || (!hasAnnual && !hasOnboarding)) {
+  if (phase === "demo" || !activeSkuBudget.kind || activeSkuBudget.limit == null) {
     return (
       <div className="w-full max-w-[700px]">
         <div className="border p-6">
-          <p className="text-sm text-secondary">No usage data available.</p>
+          <h6 className="text-foreground">SKU Usage</h6>
+          <p className="mt-1 text-sm text-secondary">
+            SKU limits are not enforced during demo access.
+          </p>
         </div>
       </div>
     );
   }
 
+  const description =
+    phase === "trial"
+      ? "During trial you can create up to 50 SKUs. When you subscribe, your paid SKU usage starts fresh."
+      : "Track your SKU usage across billing periods.";
+  const label =
+    activeSkuBudget.kind === "trial"
+      ? "trial SKUs used"
+      : activeSkuBudget.kind === "onboarding"
+        ? "onboarding SKUs used"
+        : "new SKUs used this year";
+  const infoTooltip =
+    activeSkuBudget.kind === "onboarding" ? ONBOARDING_TOOLTIP : undefined;
+
   return (
     <div className="w-full max-w-[700px]">
       <div className="border p-6">
         <h6 className="text-foreground">SKU Usage</h6>
-        <p className="mt-1 text-sm text-secondary">
-          Track your SKU usage across billing periods.
-        </p>
+        <p className="mt-1 text-sm text-secondary">{description}</p>
         <div className="mt-4 space-y-4">
-          {hasAnnual && (
-            <SkuUsageBar
-              used={sku.annual.used}
-              limit={sku.annual.limit!}
-              label="new SKUs used this year"
-            />
-          )}
-          {hasOnboarding && (
-            <SkuUsageBar
-              used={sku.onboarding.used}
-              limit={sku.onboarding.limit!}
-              label="onboarding SKUs used"
-            />
-          )}
+          <SkuUsageBar
+            used={activeSkuBudget.used}
+            limit={activeSkuBudget.limit}
+            label={label}
+            infoTooltip={infoTooltip}
+          />
         </div>
       </div>
     </div>

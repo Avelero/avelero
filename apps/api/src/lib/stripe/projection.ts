@@ -2,6 +2,7 @@
  * Centralizes Stripe-to-local billing projection logic for subscriptions and invoices.
  */
 import type { DatabaseOrTransaction } from "@v1/db/client";
+import { syncBrandPaidSkuAnchors } from "@v1/db/queries/brand";
 import { eq } from "@v1/db/queries";
 import {
   brandBilling,
@@ -274,11 +275,20 @@ export async function projectStripeSubscription(opts: {
   subscription: Stripe.Subscription;
   clearPastDue?: boolean;
   knownBrandId?: string | null;
+  syncPaidSkuAnchors?: boolean;
+  allowAnnualAnchorRealignment?: boolean;
 }): Promise<{
   brandId: string | null;
   projection: ResolvedSubscriptionProjection;
 }> {
-  const { db, subscription, clearPastDue = false, knownBrandId } = opts;
+  const {
+    db,
+    subscription,
+    clearPastDue = false,
+    knownBrandId,
+    syncPaidSkuAnchors = false,
+    allowAnnualAnchorRealignment = false,
+  } = opts;
   const brandId =
     knownBrandId ?? (await resolveBrandIdForSubscription({ db, subscription }));
   const projection = resolveSubscriptionProjection(subscription);
@@ -288,6 +298,15 @@ export async function projectStripeSubscription(opts: {
   }
 
   const nowIso = new Date().toISOString();
+  const [existingBilling] = syncPaidSkuAnchors
+    ? await db
+        .select({
+          currentPeriodEnd: brandBilling.currentPeriodEnd,
+        })
+        .from(brandBilling)
+        .where(eq(brandBilling.brandId, brandId))
+        .limit(1)
+    : [];
 
   await db
     .update(brandBilling)
@@ -317,6 +336,16 @@ export async function projectStripeSubscription(opts: {
         updatedAt: nowIso,
       })
       .where(eq(brandPlan.brandId, brandId));
+
+    if (syncPaidSkuAnchors && projection.currentPeriodStart) {
+      await syncBrandPaidSkuAnchors({
+        dbOrTx: db,
+        brandId,
+        paidEntitlementStartsAt: projection.currentPeriodStart,
+        allowAnnualAnchorRealignment,
+        previousEntitlementEndedAt: existingBilling?.currentPeriodEnd ?? null,
+      });
+    }
   }
 
   return { brandId, projection };
@@ -516,11 +545,29 @@ export async function applyEnterpriseInvoiceEntitlement(opts: {
   brandId: string;
   invoice: Stripe.Invoice;
   clearPastDue?: boolean;
+  syncPaidSkuAnchors?: boolean;
+  allowAnnualAnchorRealignment?: boolean;
 }): Promise<void> {
-  const { db, brandId, invoice, clearPastDue = false } = opts;
+  const {
+    db,
+    brandId,
+    invoice,
+    clearPastDue = false,
+    syncPaidSkuAnchors = false,
+    allowAnnualAnchorRealignment = false,
+  } = opts;
   const servicePeriod = getInvoiceServicePeriod(invoice);
   const nowIso = new Date().toISOString();
   const customerId = getStripeId(invoice.customer);
+  const [existingBilling] = syncPaidSkuAnchors
+    ? await db
+        .select({
+          currentPeriodEnd: brandBilling.currentPeriodEnd,
+        })
+        .from(brandBilling)
+        .where(eq(brandBilling.brandId, brandId))
+        .limit(1)
+    : [];
 
   await db
     .update(brandBilling)
@@ -535,17 +582,24 @@ export async function applyEnterpriseInvoiceEntitlement(opts: {
     })
     .where(eq(brandBilling.brandId, brandId));
 
-  const skuYearStart = isoToDate(servicePeriod.servicePeriodStart);
-
   await db
     .update(brandPlan)
     .set({
       planType: "enterprise",
       billingInterval: "yearly",
-      ...(skuYearStart ? { skuYearStart } : {}),
       updatedAt: nowIso,
     })
     .where(eq(brandPlan.brandId, brandId));
+
+  if (syncPaidSkuAnchors && servicePeriod.servicePeriodStart) {
+    await syncBrandPaidSkuAnchors({
+      dbOrTx: db,
+      brandId,
+      paidEntitlementStartsAt: servicePeriod.servicePeriodStart,
+      allowAnnualAnchorRealignment,
+      previousEntitlementEndedAt: existingBilling?.currentPeriodEnd ?? null,
+    });
+  }
 
   await db
     .update(brandLifecycle)
@@ -565,6 +619,8 @@ export async function syncStripeSubscriptionProjectionById(opts: {
   subscriptionId: string;
   clearPastDue?: boolean;
   brandId?: string | null;
+  syncPaidSkuAnchors?: boolean;
+  allowAnnualAnchorRealignment?: boolean;
 }): Promise<{
   brandId: string | null;
   projection: ResolvedSubscriptionProjection;
@@ -591,6 +647,8 @@ export async function syncStripeSubscriptionProjectionById(opts: {
     subscription,
     clearPastDue: opts.clearPastDue,
     knownBrandId: opts.brandId ?? null,
+    syncPaidSkuAnchors: opts.syncPaidSkuAnchors,
+    allowAnnualAnchorRealignment: opts.allowAnnualAnchorRealignment,
   });
 }
 

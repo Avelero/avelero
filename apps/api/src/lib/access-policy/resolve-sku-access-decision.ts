@@ -1,14 +1,14 @@
 /**
  * Resolves SKU access decisions from derived live SKU usage and plan snapshots.
  */
-import { TRIAL_UNIVERSAL_CAP, deriveSkuBudget } from "@v1/db/queries/brand";
+import { TRIAL_SKU_CAP, deriveSkuBudget } from "@v1/db/queries/brand";
 import type {
   ResolveSkuAccessDecisionInput,
   ResolvedSkuAccessDecision,
 } from "./types.js";
 
 export const SKU_WARNING_THRESHOLD = 0.8;
-export { TRIAL_UNIVERSAL_CAP };
+export { TRIAL_SKU_CAP };
 
 export function resolveSkuAccessDecision(
   input: ResolveSkuAccessDecisionInput,
@@ -21,26 +21,20 @@ export function resolveSkuAccessDecision(
       : 0;
   const derivedBudget = deriveSkuBudget({
     snapshot: input.snapshot,
-    currentNonGhostSkuCount: input.currentNonGhostSkuCount,
-    trialStartedAt: input.trialStartedAt,
+    currentSkuUsageCount:
+      input.currentSkuUsageCount ?? input.currentNonGhostSkuCount ?? 0,
     evaluationDate: input.evaluationDate,
   });
-  const trial =
-    input.brandAccess.decision === "trial_active" ? derivedBudget.trial : null;
-  const remainingCreateBudget = [derivedBudget.annual, derivedBudget.onboarding, trial]
-    .map((budget) => budget?.remaining ?? null)
-    .reduce<number | null>((smallest, remaining) => {
-      if (remaining === null) return smallest;
-      if (smallest === null) return remaining;
-      return Math.min(smallest, remaining);
-    }, null);
-  const { annual, onboarding } = derivedBudget;
+  const activeBudget = derivedBudget.activeBudget;
+  const remainingCreateBudget = activeBudget.remaining;
+  const { annual, onboarding, trial } = derivedBudget;
 
   const wouldExceedIntendedCreateCount =
     remainingCreateBudget !== null &&
     intendedCreateCount > remainingCreateBudget;
 
   const maxUtilization = Math.max(
+    activeBudget.utilization ?? 0,
     annual.utilization ?? 0,
     onboarding.utilization ?? 0,
     trial?.utilization ?? 0,
@@ -60,10 +54,12 @@ export function resolveSkuAccessDecision(
 
   return {
     status,
+    activeBudget,
     annual,
     onboarding,
     warningThreshold: SKU_WARNING_THRESHOLD,
-    trialUniversalCap: TRIAL_UNIVERSAL_CAP,
+    trialCap: TRIAL_SKU_CAP,
+    trialUniversalCap: TRIAL_SKU_CAP,
     remainingCreateBudget,
     intendedCreateCount,
     wouldExceedIntendedCreateCount,

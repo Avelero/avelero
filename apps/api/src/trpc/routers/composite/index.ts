@@ -3,12 +3,13 @@ import { and, asc, desc, eq, sql } from "@v1/db/queries";
 import {
   type BrandMembershipListItem,
   type UserInviteSummaryRow,
-  countBrandSkus,
+  countBrandSkusInActiveWindow,
   getBrandAccessSnapshot,
   getBrandsByUserId,
-  getCurrentDatabaseDate,
+  getCurrentDatabaseTimestamp,
   getOwnerCountsByBrandIds,
   listPendingInvitesForEmail,
+  resolveActiveSkuWindow,
 } from "@v1/db/queries/brand";
 import {
   listAllBrandAttributeValues,
@@ -46,7 +47,7 @@ import { getAppUrl } from "@v1/utils/envs";
 import { ROLES, isOwnerEquivalentRole } from "../../../config/roles.js";
 import {
   SKU_WARNING_THRESHOLD,
-  TRIAL_UNIVERSAL_CAP,
+  TRIAL_SKU_CAP,
   resolveSkuAccessDecision,
 } from "../../../lib/access-policy/resolve-sku-access-decision.js";
 import { resolveBrandAccessDecision } from "../../../lib/access-policy/resolve-brand-access-decision.js";
@@ -326,8 +327,16 @@ async function resolveReadonlyBrandAccessContext(params: {
   role: AuthenticatedTRPCContext["role"];
 }) {
   const snapshot = await getBrandAccessSnapshot(params.db, params.brandId);
-  const currentDatabaseDate = await getCurrentDatabaseDate(params.db);
-  const currentNonGhostSkuCount = await countBrandSkus(params.db, params.brandId);
+  const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(params.db);
+  const activeSkuWindow = resolveActiveSkuWindow({
+    snapshot,
+    evaluationDate: currentDatabaseTimestamp,
+  });
+  const currentSkuUsageCount = await countBrandSkusInActiveWindow(
+    params.db,
+    params.brandId,
+    activeSkuWindow,
+  );
   const resolvedBrandAccess = resolveBrandAccessDecision({
     role: params.role ?? null,
     snapshot,
@@ -336,9 +345,8 @@ async function resolveReadonlyBrandAccessContext(params: {
     brandAccess: resolvedBrandAccess,
     snapshot,
     intendedCreateCount: 0,
-    currentNonGhostSkuCount,
-    trialStartedAt: snapshot.lifecycle?.trialStartedAt ?? null,
-    evaluationDate: currentDatabaseDate,
+    currentSkuUsageCount,
+    evaluationDate: currentDatabaseTimestamp,
   });
 
   return {
@@ -376,6 +384,17 @@ const DEFAULT_ACCESS = {
 
 const DEFAULT_SKU = {
   status: "allowed" as const,
+  activeBudget: {
+    kind: null as null,
+    phase: "demo" as const,
+    limit: null as number | null,
+    used: 0,
+    remaining: null as number | null,
+    utilization: null as number | null,
+    windowStartAt: null as string | null,
+    windowEndAt: null as string | null,
+    isFirstPaidYear: false,
+  },
   annual: {
     limit: null as number | null,
     used: 0,
@@ -389,7 +408,7 @@ const DEFAULT_SKU = {
     utilization: null as number | null,
   },
   warningThreshold: SKU_WARNING_THRESHOLD,
-  trialUniversalCap: TRIAL_UNIVERSAL_CAP,
+  trialCap: TRIAL_SKU_CAP,
   remainingCreateBudget: null as number | null,
   intendedCreateCount: 0,
   wouldExceedIntendedCreateCount: false,
@@ -494,10 +513,9 @@ export const compositeRouter = createTRPCRouter({
       },
       sku: {
         status: resolvedSku.status,
-        annual: resolvedSku.annual,
-        onboarding: resolvedSku.onboarding,
+        activeBudget: resolvedSku.activeBudget,
         warningThreshold: resolvedSku.warningThreshold,
-        trialUniversalCap: resolvedSku.trialUniversalCap,
+        remainingCreateBudget: resolvedSku.remainingCreateBudget,
       },
     };
   }),

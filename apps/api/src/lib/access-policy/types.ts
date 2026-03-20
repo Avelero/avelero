@@ -63,8 +63,10 @@ export interface BrandAccessSnapshot {
     skuAnnualLimit: number | null;
     skuOnboardingLimit: number | null;
     skuLimitOverride: number | null;
-    skuCountAtYearStart: number | null;
-    skuCountAtOnboardingStart: number | null;
+    firstPaidStartedAt?: string | null;
+    annualUsageAnchorAt?: string | null;
+    skuCountAtYearStart?: number | null;
+    skuCountAtOnboardingStart?: number | null;
   } | null;
 }
 
@@ -97,21 +99,32 @@ export interface SkuAccessBudget {
   utilization: number | null;
 }
 
+export interface ActiveSkuBudget extends SkuAccessBudget {
+  kind: "trial" | "onboarding" | "annual" | null;
+  phase: "demo" | "trial" | "onboarding" | "annual" | "none";
+  windowStartAt: string | null;
+  windowEndAt: string | null;
+  isFirstPaidYear: boolean;
+}
+
 export interface ResolveSkuAccessDecisionInput {
   brandAccess: ResolvedBrandAccessDecision;
   snapshot: BrandAccessSnapshot;
   intendedCreateCount: number;
-  currentNonGhostSkuCount: number;
-  trialStartedAt: Date | string | null;
+  currentSkuUsageCount?: number;
+  currentNonGhostSkuCount?: number;
+  trialStartedAt?: Date | string | null;
   evaluationDate?: Date | string | null;
 }
 
 export interface ResolvedSkuAccessDecision {
   status: SkuAccessStatus;
+  activeBudget: ActiveSkuBudget;
   annual: SkuAccessBudget;
   onboarding: SkuAccessBudget;
   warningThreshold: number;
-  trialUniversalCap: number;
+  trialCap: number;
+  trialUniversalCap?: number;
   remainingCreateBudget: number | null;
   intendedCreateCount: number;
   wouldExceedIntendedCreateCount: boolean;

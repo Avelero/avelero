@@ -1,5 +1,5 @@
 /**
- * Brand plan schema definitions, including SKU entitlement snapshots.
+ * Brand plan schema definitions, including SKU entitlement anchors.
  */
 import { sql } from "drizzle-orm";
 import {
@@ -35,6 +35,14 @@ export const brandPlan = pgTable(
     skuAnnualLimit: integer("sku_annual_limit"),
     skuOnboardingLimit: integer("sku_onboarding_limit"),
     skuLimitOverride: integer("sku_limit_override"),
+    firstPaidStartedAt: timestamp("first_paid_started_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    annualUsageAnchorAt: timestamp("annual_usage_anchor_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
     skuYearStart: date("sku_year_start", { mode: "date" }),
     skuCountAtYearStart: integer("sku_count_at_year_start"),
     skuCountAtOnboardingStart: integer("sku_count_at_onboarding_start"),
@@ -85,6 +93,8 @@ export const brandPlan = pgTable(
     ),
     uniqueIndex("brand_plan_brand_id_unq").on(table.brandId),
     index("idx_brand_plan_plan_type").on(table.planType),
+    index("idx_brand_plan_first_paid_started_at").on(table.firstPaidStartedAt),
+    index("idx_brand_plan_annual_usage_anchor_at").on(table.annualUsageAnchorAt),
     index("idx_brand_plan_sku_year_start").on(table.skuYearStart),
     pgPolicy("brand_plan_select_for_brand_members", {
       as: "permissive",

@@ -1,3 +1,23 @@
+/**
+ * Unified Product Variants Router
+ *
+ * Provides CRUD operations for product variants using public identifiers
+ * (productHandle + variantUpid) instead of internal UUIDs.
+ *
+ * Includes:
+ * - Core variant operations (list, get, create, update, delete)
+ * - Override data management (environment, materials, journey, etc.)
+ * - Batch operations (batchCreate, batchUpdate, batchDelete)
+ * - Sync operation for product form saves
+ */
+import type { DatabaseOrTransaction } from "@v1/db/client";
+import {
+  countBrandSkusInActiveWindow,
+  getBrandAccessSnapshot,
+  getCurrentDatabaseTimestamp,
+  lockBrandPlanRowForSkuUsage,
+  resolveActiveSkuWindow,
+} from "@v1/db/queries/brand";
 import { and, eq, inArray } from "@v1/db/queries";
 import {
   batchCreatePassportsForVariants,
@@ -25,18 +45,6 @@ import {
   variantMaterials,
   variantWeight,
 } from "@v1/db/schema";
-/**
- * Unified Product Variants Router
- *
- * Provides CRUD operations for product variants using public identifiers
- * (productHandle + variantUpid) instead of internal UUIDs.
- *
- * Includes:
- * - Core variant operations (list, get, create, update, delete)
- * - Override data management (environment, materials, journey, etc.)
- * - Batch operations (batchCreate, batchUpdate, batchDelete)
- * - Sync operation for product form saves
- */
 import { z } from "zod";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import {
@@ -62,15 +70,56 @@ import type {
   BrandAccessTRPCContext,
 } from "../../init.js";
 import {
+  assertResolvedBrandWriteAccess,
   brandReadProcedure,
   brandSkuWriteProcedure,
   brandWriteProcedure,
   createTRPCRouter,
   resolveSkuDecisionWithIntendedCount,
 } from "../../init.js";
+import { resolveBrandAccessDecision } from "../../../lib/access-policy/resolve-brand-access-decision.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
-type BrandDb = BrandContext["db"];
+type BrandDb = DatabaseOrTransaction;
+
+/**
+ * Locks the brand SKU row and validates that the intended create count still fits the live window budget.
+ */
+async function enforceSkuCreateCapacity(params: {
+  db: BrandDb;
+  brandId: string;
+  role: BrandAccessTRPCContext["role"];
+  intendedCreateCount: number;
+}): Promise<void> {
+  // Serialize concurrent SKU writes for the same brand before re-reading anchors and usage.
+  await lockBrandPlanRowForSkuUsage(params.db, params.brandId);
+
+  const snapshot = await getBrandAccessSnapshot(params.db, params.brandId);
+  const evaluationDate = await getCurrentDatabaseTimestamp(params.db);
+  const activeSkuWindow = resolveActiveSkuWindow({
+    snapshot,
+    evaluationDate,
+  });
+  const currentSkuUsageCount = await countBrandSkusInActiveWindow(
+    params.db,
+    params.brandId,
+    activeSkuWindow,
+  );
+  const brandAccess = resolveBrandAccessDecision({
+    role: params.role ?? null,
+    snapshot,
+  });
+
+  assertResolvedBrandWriteAccess(brandAccess);
+  resolveSkuDecisionWithIntendedCount({
+    role: params.role,
+    brandAccess,
+    snapshot,
+    intendedCreateCount: params.intendedCreateCount,
+    currentSkuUsageCount,
+    evaluationDate,
+  });
+}
 
 // =============================================================================
 // INPUT SCHEMAS
@@ -566,17 +615,6 @@ export const productVariantsRouter = createTRPCRouter({
           input.productHandle,
         );
 
-        resolveSkuDecisionWithIntendedCount({
-          role: skuCtx.role,
-          brandAccess: skuCtx.brandAccess,
-          snapshot: skuCtx.brandAccessSnapshot,
-          intendedCreateCount: 1,
-          currentNonGhostSkuCount: skuCtx.currentNonGhostSkuCount,
-          trialStartedAt:
-            skuCtx.brandAccessSnapshot.lifecycle?.trialStartedAt ?? null,
-          evaluationDate: skuCtx.currentDatabaseDate,
-        });
-
         // Normalize and validate barcode uniqueness
         const normalizedBarcode = normalizeBarcode(input.barcode);
         if (normalizedBarcode) {
@@ -645,6 +683,14 @@ export const productVariantsRouter = createTRPCRouter({
 
         // Use transaction to ensure atomicity - if any step fails, rollback
         const variant = await db.transaction(async (tx) => {
+          // Re-check SKU capacity inside the transaction so concurrent writes cannot oversubscribe the brand.
+          await enforceSkuCreateCapacity({
+            db: tx,
+            brandId,
+            role: skuCtx.role,
+            intendedCreateCount: 1,
+          });
+
           // Create variant
           const [newVariant] = await tx
             .insert(productVariants)
@@ -887,17 +933,6 @@ export const productVariantsRouter = createTRPCRouter({
           input.productHandle,
         );
 
-        resolveSkuDecisionWithIntendedCount({
-          role: skuCtx.role,
-          brandAccess: skuCtx.brandAccess,
-          snapshot: skuCtx.brandAccessSnapshot,
-          intendedCreateCount: input.variants.length,
-          currentNonGhostSkuCount: skuCtx.currentNonGhostSkuCount,
-          trialStartedAt:
-            skuCtx.brandAccessSnapshot.lifecycle?.trialStartedAt ?? null,
-          evaluationDate: skuCtx.currentDatabaseDate,
-        });
-
         // ── Barcode Validation ────────────────────────────────────────────────
         // Normalize all barcodes and check for duplicates within the batch
         const normalizedBarcodes: Array<string | null> = [];
@@ -956,6 +991,14 @@ export const productVariantsRouter = createTRPCRouter({
         }> = [];
 
         await db.transaction(async (tx) => {
+          // Re-check SKU capacity inside the transaction so batch creates see the latest live usage.
+          await enforceSkuCreateCapacity({
+            db: tx,
+            brandId,
+            role: skuCtx.role,
+            intendedCreateCount: input.variants.length,
+          });
+
           for (let i = 0; i < input.variants.length; i++) {
             const variantInput = input.variants[i]!;
             const upid = upids[i]!;
@@ -1382,17 +1425,6 @@ export const productVariantsRouter = createTRPCRouter({
           }
         }
 
-        resolveSkuDecisionWithIntendedCount({
-          role: skuCtx.role,
-          brandAccess: skuCtx.brandAccess,
-          snapshot: skuCtx.brandAccessSnapshot,
-          intendedCreateCount: toCreate.length,
-          currentNonGhostSkuCount: skuCtx.currentNonGhostSkuCount,
-          trialStartedAt:
-            skuCtx.brandAccessSnapshot.lifecycle?.trialStartedAt ?? null,
-          evaluationDate: skuCtx.currentDatabaseDate,
-        });
-
         // Find variants to delete (existing but not in input)
         const toDelete = existingVariants.filter(
           (v) => v.upid && !inputUpids.has(v.upid),
@@ -1484,6 +1516,14 @@ export const productVariantsRouter = createTRPCRouter({
             );
             deletedCount = toDelete.length;
           }
+
+          // Re-check SKU capacity after deletions so sync writes can replace variants without false blocks.
+          await enforceSkuCreateCapacity({
+            db: tx,
+            brandId,
+            role: skuCtx.role,
+            intendedCreateCount: toCreate.length,
+          });
 
           // Create new variants
           for (let i = 0; i < toCreate.length; i++) {

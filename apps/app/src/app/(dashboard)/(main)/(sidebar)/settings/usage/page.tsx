@@ -1,27 +1,31 @@
+/**
+ * Server page for the billing usage view.
+ */
 import { UsagePageContent } from "@/components/billing/usage-page-content";
 import { getDashboardInit, shouldBlockSidebarContent } from "@/lib/brand-access";
 import {
   HydrateClient,
-  prefetch,
+  getQueryClient,
   trpc,
 } from "@/trpc/server";
-import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 export default async function UsagePage() {
+  // Prefetch billing status so the usage panel hydrates with the latest plan limits.
   await connection();
 
   if (await shouldBlockSidebarContent()) {
     return null;
   }
 
-  const init = await getDashboardInit();
-  const phase = init.access.phase;
-  if (phase === "demo" || phase === "trial") {
-    redirect("/settings");
-  }
+  await getDashboardInit();
 
-  prefetch(trpc.composite.initDashboard.queryOptions());
+  // Resolve the usage query before dehydration so the client does not hydrate
+  // from a pending state while the server rendered the completed payload.
+  const queryClient = getQueryClient();
+  await queryClient.prefetchQuery(
+    trpc.brand.billing.getStatus.queryOptions(),
+  );
 
   return (
     <HydrateClient>

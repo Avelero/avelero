@@ -12,12 +12,11 @@ import { createClient } from "@supabase/supabase-js";
 import { logger, metadata, task } from "@trigger.dev/sdk/v3";
 import { serviceDb as db } from "@v1/db/client";
 import {
-  countNonGhostSkus,
+  countBrandSkusInActiveWindow,
   deriveSkuBudget,
   getBrandAccessSnapshot,
-  getCurrentDatabaseDate,
-  lazyExpireOnboardingLimitIfNeeded,
-  lazyResetAnnualPeriodIfNeeded,
+  getCurrentDatabaseTimestamp,
+  resolveActiveSkuWindow,
 } from "@v1/db/queries/brand";
 import {
   createSyncJob,
@@ -52,35 +51,25 @@ interface SyncIntegrationPayload {
 }
 
 /**
- * Loads the remaining SKU budget after applying lazy annual and onboarding maintenance.
+ * Loads the remaining SKU budget from the brand's currently active SKU window.
  */
 async function loadRemainingSkuBudget(brandId: string): Promise<number | null> {
-  let snapshot = await getBrandAccessSnapshot(db, brandId);
-  const currentDatabaseDate = await getCurrentDatabaseDate(db);
-
-  const annualReset = await lazyResetAnnualPeriodIfNeeded(
+  const snapshot = await getBrandAccessSnapshot(db, brandId);
+  const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(db);
+  const activeSkuWindow = resolveActiveSkuWindow({
+    snapshot,
+    evaluationDate: currentDatabaseTimestamp,
+  });
+  const currentSkuUsageCount = await countBrandSkusInActiveWindow(
     db,
     brandId,
-    currentDatabaseDate,
+    activeSkuWindow,
   );
-  const onboardingExpiry = await lazyExpireOnboardingLimitIfNeeded(
-    db,
-    brandId,
-    snapshot.lifecycle?.trialStartedAt ?? null,
-    currentDatabaseDate,
-  );
-
-  if (annualReset.wasReset || onboardingExpiry.wasExpired) {
-    snapshot = await getBrandAccessSnapshot(db, brandId);
-  }
-
-  const currentNonGhostSkuCount = await countNonGhostSkus(db, brandId);
 
   return deriveSkuBudget({
     snapshot,
-    currentNonGhostSkuCount,
-    trialStartedAt: snapshot.lifecycle?.trialStartedAt ?? null,
-    evaluationDate: currentDatabaseDate,
+    currentSkuUsageCount,
+    evaluationDate: currentDatabaseTimestamp,
   }).remainingCreateBudget;
 }
 

@@ -5,40 +5,22 @@ import Link from "next/link";
 import { Icons } from "@v1/ui/icons";
 
 interface SkuBudget {
+  kind: "trial" | "onboarding" | "annual" | null;
+  phase: "demo" | "trial" | "onboarding" | "annual" | "none";
   limit: number | null;
   used: number;
   remaining: number | null;
   utilization: number | null;
+  windowStartAt: string | null;
+  windowEndAt: string | null;
+  isFirstPaidYear: boolean;
 }
 
 interface SkuLimitBannerProps {
   sku: {
     status: "allowed" | "warning" | "blocked";
-    annual: SkuBudget;
-    onboarding: SkuBudget;
+    activeBudget: SkuBudget;
   };
-}
-
-/**
- * Selects the finite SKU budget that is currently closest to its limit.
- */
-function getDisplayedBudget(sku: SkuLimitBannerProps["sku"]): {
-  kind: "annual" | "onboarding";
-  budget: SkuBudget;
-} | null {
-  const candidates = [
-    { kind: "annual" as const, budget: sku.annual },
-    { kind: "onboarding" as const, budget: sku.onboarding },
-  ].filter((candidate) => candidate.budget.limit !== null);
-
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  return candidates.sort(
-    (left, right) =>
-      (right.budget.utilization ?? 0) - (left.budget.utilization ?? 0),
-  )[0]!;
 }
 
 /**
@@ -48,26 +30,50 @@ function formatCount(value: number): string {
   return value.toLocaleString("en-US");
 }
 
+/**
+ * Maps the active budget kind to the copy used in the passports warning banner.
+ */
+function getBudgetCopy(budget: SkuBudget) {
+  if (budget.kind === "trial") {
+    return {
+      blocked:
+        "You've reached your 50 SKU trial limit. Subscribe to continue adding products.",
+      warning: `You've used ${formatCount(budget.used)} of ${formatCount(budget.limit!)} trial SKUs. Subscribe before you hit the trial limit.`,
+      ctaLabel: "View plans",
+    };
+  }
+
+  if (budget.kind === "onboarding") {
+    return {
+      blocked: `You've reached your first-year onboarding SKU limit (${formatCount(budget.used)}/${formatCount(budget.limit!)} SKUs used). Upgrade your plan to add more products.`,
+      warning: `You've used ${formatCount(budget.used)} of ${formatCount(budget.limit!)} onboarding SKUs. Consider upgrading your plan before you hit the limit.`,
+      ctaLabel: "View plans",
+    };
+  }
+
+  return {
+    blocked: `You've reached your yearly SKU limit (${formatCount(budget.used)}/${formatCount(budget.limit!)} SKUs used). Upgrade your plan to add more products.`,
+    warning: `You've used ${formatCount(budget.used)} of ${formatCount(budget.limit!)} new SKUs this year. Consider upgrading your plan before you hit the limit.`,
+    ctaLabel: "View plans",
+  };
+}
+
 export function SkuLimitBanner({ sku }: SkuLimitBannerProps) {
   if (sku.status === "allowed") {
     return null;
   }
 
-  const displayedBudget = getDisplayedBudget(sku);
-  if (!displayedBudget) {
+  if (!sku.activeBudget.kind || sku.activeBudget.limit == null) {
     return null;
   }
 
   const isBlocked = sku.status === "blocked";
-  const isAnnualBudget = displayedBudget.kind === "annual";
+  const copy = getBudgetCopy(sku.activeBudget);
   const toneClasses = isBlocked
     ? "border-destructive/30 bg-destructive/10 text-destructive"
     : "border-amber-300 bg-amber-50 text-amber-900";
-  const ctaLabel = isBlocked ? "Upgrade plan" : "View plans";
-  const periodLabel = isAnnualBudget ? "this year" : "during onboarding";
-  const message = isBlocked
-    ? `You've reached your plan's SKU limit (${formatCount(displayedBudget.budget.used)}/${formatCount(displayedBudget.budget.limit!)} SKUs used). Upgrade your plan to add more products.`
-    : `You've used ${formatCount(displayedBudget.budget.used)} of ${formatCount(displayedBudget.budget.limit!)} new SKUs ${periodLabel}. Consider upgrading your plan before you hit the limit.`;
+  const ctaLabel = isBlocked ? "Upgrade plan" : copy.ctaLabel;
+  const message = isBlocked ? copy.blocked : copy.warning;
 
   return (
     <div className={`border p-4 ${toneClasses}`}>

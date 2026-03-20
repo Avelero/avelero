@@ -1,5 +1,7 @@
 "use client";
 
+// Render the settings sidebar with access-aware navigation visibility.
+
 import {
   SETTINGS_NAV_GROUPS,
   getActiveSettingsNavItem,
@@ -29,6 +31,7 @@ const SETTINGS_NAV_ICONS: Record<SettingsNavIconKey, LucideIcon> = {
 };
 
 export function SettingsSecondarySidebar() {
+  // Resolve which settings links should be visible for the current brand access state.
   const pathname = usePathname();
   const activeItem = getActiveSettingsNavItem(pathname);
   const trpc = useTRPC();
@@ -36,11 +39,10 @@ export function SettingsSecondarySidebar() {
   const access = initQuery.data?.access;
   const phase = access?.phase;
   const overlay = access?.overlay;
-  const showBillingNav =
-    overlay !== "suspended" &&
-    overlay !== "temporary_blocked" &&
-    phase !== "demo" &&
-    phase !== "trial";
+  const hasBlockedOverlay =
+    overlay === "suspended" || overlay === "temporary_blocked";
+  const showBillingNav = !hasBlockedOverlay && phase !== "demo" && phase !== "trial";
+  const showUsageNav = !hasBlockedOverlay && phase !== "demo";
 
   return (
     <aside className="w-[244px] shrink-0 border-r border-border bg-background">
@@ -60,11 +62,14 @@ export function SettingsSecondarySidebar() {
               <div className="flex flex-col gap-0.5">
                 {group.items
                   .filter((item) => {
-                    if (
-                      (item.href === "/settings/billing" || item.href === "/settings/usage") &&
-                      !showBillingNav
-                    )
+                    if (item.href === "/settings/billing" && !showBillingNav) {
                       return false;
+                    }
+
+                    if (item.href === "/settings/usage" && !showUsageNav) {
+                      return false;
+                    }
+
                     return true;
                   })
                   .map((item) => {

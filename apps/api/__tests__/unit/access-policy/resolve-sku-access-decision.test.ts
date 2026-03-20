@@ -1,3 +1,6 @@
+/**
+ * Covers SKU access decisions across trial, onboarding, annual, and uninitialized states.
+ */
 import { describe, expect, it } from "bun:test";
 import { resolveSkuAccessDecision } from "../../../src/lib/access-policy/resolve-sku-access-decision";
 import type {
@@ -5,38 +8,175 @@ import type {
   ResolvedBrandAccessDecision,
 } from "../../../src/lib/access-policy/types";
 
+type BrandAccessSnapshotOverrides = {
+  brandId?: string;
+  lifecycle?: Partial<NonNullable<BrandAccessSnapshot["lifecycle"]>>;
+  billing?: Partial<NonNullable<BrandAccessSnapshot["billing"]>>;
+  plan?: Partial<NonNullable<BrandAccessSnapshot["plan"]>>;
+};
+
+/**
+ * Returns an explicit override, including null, when the caller provided the key.
+ */
+function resolveOverride<T extends object, K extends keyof T>(
+  overrides: Partial<T> | undefined,
+  key: K,
+  fallback: T[K],
+): T[K] {
+  // Preserve explicit null test overrides instead of treating them as missing.
+  if (overrides && Object.prototype.hasOwnProperty.call(overrides, key)) {
+    return overrides[key] as T[K];
+  }
+
+  return fallback;
+}
+
+/**
+ * Builds a brand access snapshot with targeted nested overrides.
+ */
 function buildSnapshot(
-  overrides: Partial<BrandAccessSnapshot> = {},
+  overrides: BrandAccessSnapshotOverrides = {},
 ): BrandAccessSnapshot {
-  return {
+  const baseLifecycle: NonNullable<BrandAccessSnapshot["lifecycle"]> = {
+    phase: "active",
+    trialStartedAt: null,
+    trialEndsAt: null,
+  };
+  const baseBilling: NonNullable<BrandAccessSnapshot["billing"]> = {
+    billingMode: null,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+    billingAccessOverride: "none",
+    billingOverrideExpiresAt: null,
+    currentPeriodStart: null,
+    currentPeriodEnd: null,
+    pastDueSince: null,
+    pendingCancellation: false,
+  };
+  const basePlan: NonNullable<BrandAccessSnapshot["plan"]> = {
+    skuAnnualLimit: 100,
+    skuOnboardingLimit: null,
+    skuLimitOverride: null,
+    firstPaidStartedAt: "2024-01-01T00:00:00.000Z",
+    annualUsageAnchorAt: "2024-01-01T00:00:00.000Z",
+    skuCountAtYearStart: 0,
+    skuCountAtOnboardingStart: 0,
+  };
+  const base: BrandAccessSnapshot = {
     brandId: "brand-1",
-    lifecycle: {
-      phase: "active",
-      trialStartedAt: null,
-      trialEndsAt: null,
-    },
-    billing: {
-      billingMode: null,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
-      billingAccessOverride: "none",
-      billingOverrideExpiresAt: null,
-      currentPeriodStart: null,
-      currentPeriodEnd: null,
-      pastDueSince: null,
-      pendingCancellation: false,
-    },
-    plan: {
-      skuAnnualLimit: 100,
-      skuOnboardingLimit: null,
-      skuLimitOverride: null,
-      skuCountAtYearStart: 0,
-      skuCountAtOnboardingStart: 0,
-    },
-    ...overrides,
+    lifecycle: baseLifecycle,
+    billing: baseBilling,
+    plan: basePlan,
+  };
+  const lifecycle: NonNullable<BrandAccessSnapshot["lifecycle"]> = {
+    phase: resolveOverride(overrides.lifecycle, "phase", baseLifecycle.phase),
+    trialStartedAt: resolveOverride(
+      overrides.lifecycle,
+      "trialStartedAt",
+      baseLifecycle.trialStartedAt,
+    ),
+    trialEndsAt: resolveOverride(
+      overrides.lifecycle,
+      "trialEndsAt",
+      baseLifecycle.trialEndsAt,
+    ),
+  };
+  const billing: NonNullable<BrandAccessSnapshot["billing"]> = {
+    billingMode: resolveOverride(
+      overrides.billing,
+      "billingMode",
+      baseBilling.billingMode,
+    ),
+    stripeCustomerId: resolveOverride(
+      overrides.billing,
+      "stripeCustomerId",
+      baseBilling.stripeCustomerId,
+    ),
+    stripeSubscriptionId: resolveOverride(
+      overrides.billing,
+      "stripeSubscriptionId",
+      baseBilling.stripeSubscriptionId,
+    ),
+    billingAccessOverride: resolveOverride(
+      overrides.billing,
+      "billingAccessOverride",
+      baseBilling.billingAccessOverride,
+    ),
+    billingOverrideExpiresAt: resolveOverride(
+      overrides.billing,
+      "billingOverrideExpiresAt",
+      baseBilling.billingOverrideExpiresAt,
+    ),
+    currentPeriodStart: resolveOverride(
+      overrides.billing,
+      "currentPeriodStart",
+      baseBilling.currentPeriodStart,
+    ),
+    currentPeriodEnd: resolveOverride(
+      overrides.billing,
+      "currentPeriodEnd",
+      baseBilling.currentPeriodEnd,
+    ),
+    pastDueSince: resolveOverride(
+      overrides.billing,
+      "pastDueSince",
+      baseBilling.pastDueSince,
+    ),
+    pendingCancellation: resolveOverride(
+      overrides.billing,
+      "pendingCancellation",
+      baseBilling.pendingCancellation,
+    ),
+  };
+  const plan: NonNullable<BrandAccessSnapshot["plan"]> = {
+    skuAnnualLimit: resolveOverride(
+      overrides.plan,
+      "skuAnnualLimit",
+      basePlan.skuAnnualLimit,
+    ),
+    skuOnboardingLimit: resolveOverride(
+      overrides.plan,
+      "skuOnboardingLimit",
+      basePlan.skuOnboardingLimit,
+    ),
+    skuLimitOverride: resolveOverride(
+      overrides.plan,
+      "skuLimitOverride",
+      basePlan.skuLimitOverride,
+    ),
+    firstPaidStartedAt: resolveOverride(
+      overrides.plan,
+      "firstPaidStartedAt",
+      basePlan.firstPaidStartedAt,
+    ),
+    annualUsageAnchorAt: resolveOverride(
+      overrides.plan,
+      "annualUsageAnchorAt",
+      basePlan.annualUsageAnchorAt,
+    ),
+    skuCountAtYearStart: resolveOverride(
+      overrides.plan,
+      "skuCountAtYearStart",
+      basePlan.skuCountAtYearStart,
+    ),
+    skuCountAtOnboardingStart: resolveOverride(
+      overrides.plan,
+      "skuCountAtOnboardingStart",
+      basePlan.skuCountAtOnboardingStart,
+    ),
+  };
+
+  return {
+    brandId: overrides.brandId ?? base.brandId,
+    lifecycle,
+    billing,
+    plan,
   };
 }
 
+/**
+ * Builds a resolved brand access decision with minimal targeted overrides.
+ */
 function buildBrandAccess(
   overrides: Partial<ResolvedBrandAccessDecision> = {},
 ): ResolvedBrandAccessDecision {
@@ -71,6 +211,7 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 100,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
+          annualUsageAnchorAt: "2024-01-01T00:00:00.000Z",
           skuCountAtYearStart: 0,
           skuCountAtOnboardingStart: null,
         },
@@ -88,6 +229,7 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 100,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
+          annualUsageAnchorAt: "2024-01-01T00:00:00.000Z",
           skuCountAtYearStart: 0,
           skuCountAtOnboardingStart: null,
         },
@@ -105,6 +247,7 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 100,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
+          annualUsageAnchorAt: "2024-01-01T00:00:00.000Z",
           skuCountAtYearStart: 0,
           skuCountAtOnboardingStart: null,
         },
@@ -116,7 +259,7 @@ describe("resolveSkuAccessDecision", () => {
     expect(hundred.status).toBe("blocked");
   });
 
-  it("enforces trial universal cap", () => {
+  it("enforces the trial cap", () => {
     const trialAccess = buildBrandAccess({
       decision: "trial_active",
       phase: "trial",
@@ -139,8 +282,7 @@ describe("resolveSkuAccessDecision", () => {
         },
       }),
       intendedCreateCount: 0,
-      currentNonGhostSkuCount: 49_999,
-      trialStartedAt: "2025-03-10T00:00:00.000Z",
+      currentNonGhostSkuCount: 49,
     });
 
     expect(nearCap.status).toBe("warning");
@@ -163,15 +305,14 @@ describe("resolveSkuAccessDecision", () => {
         },
       }),
       intendedCreateCount: 0,
-      currentNonGhostSkuCount: 50_000,
-      trialStartedAt: "2025-03-10T00:00:00.000Z",
+      currentNonGhostSkuCount: 50,
     });
 
     expect(atCap.status).toBe("blocked");
     expect(atCap.remainingCreateBudget).toBe(0);
   });
 
-  it("does not enforce the trial cap when access has been elevated above trial", () => {
+  it("still enforces the trial cap while the lifecycle phase remains trial", () => {
     const elevatedTrialAccess = buildBrandAccess({
       decision: "full_access",
       phase: "trial",
@@ -205,12 +346,11 @@ describe("resolveSkuAccessDecision", () => {
         },
       }),
       intendedCreateCount: 0,
-      currentNonGhostSkuCount: 50_000,
-      trialStartedAt: "2025-03-10T00:00:00.000Z",
+      currentNonGhostSkuCount: 50,
     });
 
-    expect(result.status).toBe("allowed");
-    expect(result.remainingCreateBudget).toBeNull();
+    expect(result.status).toBe("blocked");
+    expect(result.remainingCreateBudget).toBe(0);
   });
 
   it("blocks when intended create count exceeds remaining budget", () => {
@@ -221,6 +361,7 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 10,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
+          annualUsageAnchorAt: "2024-01-01T00:00:00.000Z",
           skuCountAtYearStart: 0,
           skuCountAtOnboardingStart: null,
         },
@@ -249,6 +390,7 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 100,
           skuOnboardingLimit: null,
           skuLimitOverride: null,
+          annualUsageAnchorAt: "2024-01-01T00:00:00.000Z",
           skuCountAtYearStart: 0,
           skuCountAtOnboardingStart: null,
         },
@@ -267,20 +409,21 @@ describe("resolveSkuAccessDecision", () => {
       snapshot: buildSnapshot({
         lifecycle: {
           phase: "active",
-          trialStartedAt: "2024-01-01T00:00:00.000Z",
+          trialStartedAt: null,
           trialEndsAt: null,
         },
         plan: {
           skuAnnualLimit: 500,
           skuOnboardingLimit: 10,
           skuLimitOverride: null,
+          firstPaidStartedAt: "2024-01-01T00:00:00.000Z",
+          annualUsageAnchorAt: "2024-01-01T00:00:00.000Z",
           skuCountAtYearStart: 90,
           skuCountAtOnboardingStart: 0,
         },
       }),
       intendedCreateCount: 1,
       currentNonGhostSkuCount: 100,
-      trialStartedAt: "2024-01-01T00:00:00.000Z",
     });
 
     expect(result.onboarding.limit).toBeNull();
@@ -293,28 +436,29 @@ describe("resolveSkuAccessDecision", () => {
       snapshot: buildSnapshot({
         lifecycle: {
           phase: "active",
-          trialStartedAt: "2025-03-17T12:00:00.000Z",
+          trialStartedAt: null,
           trialEndsAt: null,
         },
         plan: {
           skuAnnualLimit: 500,
           skuOnboardingLimit: 10,
           skuLimitOverride: null,
+          firstPaidStartedAt: "2025-03-17T12:00:00.000Z",
+          annualUsageAnchorAt: "2025-03-17T12:00:00.000Z",
           skuCountAtYearStart: 0,
           skuCountAtOnboardingStart: 2,
         },
       }),
       intendedCreateCount: 0,
       currentNonGhostSkuCount: 5,
-      trialStartedAt: "2025-03-17T12:00:00.000Z",
       evaluationDate: "2026-03-17T11:59:59.000Z",
     });
 
     expect(result.onboarding.limit).toBe(10);
-    expect(result.onboarding.used).toBe(3);
+    expect(result.onboarding.used).toBe(5);
   });
 
-  it("does not enforce annual or onboarding limits before snapshots are initialized", () => {
+  it("does not enforce annual or onboarding limits before anchors are initialized", () => {
     const result = resolveSkuAccessDecision({
       brandAccess: buildBrandAccess(),
       snapshot: buildSnapshot({
@@ -327,13 +471,14 @@ describe("resolveSkuAccessDecision", () => {
           skuAnnualLimit: 500,
           skuOnboardingLimit: 2_500,
           skuLimitOverride: null,
+          firstPaidStartedAt: null,
+          annualUsageAnchorAt: null,
           skuCountAtYearStart: null,
           skuCountAtOnboardingStart: null,
         },
       }),
       intendedCreateCount: 200,
       currentNonGhostSkuCount: 1_250,
-      trialStartedAt: "2025-03-01T00:00:00.000Z",
     });
 
     expect(result.annual.limit).toBeNull();

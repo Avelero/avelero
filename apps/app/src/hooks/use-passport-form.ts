@@ -1337,6 +1337,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           void queryClient.invalidateQueries({
             queryKey: trpc.summary.productStatus.queryKey(),
           });
+          void queryClient.invalidateQueries({
+            queryKey: trpc.brand.billing.getStatus.queryKey(),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: trpc.composite.initDashboard.queryKey(),
+          });
 
           toast.success("Passport updated successfully");
           return;
@@ -1464,6 +1470,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           }),
           queryClient.invalidateQueries({
             queryKey: trpc.summary.productStatus.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.brand.billing.getStatus.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.initDashboard.queryKey(),
           }),
         ]);
       } catch (err) {

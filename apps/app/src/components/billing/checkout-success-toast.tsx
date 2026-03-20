@@ -1,6 +1,9 @@
+/**
+ * Handles Stripe checkout return toasts on the billing page.
+ */
 "use client";
 
-import { sonnerToast } from "@v1/ui/sonner";
+import { toast } from "@v1/ui/sonner";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 
@@ -11,6 +14,7 @@ import { useEffect, useRef } from "react";
  * Mount this component on the billing settings page.
  */
 export function CheckoutReturnHandler() {
+  // Show the shared application toast style once per checkout redirect.
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -25,9 +29,9 @@ export function CheckoutReturnHandler() {
     handledRef.current = true;
 
     if (checkoutStatus === "success") {
-      sonnerToast.success("Payment successful! Your plan is now active.");
+      toast.success("Payment successful! Your plan is now active.");
     } else if (checkoutStatus === "cancelled") {
-      sonnerToast("Checkout was cancelled. You can try again anytime.");
+      toast.error("Checkout was cancelled. You can try again anytime.");
     }
 
     // Clear only the checkout flag so unrelated billing filters survive the redirect.

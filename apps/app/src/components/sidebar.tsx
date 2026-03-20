@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * App sidebar shell for the default dashboard and theme editor variants.
+ */
 import { useTRPC } from "@/trpc/client";
 import { cn } from "@v1/ui/cn";
 import { useQuery } from "@tanstack/react-query";
@@ -73,10 +76,9 @@ export function Sidebar({
       }, 100);
     }
   };
-
-  const topOffsetClass = hasTopBanner
-    ? "top-28 h-[calc(100vh-112px)] sm:top-24 sm:h-[calc(100vh-96px)]"
-    : "top-14 h-[calc(100vh-56px)]";
+  const topBannerHeight = hasTopBanner
+    ? "var(--app-top-banner-height, 40px)"
+    : "var(--app-top-banner-height, 0px)";
 
   return (
     <aside
@@ -86,10 +88,13 @@ export function Sidebar({
         "flex-col flex-shrink-0 p-2 gap-2",
         "bg-background border-r border-border",
         "desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px]",
-        "transition-all duration-200 ease-out",
-        topOffsetClass,
+        "transition-[width] duration-200 ease-out",
         isExpanded ? "w-60" : "w-14", // 56px collapsed rail is preserved
       )}
+      style={{
+        top: `calc(56px + ${topBannerHeight})`,
+        height: `calc(100vh - 56px - ${topBannerHeight})`,
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >

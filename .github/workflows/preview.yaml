@@ -777,6 +777,7 @@ jobs:
       (needs.test-api.result == 'success' || needs.test-api.result == 'skipped') &&
       needs.detect-changes.outputs.api_changed == 'true' &&
       needs.deploy-app.result == 'success' &&
+      (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
       (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -907,7 +908,6 @@ jobs:
 
           WEBHOOK_ID=$(echo "$RESPONSE" | jq -r '.id')
           WEBHOOK_SECRET=$(echo "$RESPONSE" | jq -r '.secret')
-          echo "::add-mask::${WEBHOOK_SECRET}"
 
           if [[ -z "$WEBHOOK_ID" || "$WEBHOOK_ID" == "null" ]]; then
             echo "❌ Failed to create Stripe webhook endpoint"
@@ -918,6 +918,14 @@ jobs:
           echo "✅ Stripe webhook created: $WEBHOOK_ID"
           echo "webhook_id=$WEBHOOK_ID" >> $GITHUB_OUTPUT
           echo "webhook_secret=$WEBHOOK_SECRET" >> $GITHUB_OUTPUT
+
+      - name: ✅ Require Preview Stripe Webhook Secret
+        run: |
+          if [[ -z "${{ steps.stripe-webhook.outputs.webhook_secret }}" ]]; then
+            echo "❌ Preview Stripe webhook secret was not produced."
+            echo "Preview API deploy must fail rather than ship a broken webhook configuration."
+            exit 1
+          fi
 
       - name: 🚀 Deploy PR API to Fly.io
         uses: superfly/fly-pr-review-apps@1.3.0

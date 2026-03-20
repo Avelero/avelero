@@ -1,14 +1,18 @@
 /**
- * Brand SKU usage queries and lazy SKU period maintenance helpers.
+ * Brand SKU usage queries, active-window derivation, and paid anchor helpers.
  */
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { DatabaseOrTransaction } from "../../client";
 import { brandPlan, productVariants, products } from "../../schema";
 import type { BrandAccessSnapshotRow } from "./access";
 
 type DateLike = Date | string;
 
-export const TRIAL_UNIVERSAL_CAP = 50_000;
+export const TRIAL_SKU_CAP = 50;
+export const TRIAL_UNIVERSAL_CAP = TRIAL_SKU_CAP;
+
+export type ActiveSkuBudgetKind = "trial" | "onboarding" | "annual";
+export type ActiveSkuPhase = "demo" | "trial" | "onboarding" | "annual" | "none";
 
 export interface DerivedSkuAccessBudget {
   limit: number | null;
@@ -17,7 +21,25 @@ export interface DerivedSkuAccessBudget {
   utilization: number | null;
 }
 
+export interface ResolvedActiveSkuWindow {
+  phase: ActiveSkuPhase;
+  kind: ActiveSkuBudgetKind | null;
+  limit: number | null;
+  windowStartAt: string | null;
+  windowEndAt: string | null;
+  isFirstPaidYear: boolean;
+}
+
+export interface DerivedActiveSkuBudget extends DerivedSkuAccessBudget {
+  kind: ActiveSkuBudgetKind | null;
+  phase: ActiveSkuPhase;
+  windowStartAt: string | null;
+  windowEndAt: string | null;
+  isFirstPaidYear: boolean;
+}
+
 export interface DerivedSkuBudgetState {
+  activeBudget: DerivedActiveSkuBudget;
   annual: DerivedSkuAccessBudget;
   onboarding: DerivedSkuAccessBudget;
   trial: DerivedSkuAccessBudget | null;
@@ -76,24 +98,7 @@ function addUtcYears(value: Date, years: number): Date {
 }
 
 /**
- * Reads the database server's current date for date-only period comparisons.
- */
-export async function getCurrentDatabaseDate(
-  dbOrTx: DatabaseOrTransaction,
-): Promise<Date> {
-  const [row] = await dbOrTx.execute<{ current_date: string }>(
-    sql`SELECT CURRENT_DATE::text AS current_date`,
-  );
-
-  if (!row?.current_date) {
-    throw new Error("Failed to read the current database date.");
-  }
-
-  return startOfUtcDay(parseDateLike(row.current_date));
-}
-
-/**
- * Clamps a potentially invalid SKU count to a safe non-negative integer.
+ * Clamps a potentially invalid SKU usage count to a safe non-negative integer.
  */
 function sanitizeCount(value: number | null | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -141,19 +146,128 @@ function createBudget(
 }
 
 /**
- * Returns the smallest defined budget value, or null when all values are open.
+ * Builds the active budget payload from a resolved window and usage count.
  */
-function minDefined(values: Array<number | null>): number | null {
-  const defined = values.filter((value): value is number => value !== null);
-  if (defined.length === 0) {
-    return null;
-  }
+function createActiveBudget(
+  window: ResolvedActiveSkuWindow,
+  used: number,
+): DerivedActiveSkuBudget {
+  const normalizedBudget = createBudget(window.limit, used);
 
-  return Math.min(...defined);
+  return {
+    ...normalizedBudget,
+    kind: window.kind,
+    phase: window.phase,
+    windowStartAt: window.windowStartAt,
+    windowEndAt: window.windowEndAt,
+    isFirstPaidYear: window.isFirstPaidYear,
+  };
 }
 
 /**
- * Counts the brand's live variant SKUs, including legacy ghost-marked rows.
+ * Derives the annual entitlement window that contains the provided timestamp.
+ */
+export function deriveAnnualWindowAt(params: {
+  annualUsageAnchorAt: DateLike;
+  evaluationDate?: DateLike | null;
+}): {
+  windowStartAt: Date;
+  windowEndAt: Date;
+} {
+  const evaluationAt = params.evaluationDate
+    ? parseDateLike(params.evaluationDate)
+    : new Date();
+  let windowStartAt = parseDateLike(params.annualUsageAnchorAt);
+  let windowEndAt = addUtcYears(windowStartAt, 1);
+
+  // Advance by full anniversaries until the evaluation timestamp fits the current year.
+  while (evaluationAt.getTime() >= windowEndAt.getTime()) {
+    windowStartAt = windowEndAt;
+    windowEndAt = addUtcYears(windowStartAt, 1);
+  }
+
+  return { windowStartAt, windowEndAt };
+}
+
+/**
+ * Resolves the single active SKU window for the brand at the evaluation time.
+ */
+export function resolveActiveSkuWindow(params: {
+  snapshot: Pick<BrandAccessSnapshotRow, "lifecycle" | "plan">;
+  evaluationDate?: DateLike | null;
+}): ResolvedActiveSkuWindow {
+  const lifecycle = params.snapshot.lifecycle;
+  const plan = params.snapshot.plan;
+  const evaluationAt = params.evaluationDate
+    ? parseDateLike(params.evaluationDate)
+    : new Date();
+
+  if (lifecycle?.phase === "demo") {
+    return {
+      phase: "demo",
+      kind: null,
+      limit: null,
+      windowStartAt: null,
+      windowEndAt: null,
+      isFirstPaidYear: false,
+    };
+  }
+
+  if (lifecycle?.phase === "trial") {
+    return {
+      phase: "trial",
+      kind: "trial",
+      limit: TRIAL_SKU_CAP,
+      windowStartAt: lifecycle.trialStartedAt,
+      windowEndAt: plan?.firstPaidStartedAt ?? lifecycle.trialEndsAt ?? null,
+      isFirstPaidYear: false,
+    };
+  }
+
+  if (plan?.firstPaidStartedAt) {
+    const onboardingStartAt = parseDateLike(plan.firstPaidStartedAt);
+    const onboardingEndAt = addUtcYears(onboardingStartAt, 1);
+
+    if (evaluationAt.getTime() < onboardingEndAt.getTime()) {
+      return {
+        phase: "onboarding",
+        kind: "onboarding",
+        limit: sanitizeLimit(plan.skuOnboardingLimit),
+        windowStartAt: onboardingStartAt.toISOString(),
+        windowEndAt: onboardingEndAt.toISOString(),
+        isFirstPaidYear: true,
+      };
+    }
+  }
+
+  if (plan?.annualUsageAnchorAt) {
+    const annualWindow = deriveAnnualWindowAt({
+      annualUsageAnchorAt: plan.annualUsageAnchorAt,
+      evaluationDate: evaluationAt,
+    });
+
+    return {
+      phase: "annual",
+      kind: "annual",
+      limit: sanitizeLimit(plan.skuLimitOverride ?? plan.skuAnnualLimit),
+      windowStartAt: annualWindow.windowStartAt.toISOString(),
+      windowEndAt: annualWindow.windowEndAt.toISOString(),
+      isFirstPaidYear: false,
+    };
+  }
+
+  return {
+    phase: "none",
+    kind: null,
+    limit: null,
+    windowStartAt: null,
+    windowEndAt: null,
+    isFirstPaidYear: false,
+  };
+}
+
+/**
+ * Counts the brand's live variant SKUs across the full catalog.
  */
 export async function countBrandSkus(
   dbOrTx: DatabaseOrTransaction,
@@ -165,7 +279,7 @@ export async function countBrandSkus(
     })
     .from(productVariants)
     .innerJoin(products, eq(products.id, productVariants.productId))
-    .where(and(eq(products.brandId, brandId)));
+    .where(eq(products.brandId, brandId));
 
   return row?.count ?? 0;
 }
@@ -173,152 +287,239 @@ export async function countBrandSkus(
 export const countNonGhostSkus = countBrandSkus;
 
 /**
- * Derives SKU usage budgets from live variant counts and stored snapshots.
+ * Counts the brand's existing variants that were created inside the active SKU window.
+ */
+export async function countBrandSkusInActiveWindow(
+  dbOrTx: DatabaseOrTransaction,
+  brandId: string,
+  window: ResolvedActiveSkuWindow,
+): Promise<number> {
+  if (!window.kind || !window.windowStartAt) {
+    return 0;
+  }
+
+  const windowPredicate = window.windowEndAt
+    ? sql`${productVariants.createdAt} >= ${window.windowStartAt} AND ${productVariants.createdAt} < ${window.windowEndAt}`
+    : sql`${productVariants.createdAt} >= ${window.windowStartAt}`;
+
+  const [row] = await dbOrTx
+    .select({
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(and(eq(products.brandId, brandId), windowPredicate));
+
+  return row?.count ?? 0;
+}
+
+/**
+ * Reads the database server's current UTC timestamp for exact SKU window boundaries.
+ */
+export async function getCurrentDatabaseTimestamp(
+  dbOrTx: DatabaseOrTransaction,
+): Promise<Date> {
+  const [row] = await dbOrTx.execute<{ current_timestamp: string }>(
+    sql`SELECT NOW()::timestamptz::text AS current_timestamp`,
+  );
+
+  if (!row?.current_timestamp) {
+    throw new Error("Failed to read the current database timestamp.");
+  }
+
+  return parseDateLike(row.current_timestamp);
+}
+
+/**
+ * Reads the database server's current UTC date for legacy date-only callers.
+ */
+export async function getCurrentDatabaseDate(
+  dbOrTx: DatabaseOrTransaction,
+): Promise<Date> {
+  return startOfUtcDay(await getCurrentDatabaseTimestamp(dbOrTx));
+}
+
+/**
+ * Derives the SKU budgets from the resolved active window and counted live usage.
  */
 export function deriveSkuBudget(params: {
   snapshot: Pick<BrandAccessSnapshotRow, "lifecycle" | "plan">;
-  currentNonGhostSkuCount: number;
-  trialStartedAt: Date | string | null;
+  currentSkuUsageCount?: number;
+  currentNonGhostSkuCount?: number;
+  trialStartedAt?: DateLike | null;
   evaluationDate?: DateLike | null;
 }): DerivedSkuBudgetState {
-  const currentNonGhostSkuCount = sanitizeCount(params.currentNonGhostSkuCount);
-  const plan = params.snapshot.plan;
-  const hasAnnualSnapshot = plan?.skuCountAtYearStart != null;
-  const hasOnboardingSnapshot = plan?.skuCountAtOnboardingStart != null;
-
-  const annualLimit = hasAnnualSnapshot
-    ? sanitizeLimit(plan?.skuLimitOverride ?? plan?.skuAnnualLimit)
-    : null;
-  const annualUsed = hasAnnualSnapshot
-    ? Math.max(
-        0,
-        currentNonGhostSkuCount - sanitizeCount(plan?.skuCountAtYearStart),
-      )
-    : 0;
-
-  const onboardingLimit =
-    hasOnboardingSnapshot &&
-    isOnboardingYear(params.trialStartedAt, params.evaluationDate)
-      ? sanitizeLimit(plan?.skuOnboardingLimit)
-      : null;
-  const onboardingUsed =
-    hasOnboardingSnapshot && onboardingLimit !== null
-      ? Math.max(
-          0,
-          currentNonGhostSkuCount -
-            sanitizeCount(plan?.skuCountAtOnboardingStart),
-        )
-      : 0;
-
-  const annual = createBudget(annualLimit, annualUsed);
-  const onboarding = createBudget(onboardingLimit, onboardingUsed);
+  const usageCount = sanitizeCount(
+    params.currentSkuUsageCount ?? params.currentNonGhostSkuCount,
+  );
+  const activeWindow = resolveActiveSkuWindow({
+    snapshot: params.snapshot,
+    evaluationDate: params.evaluationDate,
+  });
+  const activeBudget = createActiveBudget(activeWindow, usageCount);
+  const annual =
+    activeWindow.kind === "annual"
+      ? createBudget(activeWindow.limit, usageCount)
+      : createBudget(null, 0);
+  const onboarding =
+    activeWindow.kind === "onboarding"
+      ? createBudget(activeWindow.limit, usageCount)
+      : createBudget(null, 0);
   const trial =
-    params.snapshot.lifecycle?.phase === "trial"
-      ? createBudget(TRIAL_UNIVERSAL_CAP, currentNonGhostSkuCount)
+    activeWindow.kind === "trial"
+      ? createBudget(activeWindow.limit, usageCount)
       : null;
 
   return {
+    activeBudget,
     annual,
     onboarding,
     trial,
-    remainingCreateBudget: minDefined([
-      annual.remaining,
-      onboarding.remaining,
-      trial?.remaining ?? null,
-    ]),
+    remainingCreateBudget: activeBudget.remaining,
   };
 }
 
 /**
- * Advances the annual SKU period when the brand has passed its anniversary.
+ * Locks the brand plan row so concurrent SKU create flows serialize on a single brand.
  */
-export async function lazyResetAnnualPeriodIfNeeded(
+export async function lockBrandPlanRowForSkuUsage(
   dbOrTx: DatabaseOrTransaction,
   brandId: string,
-  evaluationDate?: DateLike | null,
-): Promise<{ wasReset: boolean }> {
-  const [planRow] = await dbOrTx
+): Promise<void> {
+  await dbOrTx.execute(
+    sql`SELECT ${brandPlan.id} FROM ${brandPlan} WHERE ${brandPlan.brandId} = ${brandId} FOR UPDATE`,
+  );
+}
+
+/**
+ * Computes the annual window that contained the brand's last entitled moment.
+ */
+function derivePriorEntitlementAnnualWindow(params: {
+  annualUsageAnchorAt: DateLike;
+  previousEntitlementEndedAt: DateLike;
+}): {
+  windowStartAt: Date;
+  windowEndAt: Date;
+} {
+  const entitlementEndAt = parseDateLike(params.previousEntitlementEndedAt);
+  const lastEntitledMoment = new Date(
+    Math.max(0, entitlementEndAt.getTime() - 1),
+  );
+
+  return deriveAnnualWindowAt({
+    annualUsageAnchorAt: params.annualUsageAnchorAt,
+    evaluationDate: lastEntitledMoment,
+  });
+}
+
+/**
+ * Applies the paid SKU anchors when a brand first activates or resumes paid access.
+ */
+export async function syncBrandPaidSkuAnchors(opts: {
+  dbOrTx: DatabaseOrTransaction;
+  brandId: string;
+  paidEntitlementStartsAt: DateLike;
+  allowAnnualAnchorRealignment: boolean;
+  previousEntitlementEndedAt?: DateLike | null;
+}): Promise<void> {
+  const { dbOrTx, brandId, allowAnnualAnchorRealignment } = opts;
+  const paidEntitlementStartsAt = parseDateLike(
+    opts.paidEntitlementStartsAt,
+  ).toISOString();
+
+  const [currentRow] = await dbOrTx
     .select({
-      skuYearStart: brandPlan.skuYearStart,
+      firstPaidStartedAt: brandPlan.firstPaidStartedAt,
+      annualUsageAnchorAt: brandPlan.annualUsageAnchorAt,
     })
     .from(brandPlan)
     .where(eq(brandPlan.brandId, brandId))
     .limit(1);
 
-  if (!planRow?.skuYearStart) {
-    return { wasReset: false };
+  if (!currentRow) {
+    throw new Error("Brand plan row not found while syncing SKU anchors.");
   }
 
-  const currentDate = evaluationDate
-    ? startOfUtcDay(parseDateLike(evaluationDate))
-    : await getCurrentDatabaseDate(dbOrTx);
-  const currentYearStart = startOfUtcDay(parseDateLike(planRow.skuYearStart));
-  const firstAnniversary = addUtcYears(currentYearStart, 1);
+  const updates: Partial<{
+    firstPaidStartedAt: string;
+    annualUsageAnchorAt: string;
+    updatedAt: string;
+  }> = {};
 
-  if (currentDate < firstAnniversary) {
-    return { wasReset: false };
+  if (!currentRow.firstPaidStartedAt) {
+    updates.firstPaidStartedAt = paidEntitlementStartsAt;
   }
 
-  const currentNonGhostSkuCount = await countBrandSkus(dbOrTx, brandId);
+  if (!currentRow.annualUsageAnchorAt) {
+    updates.annualUsageAnchorAt = paidEntitlementStartsAt;
+  } else if (
+    allowAnnualAnchorRealignment &&
+    (opts.previousEntitlementEndedAt ?? null)
+  ) {
+    const priorAnnualWindow = derivePriorEntitlementAnnualWindow({
+      annualUsageAnchorAt: currentRow.annualUsageAnchorAt,
+      previousEntitlementEndedAt: opts.previousEntitlementEndedAt!,
+    });
 
-  let nextYearStart = currentYearStart;
-  while (currentDate >= addUtcYears(nextYearStart, 1)) {
-    nextYearStart = addUtcYears(nextYearStart, 1);
+    if (
+      parseDateLike(paidEntitlementStartsAt).getTime() >=
+      priorAnnualWindow.windowEndAt.getTime()
+    ) {
+      updates.annualUsageAnchorAt = paidEntitlementStartsAt;
+    }
   }
 
-  const [updatedRow] = await dbOrTx
+  if (Object.keys(updates).length === 0) {
+    return;
+  }
+
+  updates.updatedAt = new Date().toISOString();
+
+  await dbOrTx
     .update(brandPlan)
-    .set({
-      skuCountAtYearStart: currentNonGhostSkuCount,
-      skuYearStart: nextYearStart,
-    })
-    .where(eq(brandPlan.brandId, brandId))
-    .returning({ id: brandPlan.id });
-
-  return { wasReset: Boolean(updatedRow) };
+    .set(updates)
+    .where(eq(brandPlan.brandId, brandId));
 }
 
 /**
- * Expires the onboarding SKU limit once the first trial year has ended.
- */
-export async function lazyExpireOnboardingLimitIfNeeded(
-  dbOrTx: DatabaseOrTransaction,
-  brandId: string,
-  trialStartedAt: Date | string | null,
-  evaluationDate?: DateLike | null,
-): Promise<{ wasExpired: boolean }> {
-  if (!trialStartedAt || isOnboardingYear(trialStartedAt, evaluationDate)) {
-    return { wasExpired: false };
-  }
-
-  const [updatedRow] = await dbOrTx
-    .update(brandPlan)
-    .set({
-      skuOnboardingLimit: null,
-    })
-    .where(
-      and(
-        eq(brandPlan.brandId, brandId),
-        isNotNull(brandPlan.skuOnboardingLimit),
-      ),
-    )
-    .returning({ id: brandPlan.id });
-
-  return { wasExpired: Boolean(updatedRow) };
-}
-
-/**
- * Determines whether a brand is still within its onboarding year.
+ * Determines whether a timestamp still falls inside the first paid year.
  */
 export function isOnboardingYear(
-  trialStartedAt: Date | string | null,
+  firstPaidStartedAt: Date | string | null,
   evaluationDate?: DateLike | null,
 ): boolean {
-  if (!trialStartedAt) {
+  if (!firstPaidStartedAt) {
     return false;
   }
 
-  const onboardingEndsAt = addUtcYears(parseDateLike(trialStartedAt), 1);
+  const onboardingEndsAt = addUtcYears(parseDateLike(firstPaidStartedAt), 1);
   const currentDate = evaluationDate ? parseDateLike(evaluationDate) : new Date();
   return currentDate.getTime() < onboardingEndsAt.getTime();
+}
+
+/**
+ * Preserves the old annual reset hook signature while rollover is now derived from timestamps.
+ */
+export async function lazyResetAnnualPeriodIfNeeded(
+  _dbOrTx?: DatabaseOrTransaction,
+  _brandId?: string,
+  _evaluationDate?: DateLike | null,
+): Promise<{
+  wasReset: boolean;
+}> {
+  return { wasReset: false };
+}
+
+/**
+ * Preserves the old onboarding expiry hook signature while onboarding is now derived from anchors.
+ */
+export async function lazyExpireOnboardingLimitIfNeeded(
+  _dbOrTx?: DatabaseOrTransaction,
+  _brandId?: string,
+  _firstPaidStartedAt?: DateLike | null,
+  _evaluationDate?: DateLike | null,
+): Promise<{
+  wasExpired: boolean;
+}> {
+  return { wasExpired: false };
 }

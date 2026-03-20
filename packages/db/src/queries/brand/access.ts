@@ -2,7 +2,7 @@
  * Queries the lifecycle, billing, and plan snapshot used by the access policy resolver.
  */
 import { eq } from "drizzle-orm";
-import type { Database } from "../../client";
+import type { DatabaseOrTransaction } from "../../client";
 import { brandBilling, brandLifecycle, brandPlan, brands } from "../../schema";
 
 export interface BrandAccessSnapshotRow {
@@ -34,8 +34,10 @@ export interface BrandAccessSnapshotRow {
     skuAnnualLimit: number | null;
     skuOnboardingLimit: number | null;
     skuLimitOverride: number | null;
-    skuCountAtYearStart: number | null;
-    skuCountAtOnboardingStart: number | null;
+    firstPaidStartedAt?: string | null;
+    annualUsageAnchorAt?: string | null;
+    skuCountAtYearStart?: number | null;
+    skuCountAtOnboardingStart?: number | null;
   } | null;
 }
 
@@ -49,7 +51,7 @@ type BillingMode = NonNullable<BrandAccessSnapshotRow["billing"]>["billingMode"]
  * Loads the access-policy snapshot for a brand in a single query.
  */
 export async function getBrandAccessSnapshot(
-  db: Database,
+  db: DatabaseOrTransaction,
   brandId: string,
 ): Promise<BrandAccessSnapshotRow> {
   const [row] = await db
@@ -70,8 +72,8 @@ export async function getBrandAccessSnapshot(
       skuAnnualLimit: brandPlan.skuAnnualLimit,
       skuOnboardingLimit: brandPlan.skuOnboardingLimit,
       skuLimitOverride: brandPlan.skuLimitOverride,
-      skuCountAtYearStart: brandPlan.skuCountAtYearStart,
-      skuCountAtOnboardingStart: brandPlan.skuCountAtOnboardingStart,
+      firstPaidStartedAt: brandPlan.firstPaidStartedAt,
+      annualUsageAnchorAt: brandPlan.annualUsageAnchorAt,
     })
     .from(brands)
     .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brands.id))
@@ -115,14 +117,14 @@ export async function getBrandAccessSnapshot(
       row.skuAnnualLimit !== null ||
       row.skuOnboardingLimit !== null ||
       row.skuLimitOverride !== null ||
-      row.skuCountAtYearStart !== null ||
-      row.skuCountAtOnboardingStart !== null
+      row.firstPaidStartedAt !== null ||
+      row.annualUsageAnchorAt !== null
         ? {
             skuAnnualLimit: row.skuAnnualLimit,
             skuOnboardingLimit: row.skuOnboardingLimit,
             skuLimitOverride: row.skuLimitOverride,
-            skuCountAtYearStart: row.skuCountAtYearStart,
-            skuCountAtOnboardingStart: row.skuCountAtOnboardingStart,
+            firstPaidStartedAt: row.firstPaidStartedAt,
+            annualUsageAnchorAt: row.annualUsageAnchorAt,
           }
         : null,
   };

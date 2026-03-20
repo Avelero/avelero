@@ -370,6 +370,12 @@ function VariantFormInner({
               includeAttributes: true,
             }),
           });
+          queryClient.invalidateQueries({
+            queryKey: trpc.brand.billing.getStatus.queryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.initDashboard.queryKey(),
+          });
         }
       } catch (err) {
         console.error("Failed to create variant:", err);

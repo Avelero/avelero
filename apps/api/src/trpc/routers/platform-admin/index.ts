@@ -1,17 +1,20 @@
+/**
+ * Platform admin router for brand, billing, and membership operations.
+ */
 import { tasks } from "@trigger.dev/sdk/v3";
 import { and, asc, desc, eq, inArray, isNull, sql } from "@v1/db/queries";
 import {
-  countBrandSkus,
+  countBrandSkusInActiveWindow,
   computeNextBrandIdForUser,
   createBrand,
   createBrandInvites,
   deriveSkuBudget,
   getBrandAccessSnapshot,
-  getCurrentDatabaseDate,
+  getCurrentDatabaseTimestamp,
   isSlugTaken,
-  lazyExpireOnboardingLimitIfNeeded,
-  lazyResetAnnualPeriodIfNeeded,
+  resolveActiveSkuWindow,
   setActiveBrand,
+  syncBrandPaidSkuAnchors,
 } from "@v1/db/queries/brand";
 import {
   brandBilling,
@@ -30,6 +33,10 @@ import {
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
+import type {
+  BrandAccessSnapshot,
+  BrandLifecyclePhase,
+} from "../../../lib/access-policy/types.js";
 import { brandCreateSchema } from "../../../schemas/brand.js";
 import { assignableRoleSchema } from "../../../schemas/_shared/domain.js";
 import { createCheckoutSession } from "../../../lib/stripe/checkout.js";
@@ -422,15 +429,7 @@ export const platformAdminRouter = createTRPCRouter({
       .query(async ({ ctx, input }) => {
         const normalizedSearch = normalizeSearch(input.search);
         const filters = [isNull(brands.deletedAt)];
-        const liveVariantCounts = ctx.db
-          .select({
-            brandId: products.brandId,
-            liveSkuCount: sql<number>`COUNT(${productVariants.id})::int`.as("liveSkuCount"),
-          })
-          .from(products)
-          .leftJoin(productVariants, eq(productVariants.productId, products.id))
-          .groupBy(products.brandId)
-          .as("live_variant_counts");
+        const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(ctx.db);
 
         if (input.phase) {
           filters.push(eq(brandLifecycle.phase, input.phase));
@@ -444,37 +443,6 @@ export const platformAdminRouter = createTRPCRouter({
 
         const whereClause = and(...filters);
         const membersCountExpr = sql<number>`COUNT(${brandMembers.userId})::int`;
-        const annualUsageExpr = sql<number>`CASE
-          WHEN ${brandPlan.skuCountAtYearStart} IS NULL THEN 0
-          ELSE GREATEST(COALESCE(${liveVariantCounts.liveSkuCount}, 0) - ${brandPlan.skuCountAtYearStart}, 0)
-        END`;
-        const sortDirection = input.sort_dir === "asc" ? asc : desc;
-        const sortExpression = (() => {
-          switch (input.sort_by) {
-            case "name":
-              return brands.name;
-            case "phase":
-              return sql`COALESCE(${brandLifecycle.phase}, 'demo')`;
-            case "plan":
-              return sql`COALESCE(${brandPlan.planType}, '')`;
-            case "sku_usage":
-              return annualUsageExpr;
-            case "trial_ends":
-              return sql`COALESCE(${brandLifecycle.trialEndsAt}, '1970-01-01T00:00:00.000Z'::timestamptz)`;
-            case "members":
-              return sql`COUNT(${brandMembers.userId})`;
-            default:
-              return brands.createdAt;
-          }
-        })();
-
-        const [countRow] = await ctx.db
-          .select({
-            total: sql<number>`COUNT(DISTINCT ${brands.id})::int`,
-          })
-          .from(brands)
-          .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brands.id))
-          .where(whereClause);
 
         const rows = await ctx.db
           .select({
@@ -483,18 +451,19 @@ export const platformAdminRouter = createTRPCRouter({
             slug: brands.slug,
             createdAt: brands.createdAt,
             phase: brandLifecycle.phase,
+            trialStartedAt: brandLifecycle.trialStartedAt,
             trialEndsAt: brandLifecycle.trialEndsAt,
             planType: brandPlan.planType,
             skuAnnualLimit: brandPlan.skuAnnualLimit,
+            skuOnboardingLimit: brandPlan.skuOnboardingLimit,
             skuLimitOverride: brandPlan.skuLimitOverride,
-            skuCountAtYearStart: brandPlan.skuCountAtYearStart,
-            annualUsed: annualUsageExpr,
+            firstPaidStartedAt: brandPlan.firstPaidStartedAt,
+            annualUsageAnchorAt: brandPlan.annualUsageAnchorAt,
             membersCount: membersCountExpr,
           })
           .from(brands)
           .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brands.id))
           .leftJoin(brandPlan, eq(brandPlan.brandId, brands.id))
-          .leftJoin(liveVariantCounts, eq(liveVariantCounts.brandId, brands.id))
           .leftJoin(
             brandMembers,
             and(
@@ -509,43 +478,121 @@ export const platformAdminRouter = createTRPCRouter({
             brands.slug,
             brands.createdAt,
             brandLifecycle.phase,
+            brandLifecycle.trialStartedAt,
             brandLifecycle.trialEndsAt,
             brandPlan.planType,
             brandPlan.skuAnnualLimit,
+            brandPlan.skuOnboardingLimit,
             brandPlan.skuLimitOverride,
-            liveVariantCounts.liveSkuCount,
-            brandPlan.skuCountAtYearStart,
+            brandPlan.firstPaidStartedAt,
+            brandPlan.annualUsageAnchorAt,
           )
-          .orderBy(sortDirection(sortExpression), asc(brands.id))
-          .limit(input.page_size)
-          .offset((input.page - 1) * input.page_size);
+          .orderBy(asc(brands.id));
 
-        const items = rows.map((row) => {
-          const annualLimit =
-            row.skuCountAtYearStart === null
-              ? null
-              : (row.skuLimitOverride ?? row.skuAnnualLimit);
-          const annualUsed = row.annualUsed ?? 0;
+        const items = await Promise.all(
+          rows.map(async (row) => {
+            const snapshot: Pick<BrandAccessSnapshot, "brandId" | "lifecycle" | "billing" | "plan"> =
+              {
+              brandId: row.id,
+              lifecycle: row.phase
+                ? {
+                    phase: row.phase as BrandLifecyclePhase,
+                    trialStartedAt: row.trialStartedAt,
+                    trialEndsAt: row.trialEndsAt,
+                  }
+                : null,
+              billing: null,
+              plan:
+                row.skuAnnualLimit !== null ||
+                row.skuOnboardingLimit !== null ||
+                row.skuLimitOverride !== null ||
+                row.firstPaidStartedAt !== null ||
+                row.annualUsageAnchorAt !== null
+                  ? {
+                      skuAnnualLimit: row.skuAnnualLimit,
+                      skuOnboardingLimit: row.skuOnboardingLimit,
+                      skuLimitOverride: row.skuLimitOverride,
+                      firstPaidStartedAt: row.firstPaidStartedAt,
+                      annualUsageAnchorAt: row.annualUsageAnchorAt,
+                    }
+                  : null,
+              };
+            const activeSkuWindow = resolveActiveSkuWindow({
+              snapshot,
+              evaluationDate: currentDatabaseTimestamp,
+            });
+            const currentSkuUsageCount = await countBrandSkusInActiveWindow(
+              ctx.db,
+              row.id,
+              activeSkuWindow,
+            );
+            const derivedBudget = deriveSkuBudget({
+              snapshot,
+              currentSkuUsageCount,
+              evaluationDate: currentDatabaseTimestamp,
+            });
 
-          return {
-            id: row.id,
-            name: row.name,
-            slug: row.slug,
-            created_at: row.createdAt,
-            phase: row.phase ?? "demo",
-            plan_type: row.planType,
-            sku_usage: {
-              used: annualUsed,
-              limit: annualLimit,
-            },
-            trial_ends_at: row.trialEndsAt,
-            members_count: row.membersCount,
-          };
+            return {
+              id: row.id,
+              name: row.name,
+              slug: row.slug,
+              created_at: row.createdAt,
+              phase: row.phase ?? "demo",
+              plan_type: row.planType,
+              sku_usage: {
+                used: derivedBudget.activeBudget.used,
+                limit: derivedBudget.activeBudget.limit,
+              },
+              trial_ends_at: row.trialEndsAt,
+              members_count: row.membersCount,
+            };
+          }),
+        );
+
+        const direction = input.sort_dir === "asc" ? 1 : -1;
+        const sortedItems = [...items].sort((left, right) => {
+          const compareValue = (() => {
+            switch (input.sort_by) {
+              case "name":
+                return left.name.localeCompare(right.name);
+              case "phase":
+                return left.phase.localeCompare(right.phase);
+              case "plan":
+                return (left.plan_type ?? "").localeCompare(right.plan_type ?? "");
+              case "sku_usage":
+                return left.sku_usage.used - right.sku_usage.used;
+              case "trial_ends": {
+                const leftTime = left.trial_ends_at
+                  ? Date.parse(left.trial_ends_at)
+                  : 0;
+                const rightTime = right.trial_ends_at
+                  ? Date.parse(right.trial_ends_at)
+                  : 0;
+                return leftTime - rightTime;
+              }
+              case "members":
+                return left.members_count - right.members_count;
+              default:
+                return (
+                  Date.parse(left.created_at) - Date.parse(right.created_at)
+                );
+            }
+          })();
+
+          if (compareValue !== 0) {
+            return compareValue * direction;
+          }
+
+          return left.id.localeCompare(right.id);
         });
+        const paginatedItems = sortedItems.slice(
+          (input.page - 1) * input.page_size,
+          input.page * input.page_size,
+        );
 
         return {
-          items,
-          total: countRow?.total ?? 0,
+          items: paginatedItems,
+          total: items.length,
           page: input.page,
           page_size: input.page_size,
         };
@@ -574,23 +621,8 @@ export const platformAdminRouter = createTRPCRouter({
           });
         }
 
-        let accessSnapshot = await getBrandAccessSnapshot(ctx.db, input.brand_id);
-        const currentDatabaseDate = await getCurrentDatabaseDate(ctx.db);
-        const annualReset = await lazyResetAnnualPeriodIfNeeded(
-          ctx.db,
-          input.brand_id,
-          currentDatabaseDate,
-        );
-        const onboardingExpiry = await lazyExpireOnboardingLimitIfNeeded(
-          ctx.db,
-          input.brand_id,
-          accessSnapshot.lifecycle?.trialStartedAt ?? null,
-          currentDatabaseDate,
-        );
-
-        if (annualReset.wasReset || onboardingExpiry.wasExpired) {
-          accessSnapshot = await getBrandAccessSnapshot(ctx.db, input.brand_id);
-        }
+        const accessSnapshot = await getBrandAccessSnapshot(ctx.db, input.brand_id);
+        const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(ctx.db);
 
         const [brand] = await ctx.db
           .select({
@@ -649,12 +681,19 @@ export const platformAdminRouter = createTRPCRouter({
           throw notFound("Brand", input.brand_id);
         }
 
-        const currentVariantCount = await countBrandSkus(ctx.db, input.brand_id);
+        const activeSkuWindow = resolveActiveSkuWindow({
+          snapshot: accessSnapshot,
+          evaluationDate: currentDatabaseTimestamp,
+        });
+        const currentSkuUsageCount = await countBrandSkusInActiveWindow(
+          ctx.db,
+          input.brand_id,
+          activeSkuWindow,
+        );
         const derivedBudget = deriveSkuBudget({
           snapshot: accessSnapshot,
-          currentNonGhostSkuCount: currentVariantCount,
-          trialStartedAt: accessSnapshot.lifecycle?.trialStartedAt ?? null,
-          evaluationDate: currentDatabaseDate,
+          currentSkuUsageCount,
+          evaluationDate: currentDatabaseTimestamp,
         });
 
         const [memberCount] = await ctx.db
@@ -1068,6 +1107,8 @@ export const platformAdminRouter = createTRPCRouter({
           skuOnboardingLimit: number | null;
           skuLimitOverride: number | null;
           skuYearStart: Date | null;
+          firstPaidStartedAt: string | null;
+          annualUsageAnchorAt: string | null;
         }> = {};
 
         const billingUpdates: Partial<{
@@ -1157,6 +1198,17 @@ export const platformAdminRouter = createTRPCRouter({
               hardDeleteAfter: null,
             })
             .where(eq(brandLifecycle.brandId, input.brand_id));
+
+          await syncBrandPaidSkuAnchors({
+            dbOrTx: ctx.db,
+            brandId: input.brand_id,
+            paidEntitlementStartsAt:
+              existingPlanState.currentPeriodStart ?? nowIso,
+            allowAnnualAnchorRealignment:
+              existingPlanState.lifecyclePhase !== "active",
+            previousEntitlementEndedAt:
+              existingPlanState.currentPeriodEnd ?? null,
+          });
         }
 
         await logPlatformAdminAction(ctx, {
@@ -1408,6 +1460,14 @@ export const platformAdminRouter = createTRPCRouter({
               updatedAt: new Date().toISOString(),
             })
             .where(eq(brandPlan.brandId, input.brand_id));
+
+          await syncBrandPaidSkuAnchors({
+            dbOrTx: db,
+            brandId: input.brand_id,
+            paidEntitlementStartsAt: input.service_period_start,
+            allowAnnualAnchorRealignment: true,
+            previousEntitlementEndedAt: brand.currentPeriodEnd ?? null,
+          });
         }
 
         await logPlatformAdminAction(ctx, {

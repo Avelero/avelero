@@ -78,10 +78,10 @@ export interface TRPCContext {
   brandAccess?: ResolvedBrandAccessDecision | null;
   /** Resolved SKU policy decision for the active brand, when requested. */
   skuAccess?: ResolvedSkuAccessDecision | null;
-  /** Live SKU count used to derive usage and write budgets. */
-  currentNonGhostSkuCount?: number | null;
-  /** Database-backed current date reused for SKU period evaluation. */
-  currentDatabaseDate?: Date | null;
+  /** Live SKU usage count inside the active SKU window. */
+  currentSkuUsageCount?: number | null;
+  /** Database-backed current timestamp reused for SKU period evaluation. */
+  currentDatabaseTimestamp?: Date | null;
   /** Raw lifecycle/billing/plan snapshot used to compute access decisions. */
   brandAccessSnapshot?: BrandAccessSnapshot | null;
   /** Shared Drizzle database connection used for transactional work. */
@@ -103,8 +103,8 @@ export type BrandScopedTRPCContext = AuthenticatedTRPCContext & {
 export type BrandAccessTRPCContext = BrandScopedTRPCContext & {
   brandAccess: ResolvedBrandAccessDecision;
   skuAccess: ResolvedSkuAccessDecision;
-  currentNonGhostSkuCount: number;
-  currentDatabaseDate: Date;
+  currentSkuUsageCount: number;
+  currentDatabaseTimestamp: Date;
   brandAccessSnapshot: BrandAccessSnapshot;
 };
 
@@ -313,8 +313,8 @@ const withResolvedBrandAccess = t.middleware(async ({ ctx, next }) => {
       ...brandCtx,
       brandAccess: accessContext.brandAccess,
       skuAccess: accessContext.skuAccess,
-      currentNonGhostSkuCount: accessContext.currentNonGhostSkuCount,
-      currentDatabaseDate: accessContext.currentDatabaseDate,
+      currentSkuUsageCount: accessContext.currentSkuUsageCount,
+      currentDatabaseTimestamp: accessContext.currentDatabaseTimestamp,
       brandAccessSnapshot: accessContext.snapshot,
     },
   });
@@ -387,8 +387,7 @@ export function resolveSkuDecisionWithIntendedCount(params: {
   brandAccess: ResolvedBrandAccessDecision;
   snapshot: BrandAccessSnapshot;
   intendedCreateCount: number;
-  currentNonGhostSkuCount: number;
-  trialStartedAt: Date | string | null;
+  currentSkuUsageCount: number;
   evaluationDate?: Date | string | null;
 }): ResolvedSkuAccessDecision {
   // Resolve the intended write against the caller's current live SKU budget.
@@ -396,8 +395,7 @@ export function resolveSkuDecisionWithIntendedCount(params: {
     brandAccess: params.brandAccess,
     snapshot: params.snapshot,
     intendedCreateCount: params.intendedCreateCount,
-    currentNonGhostSkuCount: params.currentNonGhostSkuCount,
-    trialStartedAt: params.trialStartedAt,
+    currentSkuUsageCount: params.currentSkuUsageCount,
     evaluationDate: params.evaluationDate,
   });
 
@@ -595,34 +593,11 @@ export const brandBillingProcedure = protectedProcedure
 /**
  * Procedure variant for SKU-creating writes.
  *
- * This enforces general write access and blocks when no SKU creation budget remains.
+ * This enforces general write access; SKU limit checks happen inside write transactions.
  */
 export const brandSkuWriteProcedure = brandWriteProcedure.use(
-  t.middleware(({ ctx, path, next }) => {
+  t.middleware(({ ctx, next }) => {
     const brandCtx = ctx as BrandAccessTRPCContext;
-
-    if (brandCtx.role === ROLES.AVELERO) {
-      return next({
-        ctx: brandCtx,
-      });
-    }
-
-    if (
-      brandCtx.brandAccess.capabilities.canWriteBrandData &&
-      brandCtx.skuAccess.status === "blocked"
-    ) {
-      accessLog.info(
-        {
-          brandId: brandCtx.brandId,
-          userId: brandCtx.user.id,
-          skuStatus: brandCtx.skuAccess.status,
-          remaining: brandCtx.skuAccess.remainingCreateBudget,
-          procedure: path,
-        },
-        "SKU creation blocked by limit",
-      );
-      throw accessSkuLimitReached();
-    }
 
     return next({
       ctx: brandCtx,

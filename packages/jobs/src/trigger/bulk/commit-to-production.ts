@@ -25,12 +25,11 @@ import { logger, task, tasks } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
 import {
-  countNonGhostSkus,
+  countBrandSkusInActiveWindow,
   deriveSkuBudget,
   getBrandAccessSnapshot,
-  getCurrentDatabaseDate,
-  lazyExpireOnboardingLimitIfNeeded,
-  lazyResetAnnualPeriodIfNeeded,
+  getCurrentDatabaseTimestamp,
+  resolveActiveSkuWindow,
 } from "@v1/db/queries/brand";
 import {
   type NormalizedRowData,
@@ -303,35 +302,25 @@ async function runSkuBudgetPreflight(
   brandId: string,
   jobId: string,
 ): Promise<void> {
-  let snapshot = await getBrandAccessSnapshot(database, brandId);
-  const currentDatabaseDate = await getCurrentDatabaseDate(database);
-
-  const annualReset = await lazyResetAnnualPeriodIfNeeded(
+  const snapshot = await getBrandAccessSnapshot(database, brandId);
+  const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(database);
+  const activeSkuWindow = resolveActiveSkuWindow({
+    snapshot,
+    evaluationDate: currentDatabaseTimestamp,
+  });
+  const currentSkuUsageCount = await countBrandSkusInActiveWindow(
     database,
     brandId,
-    currentDatabaseDate,
+    activeSkuWindow,
   );
-  const onboardingExpiry = await lazyExpireOnboardingLimitIfNeeded(
-    database,
-    brandId,
-    snapshot.lifecycle?.trialStartedAt ?? null,
-    currentDatabaseDate,
-  );
-
-  if (annualReset.wasReset || onboardingExpiry.wasExpired) {
-    snapshot = await getBrandAccessSnapshot(database, brandId);
-  }
-
-  const currentNonGhostSkuCount = await countNonGhostSkus(database, brandId);
   const intendedCreateCount = await countPendingVariantCreatesForJob(
     database,
     jobId,
   );
   const { remainingCreateBudget } = deriveSkuBudget({
     snapshot,
-    currentNonGhostSkuCount,
-    trialStartedAt: snapshot.lifecycle?.trialStartedAt ?? null,
-    evaluationDate: currentDatabaseDate,
+    currentSkuUsageCount,
+    evaluationDate: currentDatabaseTimestamp,
   });
 
   if (

@@ -1,6 +1,6 @@
 import { CreateProductForm } from "@/components/forms/passport";
 import { shouldBlockSidebarContent } from "@/lib/brand-access";
-import { HydrateClient, prefetch, trpc } from "@/trpc/server";
+import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 
@@ -16,7 +16,10 @@ export default async function CreatePassportsPage() {
     return null;
   }
 
-  prefetch(trpc.composite.catalogContent.queryOptions());
+  batchPrefetch([
+    trpc.composite.catalogContent.queryOptions(),
+    trpc.brand.billing.getStatus.queryOptions(),
+  ]);
 
   return (
     <HydrateClient>

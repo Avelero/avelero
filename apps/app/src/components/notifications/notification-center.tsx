@@ -188,7 +188,7 @@ function NotificationCenterContent() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="type-small line-clamp-1 font-medium text-foreground">
+                      <p className="type-small whitespace-normal break-words font-medium text-foreground">
                         {notification.title}
                       </p>
                       <p className="type-xsmall shrink-0 text-tertiary">
@@ -358,6 +358,8 @@ function getNotificationIcon(type: string) {
       return <Icons.UserRound className="h-4 w-4" />;
     case "sku_limit_warning":
       return <Icons.AlertTriangle className="h-4 w-4 text-amber-600" />;
+    case "sku_limit_reached":
+      return <Icons.AlertTriangle className="h-4 w-4 text-destructive" />;
     default:
       return <Icons.Bell className="h-4 w-4" />;
   }

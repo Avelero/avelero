@@ -232,6 +232,60 @@ describe("brand sku usage queries", () => {
     expect(usageCount).toBe(2);
   });
 
+  it("counts newly published variants on an already-published product in the current window", async () => {
+    const brandId = await createTestBrand("Published Variant Delta Brand");
+    const annualUsageAnchorAt = "2024-01-15T00:00:00.000Z";
+    const evaluationDate = "2026-03-20T12:00:00.000Z";
+    const publishedProduct = await createTestProduct(brandId, {
+      status: "published",
+      publishedAt: "2025-12-31T23:59:59.000Z",
+    });
+    const oldVariant = await createTestVariant(publishedProduct.id, {
+      sku: "DELTA-OLD",
+    });
+    const newVariant = await createTestVariant(publishedProduct.id, {
+      sku: "DELTA-NEW",
+    });
+
+    await testDb.insert(schema.productPassports).values([
+      {
+        upid: oldVariant.upid!,
+        brandId,
+        workingVariantId: oldVariant.id,
+        status: "active",
+        firstPublishedAt: null,
+      },
+      {
+        upid: newVariant.upid!,
+        brandId,
+        workingVariantId: newVariant.id,
+        status: "active",
+        firstPublishedAt: "2026-02-01T00:00:00.000Z",
+      },
+    ]);
+
+    await upsertBrandPlan({
+      brandId,
+      annualUsageAnchorAt,
+      skuAnnualLimit: 500,
+    });
+
+    const snapshot = await getBrandAccessSnapshot(testDb, brandId);
+    const activeWindow = resolveActiveSkuWindow({
+      snapshot,
+      evaluationDate,
+    });
+    const usageCount = await countPublishedPassportsInActiveWindow(
+      testDb,
+      brandId,
+      activeWindow,
+    );
+
+    expect(activeWindow.kind).toBe("annual");
+    expect(activeWindow.windowStartAt).toBe("2026-01-15T00:00:00.000Z");
+    expect(usageCount).toBe(1);
+  });
+
   it("does not reset the annual period before the first anniversary", async () => {
     const brandId = await createTestBrand("Annual Noop Brand");
     const initialYearStart = daysFromNow(-180);

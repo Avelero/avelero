@@ -14,7 +14,8 @@
     "generate": "supabase gen types --lang=typescript --project-id ebshgnuavsacpplatsqt --schema public > ../../packages/supabase/src/types/db.ts",
     "lint": "biome lint",
     "typecheck": "tsc --noEmit",
-    "test": "bun test __tests__ --preload ./__tests__/setup.ts --serial --timeout 30000"
+    "test": "bun test __tests__/integration __tests__/unit --preload ./__tests__/setup.ts --serial --timeout 30000",
+    "test:billing:live": "bun test __tests__/stripe-live --preload ./__tests__/setup-live.ts --serial --timeout 120000"
   },
   "dependencies": {
     "@hono/trpc-server": "^0.3.0",

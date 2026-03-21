@@ -29,6 +29,7 @@ export default async function EditPassportPage({
       includeAttributes: true,
     }),
     trpc.composite.catalogContent.queryOptions(),
+    trpc.brand.billing.getStatus.queryOptions(),
   ]);
 
   return (

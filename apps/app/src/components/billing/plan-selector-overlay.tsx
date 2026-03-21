@@ -21,6 +21,10 @@ interface PlanSelectorOverlayProps {
   hasSubscription?: boolean;
   /** Whether the current subscription is scheduled to end at period close. */
   pendingCancellation?: boolean;
+  /** Current billing period start (ISO string). */
+  periodStart?: string | null;
+  /** Current billing period end (ISO string). */
+  periodEnd?: string | null;
   /** Whether the overlay should cover the viewport or only the current parent. */
   position?: "fixed" | "absolute";
 }
@@ -34,6 +38,8 @@ export function PlanSelectorOverlay({
   hasImpact = false,
   hasSubscription = false,
   pendingCancellation = false,
+  periodStart = null,
+  periodEnd = null,
   position = "fixed",
 }: PlanSelectorOverlayProps) {
   // Scope the overlay to the requested container so paywalls can preserve app chrome.
@@ -63,6 +69,8 @@ export function PlanSelectorOverlay({
           hasImpact={hasImpact}
           hasSubscription={hasSubscription}
           pendingCancellation={pendingCancellation}
+          periodStart={periodStart}
+          periodEnd={periodEnd}
           context="paywall"
         />
 

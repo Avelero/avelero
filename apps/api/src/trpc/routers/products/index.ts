@@ -1,12 +1,10 @@
 import { createHash } from "node:crypto";
 import { and, eq, inArray } from "@v1/db/queries";
-import type { Database, DatabaseOrTransaction } from "@v1/db/client";
+import type { DatabaseOrTransaction } from "@v1/db/client";
 import {
   PublishLimitExceededError,
   enforcePublishCapacity,
 } from "@v1/db/queries/brand";
-import type { PublishCapacityResult } from "@v1/db/queries/brand";
-import { publishNotificationEvent } from "@v1/db/queries/notifications";
 /**
  * Products domain router implementation.
  *
@@ -48,6 +46,7 @@ import {
   revalidatePassports,
   revalidateProduct,
 } from "../../../lib/dpp-revalidation.js";
+import { notifyPublishUsageIfNeeded } from "../../../lib/notifications/publish-usage.js";
 import { generateProductHandle } from "../../../schemas/_shared/primitives.js";
 import {
   productUnifiedGetSchema,
@@ -137,42 +136,6 @@ interface ProductPublishTransitionSummary {
   productId: string;
   status: string;
   variantCount: number;
-}
-
-const PUBLISH_NOTIFICATION_THRESHOLD = 0.9;
-
-/**
- * Publishes a publish-limit warning notification if the brand crossed the 90% threshold.
- * Piggybacks on data already computed by enforcePublishCapacity — no extra queries.
- */
-async function maybePublishLimitNotification(params: {
-  db: Database;
-  brandId: string;
-  capacityResult: PublishCapacityResult;
-  publishedCount: number;
-}): Promise<void> {
-  const { capacityResult, publishedCount } = params;
-  if (
-    !capacityResult.budgetKind ||
-    capacityResult.limit == null ||
-    capacityResult.limit === 0
-  )
-    return;
-
-  const newUsed = capacityResult.used + publishedCount;
-  const utilization = newUsed / capacityResult.limit;
-  if (utilization < PUBLISH_NOTIFICATION_THRESHOLD) return;
-
-  await publishNotificationEvent(params.db, {
-    event: "sku_limit_warning",
-    brandId: params.brandId,
-    payload: {
-      brandId: params.brandId,
-      budgetKind: capacityResult.budgetKind,
-      used: newUsed,
-      limit: capacityResult.limit,
-    },
-  });
 }
 
 /**
@@ -544,9 +507,11 @@ export const productsRouter = createTRPCRouter({
           seasonId: input.season_id ?? null,
           manufacturerId: input.manufacturer_id ?? null,
           imagePath: input.image_path ?? null,
-          status: input.status ?? undefined,
-          publishedAt:
-            input.status === "published" ? new Date().toISOString() : undefined,
+          // New products always start unpublished; explicit publish happens after variants are synced.
+          status:
+            input.status === "published"
+              ? "unpublished"
+              : input.status ?? undefined,
         };
 
         const product = await createProduct(
@@ -614,9 +579,6 @@ export const productsRouter = createTRPCRouter({
             seasonId: input.season_id ?? undefined,
           };
 
-          let bulkCapacityResult: Awaited<
-            ReturnType<typeof enforcePublishCapacity>
-          > | null = null;
           let bulkPublishedCount = 0;
 
           // Bulk update based on selection mode
@@ -639,14 +601,9 @@ export const productsRouter = createTRPCRouter({
               const alreadyPublishedProductIds = publishSummaries
                 .filter((summary) => summary.status === "published")
                 .map((summary) => summary.productId);
-              const capacityResult =
-                intendedPublishCount > 0
-                  ? await enforcePublishCapacity(
-                      tx,
-                      brandId,
-                      intendedPublishCount,
-                    )
-                  : null;
+              if (intendedPublishCount > 0) {
+                await enforcePublishCapacity(tx, brandId, intendedPublishCount);
+              }
               const publishTransitionTimestamp = new Date().toISOString();
               const publishedTransitionResult = await bulkUpdateProductsByIds(
                 tx,
@@ -665,7 +622,6 @@ export const productsRouter = createTRPCRouter({
               );
 
               return {
-                capacityResult,
                 publishedCount: intendedPublishCount,
                 result: {
                   updated:
@@ -679,7 +635,6 @@ export const productsRouter = createTRPCRouter({
               };
             });
 
-            bulkCapacityResult = publishResult.capacityResult;
             bulkPublishedCount = publishResult.publishedCount;
             result = publishResult.result;
           } else if (selection.mode === "all") {
@@ -725,12 +680,11 @@ export const productsRouter = createTRPCRouter({
             }
           }
 
-          if (bulkCapacityResult) {
-            maybePublishLimitNotification({
+          if (bulkPublishedCount > 0) {
+            notifyPublishUsageIfNeeded({
               db: brandCtx.db,
               brandId,
-              capacityResult: bulkCapacityResult,
-              publishedCount: bulkPublishedCount,
+              usageDelta: bulkPublishedCount,
             }).catch(() => {});
           }
 
@@ -742,9 +696,6 @@ export const productsRouter = createTRPCRouter({
 
         // Single product update
         const payload: UpdateProductInput = { id: input.id };
-        let singleCapacityResult: Awaited<
-          ReturnType<typeof enforcePublishCapacity>
-        > | null = null;
         let singlePublishedCount = 0;
 
         // Only add fields to payload if they were explicitly provided in input
@@ -786,11 +737,7 @@ export const productsRouter = createTRPCRouter({
                     : 0;
 
                 if (publishedCount > 0) {
-                  singleCapacityResult = await enforcePublishCapacity(
-                    tx,
-                    brandId,
-                    publishedCount,
-                  );
+                  await enforcePublishCapacity(tx, brandId, publishedCount);
                 }
 
                 singlePublishedCount = publishedCount;
@@ -852,12 +799,11 @@ export const productsRouter = createTRPCRouter({
           }
         }
 
-        if (singleCapacityResult) {
-          maybePublishLimitNotification({
+        if (singlePublishedCount > 0) {
+          notifyPublishUsageIfNeeded({
             db: brandCtx.db,
             brandId,
-            capacityResult: singleCapacityResult,
-            publishedCount: singlePublishedCount,
+            usageDelta: singlePublishedCount,
           }).catch(() => {});
         }
 

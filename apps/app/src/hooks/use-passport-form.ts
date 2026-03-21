@@ -1349,7 +1349,13 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         }
 
         // Create mode
-        const created = await createProductMutation.mutateAsync(basePayload);
+        const created = await createProductMutation.mutateAsync({
+          ...basePayload,
+          status:
+            basePayload.status === "published"
+              ? "unpublished"
+              : basePayload.status,
+        });
         const productId = created?.data?.id;
         const targetProductHandle =
           (created as any)?.data?.product_handle ?? productHandle ?? null;

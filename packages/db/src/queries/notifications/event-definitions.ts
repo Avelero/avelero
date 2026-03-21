@@ -19,7 +19,8 @@ export type NotificationEventKey =
   | "export_ready"
   | "qr_export_ready"
   | "invite_accepted"
-  | "sku_limit_warning";
+  | "sku_limit_warning"
+  | "sku_limit_reached";
 
 export interface SkuLimitWarningPayload {
   brandId: string;
@@ -27,6 +28,8 @@ export interface SkuLimitWarningPayload {
   used: number;
   limit: number;
 }
+
+export type SkuLimitReachedPayload = SkuLimitWarningPayload;
 
 export interface NotificationEventPayloadMap {
   import_success: {
@@ -67,6 +70,7 @@ export interface NotificationEventPayloadMap {
     brandName?: string | null;
   };
   sku_limit_warning: SkuLimitWarningPayload;
+  sku_limit_reached: SkuLimitReachedPayload;
 }
 
 export interface ResolvedNotificationEvent {
@@ -218,6 +222,32 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
         type: "sku_limit_warning",
         title: "You're approaching your passport publish limit",
         message: `You've published ${payload.used.toLocaleString()} of ${payload.limit.toLocaleString()} ${budgetLabel} passports. Consider upgrading your plan before you hit the limit. ${ACTION_PLACEHOLDER}`,
+        resourceType: `sku_budget_${payload.budgetKind}`,
+        resourceId: payload.brandId,
+        actionUrl: "/settings/billing",
+        actionData: {
+          kind: "link",
+          label: "View plans",
+          url: "/settings/billing",
+        },
+        expiresInMs: 30 * 24 * 60 * 60 * 1000,
+      };
+    },
+  },
+  sku_limit_reached: {
+    audience: "brand_members",
+    resolve: (payload) => {
+      const budgetLabel =
+        payload.budgetKind === "trial"
+          ? "trial"
+          : payload.budgetKind === "onboarding"
+            ? "onboarding"
+            : "yearly";
+
+      return {
+        type: "sku_limit_reached",
+        title: "You've reached your passport publish limit",
+        message: `You've published ${payload.used.toLocaleString()} of ${payload.limit.toLocaleString()} ${budgetLabel} passports. Upgrade your plan before publishing more passports. ${ACTION_PLACEHOLDER}`,
         resourceType: `sku_budget_${payload.budgetKind}`,
         resourceId: payload.brandId,
         actionUrl: "/settings/billing",

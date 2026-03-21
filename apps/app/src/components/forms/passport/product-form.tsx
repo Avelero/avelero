@@ -33,7 +33,16 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@v1/ui/dialog";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
@@ -146,6 +155,17 @@ function ProductFormInner({
   const [pendingVariantDeletions, setPendingVariantDeletions] = React.useState<
     VariantToDelete[]
   >([]);
+  const [publishLimitModal, setPublishLimitModal] = React.useState<{
+    open: boolean;
+    requested: number;
+    limit: number;
+    remaining: number;
+  }>({
+    open: false,
+    requested: 0,
+    limit: 0,
+    remaining: 0,
+  });
   const pendingSubmitRef = React.useRef<(() => Promise<void>) | null>(null);
 
   // Sync productId and publishing state with context when they change
@@ -322,6 +342,67 @@ function ProductFormInner({
     }
   }, [user?.brand_id, submit]);
 
+  /**
+   * Estimate how many variants this form would publish if saved as published.
+   */
+  const intendedPublishCount = React.useMemo(() => {
+    const activeDimensions = state.variantDimensions.filter((dimension) => {
+      if (dimension.isCustomInline) {
+        return (dimension.customValues ?? []).some(
+          (value) => value.trim().length > 0,
+        );
+      }
+
+      return dimension.values.length > 0;
+    });
+
+    if (activeDimensions.length > 0) {
+      return [...state.enabledVariantKeys].filter(
+        (key) => key.split("|").length === activeDimensions.length,
+      ).length;
+    }
+
+    return state.explicitVariants.length > 0 ? state.explicitVariants.length : 1;
+  }, [
+    state.enabledVariantKeys,
+    state.explicitVariants.length,
+    state.variantDimensions,
+  ]);
+
+  /**
+   * Check publish capacity before allowing a draft product save to become published.
+   */
+  const ensurePublishCapacityForSave = React.useCallback(async () => {
+    try {
+      const billingStatus = await queryClient.fetchQuery(
+        trpc.brand.billing.getStatus.queryOptions(),
+      );
+      const remaining = billingStatus.active_sku_budget.remaining;
+      const limit = billingStatus.active_sku_budget.limit;
+
+      if (
+        remaining !== null &&
+        limit !== null &&
+        intendedPublishCount > remaining
+      ) {
+        setPublishLimitModal({
+          open: true,
+          requested: intendedPublishCount,
+          limit,
+          remaining,
+        });
+        return false;
+      }
+
+      return true;
+    } catch {
+      toast.error(
+        "Couldn't verify publish capacity. We'll try saving and let the server confirm.",
+      );
+      return true;
+    }
+  }, [intendedPublishCount, queryClient, trpc]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -392,6 +473,13 @@ function ProductFormInner({
       }
 
       return;
+    }
+
+    if (state.status === "published" && dbPublishingStatus !== "published") {
+      const allowed = await ensurePublishCapacityForSave();
+      if (!allowed) {
+        return;
+      }
     }
 
     // Check for variant deletions in edit mode
@@ -591,6 +679,49 @@ function ProductFormInner({
           </>
         }
       />
+
+      <Dialog
+        open={publishLimitModal.open}
+        onOpenChange={(open) =>
+          setPublishLimitModal((current) => ({ ...current, open }))
+        }
+      >
+        <DialogContent size="md" className="p-0 gap-0">
+          <DialogHeader className="px-6 py-4 border-b border-border">
+            <DialogTitle className="text-foreground">
+              Publish limit reached
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="px-6 py-4">
+            <DialogDescription className="text-secondary">
+              Saving this product as published would publish{" "}
+              {publishLimitModal.requested.toLocaleString("en-US")}{" "}
+              {publishLimitModal.requested === 1 ? "passport" : "passports"}.
+              Your current limit is{" "}
+              {publishLimitModal.limit.toLocaleString("en-US")}, and you have{" "}
+              {publishLimitModal.remaining.toLocaleString("en-US")} remaining in
+              this window. Change the status back to unpublished if you want to
+              save without publishing it.
+            </DialogDescription>
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setPublishLimitModal((current) => ({ ...current, open: false }))
+              }
+            >
+              Close
+            </Button>
+            <Button type="button" asChild>
+              <a href="/settings/billing">View plans</a>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Variant Deletion Warning Modal */}
       <VariantDeletionModal

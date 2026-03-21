@@ -13,7 +13,8 @@ export type NotificationType =
   | "invite_accepted"
   | "sync_complete"
   | "sync_failure"
-  | "sku_limit_warning";
+  | "sku_limit_warning"
+  | "sku_limit_reached";
 
 /**
  * Known resource types for polymorphic references

@@ -3,7 +3,12 @@
  */
 import { and, eq, sql } from "drizzle-orm";
 import type { DatabaseOrTransaction } from "../../client";
-import { brandPlan, productVariants, products } from "../../schema";
+import {
+  brandPlan,
+  productPassports,
+  productVariants,
+  products,
+} from "../../schema";
 import { getBrandAccessSnapshot, type BrandAccessSnapshotRow } from "./access";
 
 type DateLike = Date | string;
@@ -396,9 +401,14 @@ export async function countPublishedPassportsInActiveWindow(
     return 0;
   }
 
+  const effectivePublishedAt = sql`COALESCE(
+    GREATEST(${products.publishedAt}, ${productPassports.firstPublishedAt}),
+    ${products.publishedAt},
+    ${productPassports.firstPublishedAt}
+  )`;
   const windowPredicate = window.windowEndAt
-    ? sql`${products.publishedAt} >= ${window.windowStartAt} AND ${products.publishedAt} < ${window.windowEndAt}`
-    : sql`${products.publishedAt} >= ${window.windowStartAt}`;
+    ? sql`${effectivePublishedAt} >= ${window.windowStartAt} AND ${effectivePublishedAt} < ${window.windowEndAt}`
+    : sql`${effectivePublishedAt} >= ${window.windowStartAt}`;
 
   const [row] = await dbOrTx
     .select({
@@ -406,6 +416,10 @@ export async function countPublishedPassportsInActiveWindow(
     })
     .from(productVariants)
     .innerJoin(products, eq(products.id, productVariants.productId))
+    .leftJoin(
+      productPassports,
+      eq(productPassports.workingVariantId, productVariants.id),
+    )
     .where(
       and(
         eq(products.brandId, brandId),

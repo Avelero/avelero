@@ -50,6 +50,8 @@ function PlanSelectorOverlayRenderer() {
       hasImpact={status?.has_impact_predictions ?? false}
       hasSubscription={status?.has_active_subscription ?? false}
       pendingCancellation={status?.pending_cancellation ?? false}
+      periodStart={status?.current_period_start ?? null}
+      periodEnd={status?.current_period_end ?? null}
     />
   );
 }

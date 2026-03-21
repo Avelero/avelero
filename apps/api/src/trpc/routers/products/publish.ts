@@ -10,13 +10,11 @@
  * - publish.bulk: Publish multiple products at once
  */
 import { and, eq, inArray, sql } from "drizzle-orm";
-import type { Database, DatabaseOrTransaction } from "@v1/db/client";
+import type { DatabaseOrTransaction } from "@v1/db/client";
 import {
   PublishLimitExceededError,
   enforcePublishCapacity,
 } from "@v1/db/queries/brand";
-import type { PublishCapacityResult } from "@v1/db/queries/brand";
-import { publishNotificationEvent } from "@v1/db/queries/notifications";
 import {
   getPublishingState,
   getOrCreatePassport,
@@ -31,6 +29,7 @@ import {
   revalidateBarcodes,
   revalidatePassports,
 } from "../../../lib/dpp-revalidation.js";
+import { notifyPublishUsageIfNeeded } from "../../../lib/notifications/publish-usage.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import {
@@ -167,42 +166,6 @@ async function revalidateProjectedPassports(
 }
 
 // =============================================================================
-// NOTIFICATION HELPER
-// =============================================================================
-
-const PUBLISH_NOTIFICATION_THRESHOLD = 0.9;
-
-/**
- * Publishes a publish-limit warning notification if the brand crossed the 90% threshold.
- * Piggybacks on data already computed by enforcePublishCapacity — no extra queries.
- * Deduplication ensures only one active notification per budget kind.
- */
-async function maybePublishLimitNotification(params: {
-  db: Database;
-  brandId: string;
-  capacityResult: PublishCapacityResult;
-  publishedCount: number;
-}): Promise<void> {
-  const { capacityResult, publishedCount } = params;
-  if (!capacityResult.budgetKind || capacityResult.limit == null || capacityResult.limit === 0) return;
-
-  const newUsed = capacityResult.used + publishedCount;
-  const utilization = newUsed / capacityResult.limit;
-  if (utilization < PUBLISH_NOTIFICATION_THRESHOLD) return;
-
-  await publishNotificationEvent(params.db, {
-    event: "sku_limit_warning",
-    brandId: params.brandId,
-    payload: {
-      brandId: params.brandId,
-      budgetKind: capacityResult.budgetKind,
-      used: newUsed,
-      limit: capacityResult.limit,
-    },
-  });
-}
-
-// =============================================================================
 // INPUT SCHEMAS
 // =============================================================================
 
@@ -266,11 +229,11 @@ export const publishRouter = createTRPCRouter({
             throw badRequest("No variants found for product");
           }
 
-          let capacityResult: PublishCapacityResult | null = null;
-          const publishedCount = summary.status !== "published" ? summary.variantCount : 0;
+          const publishedCount =
+            summary.status !== "published" ? summary.variantCount : 0;
 
           if (summary.status !== "published") {
-            capacityResult = await enforcePublishCapacity(tx, brandId, summary.variantCount);
+            await enforcePublishCapacity(tx, brandId, summary.variantCount);
           }
 
           const { passport, isNew } = await getOrCreatePassport(
@@ -288,7 +251,6 @@ export const publishRouter = createTRPCRouter({
           return {
             passportId: passport.id,
             isNew,
-            capacityResult,
             publishedCount,
           };
         });
@@ -306,12 +268,18 @@ export const publishRouter = createTRPCRouter({
             : [],
         });
 
-        if (publishResult.capacityResult) {
-          maybePublishLimitNotification({
+        const notificationUsageDelta =
+          publishResult.publishedCount > 0
+            ? publishResult.publishedCount
+            : publishResult.isNew
+              ? 1
+              : 0;
+
+        if (notificationUsageDelta > 0) {
+          notifyPublishUsageIfNeeded({
             db,
             brandId,
-            capacityResult: publishResult.capacityResult,
-            publishedCount: publishResult.publishedCount,
+            usageDelta: notificationUsageDelta,
           }).catch(() => {});
         }
 
@@ -360,16 +328,16 @@ export const publishRouter = createTRPCRouter({
             throw badRequest("No variants found for product");
           }
 
-          let capacityResult: PublishCapacityResult | null = null;
-          const publishedCount = summary.status !== "published" ? summary.variantCount : 0;
+          const publishedCount =
+            summary.status !== "published" ? summary.variantCount : 0;
 
           if (summary.status !== "published") {
-            capacityResult = await enforcePublishCapacity(tx, brandId, summary.variantCount);
+            await enforcePublishCapacity(tx, brandId, summary.variantCount);
           }
 
           await setProductsPublished(tx, brandId, [input.productId]);
 
-          return { summary, capacityResult, publishedCount };
+          return { summary, publishedCount };
         });
 
         await markPassportsDirtyByProductIds(db, brandId, [input.productId]);
@@ -382,12 +350,16 @@ export const publishRouter = createTRPCRouter({
           barcodes: projection.barcodes,
         });
 
-        if (txResult.capacityResult) {
-          maybePublishLimitNotification({
+        const notificationUsageDelta =
+          txResult.publishedCount > 0
+            ? txResult.publishedCount
+            : projection.firstPublishedSet;
+
+        if (notificationUsageDelta > 0) {
+          notifyPublishUsageIfNeeded({
             db,
             brandId,
-            capacityResult: txResult.capacityResult,
-            publishedCount: txResult.publishedCount,
+            usageDelta: notificationUsageDelta,
           }).catch(() => {});
         }
 
@@ -434,7 +406,9 @@ export const publishRouter = createTRPCRouter({
             .filter((summary) => summary.status !== "published")
             .reduce((total, summary) => total + summary.variantCount, 0);
 
-          const capacityResult = await enforcePublishCapacity(tx, brandId, intendedPublishCount);
+          if (intendedPublishCount > 0) {
+            await enforcePublishCapacity(tx, brandId, intendedPublishCount);
+          }
 
           return {
             updatedProductIds: await setProductsPublished(
@@ -443,7 +417,6 @@ export const publishRouter = createTRPCRouter({
               uniqueProductIds,
             ),
             foundProductCount: summaries.length,
-            capacityResult,
             intendedPublishCount,
           };
         });
@@ -453,12 +426,13 @@ export const publishRouter = createTRPCRouter({
           uniqueProductIds,
         );
 
-        maybePublishLimitNotification({
-          db,
-          brandId,
-          capacityResult: publishResult.capacityResult,
-          publishedCount: publishResult.intendedPublishCount,
-        }).catch(() => {});
+        if (publishResult.intendedPublishCount > 0) {
+          notifyPublishUsageIfNeeded({
+            db,
+            brandId,
+            usageDelta: publishResult.intendedPublishCount,
+          }).catch(() => {});
+        }
 
         return {
           success: true,

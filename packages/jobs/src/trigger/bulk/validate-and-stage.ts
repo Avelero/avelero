@@ -96,7 +96,7 @@ interface ProductResult {
  */
 interface PreFetchedData {
   /** Map of productHandle (lowercase) -> existing product record */
-  existingProductsByHandle: Map<string, { id: string }>;
+  existingProductsByHandle: Map<string, { id: string; status: string }>;
   /** Map of productId -> existing variants with UPIDs */
   existingVariantsByProductId: Map<
     string,
@@ -553,7 +553,11 @@ async function batchPreFetchExistingData(
 
   // Single query: fetch existing products by handle for this batch
   const existingProducts = await database
-    .select({ id: products.id, productHandle: products.productHandle })
+    .select({
+      id: products.id,
+      productHandle: products.productHandle,
+      status: products.status,
+    })
     .from(products)
     .where(
       and(
@@ -563,7 +567,10 @@ async function batchPreFetchExistingData(
     );
 
   const existingProductsByHandle = new Map(
-    existingProducts.map((p) => [p.productHandle.toLowerCase(), { id: p.id }]),
+    existingProducts.map((p) => [
+      p.productHandle.toLowerCase(),
+      { id: p.id, status: p.status },
+    ]),
   );
 
   // For ENRICH mode: fetch variants for existing products in this batch
@@ -962,8 +969,11 @@ function computeNormalizedRowData(
   // NON-BLOCKING VALIDATION: Field errors that don't prevent product creation
   // ========================================================================
 
-  // Bulk imports always stage products as unpublished so publishing remains an explicit action.
-  const validatedStatus = "unpublished";
+  // Keep new imports unpublished, but preserve the current visibility of enriched products.
+  const validatedStatus =
+    productAction === "ENRICH"
+      ? existingProduct?.status ?? "unpublished"
+      : "unpublished";
 
   // Validate category format (hierarchical with " > " delimiter)
   let categoryId: string | null = null;

@@ -27,6 +27,7 @@ import { and, eq, inArray, sql } from "@v1/db/queries";
 import {
   VariantGlobalCapExceededError,
   countBrandSkus,
+  enforceVariantGlobalCap,
 } from "@v1/db/queries/brand";
 import {
   type NormalizedRowData,
@@ -283,11 +284,16 @@ async function runVariantGlobalCapPreflight(
   brandId: string,
   jobId: string,
 ): Promise<void> {
-  const totalExistingVariants = await countBrandSkus(database, brandId);
   const intendedCreateCount = await countPendingVariantCreatesForJob(
     database,
     jobId,
   );
+
+  if (intendedCreateCount === 0) {
+    return;
+  }
+
+  const totalExistingVariants = await countBrandSkus(database, brandId);
   const [planRow] = await database
     .select({
       variantGlobalCap: brandPlan.variantGlobalCap,
@@ -440,7 +446,7 @@ export const commitToProduction = task({
         // Triggers are disabled inside the transaction using SET LOCAL
         // This prevents overwhelming Supabase Realtime with per-row broadcasts
         try {
-          await batchExecuteProductionOps(db, ops);
+          await batchExecuteProductionOps(db, brandId, ops);
 
           // PHASE 6.1: Mark published passports dirty instead of materializing snapshots here.
           await markPassportsDirtyByProductIds(
@@ -1156,6 +1162,7 @@ function computeProductionOps(
  */
 async function batchExecuteProductionOps(
   database: Database,
+  brandId: string,
   ops: PendingProductionOps,
 ): Promise<void> {
   await database.transaction(async (tx) => {
@@ -1177,6 +1184,7 @@ async function batchExecuteProductionOps(
 
     // 3. Variant creates (batch)
     if (ops.variantCreates.length > 0) {
+      await enforceVariantGlobalCap(tx, brandId, ops.variantCreates.length);
       await tx.insert(productVariants).values(ops.variantCreates);
     }
 

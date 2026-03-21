@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import {
   countBrandSkus,
   countPublishedPassportsInActiveWindow,
+  enforceVariantGlobalCap,
   getBrandAccessSnapshot,
   isOnboardingYear,
   lazyExpireOnboardingLimitIfNeeded,
@@ -25,7 +26,9 @@ import {
 /**
  * Formats a date-like value as `YYYY-MM-DD` for stable assertions.
  */
-function formatDateOnly(value: Date | string | null | undefined): string | null {
+function formatDateOnly(
+  value: Date | string | null | undefined,
+): string | null {
   if (!value) {
     return null;
   }
@@ -77,6 +80,7 @@ async function upsertBrandPlan(params: {
   skuOnboardingLimit?: number | null;
   skuCountAtOnboardingStart?: number | null;
   skuAnnualLimit?: number | null;
+  variantGlobalCap?: number | null;
 }) {
   await testDb
     .insert(schema.brandPlan)
@@ -89,6 +93,7 @@ async function upsertBrandPlan(params: {
       skuAnnualLimit: params.skuAnnualLimit ?? null,
       skuOnboardingLimit: params.skuOnboardingLimit ?? null,
       skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? null,
+      variantGlobalCap: params.variantGlobalCap ?? null,
     })
     .onConflictDoUpdate({
       target: schema.brandPlan.brandId,
@@ -100,6 +105,7 @@ async function upsertBrandPlan(params: {
         skuAnnualLimit: params.skuAnnualLimit ?? null,
         skuOnboardingLimit: params.skuOnboardingLimit ?? null,
         skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? null,
+        variantGlobalCap: params.variantGlobalCap ?? null,
       },
     });
 }
@@ -118,6 +124,44 @@ describe("brand sku usage queries", () => {
 
     expect(await countBrandSkus(testDb, brandA)).toBe(3);
     expect(await countBrandSkus(testDb, brandB)).toBe(1);
+  });
+
+  it("preserves an explicit null publishedAt for published test products", async () => {
+    const brandId = await createTestBrand("Published Null Fixture Brand");
+    const product = await createTestProduct(brandId, {
+      status: "published",
+      publishedAt: null,
+    });
+
+    const [storedProduct] = await testDb
+      .select({
+        status: schema.products.status,
+        publishedAt: schema.products.publishedAt,
+      })
+      .from(schema.products)
+      .where(eq(schema.products.id, product.id))
+      .limit(1);
+
+    expect(storedProduct?.status).toBe("published");
+    expect(storedProduct?.publishedAt).toBeNull();
+  });
+
+  it("allows zero-create global cap checks when the brand is already over cap", async () => {
+    const brandId = await createTestBrand("Variant Cap Usage Brand");
+    const product = await createTestProduct(brandId);
+
+    await createTestVariant(product.id, { sku: "CAP-1" });
+    await createTestVariant(product.id, { sku: "CAP-2" });
+    await upsertBrandPlan({
+      brandId,
+      variantGlobalCap: 1,
+    });
+
+    const result = await enforceVariantGlobalCap(testDb, brandId, 0);
+
+    expect(result.total).toBe(2);
+    expect(result.cap).toBe(1);
+    expect(result.remaining).toBe(0);
   });
 
   it("derives annual windows from the paid anchor without mutating legacy snapshots", async () => {
@@ -245,12 +289,12 @@ describe("brand sku usage queries", () => {
       skuCountAtOnboardingStart: 10,
     });
 
-    expect(isOnboardingYear(firstPaidStartedAt, "2027-02-14T23:59:59.000Z")).toBe(
-      true,
-    );
-    expect(isOnboardingYear(firstPaidStartedAt, "2027-02-15T00:00:00.000Z")).toBe(
-      false,
-    );
+    expect(
+      isOnboardingYear(firstPaidStartedAt, "2027-02-14T23:59:59.000Z"),
+    ).toBe(true);
+    expect(
+      isOnboardingYear(firstPaidStartedAt, "2027-02-15T00:00:00.000Z"),
+    ).toBe(false);
 
     const result = await lazyExpireOnboardingLimitIfNeeded(
       testDb,

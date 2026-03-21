@@ -6,7 +6,7 @@
  */
 
 import { and, count, eq, inArray } from "drizzle-orm";
-import type { Database } from "../../client";
+import type { Database, DatabaseOrTransaction } from "../../client";
 import { products } from "../../schema";
 import { buildProductWhereClauses } from "./_shared/where";
 import type {
@@ -155,7 +155,7 @@ export async function bulkUpdateProductsByFilter(
  * individual updates when modifying multiple products.
  */
 export async function bulkUpdateProductsByIds(
-  db: Database,
+  db: DatabaseOrTransaction,
   brandId: string,
   ids: string[],
   updates: BulkUpdateFields,

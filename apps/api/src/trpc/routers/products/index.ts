@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { and, eq, inArray } from "@v1/db/queries";
-import type { Database } from "@v1/db/client";
+import type { Database, DatabaseOrTransaction } from "@v1/db/client";
 import {
   PublishLimitExceededError,
   enforcePublishCapacity,
@@ -32,6 +32,7 @@ import {
   setProductJourneySteps,
   setProductTags,
   updateProduct,
+  updateProductRecord,
   upsertProductEnvironment,
   upsertProductMaterials,
   upsertProductWeight,
@@ -151,7 +152,12 @@ async function maybePublishLimitNotification(params: {
   publishedCount: number;
 }): Promise<void> {
   const { capacityResult, publishedCount } = params;
-  if (!capacityResult.budgetKind || capacityResult.limit == null || capacityResult.limit === 0) return;
+  if (
+    !capacityResult.budgetKind ||
+    capacityResult.limit == null ||
+    capacityResult.limit === 0
+  )
+    return;
 
   const newUsed = capacityResult.used + publishedCount;
   const utilization = newUsed / capacityResult.limit;
@@ -173,7 +179,7 @@ async function maybePublishLimitNotification(params: {
  * Loads the current status and variant count for the targeted products.
  */
 async function getProductPublishTransitionSummaries(
-  ctx: BrandContext,
+  db: DatabaseOrTransaction,
   brandId: string,
   productIds: string[],
 ): Promise<ProductPublishTransitionSummary[]> {
@@ -182,7 +188,7 @@ async function getProductPublishTransitionSummaries(
     return [];
   }
 
-  const rows = await ctx.db
+  const rows = await db
     .select({
       productId: products.id,
       status: products.status,
@@ -190,7 +196,9 @@ async function getProductPublishTransitionSummaries(
     })
     .from(products)
     .leftJoin(productVariants, eq(productVariants.productId, products.id))
-    .where(and(eq(products.brandId, brandId), inArray(products.id, productIds)));
+    .where(
+      and(eq(products.brandId, brandId), inArray(products.id, productIds)),
+    );
 
   const summaries = new Map<string, ProductPublishTransitionSummary>();
   for (const row of rows) {
@@ -211,8 +219,8 @@ async function getProductPublishTransitionSummaries(
 
   return productIds
     .map((productId) => summaries.get(productId))
-    .filter(
-      (summary): summary is ProductPublishTransitionSummary => Boolean(summary),
+    .filter((summary): summary is ProductPublishTransitionSummary =>
+      Boolean(summary),
     );
 }
 
@@ -596,28 +604,6 @@ export const productsRouter = createTRPCRouter({
                   searchQuery: selection.search ?? null,
                 })
               : selection.ids;
-          const publishTransitionTimestamp =
-            input.status !== undefined ? new Date().toISOString() : undefined;
-          const publishSummaries =
-            input.status === "published"
-              ? await getProductPublishTransitionSummaries(
-                  brandCtx,
-                  brandId,
-                  selectedProductIds,
-                )
-              : [];
-          const intendedPublishCount = publishSummaries
-            .filter((summary) => summary.status !== "published")
-            .reduce((total, summary) => total + summary.variantCount, 0);
-
-          let bulkCapacityResult: Awaited<ReturnType<typeof enforcePublishCapacity>> | null = null;
-          if (input.status === "published") {
-            await brandCtx.db.transaction(async (tx) => {
-              // Enforce the publish budget and capture current usage for notification check.
-              bulkCapacityResult = await enforcePublishCapacity(tx, brandId, intendedPublishCount);
-            });
-          }
-
           const bulkUpdates = {
             status: input.status ?? undefined,
             publishedAt:
@@ -628,37 +614,74 @@ export const productsRouter = createTRPCRouter({
             seasonId: input.season_id ?? undefined,
           };
 
+          let bulkCapacityResult: Awaited<
+            ReturnType<typeof enforcePublishCapacity>
+          > | null = null;
+          let bulkPublishedCount = 0;
+
           // Bulk update based on selection mode
           let result: { updated: number; productIds?: string[] };
           if (input.status === "published") {
-            const unpublishedProductIds = publishSummaries
-              .filter((summary) => summary.status !== "published")
-              .map((summary) => summary.productId);
-            const alreadyPublishedProductIds = publishSummaries
-              .filter((summary) => summary.status === "published")
-              .map((summary) => summary.productId);
-            const [publishedTransitionResult, publishedNoopResult] =
-              await Promise.all([
-                bulkUpdateProductsByIds(brandCtx.db, brandId, unpublishedProductIds, {
+            const publishResult = await brandCtx.db.transaction(async (tx) => {
+              // Re-read publish state inside the transaction so overlapping publish requests stay serialized.
+              const publishSummaries =
+                await getProductPublishTransitionSummaries(
+                  tx,
+                  brandId,
+                  selectedProductIds,
+                );
+              const intendedPublishCount = publishSummaries
+                .filter((summary) => summary.status !== "published")
+                .reduce((total, summary) => total + summary.variantCount, 0);
+              const unpublishedProductIds = publishSummaries
+                .filter((summary) => summary.status !== "published")
+                .map((summary) => summary.productId);
+              const alreadyPublishedProductIds = publishSummaries
+                .filter((summary) => summary.status === "published")
+                .map((summary) => summary.productId);
+              const capacityResult =
+                intendedPublishCount > 0
+                  ? await enforcePublishCapacity(
+                      tx,
+                      brandId,
+                      intendedPublishCount,
+                    )
+                  : null;
+              const publishTransitionTimestamp = new Date().toISOString();
+              const publishedTransitionResult = await bulkUpdateProductsByIds(
+                tx,
+                brandId,
+                unpublishedProductIds,
+                {
                   ...bulkUpdates,
                   publishedAt: publishTransitionTimestamp,
-                }),
-                bulkUpdateProductsByIds(
-                  brandCtx.db,
-                  brandId,
-                  alreadyPublishedProductIds,
-                  bulkUpdates,
-                ),
-              ]);
+                },
+              );
+              const publishedNoopResult = await bulkUpdateProductsByIds(
+                tx,
+                brandId,
+                alreadyPublishedProductIds,
+                bulkUpdates,
+              );
 
-            result = {
-              updated:
-                publishedTransitionResult.updated + publishedNoopResult.updated,
-              productIds: [
-                ...(publishedTransitionResult.productIds ?? []),
-                ...(publishedNoopResult.productIds ?? []),
-              ],
-            };
+              return {
+                capacityResult,
+                publishedCount: intendedPublishCount,
+                result: {
+                  updated:
+                    publishedTransitionResult.updated +
+                    publishedNoopResult.updated,
+                  productIds: [
+                    ...(publishedTransitionResult.productIds ?? []),
+                    ...(publishedNoopResult.productIds ?? []),
+                  ],
+                },
+              };
+            });
+
+            bulkCapacityResult = publishResult.capacityResult;
+            bulkPublishedCount = publishResult.publishedCount;
+            result = publishResult.result;
           } else if (selection.mode === "all") {
             result = await bulkUpdateProductsByFilter(
               brandCtx.db,
@@ -707,7 +730,7 @@ export const productsRouter = createTRPCRouter({
               db: brandCtx.db,
               brandId,
               capacityResult: bulkCapacityResult,
-              publishedCount: intendedPublishCount,
+              publishedCount: bulkPublishedCount,
             }).catch(() => {});
           }
 
@@ -718,40 +741,11 @@ export const productsRouter = createTRPCRouter({
         }
 
         // Single product update
-        const payload: Record<string, unknown> = { id: input.id };
-        const currentProductState =
-          input.status !== undefined
-            ? (
-                await getProductPublishTransitionSummaries(
-                  brandCtx,
-                  brandId,
-                  [input.id],
-                )
-              )[0] ?? null
-            : null;
-
-        if (input.status !== undefined && !currentProductState) {
-          throw badRequest("Product not found");
-        }
-
-        let singleCapacityResult: Awaited<ReturnType<typeof enforcePublishCapacity>> | null = null;
-        const singlePublishedCount =
-          input.status === "published" &&
-          currentProductState &&
-          currentProductState.status !== "published"
-            ? currentProductState.variantCount
-            : 0;
-
-        if (singlePublishedCount > 0) {
-          await brandCtx.db.transaction(async (tx) => {
-            // Enforce the publish budget before transitioning this product to published.
-            singleCapacityResult = await enforcePublishCapacity(
-              tx,
-              brandId,
-              singlePublishedCount,
-            );
-          });
-        }
+        const payload: UpdateProductInput = { id: input.id };
+        let singleCapacityResult: Awaited<
+          ReturnType<typeof enforcePublishCapacity>
+        > | null = null;
+        let singlePublishedCount = 0;
 
         // Only add fields to payload if they were explicitly provided in input
         if (input.product_handle !== undefined)
@@ -766,24 +760,56 @@ export const productsRouter = createTRPCRouter({
           payload.manufacturerId = input.manufacturer_id;
         if (input.image_path !== undefined)
           payload.imagePath = input.image_path;
-        if (input.status !== undefined) payload.status = input.status;
-        if (input.status === "published") {
-          payload.publishedAt =
-            currentProductState?.status !== "published"
-              ? new Date().toISOString()
-              : undefined;
-        } else if (
-          input.status === "unpublished" ||
-          input.status === "scheduled"
-        ) {
-          payload.publishedAt = null;
-        }
+        const product =
+          input.status !== undefined
+            ? await brandCtx.db.transaction(async (tx) => {
+                // Re-load publish state inside the transaction so publish and update happen atomically.
+                const currentProductState =
+                  (
+                    await getProductPublishTransitionSummaries(tx, brandId, [
+                      input.id,
+                    ])
+                  )[0] ?? null;
 
-        const product = await updateProduct(
-          brandCtx.db,
-          brandId,
-          payload as UpdateProductInput,
-        );
+                if (!currentProductState) {
+                  throw badRequest("Product not found");
+                }
+
+                const txPayload: UpdateProductInput = {
+                  ...payload,
+                  status: input.status,
+                };
+                const publishedCount =
+                  input.status === "published" &&
+                  currentProductState.status !== "published"
+                    ? currentProductState.variantCount
+                    : 0;
+
+                if (publishedCount > 0) {
+                  singleCapacityResult = await enforcePublishCapacity(
+                    tx,
+                    brandId,
+                    publishedCount,
+                  );
+                }
+
+                singlePublishedCount = publishedCount;
+
+                if (input.status === "published") {
+                  txPayload.publishedAt =
+                    currentProductState.status !== "published"
+                      ? new Date().toISOString()
+                      : undefined;
+                } else if (
+                  input.status === "unpublished" ||
+                  input.status === "scheduled"
+                ) {
+                  txPayload.publishedAt = null;
+                }
+
+                return updateProductRecord(tx, brandId, txPayload);
+              })
+            : await updateProduct(brandCtx.db, brandId, payload);
 
         await applyProductAttributes(brandCtx, input.id, {
           materials: input.materials,

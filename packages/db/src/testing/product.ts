@@ -59,6 +59,14 @@ export async function createTestProduct(
   const randomSuffix = Math.random().toString(36).substring(2, 8);
   const name = options.name ?? `Test Product ${randomSuffix}`;
   const productHandle = options.productHandle ?? `test-product-${randomSuffix}`;
+  const publishedAt = Object.prototype.hasOwnProperty.call(
+    options,
+    "publishedAt",
+  )
+    ? options.publishedAt
+    : options.status === "published"
+      ? new Date().toISOString()
+      : null;
 
   const [product] = await testDb
     .insert(schema.products)
@@ -68,9 +76,7 @@ export async function createTestProduct(
       productHandle,
       description: options.description,
       status: options.status ?? "unpublished",
-      publishedAt:
-        options.publishedAt ??
-        (options.status === "published" ? new Date().toISOString() : null),
+      publishedAt,
     })
     .returning({
       id: schema.products.id,

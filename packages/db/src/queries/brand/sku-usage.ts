@@ -12,7 +12,12 @@ export const TRIAL_SKU_CAP = 50;
 export const TRIAL_UNIVERSAL_CAP = TRIAL_SKU_CAP;
 
 export type ActiveSkuBudgetKind = "trial" | "onboarding" | "annual";
-export type ActiveSkuPhase = "demo" | "trial" | "onboarding" | "annual" | "none";
+export type ActiveSkuPhase =
+  | "demo"
+  | "trial"
+  | "onboarding"
+  | "annual"
+  | "none";
 
 export interface DerivedSkuAccessBudget {
   limit: number | null;
@@ -543,6 +548,8 @@ export async function enforceVariantGlobalCap(
   intendedCreateCount: number,
 ): Promise<VariantGlobalCapResult> {
   const sanitizedIntendedCreateCount = sanitizeCount(intendedCreateCount);
+  await lockBrandPlanRowForSkuUsage(dbOrTx, brandId);
+
   const total = await countBrandSkus(dbOrTx, brandId);
   const [plan] = await dbOrTx
     .select({
@@ -556,7 +563,11 @@ export async function enforceVariantGlobalCap(
   const remaining = cap === null ? null : Math.max(0, cap - total);
   const utilization = cap === null ? null : cap === 0 ? 1 : total / cap;
 
-  if (cap !== null && total + sanitizedIntendedCreateCount > cap) {
+  if (
+    cap !== null &&
+    sanitizedIntendedCreateCount > 0 &&
+    total + sanitizedIntendedCreateCount > cap
+  ) {
     throw new VariantGlobalCapExceededError({
       intendedCreateCount: sanitizedIntendedCreateCount,
       totalExistingVariants: total,
@@ -674,7 +685,9 @@ export function isOnboardingYear(
   }
 
   const onboardingEndsAt = addUtcYears(parseDateLike(firstPaidStartedAt), 1);
-  const currentDate = evaluationDate ? parseDateLike(evaluationDate) : new Date();
+  const currentDate = evaluationDate
+    ? parseDateLike(evaluationDate)
+    : new Date();
   return currentDate.getTime() < onboardingEndsAt.getTime();
 }
 

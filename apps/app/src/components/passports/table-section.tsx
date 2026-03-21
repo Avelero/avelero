@@ -87,7 +87,9 @@ export function TableSection() {
   // Status change mutation
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const billingStatusQuery = useQuery(trpc.brand.billing.getStatus.queryOptions());
+  const billingStatusQuery = useQuery(
+    trpc.brand.billing.getStatus.queryOptions(),
+  );
   const updateProductMutation = useMutation(
     trpc.products.update.mutationOptions({
       onSuccess: () => {
@@ -253,49 +255,57 @@ export function TableSection() {
    * Loads the current selection counts and blocks when publishing would exceed the active budget.
    */
   const ensurePublishCapacity = useCallback(
-    async (selectionInput: { mode: "all"; excludeIds?: string[] } | { mode: "explicit"; includeIds: string[] }) => {
-      const [selectionCounts, billingStatus] = await Promise.all([
-        queryClient.fetchQuery(
-          trpc.products.count.queryOptions({
-            selection: selectionInput,
-            filterState:
-              selectionInput.mode === "all" && filterState.groups.length > 0
-                ? filterState
-                : undefined,
-            search:
-              selectionInput.mode === "all"
-                ? searchValue?.trim() || undefined
-                : undefined,
-          }),
-        ),
-        billingStatusQuery.data
-          ? Promise.resolve(billingStatusQuery.data)
-          : queryClient.fetchQuery(trpc.brand.billing.getStatus.queryOptions()),
-      ]);
+    async (
+      selectionInput:
+        | { mode: "all"; excludeIds?: string[] }
+        | { mode: "explicit"; includeIds: string[] },
+    ) => {
+      try {
+        const [selectionCounts, billingStatus] = await Promise.all([
+          queryClient.fetchQuery(
+            trpc.products.count.queryOptions({
+              selection: selectionInput,
+              filterState:
+                selectionInput.mode === "all" && filterState.groups.length > 0
+                  ? filterState
+                  : undefined,
+              search:
+                selectionInput.mode === "all"
+                  ? searchValue?.trim() || undefined
+                  : undefined,
+            }),
+          ),
+          billingStatusQuery.data
+            ? Promise.resolve(billingStatusQuery.data)
+            : queryClient.fetchQuery(
+                trpc.brand.billing.getStatus.queryOptions(),
+              ),
+        ]);
 
-      const remaining = billingStatus.active_sku_budget.remaining;
-      const limit = billingStatus.active_sku_budget.limit;
-      const requested = selectionCounts.data.publishableVariants ?? 0;
+        const remaining = billingStatus.active_sku_budget.remaining;
+        const limit = billingStatus.active_sku_budget.limit;
+        const requested = selectionCounts.data.publishableVariants ?? 0;
 
-      if (remaining !== null && limit !== null && requested > remaining) {
-        setPublishLimitModal({
-          open: true,
-          requested,
-          limit,
-          remaining,
-        });
-        return false;
+        if (remaining !== null && limit !== null && requested > remaining) {
+          setPublishLimitModal({
+            open: true,
+            requested,
+            limit,
+            remaining,
+          });
+          return false;
+        }
+
+        return true;
+      } catch {
+        toast.error(
+          "Couldn't verify publish capacity. We'll try publishing and let the server confirm.",
+        );
+        // Treat the precheck as advisory; the API remains the source of truth.
+        return true;
       }
-
-      return true;
     },
-    [
-      billingStatusQuery.data,
-      filterState,
-      queryClient,
-      searchValue,
-      trpc,
-    ],
+    [billingStatusQuery.data, filterState, queryClient, searchValue, trpc],
   );
 
   // Handle status change from row action (single product)
@@ -498,7 +508,11 @@ export function TableSection() {
 
           <div className="px-6 py-4">
             <DialogDescription className="text-secondary">
-              Publishing {publishLimitModal.requested.toLocaleString("en-US")} passports would exceed your limit of {publishLimitModal.limit.toLocaleString("en-US")}. You have {publishLimitModal.remaining.toLocaleString("en-US")} remaining. Reduce your selection or upgrade your plan.
+              Publishing {publishLimitModal.requested.toLocaleString("en-US")}{" "}
+              passports would exceed your limit of{" "}
+              {publishLimitModal.limit.toLocaleString("en-US")}. You have{" "}
+              {publishLimitModal.remaining.toLocaleString("en-US")} remaining.
+              Reduce your selection or upgrade your plan.
             </DialogDescription>
           </div>
 

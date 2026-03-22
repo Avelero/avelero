@@ -1,7 +1,7 @@
 /**
  * Static plan feature data for the plan selector UI.
  *
- * Defines tier display info (prices, passport publish limits, descriptions) and
+ * Defines tier display info (prices, credits, descriptions) and
  * the feature comparison list used in plan cards.
  */
 
@@ -18,18 +18,27 @@ export interface PlanFeature {
 export interface PlanDisplay {
   name: string;
   description: string;
-  /** Monthly price in euros. null = custom (Enterprise). */
+  /** Monthly-equivalent price in euros for display. null = custom (Enterprise). */
   monthlyPrice: number | null;
+  /** Quarterly price in euros (total charge). null = custom. */
+  quarterlyPrice: number | null;
   /** Yearly price in euros (total, not per-month). null = custom. */
   yearlyPrice: number | null;
-  /** Impact Predictions monthly add-on price. null = custom. */
+  /** Impact Predictions monthly-equivalent add-on price. null = custom. */
   impactMonthlyPrice: number | null;
+  /** Impact Predictions quarterly add-on price (total charge). null = custom. */
+  impactQuarterlyPrice: number | null;
   /** Impact Predictions yearly add-on price (total). null = custom. */
   impactYearlyPrice: number | null;
-  /** Display string for the yearly passport publish limit. */
-  skuLimit: string;
-  /** Whether this is the recommended plan. */
-  recommended?: boolean;
+  /** Credits awarded on each quarterly renewal. null = custom. */
+  creditsPerQuarter: number | null;
+  /** Credits awarded on each yearly renewal. null = custom. */
+  creditsPerYear: number | null;
+}
+
+export interface CreditPackDisplay {
+  credits: number;
+  price: number;
 }
 
 export const PLAN_TIERS: PlanTier[] = ["starter", "growth", "scale"];
@@ -39,66 +48,93 @@ export const PLAN_DISPLAY: Record<PlanTier, PlanDisplay> = {
     name: "Starter",
     description: "For small catalogs",
     monthlyPrice: 250,
+    quarterlyPrice: 750,
     yearlyPrice: 2700,
     impactMonthlyPrice: 100,
+    impactQuarterlyPrice: 300,
     impactYearlyPrice: 1080,
-    skuLimit: "500",
+    creditsPerQuarter: 125,
+    creditsPerYear: 500,
   },
   growth: {
     name: "Growth",
     description: "For growing brands",
     monthlyPrice: 650,
+    quarterlyPrice: 1950,
     yearlyPrice: 7020,
     impactMonthlyPrice: 200,
+    impactQuarterlyPrice: 600,
     impactYearlyPrice: 2160,
-    skuLimit: "2,000",
-    recommended: true,
+    creditsPerQuarter: 500,
+    creditsPerYear: 2000,
   },
   scale: {
     name: "Scale",
     description: "For large catalogs",
     monthlyPrice: 1250,
+    quarterlyPrice: 3750,
     yearlyPrice: 13500,
     impactMonthlyPrice: 400,
+    impactQuarterlyPrice: 1200,
     impactYearlyPrice: 4320,
-    skuLimit: "10,000",
+    creditsPerQuarter: 2500,
+    creditsPerYear: 10000,
   },
   enterprise: {
     name: "Enterprise",
     description: "For complex businesses",
     monthlyPrice: null,
+    quarterlyPrice: null,
     yearlyPrice: null,
     impactMonthlyPrice: null,
+    impactQuarterlyPrice: null,
     impactYearlyPrice: null,
-    skuLimit: "Unlimited",
+    creditsPerQuarter: null,
+    creditsPerYear: null,
   },
 };
 
-export const PLAN_FEATURES: PlanFeature[] = [
-  // --- Scale differentiators ---
+/** Returns plan features adapted to the selected billing interval. */
+export function getPlanFeatures(
+  interval: "quarterly" | "yearly",
+): PlanFeature[] {
+  return [
+    interval === "quarterly"
+      ? {
+          label: "Passports per quarter",
+          starter: "125",
+          growth: "500",
+          scale: "2,500",
+          enterprise: "Custom",
+        }
+      : {
+          label: "Passports per year",
+          starter: "500",
+          growth: "2,000",
+          scale: "10,000",
+          enterprise: "Custom",
+        },
+    ...SHARED_PLAN_FEATURES,
+  ];
+}
+
+const SHARED_PLAN_FEATURES: PlanFeature[] = [
   {
-    label: "New passports per year",
-    starter: "500",
-    growth: "2,000",
-    scale: "10,000",
-    enterprise: "Unlimited",
-  },
-  {
-    label: "Year-one onboarding limit",
-    starter: "2,500",
-    growth: "10,000",
-    scale: "50,000",
-    enterprise: "Unlimited",
+    label: "Add-on passport packs",
+    starter: "Available",
+    growth: "Available",
+    scale: "Available",
+    enterprise: "Custom",
   },
   {
     label: "Integrations",
     starter: "1",
     growth: "3",
     scale: "5",
-    enterprise: "Unlimited",
+    enterprise: "Custom",
   },
 
-  // --- Core platform features (all plans) ---
+  // Keep the shared platform capabilities visible beneath the credit rows.
   {
     label: "Unlimited seats",
     starter: true,
@@ -157,12 +193,29 @@ export const PLAN_FEATURES: PlanFeature[] = [
   },
 ];
 
-/** Format a price for display (e.g. 250 → "€250") */
-export function formatPrice(cents: number): string {
-  return `€${cents.toLocaleString("en-US")}`;
+export const CREDIT_PACKS: CreditPackDisplay[] = [
+  { credits: 100, price: 550 },
+  { credits: 250, price: 1250 },
+  { credits: 500, price: 2000 },
+  { credits: 1000, price: 3500 },
+  { credits: 2500, price: 7500 },
+  { credits: 5000, price: 12500 },
+];
+
+/** Format a euro-denominated price for display (e.g. 250 -> "€250"). */
+export function formatPrice(euros: number): string {
+  // Keep billing labels compact without pulling in Intl currency formatting everywhere.
+  return `€${euros.toLocaleString("en-US")}`;
 }
 
-/** Get the effective monthly price for display when yearly is selected */
+/** Format a credit count for display in cards and summaries. */
+export function formatCredits(credits: number): string {
+  // Keep credit counts consistent across plan cards and usage panels.
+  return credits.toLocaleString("en-US");
+}
+
+/** Get the effective monthly price for display when yearly is selected. */
 export function getEffectiveMonthlyPrice(yearlyPrice: number): number {
+  // Use a monthly-equivalent number so yearly pricing can be compared against quarterly cards.
   return Math.round(yearlyPrice / 12);
 }

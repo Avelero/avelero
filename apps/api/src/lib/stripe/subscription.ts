@@ -82,20 +82,39 @@ export async function removeImpactFromSubscription(opts: {
 }
 
 /**
+ * Resolves the current tier and interval from a live subscription's line items.
+ */
+export function resolveCurrentPlan(
+  subscription: { items: { data: Array<{ price: { id: string } }> } },
+): { tier: PlanTier; interval: BillingInterval } | null {
+  for (const item of subscription.items.data) {
+    const resolved = resolvePriceId(item.price.id);
+    if (resolved?.product === "avelero") {
+      return { tier: resolved.tier, interval: resolved.interval };
+    }
+  }
+  return null;
+}
+
+/**
  * Update the plan tier and/or interval for an existing subscription.
  *
  * Swaps every line item's price to the new tier/interval equivalent.
  * If `hasImpact` is true but no Impact line item exists, one is added.
  * If `hasImpact` is false but an Impact line item exists, it is removed.
+ *
+ * This helper only handles non-upgrade mutations on an existing subscription.
+ * Upgrades use a fresh checkout flow so the new billing cycle can start
+ * immediately without prorating the in-place subscription.
  */
 export async function updateSubscriptionPlan(opts: {
   stripeSubscriptionId: string;
   newTier: PlanTier;
   newInterval: BillingInterval;
   hasImpact: boolean;
+  prorationDate?: number;
 }): Promise<void> {
-  // Swap the active plan items and clear any scheduled cancellation in the same update.
-  const { stripeSubscriptionId, newTier, newInterval, hasImpact } = opts;
+  const { stripeSubscriptionId, newTier, newInterval, hasImpact, prorationDate } = opts;
   const stripe = getStripeClient();
 
   const subscription =
@@ -151,6 +170,7 @@ export async function updateSubscriptionPlan(opts: {
       billing_interval: newInterval,
       include_impact: String(hasImpact),
     },
-    proration_behavior: "create_prorations",
+    proration_behavior: "none",
+    ...(prorationDate ? { proration_date: prorationDate } : {}),
   });
 }

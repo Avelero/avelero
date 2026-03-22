@@ -1,28 +1,22 @@
 /**
- * Brand SKU usage queries, active-window derivation, and paid anchor helpers.
+ * Brand SKU usage queries and credit-based publish enforcement helpers.
  */
 import { and, eq, sql } from "drizzle-orm";
 import type { DatabaseOrTransaction } from "../../client";
-import {
-  brandPlan,
-  productPassports,
-  productVariants,
-  products,
-} from "../../schema";
-import { getBrandAccessSnapshot, type BrandAccessSnapshotRow } from "./access";
+import { brandPlan, productVariants, products } from "../../schema";
+import type { BrandAccessSnapshotRow } from "./access";
 
 type DateLike = Date | string;
 
-export const TRIAL_SKU_CAP = 50;
-export const TRIAL_UNIVERSAL_CAP = TRIAL_SKU_CAP;
+export const FREE_CREDITS = 50;
+export type ActiveSkuBudgetKind = "credits";
 
-export type ActiveSkuBudgetKind = "trial" | "onboarding" | "annual";
-export type ActiveSkuPhase =
-  | "demo"
-  | "trial"
-  | "onboarding"
-  | "annual"
-  | "none";
+export interface CreditBudget {
+  totalCredits: number;
+  publishedCount: number;
+  remaining: number;
+  utilization: number;
+}
 
 export interface DerivedSkuAccessBudget {
   limit: number | null;
@@ -31,29 +25,25 @@ export interface DerivedSkuAccessBudget {
   utilization: number | null;
 }
 
-export interface ResolvedActiveSkuWindow {
-  phase: ActiveSkuPhase;
-  kind: ActiveSkuBudgetKind | null;
-  limit: number | null;
-  windowStartAt: string | null;
-  windowEndAt: string | null;
-  isFirstPaidYear: boolean;
-}
-
 export interface DerivedActiveSkuBudget extends DerivedSkuAccessBudget {
   kind: ActiveSkuBudgetKind | null;
-  phase: ActiveSkuPhase;
-  windowStartAt: string | null;
-  windowEndAt: string | null;
-  isFirstPaidYear: boolean;
+  phase:
+    | "demo"
+    | "trial"
+    | "expired"
+    | "active"
+    | "past_due"
+    | "suspended"
+    | "cancelled"
+    | "none";
+  totalCredits: number;
+  publishedCount: number;
 }
 
 export interface DerivedSkuBudgetState {
   activeBudget: DerivedActiveSkuBudget;
-  annual: DerivedSkuAccessBudget;
-  onboarding: DerivedSkuAccessBudget;
-  trial: DerivedSkuAccessBudget | null;
   remainingPublishBudget: number | null;
+  creditBudget: CreditBudget;
 }
 
 export interface PublishCapacityResult {
@@ -71,7 +61,7 @@ export interface VariantGlobalCapResult {
 }
 
 /**
- * Describes a publish-window capacity violation for customer-facing mutations.
+ * Describes a publish-credit capacity violation for customer-facing mutations.
  */
 export class PublishLimitExceededError extends Error {
   intendedPublishCount: number;
@@ -86,7 +76,7 @@ export class PublishLimitExceededError extends Error {
   }) {
     const remaining = Math.max(0, params.limit - params.used);
     super(
-      `Publishing ${params.intendedPublishCount.toLocaleString("en-US")} passports would exceed your current limit of ${params.limit.toLocaleString("en-US")}. You have ${remaining.toLocaleString("en-US")} remaining in this window.`,
+      `Publishing ${params.intendedPublishCount.toLocaleString("en-US")} passports would exceed your credit limit of ${params.limit.toLocaleString("en-US")}. You have ${remaining.toLocaleString("en-US")} credits remaining.`,
     );
     this.name = "PublishLimitExceededError";
     this.intendedPublishCount = params.intendedPublishCount;
@@ -126,20 +116,8 @@ export class VariantGlobalCapExceededError extends Error {
  * Parses a database date or timestamp into a valid JavaScript Date.
  */
 function parseDateLike(value: DateLike): Date {
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) {
-      throw new Error("Invalid date value.");
-    }
-    return new Date(value.getTime());
-  }
+  const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(value);
 
-  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (dateOnlyMatch) {
-    const [, year, month, day] = dateOnlyMatch;
-    return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
-  }
-
-  const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     throw new Error("Invalid date value.");
   }
@@ -148,33 +126,7 @@ function parseDateLike(value: DateLike): Date {
 }
 
 /**
- * Normalizes a Date to the start of its UTC day.
- */
-function startOfUtcDay(value: Date): Date {
-  return new Date(
-    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
-  );
-}
-
-/**
- * Adds whole UTC years to a Date while preserving smaller time parts.
- */
-function addUtcYears(value: Date, years: number): Date {
-  return new Date(
-    Date.UTC(
-      value.getUTCFullYear() + years,
-      value.getUTCMonth(),
-      value.getUTCDate(),
-      value.getUTCHours(),
-      value.getUTCMinutes(),
-      value.getUTCSeconds(),
-      value.getUTCMilliseconds(),
-    ),
-  );
-}
-
-/**
- * Clamps a potentially invalid SKU usage count to a safe non-negative integer.
+ * Clamps a potentially invalid usage count to a safe non-negative integer.
  */
 function sanitizeCount(value: number | null | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -185,7 +137,7 @@ function sanitizeCount(value: number | null | undefined): number {
 }
 
 /**
- * Clamps a potentially invalid SKU limit to a safe non-negative integer.
+ * Clamps a potentially invalid credit or limit value to a safe non-negative integer.
  */
 function sanitizeLimit(value: number | null | undefined): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -222,127 +174,6 @@ function createBudget(
 }
 
 /**
- * Builds the active budget payload from a resolved window and usage count.
- */
-function createActiveBudget(
-  window: ResolvedActiveSkuWindow,
-  used: number,
-): DerivedActiveSkuBudget {
-  const normalizedBudget = createBudget(window.limit, used);
-
-  return {
-    ...normalizedBudget,
-    kind: window.kind,
-    phase: window.phase,
-    windowStartAt: window.windowStartAt,
-    windowEndAt: window.windowEndAt,
-    isFirstPaidYear: window.isFirstPaidYear,
-  };
-}
-
-/**
- * Derives the annual entitlement window that contains the provided timestamp.
- */
-export function deriveAnnualWindowAt(params: {
-  annualUsageAnchorAt: DateLike;
-  evaluationDate?: DateLike | null;
-}): {
-  windowStartAt: Date;
-  windowEndAt: Date;
-} {
-  const evaluationAt = params.evaluationDate
-    ? parseDateLike(params.evaluationDate)
-    : new Date();
-  let windowStartAt = parseDateLike(params.annualUsageAnchorAt);
-  let windowEndAt = addUtcYears(windowStartAt, 1);
-
-  // Advance by full anniversaries until the evaluation timestamp fits the current year.
-  while (evaluationAt.getTime() >= windowEndAt.getTime()) {
-    windowStartAt = windowEndAt;
-    windowEndAt = addUtcYears(windowStartAt, 1);
-  }
-
-  return { windowStartAt, windowEndAt };
-}
-
-/**
- * Resolves the single active SKU window for the brand at the evaluation time.
- */
-export function resolveActiveSkuWindow(params: {
-  snapshot: Pick<BrandAccessSnapshotRow, "lifecycle" | "plan">;
-  evaluationDate?: DateLike | null;
-}): ResolvedActiveSkuWindow {
-  const lifecycle = params.snapshot.lifecycle;
-  const plan = params.snapshot.plan;
-  const evaluationAt = params.evaluationDate
-    ? parseDateLike(params.evaluationDate)
-    : new Date();
-
-  if (lifecycle?.phase === "demo") {
-    return {
-      phase: "demo",
-      kind: null,
-      limit: null,
-      windowStartAt: null,
-      windowEndAt: null,
-      isFirstPaidYear: false,
-    };
-  }
-
-  if (lifecycle?.phase === "trial") {
-    return {
-      phase: "trial",
-      kind: "trial",
-      limit: TRIAL_SKU_CAP,
-      windowStartAt: lifecycle.trialStartedAt,
-      windowEndAt: plan?.firstPaidStartedAt ?? lifecycle.trialEndsAt ?? null,
-      isFirstPaidYear: false,
-    };
-  }
-
-  if (plan?.firstPaidStartedAt) {
-    const onboardingStartAt = parseDateLike(plan.firstPaidStartedAt);
-    const onboardingEndAt = addUtcYears(onboardingStartAt, 1);
-
-    if (evaluationAt.getTime() < onboardingEndAt.getTime()) {
-      return {
-        phase: "onboarding",
-        kind: "onboarding",
-        limit: sanitizeLimit(plan.skuOnboardingLimit),
-        windowStartAt: onboardingStartAt.toISOString(),
-        windowEndAt: onboardingEndAt.toISOString(),
-        isFirstPaidYear: true,
-      };
-    }
-  }
-
-  if (plan?.annualUsageAnchorAt) {
-    const annualWindow = deriveAnnualWindowAt({
-      annualUsageAnchorAt: plan.annualUsageAnchorAt,
-      evaluationDate: evaluationAt,
-    });
-
-    return {
-      phase: "annual",
-      kind: "annual",
-      limit: sanitizeLimit(plan.skuLimitOverride ?? plan.skuAnnualLimit),
-      windowStartAt: annualWindow.windowStartAt.toISOString(),
-      windowEndAt: annualWindow.windowEndAt.toISOString(),
-      isFirstPaidYear: false,
-    };
-  }
-
-  return {
-    phase: "none",
-    kind: null,
-    limit: null,
-    windowStartAt: null,
-    windowEndAt: null,
-    isFirstPaidYear: false,
-  };
-}
-
-/**
  * Counts the brand's live variant SKUs across the full catalog.
  */
 export async function countBrandSkus(
@@ -360,79 +191,28 @@ export async function countBrandSkus(
   return row?.count ?? 0;
 }
 
-export const countNonGhostSkus = countBrandSkus;
-
 /**
- * Counts the brand's existing variants that were created inside the active SKU window.
+ * Counts the brand's published passports across the full catalog.
  */
-export async function countBrandSkusInActiveWindow(
+export async function countPublishedPassports(
   dbOrTx: DatabaseOrTransaction,
   brandId: string,
-  window: ResolvedActiveSkuWindow,
 ): Promise<number> {
-  if (!window.kind || !window.windowStartAt) {
-    return 0;
-  }
-
-  const windowPredicate = window.windowEndAt
-    ? sql`${productVariants.createdAt} >= ${window.windowStartAt} AND ${productVariants.createdAt} < ${window.windowEndAt}`
-    : sql`${productVariants.createdAt} >= ${window.windowStartAt}`;
-
   const [row] = await dbOrTx
     .select({
       count: sql<number>`COUNT(*)::int`,
     })
     .from(productVariants)
     .innerJoin(products, eq(products.id, productVariants.productId))
-    .where(and(eq(products.brandId, brandId), windowPredicate));
-
-  return row?.count ?? 0;
-}
-
-/**
- * Counts currently published passports whose latest publish timestamp falls inside the active window.
- */
-export async function countPublishedPassportsInActiveWindow(
-  dbOrTx: DatabaseOrTransaction,
-  brandId: string,
-  window: ResolvedActiveSkuWindow,
-): Promise<number> {
-  if (!window.kind || !window.windowStartAt) {
-    return 0;
-  }
-
-  const effectivePublishedAt = sql`COALESCE(
-    GREATEST(${products.publishedAt}, ${productPassports.firstPublishedAt}),
-    ${products.publishedAt},
-    ${productPassports.firstPublishedAt}
-  )`;
-  const windowPredicate = window.windowEndAt
-    ? sql`${effectivePublishedAt} >= ${window.windowStartAt} AND ${effectivePublishedAt} < ${window.windowEndAt}`
-    : sql`${effectivePublishedAt} >= ${window.windowStartAt}`;
-
-  const [row] = await dbOrTx
-    .select({
-      count: sql<number>`COUNT(*)::int`,
-    })
-    .from(productVariants)
-    .innerJoin(products, eq(products.id, productVariants.productId))
-    .leftJoin(
-      productPassports,
-      eq(productPassports.workingVariantId, productVariants.id),
-    )
     .where(
-      and(
-        eq(products.brandId, brandId),
-        eq(products.status, "published"),
-        windowPredicate,
-      ),
+      and(eq(products.brandId, brandId), eq(products.status, "published")),
     );
 
   return row?.count ?? 0;
 }
 
 /**
- * Reads the database server's current UTC timestamp for exact SKU window boundaries.
+ * Reads the database server's current UTC timestamp for exact enforcement checks.
  */
 export async function getCurrentDatabaseTimestamp(
   dbOrTx: DatabaseOrTransaction,
@@ -454,11 +234,19 @@ export async function getCurrentDatabaseTimestamp(
 export async function getCurrentDatabaseDate(
   dbOrTx: DatabaseOrTransaction,
 ): Promise<Date> {
-  return startOfUtcDay(await getCurrentDatabaseTimestamp(dbOrTx));
+  const timestamp = await getCurrentDatabaseTimestamp(dbOrTx);
+
+  return new Date(
+    Date.UTC(
+      timestamp.getUTCFullYear(),
+      timestamp.getUTCMonth(),
+      timestamp.getUTCDate(),
+    ),
+  );
 }
 
 /**
- * Derives the SKU budgets from the resolved active window and counted live usage.
+ * Derives the credit budgets from the current published count and total credits.
  */
 export function deriveSkuBudget(params: {
   snapshot: Pick<BrandAccessSnapshotRow, "lifecycle" | "plan">;
@@ -468,35 +256,31 @@ export function deriveSkuBudget(params: {
   trialStartedAt?: DateLike | null;
   evaluationDate?: DateLike | null;
 }): DerivedSkuBudgetState {
-  const usageCount = sanitizeCount(
+  const publishedCount = sanitizeCount(
     params.currentPublishUsageCount ??
       params.currentSkuUsageCount ??
       params.currentNonGhostSkuCount,
   );
-  const activeWindow = resolveActiveSkuWindow({
-    snapshot: params.snapshot,
-    evaluationDate: params.evaluationDate,
-  });
-  const activeBudget = createActiveBudget(activeWindow, usageCount);
-  const annual =
-    activeWindow.kind === "annual"
-      ? createBudget(activeWindow.limit, usageCount)
-      : createBudget(null, 0);
-  const onboarding =
-    activeWindow.kind === "onboarding"
-      ? createBudget(activeWindow.limit, usageCount)
-      : createBudget(null, 0);
-  const trial =
-    activeWindow.kind === "trial"
-      ? createBudget(activeWindow.limit, usageCount)
-      : null;
+  const totalCredits = sanitizeLimit(params.snapshot.plan?.totalCredits) ?? 0;
+  const phase = params.snapshot.lifecycle?.phase ?? "none";
+  const normalizedBudget = createBudget(totalCredits, publishedCount);
+  const creditBudget: CreditBudget = {
+    totalCredits,
+    publishedCount,
+    remaining: Math.max(0, totalCredits - publishedCount),
+    utilization: totalCredits === 0 ? 1 : publishedCount / totalCredits,
+  };
 
   return {
-    activeBudget,
-    annual,
-    onboarding,
-    trial,
-    remainingPublishBudget: activeBudget.remaining,
+    activeBudget: {
+      ...normalizedBudget,
+      kind: "credits",
+      phase,
+      totalCredits,
+      publishedCount,
+    },
+    remainingPublishBudget: normalizedBudget.remaining,
+    creditBudget,
   };
 }
 
@@ -513,7 +297,7 @@ export async function lockBrandPlanRowForSkuUsage(
 }
 
 /**
- * Enforces publish capacity inside the active billing window using a serialized brand-plan lock.
+ * Enforces publish capacity against the brand's cumulative credit balance.
  */
 export async function enforcePublishCapacity(
   dbOrTx: DatabaseOrTransaction,
@@ -523,21 +307,18 @@ export async function enforcePublishCapacity(
   const sanitizedIntendedPublishCount = sanitizeCount(intendedPublishCount);
   await lockBrandPlanRowForSkuUsage(dbOrTx, brandId);
 
-  const snapshot = await getBrandAccessSnapshot(dbOrTx, brandId);
-  const evaluationDate = await getCurrentDatabaseTimestamp(dbOrTx);
-  const activeWindow = resolveActiveSkuWindow({
-    snapshot,
-    evaluationDate,
-  });
-  const used = await countPublishedPassportsInActiveWindow(
-    dbOrTx,
-    brandId,
-    activeWindow,
-  );
-  const limit = sanitizeLimit(activeWindow.limit);
-  const remaining = limit === null ? null : Math.max(0, limit - used);
+  const [plan] = await dbOrTx
+    .select({
+      totalCredits: brandPlan.totalCredits,
+    })
+    .from(brandPlan)
+    .where(eq(brandPlan.brandId, brandId))
+    .limit(1);
+  const limit = sanitizeLimit(plan?.totalCredits) ?? 0;
+  const used = await countPublishedPassports(dbOrTx, brandId);
+  const remaining = Math.max(0, limit - used);
 
-  if (limit !== null && used + sanitizedIntendedPublishCount > limit) {
+  if (used + sanitizedIntendedPublishCount > limit) {
     throw new PublishLimitExceededError({
       intendedPublishCount: sanitizedIntendedPublishCount,
       used,
@@ -549,7 +330,7 @@ export async function enforcePublishCapacity(
     used,
     limit,
     remaining,
-    budgetKind: activeWindow.kind,
+    budgetKind: "credits",
   };
 }
 
@@ -595,139 +376,4 @@ export async function enforceVariantGlobalCap(
     remaining,
     utilization,
   };
-}
-
-/**
- * Computes the annual window that contained the brand's last entitled moment.
- */
-function derivePriorEntitlementAnnualWindow(params: {
-  annualUsageAnchorAt: DateLike;
-  previousEntitlementEndedAt: DateLike;
-}): {
-  windowStartAt: Date;
-  windowEndAt: Date;
-} {
-  const entitlementEndAt = parseDateLike(params.previousEntitlementEndedAt);
-  const lastEntitledMoment = new Date(
-    Math.max(0, entitlementEndAt.getTime() - 1),
-  );
-
-  return deriveAnnualWindowAt({
-    annualUsageAnchorAt: params.annualUsageAnchorAt,
-    evaluationDate: lastEntitledMoment,
-  });
-}
-
-/**
- * Applies the paid SKU anchors when a brand first activates or resumes paid access.
- */
-export async function syncBrandPaidSkuAnchors(opts: {
-  dbOrTx: DatabaseOrTransaction;
-  brandId: string;
-  paidEntitlementStartsAt: DateLike;
-  allowAnnualAnchorRealignment: boolean;
-  previousEntitlementEndedAt?: DateLike | null;
-}): Promise<void> {
-  const { dbOrTx, brandId, allowAnnualAnchorRealignment } = opts;
-  const paidEntitlementStartsAt = parseDateLike(
-    opts.paidEntitlementStartsAt,
-  ).toISOString();
-
-  const [currentRow] = await dbOrTx
-    .select({
-      firstPaidStartedAt: brandPlan.firstPaidStartedAt,
-      annualUsageAnchorAt: brandPlan.annualUsageAnchorAt,
-    })
-    .from(brandPlan)
-    .where(eq(brandPlan.brandId, brandId))
-    .limit(1);
-
-  if (!currentRow) {
-    throw new Error("Brand plan row not found while syncing SKU anchors.");
-  }
-
-  const updates: Partial<{
-    firstPaidStartedAt: string;
-    annualUsageAnchorAt: string;
-    updatedAt: string;
-  }> = {};
-
-  if (!currentRow.firstPaidStartedAt) {
-    updates.firstPaidStartedAt = paidEntitlementStartsAt;
-  }
-
-  if (!currentRow.annualUsageAnchorAt) {
-    updates.annualUsageAnchorAt = paidEntitlementStartsAt;
-  } else if (
-    allowAnnualAnchorRealignment &&
-    (opts.previousEntitlementEndedAt ?? null)
-  ) {
-    const priorAnnualWindow = derivePriorEntitlementAnnualWindow({
-      annualUsageAnchorAt: currentRow.annualUsageAnchorAt,
-      previousEntitlementEndedAt: opts.previousEntitlementEndedAt!,
-    });
-
-    if (
-      parseDateLike(paidEntitlementStartsAt).getTime() >=
-      priorAnnualWindow.windowEndAt.getTime()
-    ) {
-      updates.annualUsageAnchorAt = paidEntitlementStartsAt;
-    }
-  }
-
-  if (Object.keys(updates).length === 0) {
-    return;
-  }
-
-  updates.updatedAt = new Date().toISOString();
-
-  await dbOrTx
-    .update(brandPlan)
-    .set(updates)
-    .where(eq(brandPlan.brandId, brandId));
-}
-
-/**
- * Determines whether a timestamp still falls inside the first paid year.
- */
-export function isOnboardingYear(
-  firstPaidStartedAt: Date | string | null,
-  evaluationDate?: DateLike | null,
-): boolean {
-  if (!firstPaidStartedAt) {
-    return false;
-  }
-
-  const onboardingEndsAt = addUtcYears(parseDateLike(firstPaidStartedAt), 1);
-  const currentDate = evaluationDate
-    ? parseDateLike(evaluationDate)
-    : new Date();
-  return currentDate.getTime() < onboardingEndsAt.getTime();
-}
-
-/**
- * Preserves the old annual reset hook signature while rollover is now derived from timestamps.
- */
-export async function lazyResetAnnualPeriodIfNeeded(
-  _dbOrTx?: DatabaseOrTransaction,
-  _brandId?: string,
-  _evaluationDate?: DateLike | null,
-): Promise<{
-  wasReset: boolean;
-}> {
-  return { wasReset: false };
-}
-
-/**
- * Preserves the old onboarding expiry hook signature while onboarding is now derived from anchors.
- */
-export async function lazyExpireOnboardingLimitIfNeeded(
-  _dbOrTx?: DatabaseOrTransaction,
-  _brandId?: string,
-  _firstPaidStartedAt?: DateLike | null,
-  _evaluationDate?: DateLike | null,
-): Promise<{
-  wasExpired: boolean;
-}> {
-  return { wasExpired: false };
 }

@@ -356,10 +356,12 @@ function getNotificationIcon(type: string) {
       return <Icons.Download className="h-4 w-4" />;
     case "invite_accepted":
       return <Icons.UserRound className="h-4 w-4" />;
-    case "sku_limit_warning":
+    case "credit_limit_warning":
       return <Icons.AlertTriangle className="h-4 w-4 text-amber-600" />;
-    case "sku_limit_reached":
+    case "credit_limit_reached":
       return <Icons.AlertTriangle className="h-4 w-4 text-destructive" />;
+    case "pack_purchased":
+      return <Icons.CheckCircle className="h-4 w-4 text-brand" />;
     default:
       return <Icons.Bell className="h-4 w-4" />;
   }

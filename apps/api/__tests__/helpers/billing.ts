@@ -70,7 +70,7 @@ export async function setBrandSubscriptionState(params: {
   brandId: string;
   phase: BrandPhase;
   planType?: "starter" | "growth" | "scale" | "enterprise" | null;
-  billingInterval?: "monthly" | "yearly" | null;
+  billingInterval?: "quarterly" | "yearly" | null;
   trialEndsAt?: string | null;
   trialStartedAt?: string | null;
   billingMode?: "stripe_checkout" | "stripe_invoice" | null;
@@ -83,14 +83,9 @@ export async function setBrandSubscriptionState(params: {
   billingOverride?: "none" | "temporary_allow" | "temporary_block";
   billingOverrideExpiresAt?: string | null;
   hasImpactPredictions?: boolean;
-  skuAnnualLimit?: number | null;
-  skuOnboardingLimit?: number | null;
-  skuLimitOverride?: number | null;
+  totalCredits?: number | null;
+  onboardingDiscountUsed?: boolean;
   variantGlobalCap?: number | null;
-  firstPaidStartedAt?: string | null;
-  annualUsageAnchorAt?: string | null;
-  skuCountAtYearStart?: number;
-  skuCountAtOnboardingStart?: number;
 }) {
   const now = new Date().toISOString();
 
@@ -141,6 +136,8 @@ export async function setBrandSubscriptionState(params: {
         billingMode: params.billingMode ?? null,
         stripeCustomerId: params.stripeCustomerId ?? null,
         stripeSubscriptionId: params.stripeSubscriptionId ?? null,
+        planCurrency: "EUR",
+        customPriceCents: null,
         currentPeriodStart: params.currentPeriodStart ?? null,
         currentPeriodEnd: params.currentPeriodEnd ?? null,
         pastDueSince: params.pastDueSince ?? null,
@@ -159,15 +156,9 @@ export async function setBrandSubscriptionState(params: {
       planSelectedAt: null,
       billingInterval: params.billingInterval ?? null,
       hasImpactPredictions: params.hasImpactPredictions ?? false,
-      skuAnnualLimit: params.skuAnnualLimit ?? null,
-      skuOnboardingLimit: params.skuOnboardingLimit ?? null,
-      skuLimitOverride: params.skuLimitOverride ?? null,
+      totalCredits: params.totalCredits ?? 50,
+      onboardingDiscountUsed: params.onboardingDiscountUsed ?? false,
       variantGlobalCap: params.variantGlobalCap ?? null,
-      firstPaidStartedAt: params.firstPaidStartedAt ?? null,
-      annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
-      skuYearStart: null,
-      skuCountAtYearStart: params.skuCountAtYearStart ?? 0,
-      skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? 0,
       maxSeats: null,
       updatedAt: now,
     })
@@ -175,16 +166,13 @@ export async function setBrandSubscriptionState(params: {
       target: schema.brandPlan.brandId,
       set: {
         planType: params.planType ?? null,
+        planSelectedAt: null,
         billingInterval: params.billingInterval ?? null,
         hasImpactPredictions: params.hasImpactPredictions ?? false,
-        skuAnnualLimit: params.skuAnnualLimit ?? null,
-        skuOnboardingLimit: params.skuOnboardingLimit ?? null,
-        skuLimitOverride: params.skuLimitOverride ?? null,
+        totalCredits: params.totalCredits ?? 50,
+        onboardingDiscountUsed: params.onboardingDiscountUsed ?? false,
         variantGlobalCap: params.variantGlobalCap ?? null,
-        firstPaidStartedAt: params.firstPaidStartedAt ?? null,
-        annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
-        skuCountAtYearStart: params.skuCountAtYearStart ?? 0,
-        skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? 0,
+        maxSeats: null,
         updatedAt: now,
       },
     });

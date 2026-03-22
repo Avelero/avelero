@@ -377,8 +377,8 @@ function ProductFormInner({
       const billingStatus = await queryClient.fetchQuery(
         trpc.brand.billing.getStatus.queryOptions(),
       );
-      const remaining = billingStatus.active_sku_budget.remaining;
-      const limit = billingStatus.active_sku_budget.limit;
+      const remaining = billingStatus.remaining_credits;
+      const limit = billingStatus.total_credits;
 
       if (
         remaining !== null &&

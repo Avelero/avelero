@@ -21,7 +21,7 @@ describe("live Stripe billing status refresh", () => {
     const provisioned = await provisionActiveStripeBillingBrand({
       namePrefix: "Status Refresh",
       tier: "growth",
-      interval: "monthly",
+      interval: "quarterly",
       includeImpact: true,
     });
 
@@ -60,7 +60,7 @@ describe("live Stripe billing status refresh", () => {
       const refreshed = await provisioned.harness.caller.brand.billing.getStatus();
 
       expect(refreshed.plan_type).toBe("growth");
-      expect(refreshed.billing_interval).toBe("monthly");
+      expect(refreshed.billing_interval).toBe("quarterly");
       expect(refreshed.has_impact_predictions).toBe(true);
       expect(refreshed.pending_cancellation).toBe(true);
       expect(refreshed.current_period_start).toBeTruthy();

@@ -56,7 +56,7 @@ describe("live Stripe Checkout sessions", () => {
     try {
       const result = await harness.caller.brand.billing.createCheckoutSession({
         tier: "growth",
-        interval: "monthly",
+        interval: "quarterly",
         include_impact: true,
       });
 
@@ -74,7 +74,7 @@ describe("live Stripe Checkout sessions", () => {
         (candidate) =>
           candidate.client_reference_id === harness.brandId &&
           candidate.metadata?.plan_type === "growth" &&
-          candidate.metadata?.billing_interval === "monthly" &&
+          candidate.metadata?.billing_interval === "quarterly" &&
           candidate.metadata?.include_impact === "true",
       );
 
@@ -94,8 +94,8 @@ describe("live Stripe Checkout sessions", () => {
 
       expect(priceIds).toEqual(
         [
-          TIER_CONFIG.growth.prices.monthly.avelero,
-          TIER_CONFIG.growth.prices.monthly.impact,
+          TIER_CONFIG.growth.prices.quarterly.avelero,
+          TIER_CONFIG.growth.prices.quarterly.impact,
         ].sort(),
       );
     } finally {
@@ -113,7 +113,7 @@ describe("live Stripe Checkout sessions", () => {
     try {
       const first = await harness.caller.brand.billing.createCheckoutSession({
         tier: "starter",
-        interval: "monthly",
+        interval: "quarterly",
         include_impact: false,
       });
 
@@ -129,7 +129,7 @@ describe("live Stripe Checkout sessions", () => {
 
       const reused = await harness.caller.brand.billing.createCheckoutSession({
         tier: "starter",
-        interval: "monthly",
+        interval: "quarterly",
         include_impact: false,
       });
 
@@ -167,23 +167,25 @@ describe("live Stripe Checkout sessions", () => {
       phase: "active",
       billingMode: "stripe_checkout",
       planType: "starter",
-      billingInterval: "monthly",
+      billingInterval: "quarterly",
     });
 
     await setBrandSubscriptionState({
       brandId: harness.brandId,
       phase: "active",
       planType: "starter",
-      billingInterval: "monthly",
+      billingInterval: "quarterly",
       billingMode: "stripe_checkout",
       stripeCustomerId: "cus_existing_live_checkout",
       stripeSubscriptionId: "sub_existing_live_checkout",
+      currentPeriodStart: "2026-01-01T00:00:00.000Z",
+      currentPeriodEnd: "2026-02-01T00:00:00.000Z",
     });
 
     await expect(
       harness.caller.brand.billing.createCheckoutSession({
         tier: "growth",
-        interval: "monthly",
+        interval: "quarterly",
         include_impact: false,
       }),
     ).rejects.toMatchObject({
@@ -204,7 +206,7 @@ describe("live Stripe Checkout sessions", () => {
     await expect(
       enterpriseHarness.caller.brand.billing.createCheckoutSession({
         tier: "starter",
-        interval: "monthly",
+        interval: "quarterly",
         include_impact: false,
       }),
     ).rejects.toMatchObject({
@@ -229,7 +231,7 @@ describe("live Stripe Checkout sessions", () => {
     await expect(
       caller.brand.billing.createCheckoutSession({
         tier: "starter",
-        interval: "monthly",
+        interval: "quarterly",
         include_impact: false,
       }),
     ).rejects.toMatchObject({

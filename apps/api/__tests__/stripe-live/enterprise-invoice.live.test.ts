@@ -115,8 +115,8 @@ describe("live Stripe enterprise invoices", () => {
           state.billing?.billingMode === "stripe_invoice",
       });
 
-      expect(activeState.billing?.currentPeriodStart).toBe(servicePeriodStart);
-      expect(activeState.billing?.currentPeriodEnd).toBe(servicePeriodEnd);
+      expect(new Date(activeState.billing!.currentPeriodStart!).toISOString()).toBe(servicePeriodStart);
+      expect(new Date(activeState.billing!.currentPeriodEnd!).toISOString()).toBe(servicePeriodEnd);
     } finally {
       await provisioned.cleanup.cleanup();
     }

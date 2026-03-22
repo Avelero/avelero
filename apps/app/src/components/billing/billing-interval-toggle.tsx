@@ -1,24 +1,28 @@
 "use client";
 
+/**
+ * Billing interval toggle shared by the plan selector surfaces.
+ */
 import { cn } from "@v1/ui/cn";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 interface BillingIntervalToggleProps {
-  interval: "monthly" | "yearly";
-  onChange: (interval: "monthly" | "yearly") => void;
+  interval: "quarterly" | "yearly";
+  onChange: (interval: "quarterly" | "yearly") => void;
 }
 
 export function BillingIntervalToggle({
   interval,
   onChange,
 }: BillingIntervalToggleProps) {
-  const monthlyRef = useRef<HTMLButtonElement>(null);
+  const quarterlyRef = useRef<HTMLButtonElement>(null);
   const yearlyRef = useRef<HTMLButtonElement>(null);
   const [thumb, setThumb] = useState({ left: 0, width: 0 });
 
+  // Measure the active option so the animated thumb stays aligned.
   const measure = useCallback(() => {
     const active =
-      interval === "monthly" ? monthlyRef.current : yearlyRef.current;
+      interval === "quarterly" ? quarterlyRef.current : yearlyRef.current;
     if (active) {
       setThumb({ left: active.offsetLeft, width: active.offsetWidth });
     }
@@ -43,17 +47,17 @@ export function BillingIntervalToggle({
       />
 
       <button
-        ref={monthlyRef}
+        ref={quarterlyRef}
         type="button"
-        onClick={() => onChange("monthly")}
+        onClick={() => onChange("quarterly")}
         className={cn(
           "relative z-10 px-3 text-[14px] transition-colors",
-          interval === "monthly"
+          interval === "quarterly"
             ? "text-primary cursor-default"
             : "text-tertiary hover:text-primary cursor-pointer",
         )}
       >
-        Monthly
+        Quarterly
       </button>
 
       <button

@@ -1,5 +1,5 @@
 /**
- * Integration coverage for brand SKU usage queries and anchor-derived window helpers.
+ * Integration coverage for credit-based brand SKU usage queries.
  */
 import "../../setup";
 
@@ -7,13 +7,12 @@ import { describe, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import {
   countBrandSkus,
-  countPublishedPassportsInActiveWindow,
+  countPublishedPassports,
+  deriveSkuBudget,
+  enforcePublishCapacity,
   enforceVariantGlobalCap,
   getBrandAccessSnapshot,
-  isOnboardingYear,
-  lazyExpireOnboardingLimitIfNeeded,
-  lazyResetAnnualPeriodIfNeeded,
-  resolveActiveSkuWindow,
+  PublishLimitExceededError,
 } from "../../../src/queries/brand";
 import * as schema from "../../../src/schema";
 import {
@@ -24,87 +23,27 @@ import {
 } from "../../../src/testing";
 
 /**
- * Formats a date-like value as `YYYY-MM-DD` for stable assertions.
- */
-function formatDateOnly(
-  value: Date | string | null | undefined,
-): string | null {
-  if (!value) {
-    return null;
-  }
-
-  if (typeof value === "string") {
-    return value.slice(0, 10);
-  }
-
-  return value.toISOString().slice(0, 10);
-}
-
-/**
- * Creates a UTC date shifted by whole years from the current moment.
- */
-function yearsFromNow(yearOffset: number): Date {
-  const date = new Date();
-  return new Date(
-    Date.UTC(
-      date.getUTCFullYear() + yearOffset,
-      date.getUTCMonth(),
-      date.getUTCDate(),
-    ),
-  );
-}
-
-/**
- * Creates a UTC date shifted by whole days from the current moment.
- */
-function daysFromNow(dayOffset: number): Date {
-  const date = new Date();
-  return new Date(
-    Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate() + dayOffset,
-    ),
-  );
-}
-
-/**
- * Upserts a brand plan row for the current test brand.
+ * Upserts the brand plan row used by the credit-budget tests.
  */
 async function upsertBrandPlan(params: {
   brandId: string;
-  firstPaidStartedAt?: string | null;
-  annualUsageAnchorAt?: string | null;
-  skuYearStart?: Date | null;
-  skuCountAtYearStart?: number | null;
-  skuOnboardingLimit?: number | null;
-  skuCountAtOnboardingStart?: number | null;
-  skuAnnualLimit?: number | null;
+  totalCredits?: number;
+  onboardingDiscountUsed?: boolean;
   variantGlobalCap?: number | null;
 }) {
   await testDb
     .insert(schema.brandPlan)
     .values({
       brandId: params.brandId,
-      firstPaidStartedAt: params.firstPaidStartedAt ?? null,
-      annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
-      skuYearStart: params.skuYearStart ?? null,
-      skuCountAtYearStart: params.skuCountAtYearStart ?? null,
-      skuAnnualLimit: params.skuAnnualLimit ?? null,
-      skuOnboardingLimit: params.skuOnboardingLimit ?? null,
-      skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? null,
+      totalCredits: params.totalCredits ?? 50,
+      onboardingDiscountUsed: params.onboardingDiscountUsed ?? false,
       variantGlobalCap: params.variantGlobalCap ?? null,
     })
     .onConflictDoUpdate({
       target: schema.brandPlan.brandId,
       set: {
-        firstPaidStartedAt: params.firstPaidStartedAt ?? null,
-        annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
-        skuYearStart: params.skuYearStart ?? null,
-        skuCountAtYearStart: params.skuCountAtYearStart ?? null,
-        skuAnnualLimit: params.skuAnnualLimit ?? null,
-        skuOnboardingLimit: params.skuOnboardingLimit ?? null,
-        skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? null,
+        totalCredits: params.totalCredits ?? 50,
+        onboardingDiscountUsed: params.onboardingDiscountUsed ?? false,
         variantGlobalCap: params.variantGlobalCap ?? null,
       },
     });
@@ -126,24 +65,45 @@ describe("brand sku usage queries", () => {
     expect(await countBrandSkus(testDb, brandB)).toBe(1);
   });
 
-  it("preserves an explicit null publishedAt for published test products", async () => {
-    const brandId = await createTestBrand("Published Null Fixture Brand");
-    const product = await createTestProduct(brandId, {
+  it("counts all published variants against the cumulative credit balance", async () => {
+    const brandId = await createTestBrand("Published Credit Count Brand");
+    const publishedProduct = await createTestProduct(brandId, {
       status: "published",
+      publishedAt: "2026-03-01T00:00:00.000Z",
+    });
+    const unpublishedProduct = await createTestProduct(brandId, {
+      status: "unpublished",
       publishedAt: null,
     });
 
-    const [storedProduct] = await testDb
-      .select({
-        status: schema.products.status,
-        publishedAt: schema.products.publishedAt,
-      })
-      .from(schema.products)
-      .where(eq(schema.products.id, product.id))
-      .limit(1);
+    await createTestVariant(publishedProduct.id, { sku: "PUBLISHED-1" });
+    await createTestVariant(publishedProduct.id, { sku: "PUBLISHED-2" });
+    await createTestVariant(unpublishedProduct.id, { sku: "DRAFT-1" });
 
-    expect(storedProduct?.status).toBe("published");
-    expect(storedProduct?.publishedAt).toBeNull();
+    expect(await countPublishedPassports(testDb, brandId)).toBe(2);
+  });
+
+  it("enforces publish capacity from total credits", async () => {
+    const brandId = await createTestBrand("Publish Capacity Brand");
+    const product = await createTestProduct(brandId, {
+      status: "published",
+      publishedAt: "2026-03-01T00:00:00.000Z",
+    });
+
+    await createTestVariant(product.id, { sku: "CAPACITY-1" });
+    await createTestVariant(product.id, { sku: "CAPACITY-2" });
+    await upsertBrandPlan({ brandId, totalCredits: 3 });
+
+    await expect(enforcePublishCapacity(testDb, brandId, 1)).resolves.toEqual({
+      used: 2,
+      limit: 3,
+      remaining: 1,
+      budgetKind: "credits",
+    });
+
+    await expect(
+      enforcePublishCapacity(testDb, brandId, 2),
+    ).rejects.toBeInstanceOf(PublishLimitExceededError);
   });
 
   it("allows zero-create global cap checks when the brand is already over cap", async () => {
@@ -164,236 +124,44 @@ describe("brand sku usage queries", () => {
     expect(result.remaining).toBe(0);
   });
 
-  it("derives annual windows from the paid anchor without mutating legacy snapshots", async () => {
-    const brandId = await createTestBrand("Annual Reset Brand");
-    const initialYearStart = yearsFromNow(-2);
-    const annualUsageAnchorAt = "2024-01-15T00:00:00.000Z";
-    const evaluationDate = "2026-03-20T12:00:00.000Z";
-    const beforeWindowProduct = await createTestProduct(brandId, {
+  it("derives a single credit budget from the access snapshot", async () => {
+    const brandId = await createTestBrand("Derived Credit Budget Brand");
+    const product = await createTestProduct(brandId, {
       status: "published",
-      publishedAt: "2025-12-31T23:59:59.000Z",
-    });
-    const insideWindowProduct = await createTestProduct(brandId, {
-      status: "published",
-      publishedAt: "2026-01-15T00:00:00.000Z",
-    });
-    const unpublishedProduct = await createTestProduct(brandId, {
-      status: "unpublished",
-      publishedAt: null,
+      publishedAt: "2026-03-01T00:00:00.000Z",
     });
 
-    await createTestVariant(beforeWindowProduct.id, { sku: "RESET-1" });
-    await createTestVariant(insideWindowProduct.id, { sku: "RESET-2" });
-    await createTestVariant(insideWindowProduct.id, { sku: "RESET-3" });
-    await createTestVariant(unpublishedProduct.id, { sku: "RESET-4" });
-
+    await createTestVariant(product.id, { sku: "BUDGET-1" });
+    await createTestVariant(product.id, { sku: "BUDGET-2" });
+    await createTestVariant(product.id, { sku: "BUDGET-3" });
     await upsertBrandPlan({
       brandId,
-      annualUsageAnchorAt,
-      skuAnnualLimit: 500,
-      skuYearStart: initialYearStart,
-      skuCountAtYearStart: 1,
+      totalCredits: 125,
+      onboardingDiscountUsed: true,
     });
 
-    const result = await lazyResetAnnualPeriodIfNeeded(
-      testDb,
-      brandId,
-      evaluationDate,
-    );
+    const snapshot = await getBrandAccessSnapshot(testDb, brandId);
+    const derivedBudget = deriveSkuBudget({
+      snapshot,
+      currentPublishUsageCount: 3,
+    });
 
-    const [plan] = await testDb
+    expect(derivedBudget.activeBudget.kind).toBe("credits");
+    expect(derivedBudget.activeBudget.phase).toBe("demo");
+    expect(derivedBudget.activeBudget.totalCredits).toBe(125);
+    expect(derivedBudget.activeBudget.publishedCount).toBe(3);
+    expect(derivedBudget.activeBudget.remaining).toBe(122);
+
+    const [storedPlan] = await testDb
       .select({
-        skuYearStart: schema.brandPlan.skuYearStart,
-        skuCountAtYearStart: schema.brandPlan.skuCountAtYearStart,
+        totalCredits: schema.brandPlan.totalCredits,
+        onboardingDiscountUsed: schema.brandPlan.onboardingDiscountUsed,
       })
       .from(schema.brandPlan)
       .where(eq(schema.brandPlan.brandId, brandId))
       .limit(1);
 
-    const snapshot = await getBrandAccessSnapshot(testDb, brandId);
-    const activeWindow = resolveActiveSkuWindow({
-      snapshot,
-      evaluationDate,
-    });
-    const usageCount = await countPublishedPassportsInActiveWindow(
-      testDb,
-      brandId,
-      activeWindow,
-    );
-
-    expect(result.wasReset).toBe(false);
-    expect(plan?.skuCountAtYearStart).toBe(1);
-    expect(formatDateOnly(plan?.skuYearStart)).toBe(
-      formatDateOnly(initialYearStart),
-    );
-    expect(activeWindow.kind).toBe("annual");
-    expect(activeWindow.windowStartAt).toBe("2026-01-15T00:00:00.000Z");
-    expect(activeWindow.windowEndAt).toBe("2027-01-15T00:00:00.000Z");
-    expect(usageCount).toBe(2);
-  });
-
-  it("counts newly published variants on an already-published product in the current window", async () => {
-    const brandId = await createTestBrand("Published Variant Delta Brand");
-    const annualUsageAnchorAt = "2024-01-15T00:00:00.000Z";
-    const evaluationDate = "2026-03-20T12:00:00.000Z";
-    const publishedProduct = await createTestProduct(brandId, {
-      status: "published",
-      publishedAt: "2025-12-31T23:59:59.000Z",
-    });
-    const oldVariant = await createTestVariant(publishedProduct.id, {
-      sku: "DELTA-OLD",
-    });
-    const newVariant = await createTestVariant(publishedProduct.id, {
-      sku: "DELTA-NEW",
-    });
-
-    await testDb.insert(schema.productPassports).values([
-      {
-        upid: oldVariant.upid!,
-        brandId,
-        workingVariantId: oldVariant.id,
-        status: "active",
-        firstPublishedAt: null,
-      },
-      {
-        upid: newVariant.upid!,
-        brandId,
-        workingVariantId: newVariant.id,
-        status: "active",
-        firstPublishedAt: "2026-02-01T00:00:00.000Z",
-      },
-    ]);
-
-    await upsertBrandPlan({
-      brandId,
-      annualUsageAnchorAt,
-      skuAnnualLimit: 500,
-    });
-
-    const snapshot = await getBrandAccessSnapshot(testDb, brandId);
-    const activeWindow = resolveActiveSkuWindow({
-      snapshot,
-      evaluationDate,
-    });
-    const usageCount = await countPublishedPassportsInActiveWindow(
-      testDb,
-      brandId,
-      activeWindow,
-    );
-
-    expect(activeWindow.kind).toBe("annual");
-    expect(activeWindow.windowStartAt).toBe("2026-01-15T00:00:00.000Z");
-    expect(usageCount).toBe(1);
-  });
-
-  it("does not reset the annual period before the first anniversary", async () => {
-    const brandId = await createTestBrand("Annual Noop Brand");
-    const initialYearStart = daysFromNow(-180);
-
-    await upsertBrandPlan({
-      brandId,
-      skuYearStart: initialYearStart,
-      skuCountAtYearStart: 7,
-    });
-
-    const result = await lazyResetAnnualPeriodIfNeeded(testDb, brandId);
-
-    const [plan] = await testDb
-      .select({
-        skuYearStart: schema.brandPlan.skuYearStart,
-        skuCountAtYearStart: schema.brandPlan.skuCountAtYearStart,
-      })
-      .from(schema.brandPlan)
-      .where(eq(schema.brandPlan.brandId, brandId))
-      .limit(1);
-
-    expect(result.wasReset).toBe(false);
-    expect(plan?.skuCountAtYearStart).toBe(7);
-    expect(formatDateOnly(plan?.skuYearStart)).toBe(
-      formatDateOnly(initialYearStart),
-    );
-  });
-
-  it("derives onboarding state from first paid start without expiring stored limits", async () => {
-    const brandId = await createTestBrand("Onboarding Expiry Brand");
-    const firstPaidStartedAt = "2026-02-15T00:00:00.000Z";
-    const evaluationDate = "2026-03-20T12:00:00.000Z";
-    const beforeWindowProduct = await createTestProduct(brandId, {
-      status: "published",
-      publishedAt: "2026-02-14T23:59:59.000Z",
-    });
-    const insideWindowProduct = await createTestProduct(brandId, {
-      status: "published",
-      publishedAt: "2026-02-15T00:00:00.000Z",
-    });
-    const scheduledProduct = await createTestProduct(brandId, {
-      status: "scheduled",
-      publishedAt: null,
-    });
-
-    await createTestVariant(beforeWindowProduct.id, { sku: "ONBOARD-1" });
-    await createTestVariant(insideWindowProduct.id, { sku: "ONBOARD-2" });
-    await createTestVariant(insideWindowProduct.id, { sku: "ONBOARD-3" });
-    await createTestVariant(scheduledProduct.id, { sku: "ONBOARD-4" });
-
-    await upsertBrandPlan({
-      brandId,
-      firstPaidStartedAt,
-      skuOnboardingLimit: 2500,
-      skuCountAtOnboardingStart: 10,
-    });
-
-    expect(
-      isOnboardingYear(firstPaidStartedAt, "2027-02-14T23:59:59.000Z"),
-    ).toBe(true);
-    expect(
-      isOnboardingYear(firstPaidStartedAt, "2027-02-15T00:00:00.000Z"),
-    ).toBe(false);
-
-    const result = await lazyExpireOnboardingLimitIfNeeded(
-      testDb,
-      brandId,
-      firstPaidStartedAt,
-      evaluationDate,
-    );
-
-    const [plan] = await testDb
-      .select({
-        skuOnboardingLimit: schema.brandPlan.skuOnboardingLimit,
-        skuCountAtOnboardingStart: schema.brandPlan.skuCountAtOnboardingStart,
-      })
-      .from(schema.brandPlan)
-      .where(eq(schema.brandPlan.brandId, brandId))
-      .limit(1);
-
-    const snapshot = await getBrandAccessSnapshot(testDb, brandId);
-    const activeWindow = resolveActiveSkuWindow({
-      snapshot,
-      evaluationDate,
-    });
-    const usageCount = await countPublishedPassportsInActiveWindow(
-      testDb,
-      brandId,
-      activeWindow,
-    );
-
-    expect(result.wasExpired).toBe(false);
-    expect(plan?.skuOnboardingLimit).toBe(2500);
-    expect(plan?.skuCountAtOnboardingStart).toBe(10);
-    expect(activeWindow.kind).toBe("onboarding");
-    expect(activeWindow.windowStartAt).toBe("2026-02-15T00:00:00.000Z");
-    expect(activeWindow.windowEndAt).toBe("2027-02-15T00:00:00.000Z");
-    expect(usageCount).toBe(2);
-  });
-
-  it("accepts an explicit evaluation date for onboarding-year checks", () => {
-    const firstPaidStartedAt = "2025-03-17T12:00:00.000Z";
-
-    expect(
-      isOnboardingYear(firstPaidStartedAt, "2026-03-17T11:59:59.000Z"),
-    ).toBe(true);
-    expect(
-      isOnboardingYear(firstPaidStartedAt, "2026-03-17T12:00:00.000Z"),
-    ).toBe(false);
+    expect(storedPlan?.totalCredits).toBe(125);
+    expect(storedPlan?.onboardingDiscountUsed).toBe(true);
   });
 });

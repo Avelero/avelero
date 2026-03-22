@@ -80,9 +80,37 @@ function resolveCorsOrigin(origin?: string | null): string | undefined {
 }
 
 /**
+ * Reads the raw bytes from a Node.js request so webhook signatures remain stable.
+ */
+async function readNodeRequestBody(
+  req: IncomingMessage,
+): Promise<Uint8Array | undefined> {
+  if (
+    req.method === "GET" ||
+    req.method === "HEAD" ||
+    req.method === "OPTIONS"
+  ) {
+    return undefined;
+  }
+
+  const chunks: Buffer[] = [];
+
+  await new Promise<void>((resolve, reject) => {
+    // Buffer the request body so downstream handlers receive an exact, stable payload.
+    req.on("data", (chunk: Buffer | string) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    req.on("end", resolve);
+    req.on("error", reject);
+  });
+
+  return Buffer.concat(chunks);
+}
+
+/**
  * Converts a Node.js request into a Fetch API Request for Hono.
  */
-function createFetchRequest(req: IncomingMessage): Request {
+async function createFetchRequest(req: IncomingMessage): Promise<Request> {
   const url = new URL(
     req.url || "/",
     `http://${req.headers.host || "localhost"}`,
@@ -102,23 +130,13 @@ function createFetchRequest(req: IncomingMessage): Request {
     headers.set(key, value);
   }
 
-  const body =
-    req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS"
-      ? new ReadableStream({
-          // Stream the Node request body into the Fetch request Hono expects.
-          start(controller) {
-            req.on("data", (chunk: Buffer) => controller.enqueue(chunk));
-            req.on("end", () => controller.close());
-            req.on("error", (error: Error) => controller.error(error));
-          },
-        })
-      : undefined;
+  const body = await readNodeRequestBody(req);
 
   return new Request(url.toString(), {
     method: req.method,
     headers,
     body,
-    duplex: body ? "half" : undefined,
+    ...(body ? { duplex: "half" as const } : {}),
   } as RequestInit);
 }
 
@@ -217,18 +235,22 @@ export function createApiApp(): Hono {
  */
 export function createApiHttpServer(app: Hono): HttpServer {
   const httpServer = createServer((req, res) => {
-    const request = createFetchRequest(req);
-
-    void Promise.resolve(app.fetch(request)).then(
-      async (response) => {
+    void (async () => {
+      try {
+        const request = await createFetchRequest(req);
+        const response = await app.fetch(request);
         await writeNodeResponse(response, res);
-      },
-      (error) => {
+      } catch (error) {
         log.error({ err: error }, "failed to handle API request");
+
+        if (res.writableEnded || res.destroyed) {
+          return;
+        }
+
         res.statusCode = 500;
         res.end("Internal Server Error");
-      },
-    );
+      }
+    })();
   });
 
   websocketManager.initialize(httpServer);
@@ -250,9 +272,15 @@ export async function startApiServer(opts?: {
   const shouldLogStartup = opts?.logStartup ?? true;
 
   await new Promise<void>((resolve, reject) => {
-    // Start listening before tests or production traffic begin using the API.
-    httpServer.listen(requestedPort, host, () => resolve());
     httpServer.once("error", reject);
+
+    // Start listening before tests or production traffic begin using the API.
+    if (host) {
+      httpServer.listen(requestedPort, host, () => resolve());
+      return;
+    }
+
+    httpServer.listen(requestedPort, () => resolve());
   });
 
   const address = httpServer.address();

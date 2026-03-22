@@ -2,8 +2,7 @@
  * Centralizes Stripe-to-local billing projection logic for subscriptions and invoices.
  */
 import type { DatabaseOrTransaction } from "@v1/db/client";
-import { syncBrandPaidSkuAnchors } from "@v1/db/queries/brand";
-import { eq } from "@v1/db/queries";
+import { eq, sql } from "@v1/db/queries";
 import {
   brandBilling,
   brandBillingInvoices,
@@ -63,7 +62,7 @@ export function unixToIso(value: number | null | undefined): string | null {
 }
 
 /**
- * Converts an ISO string into a date-only value for annual SKU reset anchors.
+ * Converts an ISO string into a Date object when the value is valid.
  */
 export function isoToDate(value: string | null): Date | null {
   if (!value) return null;
@@ -275,8 +274,6 @@ export async function projectStripeSubscription(opts: {
   subscription: Stripe.Subscription;
   clearPastDue?: boolean;
   knownBrandId?: string | null;
-  syncPaidSkuAnchors?: boolean;
-  allowAnnualAnchorRealignment?: boolean;
 }): Promise<{
   brandId: string | null;
   projection: ResolvedSubscriptionProjection;
@@ -286,8 +283,6 @@ export async function projectStripeSubscription(opts: {
     subscription,
     clearPastDue = false,
     knownBrandId,
-    syncPaidSkuAnchors = false,
-    allowAnnualAnchorRealignment = false,
   } = opts;
   const brandId =
     knownBrandId ?? (await resolveBrandIdForSubscription({ db, subscription }));
@@ -298,15 +293,6 @@ export async function projectStripeSubscription(opts: {
   }
 
   const nowIso = new Date().toISOString();
-  const [existingBilling] = syncPaidSkuAnchors
-    ? await db
-        .select({
-          currentPeriodEnd: brandBilling.currentPeriodEnd,
-        })
-        .from(brandBilling)
-        .where(eq(brandBilling.brandId, brandId))
-        .limit(1)
-    : [];
 
   await db
     .update(brandBilling)
@@ -331,25 +317,40 @@ export async function projectStripeSubscription(opts: {
         planType: projection.planType,
         billingInterval: projection.billingInterval,
         hasImpactPredictions: projection.hasImpactPredictions,
-        skuAnnualLimit: tierConfig.skuAnnualLimit,
-        skuOnboardingLimit: tierConfig.skuOnboardingLimit,
         variantGlobalCap: tierConfig.variantGlobalCap,
         updatedAt: nowIso,
       })
       .where(eq(brandPlan.brandId, brandId));
-
-    if (syncPaidSkuAnchors && projection.currentPeriodStart) {
-      await syncBrandPaidSkuAnchors({
-        dbOrTx: db,
-        brandId,
-        paidEntitlementStartsAt: projection.currentPeriodStart,
-        allowAnnualAnchorRealignment,
-        previousEntitlementEndedAt: existingBilling?.currentPeriodEnd ?? null,
-      });
-    }
   }
 
   return { brandId, projection };
+}
+
+/**
+ * Adds newly awarded credits onto the brand's cumulative balance.
+ */
+export async function awardCredits(opts: {
+  db: DatabaseOrTransaction;
+  brandId: string;
+  credits: number;
+  reason: "subscription_payment" | "pack_purchase";
+}): Promise<number> {
+  const [updated] = await opts.db
+    .update(brandPlan)
+    .set({
+      totalCredits: sql`${brandPlan.totalCredits} + ${opts.credits}`,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(brandPlan.brandId, opts.brandId))
+    .returning({ totalCredits: brandPlan.totalCredits });
+
+  if (!updated) {
+    throw new Error(
+      `Unable to award ${opts.credits} credits for brand ${opts.brandId} (${opts.reason})`,
+    );
+  }
+
+  return updated.totalCredits;
 }
 
 /**
@@ -546,29 +547,16 @@ export async function applyEnterpriseInvoiceEntitlement(opts: {
   brandId: string;
   invoice: Stripe.Invoice;
   clearPastDue?: boolean;
-  syncPaidSkuAnchors?: boolean;
-  allowAnnualAnchorRealignment?: boolean;
 }): Promise<void> {
   const {
     db,
     brandId,
     invoice,
     clearPastDue = false,
-    syncPaidSkuAnchors = false,
-    allowAnnualAnchorRealignment = false,
   } = opts;
   const servicePeriod = getInvoiceServicePeriod(invoice);
   const nowIso = new Date().toISOString();
   const customerId = getStripeId(invoice.customer);
-  const [existingBilling] = syncPaidSkuAnchors
-    ? await db
-        .select({
-          currentPeriodEnd: brandBilling.currentPeriodEnd,
-        })
-        .from(brandBilling)
-        .where(eq(brandBilling.brandId, brandId))
-        .limit(1)
-    : [];
 
   await db
     .update(brandBilling)
@@ -585,22 +573,12 @@ export async function applyEnterpriseInvoiceEntitlement(opts: {
 
   await db
     .update(brandPlan)
-    .set({
-      planType: "enterprise",
-      billingInterval: "yearly",
-      updatedAt: nowIso,
-    })
-    .where(eq(brandPlan.brandId, brandId));
-
-  if (syncPaidSkuAnchors && servicePeriod.servicePeriodStart) {
-    await syncBrandPaidSkuAnchors({
-      dbOrTx: db,
-      brandId,
-      paidEntitlementStartsAt: servicePeriod.servicePeriodStart,
-      allowAnnualAnchorRealignment,
-      previousEntitlementEndedAt: existingBilling?.currentPeriodEnd ?? null,
-    });
-  }
+      .set({
+        planType: "enterprise",
+        billingInterval: "yearly",
+        updatedAt: nowIso,
+      })
+      .where(eq(brandPlan.brandId, brandId));
 
   await db
     .update(brandLifecycle)
@@ -620,8 +598,6 @@ export async function syncStripeSubscriptionProjectionById(opts: {
   subscriptionId: string;
   clearPastDue?: boolean;
   brandId?: string | null;
-  syncPaidSkuAnchors?: boolean;
-  allowAnnualAnchorRealignment?: boolean;
 }): Promise<{
   brandId: string | null;
   projection: ResolvedSubscriptionProjection;
@@ -648,8 +624,6 @@ export async function syncStripeSubscriptionProjectionById(opts: {
     subscription,
     clearPastDue: opts.clearPastDue,
     knownBrandId: opts.brandId ?? null,
-    syncPaidSkuAnchors: opts.syncPaidSkuAnchors,
-    allowAnnualAnchorRealignment: opts.allowAnnualAnchorRealignment,
   });
 }
 

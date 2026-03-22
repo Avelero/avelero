@@ -3,13 +3,12 @@ import { and, asc, desc, eq, sql } from "@v1/db/queries";
 import {
   type BrandMembershipListItem,
   type UserInviteSummaryRow,
-  countPublishedPassportsInActiveWindow,
+  countPublishedPassports,
   getBrandAccessSnapshot,
   getBrandsByUserId,
   getCurrentDatabaseTimestamp,
   getOwnerCountsByBrandIds,
   listPendingInvitesForEmail,
-  resolveActiveSkuWindow,
 } from "@v1/db/queries/brand";
 import {
   listAllBrandAttributeValues,
@@ -47,7 +46,6 @@ import { getAppUrl } from "@v1/utils/envs";
 import { ROLES, isOwnerEquivalentRole } from "../../../config/roles.js";
 import {
   SKU_WARNING_THRESHOLD,
-  TRIAL_SKU_CAP,
   resolveSkuAccessDecision,
 } from "../../../lib/access-policy/resolve-sku-access-decision.js";
 import { resolveBrandAccessDecision } from "../../../lib/access-policy/resolve-brand-access-decision.js";
@@ -326,16 +324,12 @@ async function resolveReadonlyBrandAccessContext(params: {
   brandId: string;
   role: AuthenticatedTRPCContext["role"];
 }) {
+  // Resolve access and current published-credit usage in one pass for dashboard hydration.
   const snapshot = await getBrandAccessSnapshot(params.db, params.brandId);
   const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(params.db);
-  const activeSkuWindow = resolveActiveSkuWindow({
-    snapshot,
-    evaluationDate: currentDatabaseTimestamp,
-  });
-  const currentPublishUsageCount = await countPublishedPassportsInActiveWindow(
+  const currentPublishUsageCount = await countPublishedPassports(
     params.db,
     params.brandId,
-    activeSkuWindow,
   );
   const resolvedBrandAccess = resolveBrandAccessDecision({
     role: params.role ?? null,
@@ -390,24 +384,10 @@ const DEFAULT_SKU = {
     used: 0,
     remaining: null as number | null,
     utilization: null as number | null,
-    windowStartAt: null as string | null,
-    windowEndAt: null as string | null,
-    isFirstPaidYear: false,
-  },
-  annual: {
-    limit: null as number | null,
-    used: 0,
-    remaining: null as number | null,
-    utilization: null as number | null,
-  },
-  onboarding: {
-    limit: null as number | null,
-    used: 0,
-    remaining: null as number | null,
-    utilization: null as number | null,
+    totalCredits: 0,
+    publishedCount: 0,
   },
   warningThreshold: SKU_WARNING_THRESHOLD,
-  trialCap: TRIAL_SKU_CAP,
   remainingPublishBudget: null as number | null,
   intendedPublishCount: 0,
   wouldExceedIntendedPublishCount: false,

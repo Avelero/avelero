@@ -11,7 +11,7 @@ import {
 
 interface SkuUsageBarProps {
   used: number;
-  limit: number;
+  totalCredits: number;
   label: string;
   infoTooltip?: string;
 }
@@ -21,18 +21,19 @@ interface SkuUsageBarProps {
  */
 export function SkuUsageBar({
   used,
-  limit,
+  totalCredits,
   label,
   infoTooltip,
 }: SkuUsageBarProps) {
-  const percentage = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  const percentage =
+    totalCredits > 0 ? Math.min(100, (used / totalCredits) * 100) : 0;
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-4">
         <span className="flex items-center gap-2 text-sm text-primary">
           <span>
-            {used.toLocaleString()} of {limit.toLocaleString()} {label}
+            {used.toLocaleString()} of {totalCredits.toLocaleString()} {label}
           </span>
           {infoTooltip ? (
             <TooltipProvider delayDuration={120}>

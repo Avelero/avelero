@@ -5,7 +5,7 @@
  * for forwarded webhooks to land in the disposable database, and clean up
  * clocks, subscriptions, customers, and checkout sessions after each test.
  */
-import { desc, eq } from "@v1/db/queries";
+import { and, desc, eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 import {
   createTestBrand,
@@ -20,6 +20,7 @@ import {
   type PlanTier,
 } from "../../../src/lib/stripe/config";
 import { createEnterpriseInvoice } from "../../../src/lib/stripe/invoice";
+import { syncStripeInvoiceProjectionById } from "../../../src/lib/stripe/projection";
 import { appRouter } from "../../../src/trpc/routers/_app";
 import {
   addBrandMember,
@@ -31,6 +32,7 @@ import {
 const DEFAULT_POLL_INTERVAL_MS = 500;
 const DEFAULT_POLL_TIMEOUT_MS = 60_000;
 const TEST_CLOCK_READY_TIMEOUT_MS = 90_000;
+type LiveBillingInterval = BillingInterval;
 
 let priceCatalogPreflightPromise: Promise<void> | null = null;
 
@@ -125,7 +127,7 @@ export async function ensureLiveStripePriceCatalog(): Promise<void> {
               );
             }
 
-            const expectedInterval = interval === "monthly" ? "month" : "year";
+            const expectedInterval = interval === "quarterly" ? "month" : "year";
             if (price.recurring.interval !== expectedInterval) {
               throw new Error(
                 `Configured Stripe price ${priceId} for ${tier}/${interval}/${productLine} has recurring interval ${price.recurring.interval}, expected ${expectedInterval}`,
@@ -153,7 +155,7 @@ export async function createLiveBillingBrand(params?: {
   namePrefix?: string;
   phase?: BrandPhase;
   planType?: PlanTier | "enterprise" | null;
-  billingInterval?: BillingInterval | null;
+  billingInterval?: LiveBillingInterval | null;
   billingMode?: "stripe_checkout" | "stripe_invoice" | null;
 }): Promise<LiveBrandHarness> {
   const suffix = createLiveTestSuffix();
@@ -311,6 +313,17 @@ export async function advanceStripeTestClock(params: {
 }
 
 /**
+ * Maps well-known Stripe test card numbers to their token equivalents so tests
+ * never send raw PANs (which requires special account access).
+ * See: https://docs.stripe.com/testing#cards
+ */
+const TEST_CARD_TOKENS: Record<string, string> = {
+  "4242424242424242": "tok_visa",
+  // "Decline after attaching" — attaches to Customer successfully, charges fail.
+  "4000000000000341": "tok_chargeCustomerFail",
+};
+
+/**
  * Creates a reusable card PaymentMethod for the requested test card behavior.
  */
 export async function createCardPaymentMethod(params?: {
@@ -319,26 +332,17 @@ export async function createCardPaymentMethod(params?: {
 }): Promise<Stripe.PaymentMethod> {
   const stripe = params?.stripe ?? getLiveStripeClient();
   const cardNumber = params?.cardNumber ?? "4242424242424242";
+  const token = TEST_CARD_TOKENS[cardNumber];
 
-  if (cardNumber === "4242424242424242") {
-    return stripe.paymentMethods.create({
-      type: "card",
-      card: { token: "tok_visa" },
-    });
+  if (!token) {
+    throw new Error(
+      `No test token mapping for card ${cardNumber}. Add it to TEST_CARD_TOKENS in live-billing.ts.`,
+    );
   }
-
-  const token = await stripe.tokens.create({
-    card: {
-      number: cardNumber,
-      exp_month: "12",
-      exp_year: "2034",
-      cvc: "123",
-    },
-  } as Stripe.TokenCreateParams);
 
   return stripe.paymentMethods.create({
     type: "card",
-    card: { token: token.id },
+    card: { token },
   });
 }
 
@@ -422,7 +426,7 @@ export async function createStripeSubscriptionForBrand(params: {
   customerId: string;
   brandId: string;
   tier: PlanTier;
-  interval: BillingInterval;
+  interval: LiveBillingInterval;
   includeImpact?: boolean;
   trialDays?: number;
   testRunId: string;
@@ -475,7 +479,9 @@ export async function createLiveEnterpriseInvoice(params: {
   invoiceUrl: string | null;
   status: string;
 }> {
-  return createEnterpriseInvoice({
+  // Mirror the production platform-admin flow by syncing the invoice projection
+  // immediately after Stripe creates and sends the invoice.
+  const invoice = await createEnterpriseInvoice({
     brandId: params.brandId,
     stripeCustomerId: params.stripeCustomerId,
     amountCents: params.amountCents,
@@ -490,6 +496,14 @@ export async function createLiveEnterpriseInvoice(params: {
     daysUntilDue: params.daysUntilDue ?? null,
     internalReference: params.internalReference ?? null,
   });
+
+  await syncStripeInvoiceProjectionById({
+    db: testDb,
+    invoiceId: invoice.invoiceId,
+    brandId: params.brandId,
+  });
+
+  return invoice;
 }
 
 /**
@@ -616,7 +630,12 @@ export async function waitForBillingEvent(params: {
           eventType: schema.brandBillingEvents.eventType,
         })
         .from(schema.brandBillingEvents)
-        .where(eq(schema.brandBillingEvents.brandId, params.brandId))
+        .where(
+          and(
+            eq(schema.brandBillingEvents.brandId, params.brandId),
+            eq(schema.brandBillingEvents.eventType, params.eventType),
+          ),
+        )
         .orderBy(desc(schema.brandBillingEvents.createdAt))
         .limit(1);
 
@@ -651,6 +670,18 @@ export async function waitForInvoiceProjection(params: {
   const invoice = await waitForCondition({
     description: `invoice projection for brand ${params.brandId}`,
     evaluate: async () => {
+      const conditions = [eq(schema.brandBillingInvoices.brandId, params.brandId)];
+
+      if (params.invoiceId) {
+        conditions.push(
+          eq(schema.brandBillingInvoices.stripeInvoiceId, params.invoiceId),
+        );
+      }
+
+      if (params.status) {
+        conditions.push(eq(schema.brandBillingInvoices.status, params.status));
+      }
+
       const query = testDb
         .select({
           stripeInvoiceId: schema.brandBillingInvoices.stripeInvoiceId,
@@ -662,7 +693,7 @@ export async function waitForInvoiceProjection(params: {
           hostedInvoiceUrl: schema.brandBillingInvoices.hostedInvoiceUrl,
         })
         .from(schema.brandBillingInvoices)
-        .where(eq(schema.brandBillingInvoices.brandId, params.brandId))
+        .where(and(...conditions))
         .orderBy(desc(schema.brandBillingInvoices.createdAt))
         .limit(1);
 
@@ -730,7 +761,7 @@ export async function listCheckoutSessionLineItems(params: {
 export async function provisionActiveStripeBillingBrand(params?: {
   namePrefix?: string;
   tier?: PlanTier;
-  interval?: BillingInterval;
+  interval?: LiveBillingInterval;
   includeImpact?: boolean;
   cardNumber?: string;
   trialDays?: number;
@@ -744,6 +775,7 @@ export async function provisionActiveStripeBillingBrand(params?: {
 
   const clock = await createStripeTestClock({
     stripe,
+    frozenTime: new Date(),
     name: `${harness.brandId}-clock`,
   });
   cleanup.trackClock(clock.id);
@@ -765,7 +797,7 @@ export async function provisionActiveStripeBillingBrand(params?: {
     customerId: customer.id,
     brandId: harness.brandId,
     tier: params?.tier ?? "starter",
-    interval: params?.interval ?? "monthly",
+    interval: params?.interval ?? "quarterly",
     includeImpact: params?.includeImpact ?? false,
     trialDays: params?.trialDays,
     testRunId,

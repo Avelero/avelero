@@ -2,15 +2,18 @@
  * Live Stripe tests for renewal failures, recovery, and cancellation lifecycle flow.
  */
 import { beforeAll, describe, expect, it } from "bun:test";
-import { attachCustomerCardPaymentMethod } from "./helpers/live-billing";
 import {
+  attachCustomerCardPaymentMethod,
   advanceStripeTestClock,
+  createLiveTestSuffix,
+  createStripeSubscriptionForBrand,
   ensureLiveStripePriceCatalog,
   provisionActiveStripeBillingBrand,
   readLiveBrandBillingState,
   waitForBillingEvent,
   waitForBrandPhase,
   waitForCondition,
+  waitForLiveSubscriptionProjection,
 } from "./helpers/live-billing";
 
 /**
@@ -38,7 +41,7 @@ describe("live Stripe subscription lifecycle", () => {
     const provisioned = await provisionActiveStripeBillingBrand({
       namePrefix: "Lifecycle Recovery",
       tier: "starter",
-      interval: "monthly",
+      interval: "quarterly",
       includeImpact: false,
     });
 
@@ -126,7 +129,7 @@ describe("live Stripe subscription lifecycle", () => {
     const provisioned = await provisionActiveStripeBillingBrand({
       namePrefix: "Lifecycle Cancellation",
       tier: "starter",
-      interval: "monthly",
+      interval: "quarterly",
       includeImpact: false,
     });
 
@@ -180,6 +183,79 @@ describe("live Stripe subscription lifecycle", () => {
 
       expect(cancelledState.lifecycle?.cancelledAt).toBeTruthy();
       expect(cancelledState.lifecycle?.hardDeleteAfter).toBeTruthy();
+    } finally {
+      await provisioned.cleanup.cleanup();
+    }
+  });
+
+  it("re-subscribes after cancellation with a new subscription", async () => {
+    const provisioned = await provisionActiveStripeBillingBrand({
+      namePrefix: "Lifecycle Re-subscribe",
+      tier: "starter",
+      interval: "quarterly",
+      includeImpact: false,
+    });
+
+    try {
+      // Cancel and advance to period end
+      const activeState = await readLiveBrandBillingState(
+        provisioned.harness.brandId,
+      );
+      const currentPeriodEnd = activeState.billing?.currentPeriodEnd;
+      expect(currentPeriodEnd).toBeTruthy();
+
+      await provisioned.stripe.subscriptions.update(provisioned.subscription.id, {
+        cancel_at_period_end: true,
+      });
+
+      await waitForCondition({
+        description: `pending cancellation for ${provisioned.harness.brandId}`,
+        evaluate: async () =>
+          readLiveBrandBillingState(provisioned.harness.brandId),
+        isDone: (state) => state.billing?.pendingCancellation === true,
+      });
+
+      await advanceStripeTestClock({
+        stripe: provisioned.stripe,
+        clockId: provisioned.clock.id,
+        frozenTime: new Date(
+          new Date(currentPeriodEnd!).getTime() + 60 * 60 * 1000,
+        ),
+      });
+
+      await waitForBrandPhase(provisioned.harness.brandId, "cancelled");
+
+      const cancelledState = await readLiveBrandBillingState(
+        provisioned.harness.brandId,
+      );
+      expect(cancelledState.billing?.stripeSubscriptionId).toBeNull();
+
+      // Re-subscribe with a new subscription on the same customer
+      const testRunId = createLiveTestSuffix();
+      const newSubscription = await createStripeSubscriptionForBrand({
+        stripe: provisioned.stripe,
+        customerId: provisioned.customer.id,
+        brandId: provisioned.harness.brandId,
+        tier: "growth",
+        interval: "yearly",
+        includeImpact: false,
+        testRunId,
+        scenario: "re-subscribe",
+      });
+      provisioned.cleanup.trackSubscription(newSubscription.id);
+
+      await waitForBrandPhase(provisioned.harness.brandId, "active");
+      await waitForLiveSubscriptionProjection(provisioned.harness.brandId);
+
+      const resubState = await readLiveBrandBillingState(
+        provisioned.harness.brandId,
+      );
+      expect(resubState.lifecycle?.phase).toBe("active");
+      expect(resubState.billing?.stripeSubscriptionId).toBe(newSubscription.id);
+      expect(resubState.billing?.currentPeriodStart).toBeTruthy();
+      expect(resubState.billing?.currentPeriodEnd).toBeTruthy();
+      expect(resubState.plan?.planType).toBe("growth");
+      expect(resubState.plan?.billingInterval).toBe("yearly");
     } finally {
       await provisioned.cleanup.cleanup();
     }

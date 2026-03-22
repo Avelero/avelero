@@ -2,7 +2,7 @@
  * Database state assertion helpers for billing tests.
  */
 import { expect } from "bun:test";
-import { eq } from "@v1/db/queries";
+import { and, desc, eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 import { testDb } from "@v1/db/testing";
 
@@ -68,8 +68,8 @@ export async function assertPlanState(
     planType: string | null;
     billingInterval: string | null;
     hasImpactPredictions: boolean;
-    skuAnnualLimit: number | null;
-    skuOnboardingLimit: number | null;
+    totalCredits: number;
+    onboardingDiscountUsed: boolean;
     variantGlobalCap: number | null;
   }>,
 ) {
@@ -78,8 +78,8 @@ export async function assertPlanState(
       planType: schema.brandPlan.planType,
       billingInterval: schema.brandPlan.billingInterval,
       hasImpactPredictions: schema.brandPlan.hasImpactPredictions,
-      skuAnnualLimit: schema.brandPlan.skuAnnualLimit,
-      skuOnboardingLimit: schema.brandPlan.skuOnboardingLimit,
+      totalCredits: schema.brandPlan.totalCredits,
+      onboardingDiscountUsed: schema.brandPlan.onboardingDiscountUsed,
       variantGlobalCap: schema.brandPlan.variantGlobalCap,
     })
     .from(schema.brandPlan)
@@ -109,7 +109,13 @@ export async function assertBillingEventRecorded(
       brandId: schema.brandBillingEvents.brandId,
     })
     .from(schema.brandBillingEvents)
-    .where(eq(schema.brandBillingEvents.brandId, brandId))
+    .where(
+      and(
+        eq(schema.brandBillingEvents.brandId, brandId),
+        eq(schema.brandBillingEvents.eventType, eventType),
+      ),
+    )
+    .orderBy(desc(schema.brandBillingEvents.createdAt))
     .limit(1);
 
   expect(event).toBeDefined();

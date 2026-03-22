@@ -1,11 +1,19 @@
 "use client";
 
+/**
+ * Impact Predictions add-on toggle for plan selection surfaces.
+ */
 import { cn } from "@v1/ui/cn";
-import { PLAN_DISPLAY, formatPrice, type PlanTier } from "./plan-features";
+import {
+  PLAN_DISPLAY,
+  formatPrice,
+  getEffectiveMonthlyPrice,
+  type PlanTier,
+} from "./plan-features";
 
 interface ImpactToggleProps {
   tier: Exclude<PlanTier, "enterprise">;
-  interval: "monthly" | "yearly";
+  interval: "quarterly" | "yearly";
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
@@ -19,17 +27,23 @@ export function ImpactToggle({
   disabled,
 }: ImpactToggleProps) {
   const display = PLAN_DISPLAY[tier];
-  const price =
-    interval === "monthly"
-      ? display.impactMonthlyPrice
+  const billedAmount =
+    interval === "quarterly"
+      ? display.impactQuarterlyPrice
       : display.impactYearlyPrice;
+  const monthlyEquivalent =
+    interval === "quarterly"
+      ? display.impactMonthlyPrice
+      : display.impactYearlyPrice != null
+        ? getEffectiveMonthlyPrice(display.impactYearlyPrice)
+        : null;
 
-  if (price == null) return null;
+  if (billedAmount == null || monthlyEquivalent == null) return null;
 
   const priceLabel =
-    interval === "monthly"
-      ? `+${formatPrice(price)}/mo`
-      : `+${formatPrice(price)}/yr`;
+    interval === "quarterly"
+      ? `+${formatPrice(monthlyEquivalent)}/mo, billed quarterly`
+      : `+${formatPrice(monthlyEquivalent)}/mo equivalent`;
 
   return (
     <label
@@ -58,7 +72,9 @@ export function ImpactToggle({
           </span>
         </div>
         <p className="text-xs text-secondary">
-          AI-powered CO2 & water impact estimates per SKU
+          AI-powered CO2 & water impact estimates per SKU. Charged{" "}
+          {formatPrice(billedAmount)}{" "}
+          {interval === "quarterly" ? "quarterly" : "yearly"}.
         </p>
       </div>
     </label>

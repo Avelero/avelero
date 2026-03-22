@@ -214,9 +214,10 @@ describe("Stripe webhook processing", () => {
 
       expect(result.status).toBe(500);
 
+      // The event row is inserted inside the transaction, so a handler failure
+      // rolls back the entire transaction including the row — nothing persists.
       const storedEvent = await getWebhookEvent(eventId);
-      expect(storedEvent).not.toBeNull();
-      expect(storedEvent?.processedAt).toBeNull();
+      expect(storedEvent).toBeNull();
 
       const handlerFailureLogs = logs.filter(
         (entry) =>
@@ -280,23 +281,18 @@ describe("Stripe webhook processing", () => {
         });
       });
 
+      // The poisoned update throws inside the transaction, rolling back everything
+      // including the event row insert. No row persists after rollback.
       const storedEvent = await getWebhookEvent(eventId);
-      expect(storedEvent).not.toBeNull();
-      expect(storedEvent?.processedAt).toBeNull();
+      expect(storedEvent).toBeNull();
 
       const successLogs = logs.filter(
         (entry) =>
           entry.msg === "webhook processed" &&
           entry.stripeEventId === eventId,
       );
-      const markProcessedFailureLogs = logs.filter(
-        (entry) =>
-          entry.msg === "failed to mark webhook as processed" &&
-          entry.stripeEventId === eventId,
-      );
 
       expect(successLogs).toHaveLength(0);
-      expect(markProcessedFailureLogs).toHaveLength(1);
     } finally {
       (appDb as any).transaction = undefined;
       await cleanupWebhookEvent(eventId);

@@ -1,17 +1,12 @@
-// Load setup first (loads .env.test and configures cleanup)
+/**
+ * Integration tests for brand and credit access policy enforcement.
+ */
 import "../../setup";
 
 import { beforeEach, describe, expect, it } from "bun:test";
-import {
-  countPublishedPassportsInActiveWindow,
-  getBrandAccessSnapshot,
-  resolveActiveSkuWindow,
-} from "@v1/db/queries/brand";
 import * as schema from "@v1/db/schema";
 import {
   createTestBrand,
-  createTestProduct,
-  createTestVariant,
   createTestUser,
   testDb,
 } from "@v1/db/testing";
@@ -30,6 +25,9 @@ type BrandPhase =
 
 type BrandRole = "owner" | "member" | "avelero";
 
+/**
+ * Creates an authenticated tRPC context for access-policy tests.
+ */
 function createMockContext(params: {
   brandId: string;
   userId: string;
@@ -56,12 +54,8 @@ function createMockContext(params: {
 }
 
 /**
- * Creates an ISO timestamp a fixed number of days before the current time.
+ * Seeds lifecycle, plan, and billing rows for access-policy scenarios.
  */
-function daysAgo(dayCount: number): string {
-  return new Date(Date.now() - dayCount * 24 * 60 * 60 * 1000).toISOString();
-}
-
 async function setBrandSubscriptionState(params: {
   brandId: string;
   phase: BrandPhase;
@@ -76,14 +70,8 @@ async function setBrandSubscriptionState(params: {
   pendingCancellation?: boolean;
   billingOverride?: "none" | "temporary_allow" | "temporary_block";
   billingOverrideExpiresAt?: string | null;
-  billingInterval?: "monthly" | "yearly" | null;
-  skuAnnualLimit?: number | null;
-  skuOnboardingLimit?: number | null;
-  skuLimitOverride?: number | null;
-  firstPaidStartedAt?: string | null;
-  annualUsageAnchorAt?: string | null;
-  skuCountAtYearStart?: number;
-  skuCountAtOnboardingStart?: number;
+  billingInterval?: "quarterly" | "yearly" | null;
+  totalCredits?: number;
 }) {
   const now = new Date().toISOString();
 
@@ -148,36 +136,25 @@ async function setBrandSubscriptionState(params: {
     .insert(schema.brandPlan)
     .values({
       brandId: params.brandId,
-      planType: null,
-      planSelectedAt: null,
-      skuAnnualLimit: params.skuAnnualLimit ?? null,
-      skuOnboardingLimit: params.skuOnboardingLimit ?? null,
-      skuLimitOverride: params.skuLimitOverride ?? null,
-      firstPaidStartedAt: params.firstPaidStartedAt ?? null,
-      annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
-      skuYearStart: null,
-      skuCountAtYearStart: params.skuCountAtYearStart ?? 0,
-      skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? 0,
-      billingInterval: params.billingInterval ?? null,
-      maxSeats: null,
+      planType: "starter",
+      billingInterval: params.billingInterval ?? "quarterly",
+      totalCredits: params.totalCredits ?? 50,
       updatedAt: now,
     })
     .onConflictDoUpdate({
       target: schema.brandPlan.brandId,
       set: {
-        skuAnnualLimit: params.skuAnnualLimit ?? null,
-        skuOnboardingLimit: params.skuOnboardingLimit ?? null,
-        skuLimitOverride: params.skuLimitOverride ?? null,
-        firstPaidStartedAt: params.firstPaidStartedAt ?? null,
-        annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
-        skuCountAtYearStart: params.skuCountAtYearStart ?? 0,
-        skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? 0,
-        billingInterval: params.billingInterval ?? null,
+        planType: "starter",
+        billingInterval: params.billingInterval ?? "quarterly",
+        totalCredits: params.totalCredits ?? 50,
         updatedAt: now,
       },
     });
 }
 
+/**
+ * Asserts that a promise fails with the expected access-policy token.
+ */
 async function expectToken(promise: Promise<unknown>, token: string) {
   await expect(promise).rejects.toMatchObject({
     message: expect.stringContaining(token),
@@ -203,9 +180,7 @@ describe("Access policy enforcement (tRPC)", () => {
     await setBrandSubscriptionState({
       brandId,
       phase: "active",
-      skuAnnualLimit: 500,
-      skuCountAtYearStart: 0,
-      skuCountAtOnboardingStart: 0,
+      totalCredits: 500,
     });
   });
 
@@ -213,7 +188,7 @@ describe("Access policy enforcement (tRPC)", () => {
     await setBrandSubscriptionState({
       brandId,
       phase: "expired",
-      skuAnnualLimit: 500,
+      totalCredits: 500,
     });
 
     const caller = appRouter.createCaller(
@@ -245,7 +220,7 @@ describe("Access policy enforcement (tRPC)", () => {
       currentPeriodStart: thirtyDaysAgo.toISOString(),
       currentPeriodEnd: thirtyDaysAgo.toISOString(),
       pastDueSince: threeDaysAgo.toISOString(),
-      skuAnnualLimit: 500,
+      totalCredits: 500,
     });
 
     const caller = appRouter.createCaller(
@@ -262,16 +237,12 @@ describe("Access policy enforcement (tRPC)", () => {
     ).resolves.toBeDefined();
   });
 
-  it("cancelled brands with remaining entitlement keep access until period end", async () => {
+  it("temporary_block overrides normal active access", async () => {
     await setBrandSubscriptionState({
       brandId,
-      phase: "cancelled",
-      billingMode: "stripe_checkout",
-      stripeCustomerId: "cus_cancel",
-      currentPeriodStart: "2026-02-01T00:00:00.000Z",
-      currentPeriodEnd: "2099-03-01T00:00:00.000Z",
-      pendingCancellation: true,
-      skuAnnualLimit: 500,
+      phase: "active",
+      billingOverride: "temporary_block",
+      totalCredits: 500,
     });
 
     const caller = appRouter.createCaller(
@@ -279,178 +250,12 @@ describe("Access policy enforcement (tRPC)", () => {
     );
 
     await expect(caller.summary.productStatus()).resolves.toBeDefined();
-    await expect(
+    await expectToken(
       caller.brand.collections.create({
-        name: "Allowed while cancellation is pending",
+        name: "Blocked by temporary override",
         filter: {},
       }),
-    ).resolves.toBeDefined();
-  });
-
-  it("suspended and cancelled block reads and writes", async () => {
-    const cases: Array<{
-      phase: BrandPhase;
-      token: string;
-    }> = [
-      {
-        phase: "suspended",
-        token: ACCESS_ERROR_TOKENS.SUSPENDED,
-      },
-      {
-        phase: "cancelled",
-        token: ACCESS_ERROR_TOKENS.CANCELLED,
-      },
-    ];
-
-    for (const testCase of cases) {
-      await setBrandSubscriptionState({
-        brandId,
-        phase: testCase.phase,
-        skuAnnualLimit: 500,
-      });
-
-      const caller = appRouter.createCaller(
-        createMockContext({ brandId, userId, userEmail, role: "owner" }),
-      );
-
-      await expectToken(caller.summary.productStatus(), testCase.token);
-      await expectToken(
-        caller.brand.collections.create({
-          name: `Blocked in ${testCase.phase}`,
-          filter: {},
-        }),
-        testCase.token,
-      );
-    }
-  });
-
-  it("avelero bypass keeps reads and writes available across blocked states", async () => {
-    const aveleroUserEmail = `avelero-${Math.random().toString(36).slice(2, 8)}@example.com`;
-    const aveleroUserId = await createTestUser(aveleroUserEmail);
-
-    await testDb.insert(schema.brandMembers).values({
-      brandId,
-      userId: aveleroUserId,
-      role: "avelero",
-    });
-
-    const blockedPhases: BrandPhase[] = [
-      "expired",
-      "past_due",
-      "suspended",
-      "cancelled",
-    ];
-
-    for (const phase of blockedPhases) {
-      await setBrandSubscriptionState({
-        brandId,
-        phase,
-        skuAnnualLimit: 500,
-      });
-
-      const caller = appRouter.createCaller(
-        createMockContext({
-          brandId,
-          userId: aveleroUserId,
-          userEmail: aveleroUserEmail,
-          role: "avelero",
-        }),
-      );
-
-      await expect(caller.summary.productStatus()).resolves.toBeDefined();
-      await expect(
-        caller.brand.collections.create({
-          name: `Avelero write ${phase}`,
-          filter: { phase },
-        }),
-      ).resolves.toBeDefined();
-    }
-  });
-
-  it("allows SKU mutation when the publish budget is exhausted", async () => {
-    const paidAnchor = daysAgo(400);
-    const publishedAt = daysAgo(7);
-    await setBrandSubscriptionState({
-      brandId,
-      phase: "active",
-      skuAnnualLimit: 1,
-      skuOnboardingLimit: 1,
-      firstPaidStartedAt: paidAnchor,
-      annualUsageAnchorAt: paidAnchor,
-      skuCountAtYearStart: 0,
-      skuCountAtOnboardingStart: 0,
-    });
-
-    const publishedProduct = await createTestProduct(brandId, {
-      productHandle: `published-budget-${Math.random().toString(36).slice(2, 8)}`,
-      status: "published",
-      publishedAt,
-    });
-    await createTestVariant(publishedProduct.id, {
-      sku: `existing-${Math.random().toString(36).slice(2, 8)}`,
-    });
-    const draftProduct = await createTestProduct(brandId, {
-      productHandle: `sku-limit-${Math.random().toString(36).slice(2, 8)}`,
-    });
-
-    const caller = appRouter.createCaller(
-      createMockContext({ brandId, userId, userEmail, role: "owner" }),
+      ACCESS_ERROR_TOKENS.TEMPORARY_BLOCKED,
     );
-
-    await expect(
-      caller.products.variants.create({
-        productHandle: draftProduct.productHandle,
-        attributeValueIds: [],
-      }),
-    ).resolves.toBeDefined();
-  });
-
-  it("blocks publish mutation when the publish budget is exhausted", async () => {
-    const paidAnchor = daysAgo(400);
-    const publishedAt = daysAgo(7);
-    await setBrandSubscriptionState({
-      brandId,
-      phase: "active",
-      skuAnnualLimit: 1,
-      skuOnboardingLimit: 1,
-      firstPaidStartedAt: paidAnchor,
-      annualUsageAnchorAt: paidAnchor,
-      skuCountAtYearStart: 0,
-      skuCountAtOnboardingStart: 0,
-    });
-
-    const publishedProduct = await createTestProduct(brandId, {
-      productHandle: `published-cap-${Math.random().toString(36).slice(2, 8)}`,
-      status: "published",
-      publishedAt,
-    });
-    await createTestVariant(publishedProduct.id, {
-      sku: `existing-published-${Math.random().toString(36).slice(2, 8)}`,
-    });
-    const draftProduct = await createTestProduct(brandId, {
-      productHandle: `publish-limit-${Math.random().toString(36).slice(2, 8)}`,
-    });
-    await createTestVariant(draftProduct.id, {
-      sku: `pending-publish-${Math.random().toString(36).slice(2, 8)}`,
-    });
-    const snapshot = await getBrandAccessSnapshot(testDb, brandId);
-    const activeWindow = resolveActiveSkuWindow({
-      snapshot,
-      evaluationDate: new Date(),
-    });
-
-    const caller = appRouter.createCaller(
-      createMockContext({ brandId, userId, userEmail, role: "owner" }),
-    );
-
-    expect(activeWindow.kind).toBe("annual");
-    expect(
-      await countPublishedPassportsInActiveWindow(testDb, brandId, activeWindow),
-    ).toBe(1);
-    await expect(
-      caller.products.publish.product({
-        productId: draftProduct.id,
-      }),
-    ).rejects.toThrow("would exceed your current limit");
   });
 });

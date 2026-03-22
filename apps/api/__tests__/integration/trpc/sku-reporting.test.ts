@@ -1,14 +1,9 @@
 /**
- * Integration Tests: SKU reporting routes.
- *
- * Verifies customer billing and platform-admin reporting return derived SKU
- * usage while still counting every live variant row on the ghost rollout path.
+ * Integration tests for credit-based billing and admin usage reporting.
  */
-
 import "../../setup";
 
 import { beforeEach, describe, expect, it } from "bun:test";
-import { eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 import {
   createTestBrand,
@@ -89,20 +84,17 @@ async function allowPlatformAdmin(userId: string, email: string) {
 }
 
 /**
- * Seeds lifecycle, plan, and billing rows for SKU reporting scenarios.
+ * Seeds lifecycle, plan, and billing rows for credit-reporting scenarios.
  */
 async function setBrandReportingState(params: {
   brandId: string;
   phase?: "demo" | "trial" | "expired" | "active" | "past_due" | "suspended" | "cancelled";
   trialStartedAt?: string | null;
   trialEndsAt?: string | null;
-  firstPaidStartedAt?: string | null;
-  annualUsageAnchorAt?: string | null;
-  skuAnnualLimit?: number | null;
-  skuOnboardingLimit?: number | null;
-  skuLimitOverride?: number | null;
-  skuCountAtYearStart?: number | null;
-  skuCountAtOnboardingStart?: number | null;
+  planType?: "starter" | "growth" | "scale" | "enterprise" | null;
+  billingInterval?: "quarterly" | "yearly" | null;
+  totalCredits?: number;
+  onboardingDiscountUsed?: boolean;
 }) {
   const now = new Date().toISOString();
 
@@ -131,27 +123,19 @@ async function setBrandReportingState(params: {
     .insert(schema.brandPlan)
     .values({
       brandId: params.brandId,
-      skuAnnualLimit: params.skuAnnualLimit ?? null,
-      skuOnboardingLimit: params.skuOnboardingLimit ?? null,
-      skuLimitOverride: params.skuLimitOverride ?? null,
-      firstPaidStartedAt: params.firstPaidStartedAt ?? null,
-      annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
-      skuYearStart: null,
-      skuCountAtYearStart: params.skuCountAtYearStart ?? null,
-      skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? null,
+      planType: params.planType ?? "starter",
+      billingInterval: params.billingInterval ?? "quarterly",
+      totalCredits: params.totalCredits ?? 50,
+      onboardingDiscountUsed: params.onboardingDiscountUsed ?? false,
       updatedAt: now,
     })
     .onConflictDoUpdate({
       target: schema.brandPlan.brandId,
       set: {
-        skuAnnualLimit: params.skuAnnualLimit ?? null,
-        skuOnboardingLimit: params.skuOnboardingLimit ?? null,
-        skuLimitOverride: params.skuLimitOverride ?? null,
-        firstPaidStartedAt: params.firstPaidStartedAt ?? null,
-        annualUsageAnchorAt: params.annualUsageAnchorAt ?? null,
-        skuYearStart: null,
-        skuCountAtYearStart: params.skuCountAtYearStart ?? null,
-        skuCountAtOnboardingStart: params.skuCountAtOnboardingStart ?? null,
+        planType: params.planType ?? "starter",
+        billingInterval: params.billingInterval ?? "quarterly",
+        totalCredits: params.totalCredits ?? 50,
+        onboardingDiscountUsed: params.onboardingDiscountUsed ?? false,
         updatedAt: now,
       },
     });
@@ -170,61 +154,26 @@ async function setBrandReportingState(params: {
     });
 }
 
-/**
- * Marks an existing variant as a legacy ghost row without removing it.
- */
-async function markVariantAsLegacyGhost(variantId: string) {
-  await testDb
-    .update(schema.productVariants)
-    .set({ isGhost: true })
-    .where(eq(schema.productVariants.id, variantId));
-}
-
-describe("SKU reporting routes", () => {
-  it("brand.billing.getStatus returns active onboarding usage from published passports inside the current window", async () => {
+describe("credit reporting routes", () => {
+  it("brand.billing.getStatus returns total, published, and remaining credits", async () => {
     const brandId = await createTestBrand("Billing Usage Brand");
     await addBrandMember(ownerId, brandId);
-    const firstPaidStartedAt = new Date(
-      Date.now() - 7 * 24 * 60 * 60 * 1000,
-    ).toISOString();
     await setBrandReportingState({
       brandId,
       phase: "active",
-      firstPaidStartedAt,
-      annualUsageAnchorAt: firstPaidStartedAt,
-      skuAnnualLimit: 10,
-      skuOnboardingLimit: 9,
-      skuCountAtYearStart: 1,
-      skuCountAtOnboardingStart: 2,
+      planType: "starter",
+      billingInterval: "quarterly",
+      totalCredits: 125,
     });
 
-    const beforeWindowProduct = await createTestProduct(brandId, {
-      productHandle: `billing-before-${Math.random().toString(36).slice(2, 8)}`,
-      status: "published",
-      publishedAt: new Date(
-        Date.now() - 14 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
-    });
-    const insideWindowProduct = await createTestProduct(brandId, {
+    const publishedProduct = await createTestProduct(brandId, {
       productHandle: `billing-usage-${Math.random().toString(36).slice(2, 8)}`,
       status: "published",
-      publishedAt: firstPaidStartedAt,
+      publishedAt: new Date().toISOString(),
     });
-    const unpublishedProduct = await createTestProduct(brandId, {
-      productHandle: `billing-unpublished-${Math.random().toString(36).slice(2, 8)}`,
-      status: "unpublished",
-      publishedAt: null,
-    });
-    await createTestVariant(beforeWindowProduct.id, {
-      sku: "billing-old",
-    });
-    await createTestVariant(insideWindowProduct.id, { sku: "billing-1" });
-    await createTestVariant(insideWindowProduct.id, { sku: "billing-2" });
-    const legacyGhost = await createTestVariant(insideWindowProduct.id, {
-      sku: "billing-3",
-    });
-    await createTestVariant(unpublishedProduct.id, { sku: "billing-4" });
-    await markVariantAsLegacyGhost(legacyGhost.id);
+    await createTestVariant(publishedProduct.id, { sku: "billing-1" });
+    await createTestVariant(publishedProduct.id, { sku: "billing-2" });
+    await createTestVariant(publishedProduct.id, { sku: "billing-3" });
 
     const caller = appRouter.createCaller(
       createMockContext({
@@ -237,184 +186,51 @@ describe("SKU reporting routes", () => {
 
     const result = await caller.brand.billing.getStatus();
 
-    expect(result.active_sku_budget.kind).toBe("onboarding");
-    expect(result.active_sku_budget.used).toBe(3);
-    expect(result.skus_created_this_year).toBe(0);
-    expect(result.skus_created_onboarding).toBe(3);
+    expect(result.total_credits).toBe(125);
+    expect(result.published_count).toBe(3);
+    expect(result.remaining_credits).toBe(122);
+    expect(result.utilization).toBeCloseTo(3 / 125);
   });
 
-  it("platformAdmin.brands.get returns derived annual published-passport usage for the active window", async () => {
+  it("platformAdmin.brands.get returns credit-based plan and usage fields", async () => {
     const brandId = await createTestBrand("Admin Detail Brand");
     await addBrandMember(ownerId, brandId);
-    const firstPaidStartedAt = new Date(
-      Date.now() - 2 * 365 * 24 * 60 * 60 * 1000,
-    ).toISOString();
     await setBrandReportingState({
       brandId,
       phase: "active",
-      firstPaidStartedAt,
-      annualUsageAnchorAt: firstPaidStartedAt,
-      skuAnnualLimit: 10,
-      skuOnboardingLimit: 9,
-      skuCountAtYearStart: 1,
-      skuCountAtOnboardingStart: 2,
+      planType: "growth",
+      billingInterval: "yearly",
+      totalCredits: 2_000,
+      onboardingDiscountUsed: true,
     });
 
-    const beforeWindowProduct = await createTestProduct(brandId, {
-      productHandle: `admin-before-${Math.random().toString(36).slice(2, 8)}`,
+    const publishedProduct = await createTestProduct(brandId, {
+      productHandle: `admin-usage-${Math.random().toString(36).slice(2, 8)}`,
       status: "published",
-      publishedAt: new Date(
-        Date.now() - 400 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
+      publishedAt: new Date().toISOString(),
     });
-    const insideWindowProduct = await createTestProduct(brandId, {
-      productHandle: `admin-detail-${Math.random().toString(36).slice(2, 8)}`,
-      status: "published",
-      publishedAt: new Date(
-        Date.now() - 30 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
-    });
-    await createTestVariant(beforeWindowProduct.id, { sku: "detail-old" });
-    await createTestVariant(insideWindowProduct.id, { sku: "detail-1" });
-    await createTestVariant(insideWindowProduct.id, { sku: "detail-2" });
-    const legacyGhost = await createTestVariant(insideWindowProduct.id, {
-      sku: "detail-3",
-    });
-    await markVariantAsLegacyGhost(legacyGhost.id);
+    await createTestVariant(publishedProduct.id, { sku: "admin-1" });
+    await createTestVariant(publishedProduct.id, { sku: "admin-2" });
 
     const caller = appRouter.createCaller(
       createMockContext({
         userId: adminId,
         userEmail: adminEmail,
+        role: "avelero",
       }),
     );
 
     const result = await caller.platformAdmin.brands.get({ brand_id: brandId });
 
-    expect(result.plan.skus_created_this_year).toBe(3);
-    expect(result.plan.skus_created_onboarding).toBe(0);
-    expect(result.usage.annual).toEqual({
-      used: 3,
-      limit: 10,
-      remaining: 7,
-    });
-    expect(result.usage.onboarding).toEqual({
-      used: 0,
-      limit: null,
-      remaining: null,
-    });
-  });
-
-  it("platformAdmin.brands.list sorts by active-window usage and keeps uninitialized limits open", async () => {
-    const highUsageBrandId = await createTestBrand("High Usage Brand");
-    const lowUsageBrandId = await createTestBrand("Low Usage Brand");
-    const uninitializedBrandId = await createTestBrand("Uninitialized Brand");
-    const annualUsageAnchorAt = new Date(
-      Date.now() - 2 * 365 * 24 * 60 * 60 * 1000,
-    ).toISOString();
-
-    await setBrandReportingState({
-      brandId: highUsageBrandId,
-      firstPaidStartedAt: annualUsageAnchorAt,
-      annualUsageAnchorAt,
-      skuAnnualLimit: 10,
-      skuCountAtYearStart: 0,
-    });
-    await setBrandReportingState({
-      brandId: lowUsageBrandId,
-      firstPaidStartedAt: annualUsageAnchorAt,
-      annualUsageAnchorAt,
-      skuAnnualLimit: 10,
-      skuCountAtYearStart: 2,
-    });
-    await setBrandReportingState({
-      brandId: uninitializedBrandId,
-      skuAnnualLimit: 10,
-      skuCountAtYearStart: null,
-    });
-
-    const highBeforeWindowProduct = await createTestProduct(highUsageBrandId, {
-      productHandle: `high-before-${Math.random().toString(36).slice(2, 8)}`,
-      status: "published",
-      publishedAt: new Date(
-        Date.now() - 400 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
-    });
-    const highUsageProduct = await createTestProduct(highUsageBrandId, {
-      productHandle: `high-usage-${Math.random().toString(36).slice(2, 8)}`,
-      status: "published",
-      publishedAt: new Date(
-        Date.now() - 30 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
-    });
-    await createTestVariant(highBeforeWindowProduct.id, { sku: "high-old" });
-    await createTestVariant(highUsageProduct.id, { sku: "high-1" });
-    await createTestVariant(highUsageProduct.id, { sku: "high-2" });
-    const highGhost = await createTestVariant(highUsageProduct.id, {
-      sku: "high-3",
-    });
-    await markVariantAsLegacyGhost(highGhost.id);
-
-    const lowBeforeWindowProduct = await createTestProduct(lowUsageBrandId, {
-      productHandle: `low-before-${Math.random().toString(36).slice(2, 8)}`,
-      status: "published",
-      publishedAt: new Date(
-        Date.now() - 500 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
-    });
-    const lowUsageProduct = await createTestProduct(lowUsageBrandId, {
-      productHandle: `low-usage-${Math.random().toString(36).slice(2, 8)}`,
-      status: "published",
-      publishedAt: new Date(
-        Date.now() - 5 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
-    });
-    await createTestVariant(lowBeforeWindowProduct.id, { sku: "low-old-a" });
-    await createTestVariant(lowBeforeWindowProduct.id, { sku: "low-old-b" });
-    await createTestVariant(lowUsageProduct.id, { sku: "low-1" });
-
-    const uninitializedProduct = await createTestProduct(uninitializedBrandId, {
-      productHandle: `uninitialized-${Math.random().toString(36).slice(2, 8)}`,
-    });
-    await createTestVariant(uninitializedProduct.id, { sku: "uninit-1" });
-    await createTestVariant(uninitializedProduct.id, { sku: "uninit-2" });
-
-    const caller = appRouter.createCaller(
-      createMockContext({
-        userId: adminId,
-        userEmail: adminEmail,
-      }),
-    );
-
-    const result = await caller.platformAdmin.brands.list({
-      sort_by: "sku_usage",
-      sort_dir: "desc",
-      page: 1,
-      page_size: 10,
-    });
-
-    // Filter to only the brands created in this test case, preserving the
-    // sort order returned by the endpoint.  Other test cases in this file
-    // also create brands that appear in the unfiltered list.
-    const testBrandIds = new Set([highUsageBrandId, lowUsageBrandId, uninitializedBrandId]);
-    const filtered = result.items.filter((item) => testBrandIds.has(item.id));
-
-    expect(filtered.map((item) => item.id)).toEqual([
-      highUsageBrandId,
-      lowUsageBrandId,
-      uninitializedBrandId,
-    ]);
-    expect(filtered[0]?.sku_usage).toEqual({
-      used: 3,
-      limit: 10,
-    });
-    expect(filtered[1]?.sku_usage).toEqual({
-      used: 1,
-      limit: 10,
-    });
-    expect(filtered[2]?.sku_usage).toEqual({
-      used: 0,
-      limit: null,
+    expect(result.plan.total_credits).toBe(2_000);
+    expect(result.plan.published_count).toBe(2);
+    expect(result.plan.remaining_credits).toBe(1_998);
+    expect(result.plan.onboarding_discount_used).toBe(true);
+    expect(result.usage.credits).toEqual({
+      total: 2_000,
+      published: 2,
+      remaining: 1_998,
+      utilization: 2 / 2_000,
     });
   });
 });

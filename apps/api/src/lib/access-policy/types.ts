@@ -60,14 +60,9 @@ export interface BrandAccessSnapshot {
     pendingCancellation: boolean;
   } | null;
   plan: {
-    skuAnnualLimit: number | null;
-    skuOnboardingLimit: number | null;
-    skuLimitOverride: number | null;
+    totalCredits: number;
+    onboardingDiscountUsed: boolean;
     variantGlobalCap?: number | null;
-    firstPaidStartedAt?: string | null;
-    annualUsageAnchorAt?: string | null;
-    skuCountAtYearStart?: number | null;
-    skuCountAtOnboardingStart?: number | null;
   } | null;
 }
 
@@ -101,11 +96,10 @@ export interface SkuAccessBudget {
 }
 
 export interface ActiveSkuBudget extends SkuAccessBudget {
-  kind: "trial" | "onboarding" | "annual" | null;
-  phase: "demo" | "trial" | "onboarding" | "annual" | "none";
-  windowStartAt: string | null;
-  windowEndAt: string | null;
-  isFirstPaidYear: boolean;
+  kind: "credits" | null;
+  phase: BrandLifecyclePhase | "none";
+  totalCredits: number;
+  publishedCount: number;
 }
 
 export interface ResolveSkuAccessDecisionInput {
@@ -122,11 +116,7 @@ export interface ResolveSkuAccessDecisionInput {
 export interface ResolvedSkuAccessDecision {
   status: SkuAccessStatus;
   activeBudget: ActiveSkuBudget;
-  annual: SkuAccessBudget;
-  onboarding: SkuAccessBudget;
   warningThreshold: number;
-  trialCap: number;
-  trialUniversalCap?: number;
   remainingPublishBudget: number | null;
   intendedPublishCount: number;
   wouldExceedIntendedPublishCount: boolean;

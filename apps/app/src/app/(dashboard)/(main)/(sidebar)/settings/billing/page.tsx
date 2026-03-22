@@ -12,7 +12,7 @@ import { connection } from "next/server";
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ checkout?: string | string[] }>;
+  searchParams: Promise<{ checkout?: string | string[]; pack?: string | string[] }>;
 }) {
   await connection();
 

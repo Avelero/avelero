@@ -1,4 +1,7 @@
-import { db } from "@v1/db/client";
+/**
+ * Keeps local subscription state aligned with Stripe subscription updates.
+ */
+import { db, type DatabaseOrTransaction } from "@v1/db/client";
 import { and, eq, notInArray } from "@v1/db/queries";
 import { brandBilling, brandBillingEvents, brandLifecycle } from "@v1/db/schema";
 import { billingLogger } from "@v1/logger/billing";
@@ -13,9 +16,13 @@ const log = billingLogger.child({ component: "handler:subscription-updated" });
 
 export async function handleSubscriptionUpdated(
   event: Stripe.Event,
+  conn: DatabaseOrTransaction = db,
 ): Promise<void> {
   const subscription = event.data.object as Stripe.Subscription;
-  const brandId = await resolveBrandIdForSubscription({ db, subscription });
+  const brandId = await resolveBrandIdForSubscription({
+    db: conn,
+    subscription,
+  });
 
   if (!brandId) {
     log.error(
@@ -29,29 +36,18 @@ export async function handleSubscriptionUpdated(
     return;
   }
 
-  // Detect whether this update is restoring paid access rather than a routine in-service refresh.
-  const [existingLifecycle] = await db
-    .select({ phase: brandLifecycle.phase })
-    .from(brandLifecycle)
-    .where(eq(brandLifecycle.brandId, brandId))
-    .limit(1);
-  const shouldSyncPaidSkuAnchors =
-    subscription.status === "active" && existingLifecycle?.phase !== "active";
-
   const { projection } = await projectStripeSubscription({
-    db,
+    db: conn,
     subscription,
     clearPastDue: subscription.status === "active",
     knownBrandId: brandId,
-    syncPaidSkuAnchors: shouldSyncPaidSkuAnchors,
-    allowAnnualAnchorRealignment: shouldSyncPaidSkuAnchors,
   });
   const nowIso = new Date().toISOString();
   let resolvedPhase: string | null = null;
 
   if (subscription.status === "active") {
     resolvedPhase = "active";
-    await db
+    await conn
       .update(brandLifecycle)
       .set({
         phase: "active",
@@ -61,20 +57,20 @@ export async function handleSubscriptionUpdated(
       .where(
         and(
           eq(brandLifecycle.brandId, brandId),
-          notInArray(brandLifecycle.phase, ["expired", "suspended", "cancelled"]),
+          notInArray(brandLifecycle.phase, ["suspended"]),
         ),
       );
   }
 
   if (subscription.status === "past_due" || subscription.status === "unpaid") {
     resolvedPhase = "past_due";
-    const [billing] = await db
+    const [billing] = await conn
       .select({ pastDueSince: brandBilling.pastDueSince })
       .from(brandBilling)
       .where(eq(brandBilling.brandId, brandId))
       .limit(1);
 
-    await db
+    await conn
       .update(brandBilling)
       .set({
         pastDueSince: billing?.pastDueSince ?? nowIso,
@@ -82,7 +78,7 @@ export async function handleSubscriptionUpdated(
       })
       .where(eq(brandBilling.brandId, brandId));
 
-    await db
+    await conn
       .update(brandLifecycle)
       .set({
         phase: "past_due",
@@ -92,14 +88,14 @@ export async function handleSubscriptionUpdated(
       .where(
         and(
           eq(brandLifecycle.brandId, brandId),
-          notInArray(brandLifecycle.phase, ["expired", "suspended", "cancelled"]),
+          notInArray(brandLifecycle.phase, ["suspended"]),
         ),
       );
   }
 
   const pendingCancellation = isStripeSubscriptionPendingCancellation(subscription);
 
-  await db.insert(brandBillingEvents).values({
+  await conn.insert(brandBillingEvents).values({
     brandId,
     eventType: "subscription_updated",
     stripeEventId: event.id,

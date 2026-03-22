@@ -16,19 +16,23 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 const log = billingLogger.child({ component: "billing-router" });
-import { createCheckoutSession } from "../../../lib/stripe/checkout.js";
+import { createCheckoutSession, createUpgradeCheckoutSession } from "../../../lib/stripe/checkout.js";
 import {
   type BillingInterval,
-  TIER_CONFIG,
+  normalizeBillingInterval,
+  PACK_SIZES,
   type PlanTier,
+  isUpgradeChange,
 } from "../../../lib/stripe/config.js";
 import { findOrCreateStripeCustomer } from "../../../lib/stripe/customer.js";
+import { createPackCheckoutSession } from "../../../lib/stripe/pack.js";
 import { createPortalSession } from "../../../lib/stripe/portal.js";
 import {
   addImpactToSubscription,
   removeImpactFromSubscription,
   updateSubscriptionPlan,
 } from "../../../lib/stripe/subscription.js";
+
 import { syncStripeSubscriptionProjectionById } from "../../../lib/stripe/projection.js";
 import {
   brandBillingProcedure,
@@ -38,6 +42,15 @@ import {
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 const STRIPE_PROJECTION_SYNC_MAX_AGE_MS = 5 * 60_000;
+const billingIntervalInputSchema = z
+  .enum(["quarterly", "yearly"])
+  .transform((value) => normalizeBillingInterval(value) ?? "quarterly");
+const packSizeInputSchema = z.enum(
+  PACK_SIZES.map((packSize) => String(packSize)) as [
+    `${typeof PACK_SIZES[number]}`,
+    ...Array<`${typeof PACK_SIZES[number]}`>,
+  ],
+);
 
 /**
  * Decides whether the local Stripe subscription projection is stale enough to refresh.
@@ -66,6 +79,15 @@ function shouldSyncStripeProjection(params: {
   return Date.now() - updatedAtMs > STRIPE_PROJECTION_SYNC_MAX_AGE_MS;
 }
 
+/**
+ * Normalizes billing interval values loaded from the database during the transition window.
+ */
+function getNormalizedBillingInterval(
+  value: string | null | undefined,
+): BillingInterval | null {
+  return normalizeBillingInterval(value);
+}
+
 export const billingRouter = createTRPCRouter({
   /**
    * Create a Stripe Checkout Session for a new subscription.
@@ -75,7 +97,7 @@ export const billingRouter = createTRPCRouter({
     .input(
       z.object({
         tier: z.enum(["starter", "growth", "scale"]),
-        interval: z.enum(["monthly", "yearly"]),
+        interval: billingIntervalInputSchema,
         include_impact: z.boolean().default(false),
       }),
     )
@@ -176,14 +198,120 @@ export const billingRouter = createTRPCRouter({
     }),
 
   /**
+   * Create a Stripe Checkout Session for upgrading an existing subscription.
+   * Opens a fresh checkout for the higher plan so the new billing cycle starts
+   * immediately. The old subscription stays active until checkout completes.
+   */
+  createUpgradeCheckout: brandBillingProcedure
+    .input(
+      z.object({
+        tier: z.enum(["starter", "growth", "scale"]),
+        interval: billingIntervalInputSchema,
+        include_impact: z.boolean().default(false),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { brandId, db } = ctx;
+
+      const [billing] = await db
+        .select({
+          stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+          stripeCustomerId: brandBilling.stripeCustomerId,
+        })
+        .from(brandBilling)
+        .where(eq(brandBilling.brandId, brandId))
+        .limit(1);
+
+      if (!billing?.stripeSubscriptionId || !billing.stripeCustomerId) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "No active subscription to upgrade",
+        });
+      }
+
+      const [plan] = await db
+        .select({
+          planType: brandPlan.planType,
+          billingInterval: brandPlan.billingInterval,
+        })
+        .from(brandPlan)
+        .where(eq(brandPlan.brandId, brandId))
+        .limit(1);
+
+      if (!plan?.planType || !plan.billingInterval) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Current plan metadata is missing",
+        });
+      }
+
+      const currentInterval = getNormalizedBillingInterval(plan.billingInterval);
+
+      if (!currentInterval) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Current billing interval is missing or invalid",
+        });
+      }
+
+      if (
+        !isUpgradeChange({
+          currentTier: plan.planType as PlanTier,
+          currentInterval,
+          newTier: input.tier,
+          newInterval: input.interval,
+        })
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "This change is a downgrade — use the plan update flow instead",
+        });
+      }
+
+      if (!ctx.user.email) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "User email is required for billing",
+        });
+      }
+
+      try {
+        const { url } = await db.transaction(async (tx) => {
+          await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtext(${`stripe_upgrade_checkout:${brandId}`}))`,
+          );
+
+          const session = await createUpgradeCheckoutSession({
+            brandId,
+            stripeCustomerId: billing.stripeCustomerId!,
+            stripeSubscriptionId: billing.stripeSubscriptionId!,
+            newTier: input.tier,
+            newInterval: input.interval,
+            includeImpact: input.include_impact,
+            successUrl: `${APP_URL}/settings/billing?checkout=success`,
+            cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
+          });
+
+          return { url: session.url };
+        });
+
+        return { url };
+      } catch (err) {
+        log.error({ brandId, operation: "createUpgradeCheckoutSession", tier: input.tier, interval: input.interval, err }, "upgrade checkout session creation failed");
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create upgrade checkout session" });
+      }
+    }),
+
+  /**
    * Update the plan tier and/or interval for an active subscription.
-   * Swaps line items in-place — does NOT create a new subscription.
+   * Used for downgrades that take effect on the existing subscription. Upgrades
+   * must use createUpgradeCheckout so the new billing cycle restarts immediately.
    */
   updatePlan: brandWriteProcedure
     .input(
       z.object({
         tier: z.enum(["starter", "growth", "scale"]),
-        interval: z.enum(["monthly", "yearly"]),
+        interval: billingIntervalInputSchema,
         include_impact: z.boolean(),
       }),
     )
@@ -192,7 +320,9 @@ export const billingRouter = createTRPCRouter({
 
       // Validate the brand is active with a subscription
       const [billing] = await db
-        .select({ stripeSubscriptionId: brandBilling.stripeSubscriptionId })
+        .select({
+          stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+        })
         .from(brandBilling)
         .where(eq(brandBilling.brandId, brandId))
         .limit(1);
@@ -217,6 +347,34 @@ export const billingRouter = createTRPCRouter({
         });
       }
 
+      // Block upgrades through this endpoint — they must use the checkout flow.
+      const [plan] = await db
+        .select({
+          planType: brandPlan.planType,
+          billingInterval: brandPlan.billingInterval,
+        })
+        .from(brandPlan)
+        .where(eq(brandPlan.brandId, brandId))
+        .limit(1);
+
+      const currentInterval = getNormalizedBillingInterval(plan?.billingInterval);
+
+      if (
+        plan?.planType &&
+        currentInterval &&
+        isUpgradeChange({
+          currentTier: plan.planType as PlanTier,
+          currentInterval,
+          newTier: input.tier,
+          newInterval: input.interval,
+        })
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Upgrades must use the checkout flow",
+        });
+      }
+
       try {
         await updateSubscriptionPlan({
           stripeSubscriptionId: billing.stripeSubscriptionId,
@@ -229,22 +387,94 @@ export const billingRouter = createTRPCRouter({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to update plan" });
       }
 
-      // Optimistically update local state (webhook will confirm)
-      const tierConfig = TIER_CONFIG[input.tier];
-      await db
-        .update(brandPlan)
-        .set({
-          planType: input.tier,
-          billingInterval: input.interval,
-          hasImpactPredictions: input.include_impact,
-          skuAnnualLimit: tierConfig.skuAnnualLimit,
-          skuOnboardingLimit: tierConfig.skuOnboardingLimit,
-          variantGlobalCap: tierConfig.variantGlobalCap,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(brandPlan.brandId, brandId));
-
       return { success: true as const };
+    }),
+
+  /**
+   * Create a Stripe Checkout Session for purchasing a one-time credit pack.
+   */
+  createPackCheckout: brandBillingProcedure
+    .input(
+      z.object({
+        pack_size: packSizeInputSchema,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { brandId, db } = ctx;
+
+      const [billing] = await db
+        .select({
+          billingMode: brandBilling.billingMode,
+          stripeCustomerId: brandBilling.stripeCustomerId,
+          stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+        })
+        .from(brandBilling)
+        .where(eq(brandBilling.brandId, brandId))
+        .limit(1);
+
+      const [lifecycle] = await db
+        .select({ phase: brandLifecycle.phase })
+        .from(brandLifecycle)
+        .where(eq(brandLifecycle.brandId, brandId))
+        .limit(1);
+
+      const [plan] = await db
+        .select({
+          onboardingDiscountUsed: brandPlan.onboardingDiscountUsed,
+        })
+        .from(brandPlan)
+        .where(eq(brandPlan.brandId, brandId))
+        .limit(1);
+
+      if (
+        !billing?.stripeCustomerId ||
+        !billing.stripeSubscriptionId ||
+        billing.billingMode !== "stripe_checkout"
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Credit packs are only available for active Stripe subscriptions",
+        });
+      }
+
+      const stripeCustomerId = billing.stripeCustomerId;
+
+      if (lifecycle?.phase !== "active") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Credit packs are only available for active brands",
+        });
+      }
+
+      try {
+        const { url } = await db.transaction(async (tx) => {
+          await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtext(${`stripe_pack_checkout:${brandId}`}))`,
+          );
+
+          const session = await createPackCheckoutSession({
+            brandId,
+            stripeCustomerId,
+            packSize: Number(input.pack_size) as (typeof PACK_SIZES)[number],
+            applyOnboardingDiscount: !(plan?.onboardingDiscountUsed ?? false),
+            successUrl: `${APP_URL}/settings/billing?checkout=success&pack=${input.pack_size}`,
+            cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
+          });
+
+          return { url: session.url };
+        });
+
+        return { url };
+      } catch (err) {
+        log.error(
+          { brandId, operation: "createPackCheckoutSession", packSize: input.pack_size, err },
+          "credit pack checkout session creation failed",
+        );
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create credit pack checkout session",
+        });
+      }
     }),
 
   /**
@@ -305,7 +535,9 @@ export const billingRouter = createTRPCRouter({
         .limit(1);
     }
 
-    if (!plan?.planType || !plan.billingInterval) {
+    const normalizedInterval = getNormalizedBillingInterval(plan?.billingInterval);
+
+    if (!plan?.planType || !normalizedInterval) {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
         message: "Plan type or billing interval not set",
@@ -323,7 +555,7 @@ export const billingRouter = createTRPCRouter({
       await addImpactToSubscription({
         stripeSubscriptionId: billing.stripeSubscriptionId,
         tier: plan.planType as PlanTier,
-        interval: plan.billingInterval as BillingInterval,
+        interval: normalizedInterval,
       });
     } catch (err) {
       log.error({ brandId, operation: "addImpactToSubscription", err }, "add impact failed");
@@ -465,8 +697,8 @@ export const billingRouter = createTRPCRouter({
         billingInterval: brandPlan.billingInterval,
         hasImpactPredictions: brandPlan.hasImpactPredictions,
         planSelectedAt: brandPlan.planSelectedAt,
-        skuAnnualLimit: brandPlan.skuAnnualLimit,
-        skuOnboardingLimit: brandPlan.skuOnboardingLimit,
+        totalCredits: brandPlan.totalCredits,
+        onboardingDiscountUsed: brandPlan.onboardingDiscountUsed,
       })
       .from(brandPlan)
       .where(eq(brandPlan.brandId, brandId))
@@ -494,25 +726,11 @@ export const billingRouter = createTRPCRouter({
       past_due_since: billing?.pastDueSince ?? null,
       pending_cancellation: billing?.pendingCancellation ?? false,
       grace_ends_at: brandAccess.graceEndsAt,
-      active_sku_budget: {
-        kind: skuAccess.activeBudget.kind,
-        phase: skuAccess.activeBudget.phase,
-        limit: skuAccess.activeBudget.limit,
-        used: skuAccess.activeBudget.used,
-        remaining: skuAccess.activeBudget.remaining,
-        utilization: skuAccess.activeBudget.utilization,
-        window_start_at: skuAccess.activeBudget.windowStartAt,
-        window_end_at: skuAccess.activeBudget.windowEndAt,
-        is_first_paid_year: skuAccess.activeBudget.isFirstPaidYear,
-      },
-      sku_annual_limit: plan?.skuAnnualLimit ?? null,
-      sku_onboarding_limit: plan?.skuOnboardingLimit ?? null,
-      skus_created_this_year: skuAccess.activeBudget.kind === "annual"
-        ? skuAccess.activeBudget.used
-        : 0,
-      skus_created_onboarding: skuAccess.activeBudget.kind === "onboarding"
-        ? skuAccess.activeBudget.used
-        : 0,
+      total_credits: plan?.totalCredits ?? skuAccess.activeBudget.totalCredits,
+      published_count: skuAccess.activeBudget.publishedCount,
+      remaining_credits: skuAccess.activeBudget.remaining,
+      utilization: skuAccess.activeBudget.utilization,
+      onboarding_discount_used: plan?.onboardingDiscountUsed ?? false,
       has_active_subscription: !!billing?.stripeSubscriptionId,
       stripe_customer_id: billing?.stripeCustomerId ?? null,
     };

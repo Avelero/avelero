@@ -1,3 +1,6 @@
+/**
+ * Notification event definitions and payload mapping helpers.
+ */
 import type {
   CreateNotificationParams,
   NotificationActionData,
@@ -19,17 +22,22 @@ export type NotificationEventKey =
   | "export_ready"
   | "qr_export_ready"
   | "invite_accepted"
-  | "sku_limit_warning"
-  | "sku_limit_reached";
+  | "credit_limit_warning"
+  | "credit_limit_reached"
+  | "pack_purchased";
 
-export interface SkuLimitWarningPayload {
+export interface CreditLimitWarningPayload {
   brandId: string;
-  budgetKind: "trial" | "onboarding" | "annual";
   used: number;
   limit: number;
 }
 
-export type SkuLimitReachedPayload = SkuLimitWarningPayload;
+export type CreditLimitReachedPayload = CreditLimitWarningPayload;
+
+export interface PackPurchasedPayload {
+  brandId: string;
+  credits: number;
+}
 
 export interface NotificationEventPayloadMap {
   import_success: {
@@ -69,8 +77,9 @@ export interface NotificationEventPayloadMap {
     acceptedUserEmail?: string | null;
     brandName?: string | null;
   };
-  sku_limit_warning: SkuLimitWarningPayload;
-  sku_limit_reached: SkuLimitReachedPayload;
+  credit_limit_warning: CreditLimitWarningPayload;
+  credit_limit_reached: CreditLimitReachedPayload;
+  pack_purchased: PackPurchasedPayload;
 }
 
 export interface ResolvedNotificationEvent {
@@ -209,20 +218,14 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
       expiresInMs: NOTIFICATION_DEFAULT_EXPIRES_MS,
     }),
   },
-  sku_limit_warning: {
+  credit_limit_warning: {
     audience: "brand_members",
     resolve: (payload) => {
-      const budgetLabel =
-        payload.budgetKind === "trial"
-          ? "trial"
-          : payload.budgetKind === "onboarding"
-            ? "onboarding"
-            : "yearly";
       return {
-        type: "sku_limit_warning",
-        title: "You're approaching your passport publish limit",
-        message: `You've published ${payload.used.toLocaleString()} of ${payload.limit.toLocaleString()} ${budgetLabel} passports. Consider upgrading your plan before you hit the limit. ${ACTION_PLACEHOLDER}`,
-        resourceType: `sku_budget_${payload.budgetKind}`,
+        type: "credit_limit_warning",
+        title: "You're approaching your passport credit limit",
+        message: `You've used ${payload.used.toLocaleString()} of ${payload.limit.toLocaleString()} passport credits. Purchase additional packs or upgrade your plan. ${ACTION_PLACEHOLDER}`,
+        resourceType: "credit_balance",
         resourceId: payload.brandId,
         actionUrl: "/settings/billing",
         actionData: {
@@ -234,31 +237,39 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
       };
     },
   },
-  sku_limit_reached: {
+  credit_limit_reached: {
     audience: "brand_members",
-    resolve: (payload) => {
-      const budgetLabel =
-        payload.budgetKind === "trial"
-          ? "trial"
-          : payload.budgetKind === "onboarding"
-            ? "onboarding"
-            : "yearly";
-
-      return {
-        type: "sku_limit_reached",
-        title: "You've reached your passport publish limit",
-        message: `You've published ${payload.used.toLocaleString()} of ${payload.limit.toLocaleString()} ${budgetLabel} passports. Upgrade your plan before publishing more passports. ${ACTION_PLACEHOLDER}`,
-        resourceType: `sku_budget_${payload.budgetKind}`,
-        resourceId: payload.brandId,
-        actionUrl: "/settings/billing",
-        actionData: {
-          kind: "link",
-          label: "View plans",
-          url: "/settings/billing",
-        },
-        expiresInMs: 30 * 24 * 60 * 60 * 1000,
-      };
-    },
+    resolve: (payload) => ({
+      type: "credit_limit_reached",
+      title: "You've reached your passport credit limit",
+      message: `You've used all ${payload.limit.toLocaleString()} passport credits. Purchase additional packs or upgrade your plan to publish more. ${ACTION_PLACEHOLDER}`,
+      resourceType: "credit_balance",
+      resourceId: payload.brandId,
+      actionUrl: "/settings/billing",
+      actionData: {
+        kind: "link",
+        label: "View plans",
+        url: "/settings/billing",
+      },
+      expiresInMs: 30 * 24 * 60 * 60 * 1000,
+    }),
+  },
+  pack_purchased: {
+    audience: "brand_members",
+    resolve: (payload) => ({
+      type: "pack_purchased",
+      title: "Additional credits added",
+      message: `${payload.credits.toLocaleString()} passport credits were added to your balance. ${ACTION_PLACEHOLDER}`,
+      resourceType: "credit_pack",
+      resourceId: payload.brandId,
+      actionUrl: "/settings/billing",
+      actionData: {
+        kind: "link",
+        label: "View billing",
+        url: "/settings/billing",
+      },
+      expiresInMs: 30 * 24 * 60 * 60 * 1000,
+    }),
   },
 };
 

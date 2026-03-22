@@ -1,15 +1,17 @@
 /**
- * Resolves SKU access decisions from derived live SKU usage and plan snapshots.
+ * Resolves credit-based SKU access decisions from live usage and plan snapshots.
  */
-import { TRIAL_SKU_CAP, deriveSkuBudget } from "@v1/db/queries/brand";
+import { deriveSkuBudget } from "@v1/db/queries/brand";
 import type {
   ResolveSkuAccessDecisionInput,
   ResolvedSkuAccessDecision,
 } from "./types.js";
 
 export const SKU_WARNING_THRESHOLD = 0.8;
-export { TRIAL_SKU_CAP };
 
+/**
+ * Resolves the current publish status from the brand's cumulative credit budget.
+ */
 export function resolveSkuAccessDecision(
   input: ResolveSkuAccessDecisionInput,
 ): ResolvedSkuAccessDecision {
@@ -29,18 +31,10 @@ export function resolveSkuAccessDecision(
   });
   const activeBudget = derivedBudget.activeBudget;
   const remainingPublishBudget = activeBudget.remaining;
-  const { annual, onboarding, trial } = derivedBudget;
 
   const wouldExceedIntendedPublishCount =
     remainingPublishBudget !== null &&
     intendedPublishCount > remainingPublishBudget;
-
-  const maxUtilization = Math.max(
-    activeBudget.utilization ?? 0,
-    annual.utilization ?? 0,
-    onboarding.utilization ?? 0,
-    trial?.utilization ?? 0,
-  );
 
   const writeAllowed = input.brandAccess.capabilities.canWriteBrandData;
   const noRemaining =
@@ -50,18 +44,14 @@ export function resolveSkuAccessDecision(
 
   if (!writeAllowed || noRemaining || wouldExceedIntendedPublishCount) {
     status = "blocked";
-  } else if (maxUtilization >= SKU_WARNING_THRESHOLD) {
+  } else if ((activeBudget.utilization ?? 0) >= SKU_WARNING_THRESHOLD) {
     status = "warning";
   }
 
   return {
     status,
     activeBudget,
-    annual,
-    onboarding,
     warningThreshold: SKU_WARNING_THRESHOLD,
-    trialCap: TRIAL_SKU_CAP,
-    trialUniversalCap: TRIAL_SKU_CAP,
     remainingPublishBudget,
     intendedPublishCount,
     wouldExceedIntendedPublishCount,

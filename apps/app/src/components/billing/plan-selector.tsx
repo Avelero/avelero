@@ -3,7 +3,8 @@
 /**
  * Interactive plan selector used by paywalls and billing settings.
  *
- * - Upgrade/downgrade/interval-change → confirmation dialog with proration estimate
+ * - Upgrade → Stripe Checkout with a fresh billing cycle (button loading → redirect)
+ * - Downgrade → confirmation modal, change takes effect at period end
  * - Renew (undo cancellation) → immediate with success toast
  * - New subscription (no active sub) → Stripe Checkout redirect
  */
@@ -15,11 +16,35 @@ import { toast } from "@v1/ui/sonner";
 import { BillingIntervalToggle } from "./billing-interval-toggle";
 import { PlanCard } from "./plan-card";
 import { PLAN_DISPLAY, PLAN_TIERS, type PlanTier } from "./plan-features";
-import { UpgradeConfirmationDialog } from "./upgrade-confirmation-dialog";
+import { DowngradeConfirmationDialog } from "./upgrade-confirmation-dialog";
+
+/**
+ * Determines whether a plan change is an upgrade (higher cost).
+ * Quarterly → yearly on the same or higher tier is always an upgrade.
+ */
+/**
+ * A downgrade is strictly moving to a lower tier. Everything else
+ * (same tier with interval change, or higher tier) is an upgrade.
+ */
+function isUpgrade(
+  fromTier: PlanTier,
+  _fromInterval: "quarterly" | "yearly",
+  toTier: PlanTier,
+  _toInterval: "quarterly" | "yearly",
+): boolean {
+  const tierOrder: Record<PlanTier, number> = {
+    starter: 0,
+    growth: 1,
+    scale: 2,
+    enterprise: 3,
+  };
+
+  return tierOrder[toTier] >= tierOrder[fromTier];
+}
 
 interface PlanSelectorProps {
   currentPlan?: "starter" | "growth" | "scale" | null;
-  currentInterval?: "monthly" | "yearly" | null;
+  currentInterval?: "quarterly" | "yearly" | null;
   hasImpact?: boolean;
   hasSubscription?: boolean;
   pendingCancellation?: boolean;
@@ -34,7 +59,6 @@ export function PlanSelector({
   hasImpact,
   hasSubscription = false,
   pendingCancellation = false,
-  periodStart = null,
   periodEnd = null,
   context,
 }: PlanSelectorProps) {
@@ -42,15 +66,15 @@ export function PlanSelector({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  const [interval, setInterval] = useState<"monthly" | "yearly">(
+  const [interval, setInterval] = useState<"quarterly" | "yearly">(
     currentInterval ?? "yearly",
   );
   const [loadingTier, setLoadingTier] = useState<PlanTier | null>(null);
 
-  // Confirmation dialog state for upgrades/downgrades/interval changes
-  const [confirmTarget, setConfirmTarget] = useState<{
+  // Downgrade confirmation dialog state
+  const [downgradeTarget, setDowngradeTarget] = useState<{
     tier: "starter" | "growth" | "scale";
-    interval: "monthly" | "yearly";
+    interval: "quarterly" | "yearly";
   } | null>(null);
 
   const checkoutMutation = useMutation(
@@ -65,13 +89,23 @@ export function PlanSelector({
     }),
   );
 
+  const upgradeCheckoutMutation = useMutation(
+    trpc.brand.billing.createUpgradeCheckout.mutationOptions({
+      onSuccess: (data) => {
+        window.location.href = data.url;
+      },
+      onError: () => {
+        setLoadingTier(null);
+        toast.error("Failed to start upgrade checkout. Please try again.");
+      },
+    }),
+  );
+
   const updatePlanMutation = useMutation(
     trpc.brand.billing.updatePlan.mutationOptions({
       onSuccess: () => {
         setLoadingTier(null);
-        setConfirmTarget(null);
-        // Invalidate billing status so the UI reflects the new state immediately
-        // instead of relying on stale data that may still show pendingCancellation.
+        setDowngradeTarget(null);
         void queryClient.invalidateQueries({
           queryKey: trpc.brand.billing.getStatus.queryKey(),
         });
@@ -80,7 +114,7 @@ export function PlanSelector({
       },
       onError: () => {
         setLoadingTier(null);
-        setConfirmTarget(null);
+        setDowngradeTarget(null);
         toast.error("Failed to update plan. Please try again.");
       },
     }),
@@ -88,12 +122,10 @@ export function PlanSelector({
 
   const hasActiveSubscription = hasSubscription && !!currentPlan;
 
-  // Keep the active tier marked as current even when the pricing toggle changes.
   const isCurrentTier = (tier: PlanTier) =>
     hasActiveSubscription && currentPlan === tier;
 
-  // Determine whether a plan change represents an actual subscription modification.
-  const isActualChange = (tier: PlanTier, targetInterval: "monthly" | "yearly") =>
+  const isActualChange = (tier: PlanTier, targetInterval: "quarterly" | "yearly") =>
     tier !== currentPlan || targetInterval !== currentInterval;
 
   // Renew: undo pending cancellation. Frictionless — no confirmation needed.
@@ -114,8 +146,7 @@ export function PlanSelector({
 
     if (hasActiveSubscription) {
       // If pending cancellation and selecting a different tier, route through
-      // checkout instead of updatePlan — the customer needs to pay for the
-      // new plan, not just undo the cancellation.
+      // checkout — the customer needs to pay for the new plan.
       if (pendingCancellation) {
         setLoadingTier(selectedTier);
         checkoutMutation.mutate({
@@ -126,9 +157,23 @@ export function PlanSelector({
         return;
       }
 
-      // Show confirmation dialog for all plan changes (tier or interval)
       if (isActualChange(tier, interval)) {
-        setConfirmTarget({ tier: selectedTier, interval });
+        if (
+          currentPlan &&
+          currentInterval &&
+          isUpgrade(currentPlan, currentInterval, selectedTier, interval)
+        ) {
+          // Upgrade: redirect to Stripe Checkout so the new billing cycle starts immediately.
+          setLoadingTier(selectedTier);
+          upgradeCheckoutMutation.mutate({
+            tier: selectedTier,
+            interval,
+            include_impact: hasImpact ?? false,
+          });
+        } else {
+          // Downgrade: show confirmation modal
+          setDowngradeTarget({ tier: selectedTier, interval });
+        }
         return;
       }
 
@@ -145,12 +190,12 @@ export function PlanSelector({
     });
   };
 
-  const handleConfirmChange = () => {
-    if (!confirmTarget) return;
-    setLoadingTier(confirmTarget.tier);
+  const handleConfirmDowngrade = () => {
+    if (!downgradeTarget) return;
+    setLoadingTier(downgradeTarget.tier);
     updatePlanMutation.mutate({
-      tier: confirmTarget.tier,
-      interval: confirmTarget.interval,
+      tier: downgradeTarget.tier,
+      interval: downgradeTarget.interval,
       include_impact: hasImpact ?? false,
     });
   };
@@ -176,8 +221,6 @@ export function PlanSelector({
           const showRenewAction =
             pendingCancellation && isCurrentAndSameInterval;
 
-          // If the user is on this tier but toggled to a different interval,
-          // show "Select" to allow interval switching (not "Current plan").
           const treatAsCurrent = isCurrentAndSameInterval;
 
           return (
@@ -202,20 +245,17 @@ export function PlanSelector({
         })}
       </div>
 
-      {/* Upgrade/downgrade confirmation dialog */}
-      {confirmTarget && currentPlan && currentInterval && (
-        <UpgradeConfirmationDialog
-          open={!!confirmTarget}
+      {/* Downgrade confirmation dialog */}
+      {downgradeTarget && (
+        <DowngradeConfirmationDialog
+          open={!!downgradeTarget}
           onOpenChange={(open) => {
-            if (!open) setConfirmTarget(null);
+            if (!open) setDowngradeTarget(null);
           }}
-          onConfirm={handleConfirmChange}
+          onConfirm={handleConfirmDowngrade}
           isPending={updatePlanMutation.isPending}
-          fromTier={currentPlan}
-          fromInterval={currentInterval}
-          toTier={confirmTarget.tier}
-          toInterval={confirmTarget.interval}
-          periodStart={periodStart}
+          toTier={downgradeTarget.tier}
+          toInterval={downgradeTarget.interval}
           periodEnd={periodEnd}
         />
       )}

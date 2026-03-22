@@ -10,7 +10,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Skeleton } from "@v1/ui/skeleton";
 import { toast } from "@v1/ui/sonner";
-import { PLAN_DISPLAY, formatPrice, type PlanTier } from "./plan-features";
+import {
+  PLAN_DISPLAY,
+  formatCredits,
+  formatPrice,
+  getEffectiveMonthlyPrice,
+  type PlanTier,
+} from "./plan-features";
 
 export function BillingPageContent() {
   // Reuse the shared plan-selector overlay instead of introducing a second billing modal.
@@ -121,17 +127,32 @@ export function BillingPageContent() {
     );
   }
 
-  const tier = status.plan_type as PlanTier;
-  const display = PLAN_DISPLAY[tier];
-  const interval = status.billing_interval as "monthly" | "yearly" | null;
-  const basePrice =
-    interval === "yearly" ? display?.yearlyPrice : display?.monthlyPrice;
-  const periodLabel = interval === "yearly" ? "/year" : "/month";
+  const tier = status.plan_type as PlanTier | null;
+  const display = tier ? PLAN_DISPLAY[tier] : null;
+  const interval = status.billing_interval as "quarterly" | "yearly" | null;
+  const monthlyEquivalentPrice =
+    display && interval === "yearly" && display.yearlyPrice != null
+      ? getEffectiveMonthlyPrice(display.yearlyPrice)
+      : display?.monthlyPrice ?? null;
+  const billedPrice =
+    interval === "yearly" ? display?.yearlyPrice : display?.quarterlyPrice;
+  const billingSummary =
+    monthlyEquivalentPrice != null && interval
+      ? `${formatPrice(monthlyEquivalentPrice)} per month, charged ${interval === "yearly" ? "yearly" : "quarterly"}`
+      : null;
   const showPlanSelectorButton = status.billing_mode === "stripe_checkout";
   const planSelectorLabel = status.pending_cancellation ? "Renew" : "Upgrade";
   const canManageBilling = !!status.stripe_customer_id;
-
+  const creditsPerPeriod =
+    interval === "yearly"
+      ? display?.creditsPerYear
+      : display?.creditsPerQuarter;
+  const periodLabel = interval === "yearly" ? "year" : "quarter";
   const invoices = invoicesQuery.data ?? [];
+
+  /**
+   * Open the hosted Stripe billing portal in a separate tab.
+   */
   const openBillingPortal = async () => {
     // Create the short-lived portal session only when the user explicitly asks for it.
     const portal = await portalMutation.mutateAsync();
@@ -150,14 +171,13 @@ export function BillingPageContent() {
         <div className="flex items-start justify-between gap-6 p-6">
           <div className="flex flex-col gap-1.5">
             <h6 className="text-foreground">
-              {display?.name ?? status.plan_type} Plan
+              {display?.name ?? status.plan_type ?? "Billing"} Plan
             </h6>
-            {basePrice != null && (
+            {billingSummary ? (
               <p className="text-sm text-secondary">
-                {formatPrice(basePrice)}
-                {periodLabel}
+                {billingSummary}
               </p>
-            )}
+            ) : null}
             {status.current_period_end && (
               <p className="text-sm text-secondary">
                 {status.pending_cancellation
@@ -170,10 +190,9 @@ export function BillingPageContent() {
                 .
               </p>
             )}
-            {status.sku_annual_limit != null && (
+            {creditsPerPeriod != null && (
               <p className="text-sm text-secondary">
-                {status.sku_annual_limit.toLocaleString("en-US")} product
-                passports per year
+                {formatCredits(creditsPerPeriod)} passports per {periodLabel}
               </p>
             )}
             {status.phase === "past_due" && (

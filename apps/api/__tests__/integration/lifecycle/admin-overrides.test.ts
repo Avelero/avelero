@@ -41,7 +41,7 @@ describe("admin billing overrides", () => {
       currentPeriodEnd: daysFromNow(30),
       billingOverride: "temporary_block",
       billingOverrideExpiresAt: daysFromNow(7),
-      skuAnnualLimit: 500,
+      totalCredits: 500,
     });
 
     const snapshot = await getBrandAccessSnapshot(testDb, brandId);

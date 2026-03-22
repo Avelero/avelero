@@ -8,14 +8,15 @@ import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import {
   PLAN_DISPLAY,
-  PLAN_FEATURES,
+  getPlanFeatures,
+  getEffectiveMonthlyPrice,
   type PlanTier,
 } from "./plan-features";
 import { RollingPrice } from "./rolling-price";
 
 interface PlanCardProps {
   tier: PlanTier;
-  interval: "monthly" | "yearly";
+  interval: "quarterly" | "yearly";
   onSelect: (tier: PlanTier) => void;
   isCurrentPlan?: boolean;
   isLoading?: boolean;
@@ -38,12 +39,13 @@ export function PlanCard({
   const display = PLAN_DISPLAY[tier];
 
   const price =
-    interval === "yearly"
-      ? Math.round(display.monthlyPrice! * 0.9)
+    interval === "yearly" && display.yearlyPrice != null
+      ? getEffectiveMonthlyPrice(display.yearlyPrice)
       : display.monthlyPrice;
   const periodLabel =
-    interval === "yearly" ? "/month, billed yearly" : "/month";
-
+    interval === "yearly"
+      ? "/month, billed yearly"
+      : "/month, billed quarterly";
   return (
     <div
       className={cn(
@@ -53,22 +55,19 @@ export function PlanCard({
           : "border-border bg-background",
       )}
     >
-      {/* Tier name */}
-      <h3 className="text-lg font-semibold text-primary">{display.name}</h3>
+      <div>
+        <h3 className="text-lg font-semibold text-primary">{display.name}</h3>
+        <p className="mt-1 text-sm text-secondary">{display.description}</p>
+      </div>
 
-      {/* Short description */}
-      <p className="mt-1 text-sm text-secondary">{display.description}</p>
-
-      {/* Price */}
       <div className="mt-4 flex items-baseline gap-1">
         <RollingPrice
-          value={price!}
+          value={price ?? 0}
           className="text-2xl font-bold text-primary"
         />
         <span className="text-sm text-secondary">{periodLabel}</span>
       </div>
 
-      {/* CTA — right below price */}
       <div className="mt-4">
         {isCurrentPlan ? (
           onCurrentPlanSelect ? (
@@ -104,9 +103,8 @@ export function PlanCard({
         )}
       </div>
 
-      {/* Feature list */}
       <ul className="mt-5 flex-1 space-y-2">
-        {PLAN_FEATURES.map((feature) => {
+        {getPlanFeatures(interval).map((feature) => {
           const value = feature[tier];
           const isIncluded = value === true || typeof value === "string";
 

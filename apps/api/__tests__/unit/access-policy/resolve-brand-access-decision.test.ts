@@ -1,3 +1,6 @@
+/**
+ * Covers brand-level lifecycle access decisions.
+ */
 import { describe, expect, it } from "bun:test";
 import { resolveBrandAccessDecision } from "../../../src/lib/access-policy/resolve-brand-access-decision";
 import type {
@@ -29,11 +32,8 @@ function buildSnapshot(
       pendingCancellation: false,
     },
     plan: {
-      skuAnnualLimit: null,
-      skuOnboardingLimit: null,
-      skuLimitOverride: null,
-      skuCountAtYearStart: null,
-      skuCountAtOnboardingStart: null,
+      totalCredits: 50,
+      onboardingDiscountUsed: false,
     },
     ...overrides,
   };
@@ -260,5 +260,35 @@ describe("resolveBrandAccessDecision", () => {
     expect(result.decision).toBe("past_due");
     expect(result.capabilities.canWriteBrandData).toBe(true);
     expect(result.banner).toBe("past_due");
+  });
+
+  it("blocks writes after the 14-day past-due grace period expires", () => {
+    const now = new Date("2026-03-15T12:00:00.000Z");
+    const result = resolveBrandAccessDecision({
+      role: "owner",
+      snapshot: buildSnapshot({
+        lifecycle: {
+          phase: "past_due",
+          trialStartedAt: null,
+          trialEndsAt: null,
+        },
+        billing: {
+          billingMode: "stripe_checkout",
+          stripeCustomerId: "cus_123",
+          stripeSubscriptionId: "sub_123",
+          billingAccessOverride: "none",
+          billingOverrideExpiresAt: null,
+          currentPeriodStart: "2026-01-01T00:00:00.000Z",
+          currentPeriodEnd: "2026-02-01T00:00:00.000Z",
+          pastDueSince: "2026-02-20T00:00:00.000Z",
+          pendingCancellation: false,
+        },
+      }),
+      now,
+    });
+
+    expect(result.decision).toBe("payment_required");
+    expect(result.capabilities.canWriteBrandData).toBe(false);
+    expect(result.capabilities.canReadBrandData).toBe(true);
   });
 });

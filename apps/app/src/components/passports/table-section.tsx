@@ -282,8 +282,8 @@ export function TableSection() {
               ),
         ]);
 
-        const remaining = billingStatus.active_sku_budget.remaining;
-        const limit = billingStatus.active_sku_budget.limit;
+        const remaining = billingStatus.remaining_credits;
+        const limit = billingStatus.total_credits;
         const requested = selectionCounts.data.publishableVariants ?? 0;
 
         if (remaining !== null && limit !== null && requested > remaining) {

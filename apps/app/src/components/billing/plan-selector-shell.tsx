@@ -45,7 +45,7 @@ function PlanSelectorOverlayRenderer() {
         status?.plan_type as "starter" | "growth" | "scale" | null ?? null
       }
       currentInterval={
-        status?.billing_interval as "monthly" | "yearly" | null ?? null
+        status?.billing_interval as "quarterly" | "yearly" | null ?? null
       }
       hasImpact={status?.has_impact_predictions ?? false}
       hasSubscription={status?.has_active_subscription ?? false}

@@ -2,7 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-TEMP_DIR="$(mktemp -d /tmp/avelero-live-billing.XXXXXX)"
+TEMP_DIR="/tmp/avelero-live-billing"
+rm -rf "$TEMP_DIR"
+mkdir -p "$TEMP_DIR"
 TEMP_PROJECT_DIR="$TEMP_DIR/project"
 TEMP_SUPABASE_DIR="$TEMP_PROJECT_DIR/supabase"
 CONFIG_FILE="$TEMP_SUPABASE_DIR/config.toml"
@@ -12,6 +14,93 @@ STRIPE_LOG_FILE="$TEMP_DIR/stripe-listen.log"
 API_LOG_FILE="$TEMP_DIR/api-server.log"
 XDG_CONFIG_HOME="$TEMP_DIR/xdg"
 STATUS_ENV_FILE="$TEMP_DIR/supabase-status.env"
+
+load_optional_env_file() {
+  local env_file="$1"
+
+  if [[ ! -r "$env_file" ]]; then
+    return 0
+  fi
+
+  set -a
+  # shellcheck source=/dev/null
+  source "$env_file"
+  set +a
+}
+
+run_api_preflight() {
+  # Exercise the live webhook route before Stripe clocks burn minutes on a broken server.
+  # Fail fast when the API server or webhook endpoint is not actually usable.
+  local unsigned_status
+  local unsigned_body
+  local signed_output
+
+  unsigned_body="$TEMP_DIR/webhook-preflight-unsigned.json"
+  unsigned_status="$(
+    curl -sS \
+      -o "$unsigned_body" \
+      -w '%{http_code}' \
+      -X POST "http://127.0.0.1:${API_PORT}/webhooks/stripe" \
+      -H 'content-type: application/json' \
+      --data '{"preflight":true}'
+  )"
+
+  if [[ "$unsigned_status" != "400" ]]; then
+    echo "Unsigned webhook preflight failed: expected HTTP 400, got ${unsigned_status}"
+    cat "$unsigned_body" || true
+    return 1
+  fi
+
+  if ! signed_output="$(
+    cd "$ROOT_DIR/apps/api"
+    STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET" PORT="$API_PORT" bun -e '
+      import Stripe from "stripe";
+
+      // Send one valid signed webhook before the suite starts so long failures fail fast.
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const payload = JSON.stringify({
+        id: `evt_preflight_${crypto.randomUUID().replace(/-/g, "")}`,
+        object: "event",
+        type: "codex.preflight.webhook",
+        data: {
+          object: {
+            id: `obj_preflight_${crypto.randomUUID().replace(/-/g, "")}`,
+            object: "preflight",
+          },
+        },
+      });
+      const signature = await stripe.webhooks.generateTestHeaderStringAsync({
+        payload,
+        secret: process.env.STRIPE_WEBHOOK_SECRET,
+      });
+
+      const response = await fetch(
+        `http://127.0.0.1:${process.env.PORT}/webhooks/stripe`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "stripe-signature": signature,
+          },
+          body: payload,
+        },
+      );
+
+      const body = await response.text();
+      console.log(JSON.stringify({ status: response.status, body }));
+
+      if (response.status !== 200) {
+        process.exit(1);
+      }
+    '
+  )"; then
+    echo "Signed webhook preflight failed"
+    echo "$signed_output"
+    return 1
+  fi
+
+  echo "$signed_output"
+}
 
 cleanup() {
   local exit_code=$?
@@ -34,7 +123,11 @@ cleanup() {
       --workdir "$TEMP_PROJECT_DIR" >/dev/null 2>&1 || true
   fi
 
-  rm -rf "${TEMP_DIR:-}"
+  if [[ $exit_code -ne 0 ]]; then
+    echo "Live billing runner artifacts preserved at: ${TEMP_DIR:-unknown}" >&2
+  else
+    rm -rf "${TEMP_DIR:-}"
+  fi
   exit "$exit_code"
 }
 trap cleanup EXIT INT TERM
@@ -55,10 +148,7 @@ pop3_port = 55426
 EOF
 fi
 
-set -a
-# shellcheck source=/dev/null
-source "$ROOT_DIR/apps/api/.env.test"
-set +a
+load_optional_env_file "$ROOT_DIR/apps/api/.env.test"
 
 export NODE_ENV="test"
 export PORT="$API_PORT"
@@ -72,7 +162,21 @@ export GOOGLE_SECRET="test-google-secret"
 export GOOGLE_REDIRECT_URI="http://localhost:55421/auth/v1/callback"
 export XDG_CONFIG_HOME
 
-: "${STRIPE_SECRET_KEY:?Missing STRIPE_SECRET_KEY in environment}"
+if [[ -z "${STRIPE_SECRET_KEY:-}" ]]; then
+  echo "Missing STRIPE_SECRET_KEY. Set it in the environment or add a test-mode key to apps/api/.env.test." >&2
+  exit 1
+fi
+
+if [[ "${STRIPE_SECRET_KEY}" != sk_test_* ]]; then
+  echo "Live Stripe billing tests require a Stripe test-mode secret key (sk_test_*)." >&2
+  exit 1
+fi
+
+echo "Stopping any stale live billing Supabase stack..."
+supabase stop \
+  --project-id "$PROJECT_ID" \
+  --no-backup \
+  --workdir "$TEMP_PROJECT_DIR" >/dev/null 2>&1 || true
 
 echo "Starting disposable Supabase live billing stack..."
 supabase start --workdir "$TEMP_PROJECT_DIR"
@@ -101,9 +205,8 @@ echo "Syncing taxonomy data into disposable live billing DB..."
 
 echo "Starting Stripe webhook listener..."
 stripe listen \
-  --print-secret \
   --api-key "$STRIPE_SECRET_KEY" \
-  --events checkout.session.completed,customer.subscription.updated,customer.subscription.deleted,invoice.created,invoice.finalized,invoice.updated,invoice.overdue,invoice.paid,invoice.payment_failed,invoice.voided,invoice.marked_uncollectible \
+  --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.created,invoice.finalized,invoice.updated,invoice.overdue,invoice.paid,invoice.payment_failed,invoice.voided,invoice.marked_uncollectible \
   --forward-to "http://127.0.0.1:${API_PORT}/webhooks/stripe" \
   >"$STRIPE_LOG_FILE" 2>&1 &
 STRIPE_PID=$!
@@ -129,6 +232,9 @@ if [[ -z "${STRIPE_WEBHOOK_SECRET:-}" ]]; then
   cat "$STRIPE_LOG_FILE"
   exit 1
 fi
+
+# Kill any stale API server left over from a previous run.
+lsof -ti:"$API_PORT" | xargs kill 2>/dev/null || true
 
 echo "Starting API server for webhook delivery..."
 (
@@ -159,5 +265,37 @@ if [[ "$api_ready" != "true" ]]; then
   exit 1
 fi
 
+echo "Running API dependency and webhook preflight..."
+dependencies_body="$TEMP_DIR/health-dependencies.json"
+dependencies_status="$(
+  curl -sS \
+    -o "$dependencies_body" \
+    -w '%{http_code}' \
+    "http://127.0.0.1:${API_PORT}/health/dependencies"
+)"
+
+if [[ "$dependencies_status" != "200" ]]; then
+  echo "API dependency preflight failed: expected HTTP 200, got ${dependencies_status}"
+  cat "$dependencies_body" || true
+  echo "--- api server log ---"
+  cat "$API_LOG_FILE" || true
+  exit 1
+fi
+
+if ! run_api_preflight; then
+  echo "--- stripe listener log ---"
+  cat "$STRIPE_LOG_FILE" || true
+  echo "--- api server log ---"
+  cat "$API_LOG_FILE" || true
+  exit 1
+fi
+
 echo "Running live Stripe billing suite..."
-(cd "$ROOT_DIR/apps/api" && bun run test:billing:live)
+if ! (cd "$ROOT_DIR/apps/api" && bun run test:billing:live); then
+  echo ""
+  echo "Live Stripe billing suite failed."
+  echo "Full logs preserved at: ${TEMP_DIR}"
+  echo "  Stripe listener: ${STRIPE_LOG_FILE}"
+  echo "  API server:      ${API_LOG_FILE}"
+  exit 1
+fi

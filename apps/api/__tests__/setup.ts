@@ -18,17 +18,28 @@ import {
   rollbackTestTransaction,
 } from "@v1/db/testing";
 
+// Live billing tests use committed writes (no transaction wrapping) so the
+// separate API server process can observe webhook-driven changes.  Skip the
+// transaction isolation hooks when the live suite is active.
+const isLiveBillingSuite = process.env.STRIPE_LIVE_TESTS === "true";
+
 // Clean once at start (handles leftover data from crashed runs)
 beforeAll(async () => {
   await initTestDb();
-  await cleanupTables();
+  if (!isLiveBillingSuite) {
+    await cleanupTables();
+  }
 });
 
 // Transaction isolation per test - rollback is instant, no dead tuples
 beforeEach(async () => {
-  await beginTestTransaction();
+  if (!isLiveBillingSuite) {
+    await beginTestTransaction();
+  }
 });
 
 afterEach(async () => {
-  await rollbackTestTransaction();
+  if (!isLiveBillingSuite) {
+    await rollbackTestTransaction();
+  }
 });

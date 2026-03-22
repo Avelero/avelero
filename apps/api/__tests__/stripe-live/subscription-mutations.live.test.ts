@@ -11,26 +11,7 @@ import {
   readLiveBrandBillingState,
   waitForBillingEvent,
   waitForCondition,
-  waitForInvoiceProjection,
 } from "./helpers/live-billing";
-
-/**
- * Lists real Stripe invoices for a subscription and filters to proration updates.
- */
-async function listProrationInvoices(params: {
-  stripe: Awaited<ReturnType<typeof provisionActiveStripeBillingBrand>>["stripe"];
-  subscriptionId: string;
-}) {
-  const invoices = await params.stripe.invoices.list({
-    subscription: params.subscriptionId,
-    limit: 10,
-  });
-
-  return invoices.data.filter(
-    (invoice) =>
-      invoice.billing_reason === "subscription_update" && invoice.total > 0,
-  );
-}
 
 beforeAll(async () => {
   // Validate the live price catalog once before the mutation suite runs.
@@ -38,11 +19,11 @@ beforeAll(async () => {
 });
 
 describe("live Stripe subscription mutations", () => {
-  it("updates the plan with real proration and clears pending cancellation", async () => {
+  it("renews a pending cancellation with a plan upgrade via updatePlan", async () => {
     const provisioned = await provisionActiveStripeBillingBrand({
-      namePrefix: "Plan Mutation Upgrade",
+      namePrefix: "Plan Mutation Renew Upgrade",
       tier: "starter",
-      interval: "monthly",
+      interval: "quarterly",
       includeImpact: false,
     });
 
@@ -58,10 +39,11 @@ describe("live Stripe subscription mutations", () => {
         isDone: (state) => state.billing?.pendingCancellation === true,
       });
 
+      // Renewals with pending cancellation bypass the upgrade guard
       const result = await provisioned.harness.caller.brand.billing.updatePlan({
         tier: "growth",
         interval: "yearly",
-        include_impact: true,
+        include_impact: false,
       });
 
       expect(result.success).toBe(true);
@@ -73,7 +55,6 @@ describe("live Stripe subscription mutations", () => {
         isDone: (state) =>
           state.plan?.planType === "growth" &&
           state.plan.billingInterval === "yearly" &&
-          state.plan.hasImpactPredictions === true &&
           state.billing?.pendingCancellation === false,
       });
 
@@ -81,21 +62,111 @@ describe("live Stripe subscription mutations", () => {
         brandId: provisioned.harness.brandId,
         eventType: "subscription_updated",
       });
+    } finally {
+      await provisioned.cleanup.cleanup();
+    }
+  });
 
-      const prorationInvoices = await listProrationInvoices({
-        stripe: provisioned.stripe,
-        subscriptionId: provisioned.subscription.id,
+  it("blocks upgrades through updatePlan when no pending cancellation", async () => {
+    const provisioned = await provisionActiveStripeBillingBrand({
+      namePrefix: "Upgrade Guard",
+      tier: "starter",
+      interval: "quarterly",
+      includeImpact: false,
+    });
+
+    try {
+      await expect(
+        provisioned.harness.caller.brand.billing.updatePlan({
+          tier: "growth",
+          interval: "yearly",
+          include_impact: false,
+        }),
+      ).rejects.toMatchObject({
+        code: "PRECONDITION_FAILED",
       });
-      expect(prorationInvoices.length).toBeGreaterThan(0);
 
-      const latestProrationInvoice = prorationInvoices[0]!;
-      const projectedInvoice = await waitForInvoiceProjection({
-        brandId: provisioned.harness.brandId,
-        invoiceId: latestProrationInvoice.id,
+      // Plan should be unchanged
+      const state = await readLiveBrandBillingState(
+        provisioned.harness.brandId,
+      );
+      expect(state.plan?.planType).toBe("starter");
+      expect(state.plan?.billingInterval).toBe("quarterly");
+    } finally {
+      await provisioned.cleanup.cleanup();
+    }
+  });
+
+  it("creates an upgrade checkout session with prorated credit coupon", async () => {
+    const provisioned = await provisionActiveStripeBillingBrand({
+      namePrefix: "Upgrade Checkout",
+      tier: "starter",
+      interval: "quarterly",
+      includeImpact: false,
+    });
+
+    try {
+      const result =
+        await provisioned.harness.caller.brand.billing.createUpgradeCheckout({
+          tier: "growth",
+          interval: "quarterly",
+          include_impact: false,
+        });
+
+      expect(result.url).toContain("stripe.com");
+
+      // Verify the checkout session has a coupon discount
+      const sessions = await provisioned.stripe.checkout.sessions.list({
+        customer: provisioned.customer.id,
+        limit: 5,
+        status: "open",
       });
 
-      expect(projectedInvoice.total).toBe(latestProrationInvoice.total);
-      expect(projectedInvoice.amountDue).toBe(latestProrationInvoice.amount_due);
+      const upgradeSession = sessions.data.find(
+        (s) => s.metadata?.upgrade_from_subscription_id === provisioned.subscription.id,
+      );
+      expect(upgradeSession).toBeDefined();
+      expect(upgradeSession!.metadata?.upgrade_coupon_id).toBeTruthy();
+
+      // Verify the coupon exists and has the right amount
+      const coupon = await provisioned.stripe.coupons.retrieve(
+        upgradeSession!.metadata!.upgrade_coupon_id!,
+      );
+      expect(coupon.duration).toBe("once");
+      expect(coupon.amount_off).toBeGreaterThan(0);
+
+      // Old subscription should still be active
+      const oldSub = await provisioned.stripe.subscriptions.retrieve(
+        provisioned.subscription.id,
+      );
+      expect(oldSub.status).toBe("active");
+
+      // Clean up: expire the session and delete the coupon
+      await provisioned.stripe.checkout.sessions.expire(upgradeSession!.id);
+      await provisioned.stripe.coupons.del(coupon.id);
+    } finally {
+      await provisioned.cleanup.cleanup();
+    }
+  });
+
+  it("blocks downgrade through createUpgradeCheckout", async () => {
+    const provisioned = await provisionActiveStripeBillingBrand({
+      namePrefix: "Downgrade Guard",
+      tier: "growth",
+      interval: "yearly",
+      includeImpact: false,
+    });
+
+    try {
+      await expect(
+        provisioned.harness.caller.brand.billing.createUpgradeCheckout({
+          tier: "starter",
+          interval: "quarterly",
+          include_impact: false,
+        }),
+      ).rejects.toMatchObject({
+        code: "PRECONDITION_FAILED",
+      });
     } finally {
       await provisioned.cleanup.cleanup();
     }
@@ -105,7 +176,7 @@ describe("live Stripe subscription mutations", () => {
     const provisioned = await provisionActiveStripeBillingBrand({
       namePrefix: "Impact Mutation Backfill",
       tier: "starter",
-      interval: "monthly",
+      interval: "quarterly",
       includeImpact: false,
     });
 
@@ -128,7 +199,7 @@ describe("live Stripe subscription mutations", () => {
           readLiveBrandBillingState(provisioned.harness.brandId),
         isDone: (state) =>
           state.plan?.planType === "starter" &&
-          state.plan.billingInterval === "monthly" &&
+          state.plan.billingInterval === "quarterly" &&
           state.plan.hasImpactPredictions === true,
       });
 
@@ -142,12 +213,6 @@ describe("live Stripe subscription mutations", () => {
           readLiveBrandBillingState(provisioned.harness.brandId),
         isDone: (state) => state.plan?.hasImpactPredictions === false,
       });
-
-      const prorationInvoices = await listProrationInvoices({
-        stripe: provisioned.stripe,
-        subscriptionId: provisioned.subscription.id,
-      });
-      expect(prorationInvoices.length).toBeGreaterThanOrEqual(2);
     } finally {
       await provisioned.cleanup.cleanup();
     }
@@ -164,7 +229,7 @@ describe("live Stripe subscription mutations", () => {
     try {
       const result = await provisioned.harness.caller.brand.billing.updatePlan({
         tier: "starter",
-        interval: "monthly",
+        interval: "quarterly",
         include_impact: false,
       });
 
@@ -176,7 +241,7 @@ describe("live Stripe subscription mutations", () => {
           readLiveBrandBillingState(provisioned.harness.brandId),
         isDone: (state) =>
           state.plan?.planType === "starter" &&
-          state.plan.billingInterval === "monthly" &&
+          state.plan.billingInterval === "quarterly" &&
           state.plan.hasImpactPredictions === false,
       });
     } finally {

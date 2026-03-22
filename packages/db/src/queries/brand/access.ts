@@ -31,14 +31,9 @@ export interface BrandAccessSnapshotRow {
     pendingCancellation: boolean;
   } | null;
   plan: {
-    skuAnnualLimit: number | null;
-    skuOnboardingLimit: number | null;
-    skuLimitOverride: number | null;
+    totalCredits: number;
+    onboardingDiscountUsed: boolean;
     variantGlobalCap?: number | null;
-    firstPaidStartedAt?: string | null;
-    annualUsageAnchorAt?: string | null;
-    skuCountAtYearStart?: number | null;
-    skuCountAtOnboardingStart?: number | null;
   } | null;
 }
 
@@ -70,12 +65,9 @@ export async function getBrandAccessSnapshot(
       billingCurrentPeriodEnd: brandBilling.currentPeriodEnd,
       billingPastDueSince: brandBilling.pastDueSince,
       billingPendingCancellation: brandBilling.pendingCancellation,
-      skuAnnualLimit: brandPlan.skuAnnualLimit,
-      skuOnboardingLimit: brandPlan.skuOnboardingLimit,
-      skuLimitOverride: brandPlan.skuLimitOverride,
+      totalCredits: brandPlan.totalCredits,
+      onboardingDiscountUsed: brandPlan.onboardingDiscountUsed,
       variantGlobalCap: brandPlan.variantGlobalCap,
-      firstPaidStartedAt: brandPlan.firstPaidStartedAt,
-      annualUsageAnchorAt: brandPlan.annualUsageAnchorAt,
     })
     .from(brands)
     .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brands.id))
@@ -116,19 +108,13 @@ export async function getBrandAccessSnapshot(
         }
       : null,
     plan:
-      row.skuAnnualLimit !== null ||
-      row.skuOnboardingLimit !== null ||
-      row.skuLimitOverride !== null ||
-      row.variantGlobalCap !== null ||
-      row.firstPaidStartedAt !== null ||
-      row.annualUsageAnchorAt !== null
+      row.totalCredits !== null ||
+      row.onboardingDiscountUsed !== null ||
+      row.variantGlobalCap !== null
         ? {
-            skuAnnualLimit: row.skuAnnualLimit,
-            skuOnboardingLimit: row.skuOnboardingLimit,
-            skuLimitOverride: row.skuLimitOverride,
+            totalCredits: row.totalCredits ?? 0,
+            onboardingDiscountUsed: row.onboardingDiscountUsed ?? false,
             variantGlobalCap: row.variantGlobalCap,
-            firstPaidStartedAt: row.firstPaidStartedAt,
-            annualUsageAnchorAt: row.annualUsageAnchorAt,
           }
         : null,
   };

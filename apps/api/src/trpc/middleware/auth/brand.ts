@@ -12,10 +12,9 @@ import type {
 } from "@api/lib/access-policy/types.js";
 import type { TRPCContext } from "@api/trpc/init.ts";
 import {
-  countPublishedPassportsInActiveWindow,
+  countPublishedPassports,
   getCurrentDatabaseTimestamp,
   getBrandAccessSnapshot,
-  resolveActiveSkuWindow,
 } from "@v1/db/queries/brand";
 import { logger } from "@v1/logger";
 
@@ -157,15 +156,10 @@ export async function ensureBrandAccessContext(
     snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
   }
 
-  // Resolve the single active publish window and count live published passports inside it.
-  const activeSkuWindow = resolveActiveSkuWindow({
-    snapshot,
-    evaluationDate: currentDatabaseTimestamp,
-  });
-  const currentPublishUsageCount = await countPublishedPassportsInActiveWindow(
+  // Count the current number of published passports against the cumulative credit cap.
+  const currentPublishUsageCount = await countPublishedPassports(
     ctx.db,
     ctx.brandId,
-    activeSkuWindow,
   );
 
   const resolvedBrandAccess = resolveBrandAccessDecision({

@@ -13,8 +13,9 @@ export type NotificationType =
   | "invite_accepted"
   | "sync_complete"
   | "sync_failure"
-  | "sku_limit_warning"
-  | "sku_limit_reached";
+  | "credit_limit_warning"
+  | "credit_limit_reached"
+  | "pack_purchased";
 
 /**
  * Known resource types for polymorphic references
@@ -25,9 +26,8 @@ export type NotificationResourceType =
   | "qr_export_job"
   | "brand_invite"
   | "sync_job"
-  | "sku_budget_trial"
-  | "sku_budget_onboarding"
-  | "sku_budget_annual";
+  | "credit_balance"
+  | "credit_pack";
 
 export interface ImportCorrectionsRegenerateAction {
   type: "import_corrections";

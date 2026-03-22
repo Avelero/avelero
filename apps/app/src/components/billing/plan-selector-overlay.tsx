@@ -14,7 +14,7 @@ interface PlanSelectorOverlayProps {
   /** Current plan tier (null for trial/expired brands). */
   currentPlan?: "starter" | "growth" | "scale" | null;
   /** Current billing interval. */
-  currentInterval?: "monthly" | "yearly" | null;
+  currentInterval?: "quarterly" | "yearly" | null;
   /** Whether Impact Predictions is currently active. */
   hasImpact?: boolean;
   /** Whether the brand currently has a live Stripe subscription to modify. */

@@ -1,3 +1,6 @@
+/**
+ * Backfills missing brand lifecycle, plan, and billing foundation rows.
+ */
 import { eq, isNull, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { serviceDb } from "../client";
@@ -28,6 +31,7 @@ async function countMissingRows(db: CountReadableDb): Promise<{
   planMissing: number;
   billingMissing: number;
 }> {
+  // Count brands that are missing each required 1:1 foundation row.
   const [lifecycleRow] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(brands)
@@ -56,6 +60,7 @@ async function countMissingRows(db: CountReadableDb): Promise<{
 export async function backfillBrandSubscriptionFoundations(
   db: Database = serviceDb,
 ): Promise<SubscriptionBackfillSummary> {
+  // Fill in any missing 1:1 billing foundation rows without disturbing existing data.
   return db.transaction(async (tx) => {
     const before = await countMissingRows(tx);
 
@@ -78,14 +83,10 @@ export async function backfillBrandSubscriptionFoundations(
 
     await tx.execute(sql`
       INSERT INTO brand_plan (
-        brand_id,
-        sku_count_at_year_start,
-        sku_count_at_onboarding_start
+        brand_id
       )
       SELECT
-        b.id,
-        NULL,
-        NULL
+        b.id
       FROM brands b
       LEFT JOIN brand_plan bp
         ON bp.brand_id = b.id
@@ -125,6 +126,7 @@ export async function backfillBrandSubscriptionFoundations(
 }
 
 async function main() {
+  // Run the backfill as a standalone script.
   const summary = await backfillBrandSubscriptionFoundations();
   console.log("Subscription foundations backfill complete");
   console.log(JSON.stringify(summary, null, 2));

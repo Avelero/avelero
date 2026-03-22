@@ -188,11 +188,11 @@ const PLAN_TYPE_OPTIONS: {
 ];
 
 const BILLING_INTERVAL_OPTIONS: {
-  value: "" | "monthly" | "yearly";
+  value: "" | "quarterly" | "yearly";
   label: string;
 }[] = [
   { value: "", label: "No interval" },
-  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
   { value: "yearly", label: "Yearly" },
 ];
 
@@ -240,11 +240,8 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
     "" | "starter" | "growth" | "scale" | "enterprise"
   >("");
   const [billingInterval, setBillingInterval] = useState<
-    "" | "monthly" | "yearly"
+    "" | "quarterly" | "yearly"
   >("");
-  const [skuAnnualLimit, setSkuAnnualLimit] = useState("");
-  const [skuOnboardingLimit, setSkuOnboardingLimit] = useState("");
-  const [skuLimitOverride, setSkuLimitOverride] = useState("");
   const [customPriceCents, setCustomPriceCents] = useState("");
 
   const [inviteEmail, setInviteEmail] = useState("");
@@ -299,22 +296,7 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         | "enterprise") ?? "",
     );
     setBillingInterval(
-      (brandData.plan.billing_interval as "" | "monthly" | "yearly") ?? "",
-    );
-    setSkuAnnualLimit(
-      brandData.plan.sku_annual_limit !== null
-        ? String(brandData.plan.sku_annual_limit)
-        : "",
-    );
-    setSkuOnboardingLimit(
-      brandData.plan.sku_onboarding_limit !== null
-        ? String(brandData.plan.sku_onboarding_limit)
-        : "",
-    );
-    setSkuLimitOverride(
-      brandData.plan.sku_limit_override !== null
-        ? String(brandData.plan.sku_limit_override)
-        : "",
+      (brandData.plan.billing_interval as "" | "quarterly" | "yearly") ?? "",
     );
     setCustomPriceCents(
       brandData.billing.custom_price_cents !== null
@@ -770,35 +752,14 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
             the first time the enterprise plan is saved.
           </p>
         ) : null}
-        <FieldRow label="SKU annual limit">
-          <Input
-            type="number"
-            placeholder="Leave empty for no limit"
-            value={skuAnnualLimit}
-            onChange={(e) => setSkuAnnualLimit(e.target.value)}
-          />
-        </FieldRow>
-        <FieldRow label="SKU onboarding limit">
-          <Input
-            type="number"
-            placeholder="Leave empty for no limit"
-            value={skuOnboardingLimit}
-            onChange={(e) => setSkuOnboardingLimit(e.target.value)}
-          />
-        </FieldRow>
-        <FieldRow label="SKU limit override">
-          <Input
-            type="number"
-            placeholder="Leave empty for no override"
-            value={skuLimitOverride}
-            onChange={(e) => setSkuLimitOverride(e.target.value)}
-          />
-        </FieldRow>
         <p className="type-small text-secondary">
-          Annual usage: {brandData.usage.annual.used}
-          {brandData.usage.annual.limit !== null
-            ? ` / ${brandData.usage.annual.limit}`
-            : " (no limit)"}
+          Credits: {brandData.usage.credits.published}
+          {` / ${brandData.usage.credits.total}`} published, with{" "}
+          {brandData.usage.credits.remaining} remaining.
+        </p>
+        <p className="type-small text-secondary">
+          Onboarding discount used:{" "}
+          {brandData.plan.onboarding_discount_used ? "Yes" : "No"}
         </p>
         <div className="pt-1">
           <Button
@@ -814,11 +775,8 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
                 billing_interval: (
                   (planType === "enterprise" ? "yearly" : billingInterval) ||
                   null
-                ) as "monthly" | "yearly" | null,
+                ) as "quarterly" | "yearly" | null,
                 custom_price_cents: parseIntOrNull(customPriceCents),
-                sku_annual_limit: parseIntOrNull(skuAnnualLimit),
-                sku_onboarding_limit: parseIntOrNull(skuOnboardingLimit),
-                sku_limit_override: parseIntOrNull(skuLimitOverride),
               })
             }
             disabled={updatePlanMutation.isPending}

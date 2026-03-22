@@ -244,6 +244,10 @@ export const publishRouter = createTRPCRouter({
           if (!passport) {
             throw badRequest("Failed to create or retrieve passport");
           }
+          // A passport row can exist before its first published version exists.
+          const wasUnpublished =
+            passport.currentVersionId === null &&
+            passport.firstPublishedAt === null;
 
           await setProductsPublished(tx, brandId, [target.productId]);
           await markPassportDirty(tx, passport.id);
@@ -252,6 +256,7 @@ export const publishRouter = createTRPCRouter({
             passportId: passport.id,
             isNew,
             publishedCount,
+            wasUnpublished,
           };
         });
 
@@ -271,7 +276,7 @@ export const publishRouter = createTRPCRouter({
         const notificationUsageDelta =
           publishResult.publishedCount > 0
             ? publishResult.publishedCount
-            : publishResult.isNew
+            : publishResult.wasUnpublished
               ? 1
               : 0;
 

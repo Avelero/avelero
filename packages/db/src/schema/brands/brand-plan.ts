@@ -1,11 +1,10 @@
 /**
- * Brand plan schema definitions, including SKU entitlement anchors.
+ * Brand plan schema definitions for credit-based pricing and billing state.
  */
 import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
-  date,
   index,
   integer,
   pgPolicy,
@@ -32,21 +31,11 @@ export const brandPlan = pgTable(
       withTimezone: true,
       mode: "string",
     }),
-    skuAnnualLimit: integer("sku_annual_limit"),
-    skuOnboardingLimit: integer("sku_onboarding_limit"),
-    skuLimitOverride: integer("sku_limit_override"),
     variantGlobalCap: integer("variant_global_cap"),
-    firstPaidStartedAt: timestamp("first_paid_started_at", {
-      withTimezone: true,
-      mode: "string",
-    }),
-    annualUsageAnchorAt: timestamp("annual_usage_anchor_at", {
-      withTimezone: true,
-      mode: "string",
-    }),
-    skuYearStart: date("sku_year_start", { mode: "date" }),
-    skuCountAtYearStart: integer("sku_count_at_year_start"),
-    skuCountAtOnboardingStart: integer("sku_count_at_onboarding_start"),
+    totalCredits: integer("total_credits").notNull().default(50),
+    onboardingDiscountUsed: boolean("onboarding_discount_used")
+      .notNull()
+      .default(false),
     billingInterval: text("billing_interval"),
     hasImpactPredictions: boolean("has_impact_predictions")
       .notNull()
@@ -65,32 +54,13 @@ export const brandPlan = pgTable(
       sql`plan_type IS NULL OR plan_type = ANY (ARRAY['starter'::text, 'growth'::text, 'scale'::text, 'enterprise'::text])`,
     ),
     check(
-      "brand_plan_sku_annual_limit_check",
-      sql`sku_annual_limit IS NULL OR sku_annual_limit >= 0`,
-    ),
-    check(
-      "brand_plan_sku_onboarding_limit_check",
-      sql`sku_onboarding_limit IS NULL OR sku_onboarding_limit >= 0`,
-    ),
-    check(
-      "brand_plan_sku_limit_override_check",
-      sql`sku_limit_override IS NULL OR sku_limit_override >= 0`,
-    ),
-    check(
       "brand_plan_variant_global_cap_check",
       sql`variant_global_cap IS NULL OR variant_global_cap >= 0`,
     ),
-    check(
-      "brand_plan_sku_count_at_year_start_check",
-      sql`sku_count_at_year_start IS NULL OR sku_count_at_year_start >= 0`,
-    ),
-    check(
-      "brand_plan_sku_count_at_onboarding_start_check",
-      sql`sku_count_at_onboarding_start IS NULL OR sku_count_at_onboarding_start >= 0`,
-    ),
+    check("brand_plan_total_credits_check", sql`total_credits >= 0`),
     check(
       "brand_plan_billing_interval_check",
-      sql`billing_interval IS NULL OR billing_interval = ANY (ARRAY['monthly'::text, 'yearly'::text])`,
+      sql`billing_interval IS NULL OR billing_interval = ANY (ARRAY['quarterly'::text, 'yearly'::text])`,
     ),
     check(
       "brand_plan_max_seats_check",
@@ -98,9 +68,6 @@ export const brandPlan = pgTable(
     ),
     uniqueIndex("brand_plan_brand_id_unq").on(table.brandId),
     index("idx_brand_plan_plan_type").on(table.planType),
-    index("idx_brand_plan_first_paid_started_at").on(table.firstPaidStartedAt),
-    index("idx_brand_plan_annual_usage_anchor_at").on(table.annualUsageAnchorAt),
-    index("idx_brand_plan_sku_year_start").on(table.skuYearStart),
     pgPolicy("brand_plan_select_for_brand_members", {
       as: "permissive",
       for: "select",

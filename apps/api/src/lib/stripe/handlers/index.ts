@@ -20,6 +20,10 @@ import { handleSubscriptionDeleted } from "./subscription-deleted.js";
 import { handleSubscriptionUpdated } from "./subscription-updated.js";
 
 registerWebhookHandler("checkout.session.completed", handleCheckoutCompleted);
+registerWebhookHandler(
+  "customer.subscription.created",
+  handleSubscriptionUpdated,
+);
 registerWebhookHandler("invoice.created", handleInvoiceCreated);
 registerWebhookHandler("invoice.finalized", handleInvoiceFinalized);
 registerWebhookHandler("invoice.updated", handleInvoiceUpdated);

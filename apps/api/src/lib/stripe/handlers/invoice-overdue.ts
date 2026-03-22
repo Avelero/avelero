@@ -1,7 +1,7 @@
 /**
  * Marks a brand as past due when Stripe emits an overdue invoice event.
  */
-import { db } from "@v1/db/client";
+import { db, type DatabaseOrTransaction } from "@v1/db/client";
 import { and, eq, notInArray, sql } from "@v1/db/queries";
 import { brandBilling, brandBillingEvents, brandLifecycle } from "@v1/db/schema";
 import { billingLogger } from "@v1/logger/billing";
@@ -15,10 +15,13 @@ import {
 
 const log = billingLogger.child({ component: "handler:invoice-overdue" });
 
-export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
+export async function handleInvoiceOverdue(
+  event: Stripe.Event,
+  conn: DatabaseOrTransaction = db,
+): Promise<void> {
   // Use receipt time for grace-period tracking and avoid reviving terminal lifecycle states.
   const invoice = event.data.object as Stripe.Invoice;
-  const brandId = await resolveBrandIdForInvoice({ db, invoice });
+  const brandId = await resolveBrandIdForInvoice({ db: conn, invoice });
 
   if (!brandId) {
     log.error(
@@ -34,13 +37,13 @@ export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
   }
 
   await upsertStripeInvoiceProjection({
-    db,
+    db: conn,
     invoice,
     eventId: event.id,
     knownBrandId: brandId,
   });
 
-  const [billing] = await db
+  const [billing] = await conn
     .select({
       pastDueSince: brandBilling.pastDueSince,
       phase: brandLifecycle.phase,
@@ -57,7 +60,7 @@ export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
     billing?.phase === "cancelled";
 
   if (!preservesTerminalPhase) {
-    await db
+    await conn
       .update(brandBilling)
       .set({
         stripeCustomerId: getStripeId(invoice.customer),
@@ -78,7 +81,7 @@ export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
     // Use a conditional update so a concurrent request that sets a terminal phase
     // (expired / suspended / cancelled) between our SELECT and this UPDATE is not
     // overwritten back to past_due.
-    await db
+    await conn
       .update(brandLifecycle)
       .set({
         phase: "past_due",
@@ -93,7 +96,7 @@ export async function handleInvoiceOverdue(event: Stripe.Event): Promise<void> {
       );
   }
 
-  await db.insert(brandBillingEvents).values({
+  await conn.insert(brandBillingEvents).values({
     brandId,
     eventType: "invoice_overdue",
     stripeEventId: event.id,

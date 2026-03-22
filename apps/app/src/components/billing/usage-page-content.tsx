@@ -1,5 +1,5 @@
 /**
- * Renders SKU usage for the active brand using billing status data.
+ * Renders credit usage for the active brand using billing status data.
  */
 "use client";
 
@@ -7,107 +7,139 @@ import { SkuLimitBanner } from "@/components/products/sku-limit-banner";
 import { useTRPC } from "@/trpc/client";
 import { Skeleton } from "@v1/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import { SkuUsageBar } from "./sku-usage-bar";
-
-const ONBOARDING_TOOLTIP =
-  "In your first paid year you have a higher onboarding passport publish limit. Your regular yearly limit starts after that.";
+import { CreditBalanceCard } from "./credit-balance-card";
+import { CreditPackSelector } from "./credit-pack-selector";
+import { PLAN_DISPLAY, type PlanTier } from "./plan-features";
 
 /**
- * Renders the single active SKU budget for the brand's current lifecycle phase.
+ * Renders the credit balance overview for the brand.
  */
 export function UsagePageContent() {
-  // Load billing status so the usage page can render plan limits even when dashboard SKU snapshots lag behind.
   const trpc = useTRPC();
   const statusQuery = useQuery(trpc.brand.billing.getStatus.queryOptions());
   const status = statusQuery.data;
 
   if (!status) {
     return (
-      <div className="w-full max-w-[700px]">
-        <div className="border p-6">
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="mt-1.5 h-4 w-64" />
-          <div className="mt-4 space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Skeleton className="h-3.5 w-40" />
-                <Skeleton className="h-3.5 w-16" />
-              </div>
-              <Skeleton className="h-2 w-full rounded-full" />
+      <div className="w-full max-w-[700px] space-y-6">
+        <div className="space-y-1">
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="border border-border p-5">
+          <div className="flex gap-10">
+            <div className="space-y-1">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-7 w-16" />
             </div>
+            <div className="space-y-1">
+              <Skeleton className="h-3.5 w-20" />
+              <Skeleton className="h-7 w-12" />
+            </div>
+          </div>
+          <div className="mt-5 border-t border-border pt-4 space-y-2">
+            <div className="flex justify-between">
+              <Skeleton className="h-3.5 w-32" />
+              <Skeleton className="h-3.5 w-16" />
+            </div>
+            <Skeleton className="h-2.5 w-full" />
           </div>
         </div>
       </div>
     );
   }
 
-  const activeSkuBudget = status.active_sku_budget;
-  const phase = activeSkuBudget.phase;
+  const totalCredits = status.total_credits ?? 0;
+  const publishedCount = status.published_count ?? 0;
+  const remainingCredits = status.remaining_credits ?? 0;
+  const utilization = status.utilization;
+  const showPackPurchases =
+    status.phase === "active" &&
+    status.billing_mode === "stripe_checkout" &&
+    status.has_active_subscription;
 
-  if (phase === "demo" || !activeSkuBudget.kind || activeSkuBudget.limit == null) {
+  if (totalCredits <= 0) {
     return (
       <div className="w-full max-w-[700px]">
-        <div className="border p-6">
-          <h6 className="text-foreground">Passport Usage</h6>
-          <p className="mt-1 text-sm text-secondary">
-            Passport publish limits are not enforced during demo access.
-          </p>
-        </div>
+        <h4 className="type-h5 text-foreground">Credit usage</h4>
+        <p className="mt-1 text-sm text-secondary">
+          Credit information is not available for this brand yet.
+        </p>
       </div>
     );
   }
 
   const description =
-    phase === "trial"
-      ? "During trial you can publish up to 50 passports. When you subscribe, your paid passport usage starts fresh."
-      : "Track your passport publishing usage across billing periods.";
-  const label =
-    activeSkuBudget.kind === "trial"
-      ? "trial passports published"
-      : activeSkuBudget.kind === "onboarding"
-        ? "onboarding passports published"
-        : "passports published this year";
-  const infoTooltip =
-    activeSkuBudget.kind === "onboarding" ? ONBOARDING_TOOLTIP : undefined;
+    status.phase === "demo" || status.phase === "trial"
+      ? "You have 50 free credits to get started. These carry forward when you subscribe."
+      : "Your credit balance determines how many passports you can have published at once.";
 
   // Derive SKU status for the limit banner from billing data.
   const skuStatus: "allowed" | "warning" | "blocked" =
-    activeSkuBudget.remaining !== null && activeSkuBudget.remaining <= 0
+    remainingCredits !== null && remainingCredits <= 0
       ? "blocked"
-      : activeSkuBudget.utilization !== null && activeSkuBudget.utilization >= 0.8
+      : utilization !== null && utilization >= 0.8
         ? "warning"
         : "allowed";
 
   return (
-    <div className="w-full max-w-[700px] space-y-4">
+    <div className="w-full max-w-[700px] space-y-6">
       <SkuLimitBanner
         sku={{
           status: skuStatus,
           activeBudget: {
-            kind: activeSkuBudget.kind,
-            phase: activeSkuBudget.phase,
-            limit: activeSkuBudget.limit,
-            used: activeSkuBudget.used,
-            remaining: activeSkuBudget.remaining,
-            utilization: activeSkuBudget.utilization,
-            windowStartAt: activeSkuBudget.window_start_at,
-            windowEndAt: activeSkuBudget.window_end_at,
-            isFirstPaidYear: activeSkuBudget.is_first_paid_year,
+            kind: "credits",
+            phase: status.phase as
+              | "demo"
+              | "trial"
+              | "expired"
+              | "active"
+              | "past_due"
+              | "suspended"
+              | "cancelled"
+              | "none",
+            limit: totalCredits,
+            used: publishedCount,
+            remaining: remainingCredits,
+            utilization,
           },
         }}
       />
-      <div className="border p-6">
-        <h6 className="text-foreground">Passport Usage</h6>
-        <p className="mt-1 text-sm text-secondary">{description}</p>
-        <div className="mt-4 space-y-4">
-          <SkuUsageBar
-            used={activeSkuBudget.used}
-            limit={activeSkuBudget.limit}
-            label={label}
-            infoTooltip={infoTooltip}
-          />
-        </div>
-      </div>
+      <CreditBalanceCard
+        description={description}
+        totalCredits={totalCredits}
+        publishedCount={publishedCount}
+        remainingCredits={remainingCredits}
+        utilization={utilization}
+        nextRenewalAt={
+          status.has_active_subscription && !status.pending_cancellation
+            ? status.current_period_end
+            : null
+        }
+        nextCreditGrant={deriveNextCreditGrant(
+          status.plan_type as PlanTier | null,
+          status.billing_interval as "quarterly" | "yearly" | null,
+        )}
+        action={
+          showPackPurchases ? (
+            <CreditPackSelector
+              onboardingDiscountAvailable={!status.onboarding_discount_used}
+            />
+          ) : undefined
+        }
+      />
     </div>
   );
+}
+
+function deriveNextCreditGrant(
+  planType: PlanTier | null,
+  billingInterval: "quarterly" | "yearly" | null,
+): number | null {
+  if (!planType || !billingInterval) return null;
+  const display = PLAN_DISPLAY[planType];
+  if (!display) return null;
+  if (billingInterval === "quarterly") return display.creditsPerQuarter;
+  if (billingInterval === "yearly") return display.creditsPerYear;
+  return null;
 }

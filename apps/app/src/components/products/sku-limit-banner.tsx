@@ -5,15 +5,20 @@ import Link from "next/link";
 import { Icons } from "@v1/ui/icons";
 
 interface SkuBudget {
-  kind: "trial" | "onboarding" | "annual" | null;
-  phase: "demo" | "trial" | "onboarding" | "annual" | "none";
+  kind: "credits" | null;
+  phase:
+    | "demo"
+    | "trial"
+    | "expired"
+    | "active"
+    | "past_due"
+    | "suspended"
+    | "cancelled"
+    | "none";
   limit: number | null;
   used: number;
   remaining: number | null;
   utilization: number | null;
-  windowStartAt: string | null;
-  windowEndAt: string | null;
-  isFirstPaidYear: boolean;
 }
 
 interface SkuLimitBannerProps {
@@ -31,30 +36,21 @@ function formatCount(value: number): string {
 }
 
 /**
- * Maps the active budget kind to the publish-limit banner copy.
+ * Maps the active credit budget to the publish-limit banner copy.
  */
 function getBudgetCopy(budget: SkuBudget) {
-  if (budget.kind === "trial") {
+  if (budget.phase === "demo" || budget.phase === "trial") {
     return {
-      blocked:
-        "You've reached your 50-passport trial publish limit. Subscribe to continue publishing passports.",
-      warning: `You've published ${formatCount(budget.used)} of ${formatCount(budget.limit!)} trial passports. Subscribe before you hit the trial limit.`,
-      ctaLabel: "View plans",
-    };
-  }
-
-  if (budget.kind === "onboarding") {
-    return {
-      blocked: `You've reached your first-year onboarding passport publish limit (${formatCount(budget.used)}/${formatCount(budget.limit!)} passports published). Upgrade your plan to publish more passports.`,
-      warning: `You've published ${formatCount(budget.used)} of ${formatCount(budget.limit!)} onboarding passports. Consider upgrading before you hit the limit.`,
-      ctaLabel: "View plans",
+      blocked: `You've reached your credit limit. ${formatCount(budget.used)} of ${formatCount(budget.limit!)} credits are already in use. Subscribe to continue publishing passports.`,
+      warning: `You're approaching your credit limit. ${formatCount(budget.used)} of ${formatCount(budget.limit!)} credits are already in use.`,
+      ctaLabel: "Subscribe",
     };
   }
 
   return {
-    blocked: `You've reached your yearly passport publish limit (${formatCount(budget.used)}/${formatCount(budget.limit!)} passports published). Upgrade your plan to publish more passports.`,
-    warning: `You've published ${formatCount(budget.used)} of ${formatCount(budget.limit!)} passports in this window. Consider upgrading before you hit the limit.`,
-    ctaLabel: "View plans",
+    blocked: `You've reached your credit limit. ${formatCount(budget.used)} of ${formatCount(budget.limit!)} credits are already in use. Purchase more credits or upgrade your plan to publish more passports.`,
+    warning: `You're approaching your credit limit. ${formatCount(budget.used)} of ${formatCount(budget.limit!)} credits are already in use.`,
+    ctaLabel: "Buy credits",
   };
 }
 
@@ -72,7 +68,6 @@ export function SkuLimitBanner({ sku }: SkuLimitBannerProps) {
   const toneClasses = isBlocked
     ? "border-destructive/30 bg-destructive/10 text-destructive"
     : "border-amber-300 bg-amber-50 text-amber-900";
-  const ctaLabel = isBlocked ? "Upgrade plan" : copy.ctaLabel;
   const message = isBlocked ? copy.blocked : copy.warning;
 
   return (
@@ -87,7 +82,7 @@ export function SkuLimitBanner({ sku }: SkuLimitBannerProps) {
           className="type-small !font-semibold underline underline-offset-2 shrink-0 whitespace-nowrap"
           prefetch
         >
-          {ctaLabel}
+          {copy.ctaLabel}
         </Link>
       </div>
     </div>

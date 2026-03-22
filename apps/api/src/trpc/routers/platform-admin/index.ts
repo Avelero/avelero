@@ -4,17 +4,13 @@
 import { tasks } from "@trigger.dev/sdk/v3";
 import { and, asc, desc, eq, inArray, isNull, sql } from "@v1/db/queries";
 import {
-  countPublishedPassportsInActiveWindow,
+  FREE_CREDITS,
+  countPublishedPassports,
   computeNextBrandIdForUser,
   createBrand,
   createBrandInvites,
-  deriveSkuBudget,
-  getBrandAccessSnapshot,
-  getCurrentDatabaseTimestamp,
   isSlugTaken,
-  resolveActiveSkuWindow,
   setActiveBrand,
-  syncBrandPaidSkuAnchors,
 } from "@v1/db/queries/brand";
 import {
   brandBilling,
@@ -34,12 +30,12 @@ import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
 import type {
-  BrandAccessSnapshot,
   BrandLifecyclePhase,
 } from "../../../lib/access-policy/types.js";
 import { brandCreateSchema } from "../../../schemas/brand.js";
 import { assignableRoleSchema } from "../../../schemas/_shared/domain.js";
 import { createCheckoutSession } from "../../../lib/stripe/checkout.js";
+import { normalizeBillingInterval } from "../../../lib/stripe/config.js";
 import { findOrCreateStripeCustomer } from "../../../lib/stripe/customer.js";
 import {
   createEnterpriseInvoice,
@@ -75,7 +71,7 @@ const billingOverrideSchema = z.enum([
   "temporary_block",
 ]);
 const billingModeSchema = z.enum(["stripe_checkout", "stripe_invoice"]);
-const billingIntervalSchema = z.enum(["monthly", "yearly"]);
+const billingIntervalSchema = z.enum(["quarterly", "yearly"]);
 const planTypeSchema = z.enum(["starter", "growth", "scale", "enterprise"]);
 
 const platformInviteSendSchema = z.object({
@@ -154,9 +150,6 @@ const platformPlanUpdateSchema = z
   .object({
     brand_id: z.string().uuid(),
     plan_type: planTypeSchema.nullable().optional(),
-    sku_annual_limit: z.number().int().min(0).nullable().optional(),
-    sku_onboarding_limit: z.number().int().min(0).nullable().optional(),
-    sku_limit_override: z.number().int().min(0).nullable().optional(),
     billing_mode: billingModeSchema.nullable().optional(),
     billing_interval: billingIntervalSchema.nullable().optional(),
     custom_price_cents: z.number().int().min(0).nullable().optional(),
@@ -164,9 +157,6 @@ const platformPlanUpdateSchema = z
   .superRefine((value, ctx) => {
     if (
       value.plan_type === undefined &&
-      value.sku_annual_limit === undefined &&
-      value.sku_onboarding_limit === undefined &&
-      value.sku_limit_override === undefined &&
       value.billing_mode === undefined &&
       value.billing_interval === undefined &&
       value.custom_price_cents === undefined
@@ -276,6 +266,21 @@ function buildStorageProxyUrl(
     .map((segment) => encodeURIComponent(segment))
     .join("/");
   return `${getAppUrl()}/api/storage/${bucket}/${encoded}`;
+}
+
+/**
+ * Builds a normalized credit usage snapshot for admin responses.
+ */
+function buildCreditUsage(totalCredits: number, publishedCount: number) {
+  const remaining = Math.max(0, totalCredits - publishedCount);
+  const utilization = totalCredits === 0 ? 1 : publishedCount / totalCredits;
+
+  return {
+    total: totalCredits,
+    published: publishedCount,
+    remaining,
+    utilization,
+  };
 }
 
 async function logPlatformAdminAction(
@@ -429,7 +434,6 @@ export const platformAdminRouter = createTRPCRouter({
       .query(async ({ ctx, input }) => {
         const normalizedSearch = normalizeSearch(input.search);
         const filters = [isNull(brands.deletedAt)];
-        const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(ctx.db);
 
         if (input.phase) {
           filters.push(eq(brandLifecycle.phase, input.phase));
@@ -443,6 +447,12 @@ export const platformAdminRouter = createTRPCRouter({
 
         const whereClause = and(...filters);
         const membersCountExpr = sql<number>`COUNT(${brandMembers.userId})::int`;
+        const publishedCountExpr = sql<number>`(
+          SELECT COUNT(*)::int
+          FROM ${products}
+          WHERE ${products.brandId} = ${brands.id}
+            AND ${products.status} = 'published'
+        )`;
 
         const rows = await ctx.db
           .select({
@@ -454,11 +464,8 @@ export const platformAdminRouter = createTRPCRouter({
             trialStartedAt: brandLifecycle.trialStartedAt,
             trialEndsAt: brandLifecycle.trialEndsAt,
             planType: brandPlan.planType,
-            skuAnnualLimit: brandPlan.skuAnnualLimit,
-            skuOnboardingLimit: brandPlan.skuOnboardingLimit,
-            skuLimitOverride: brandPlan.skuLimitOverride,
-            firstPaidStartedAt: brandPlan.firstPaidStartedAt,
-            annualUsageAnchorAt: brandPlan.annualUsageAnchorAt,
+            totalCredits: brandPlan.totalCredits,
+            publishedCount: publishedCountExpr,
             membersCount: membersCountExpr,
           })
           .from(brands)
@@ -481,74 +488,31 @@ export const platformAdminRouter = createTRPCRouter({
             brandLifecycle.trialStartedAt,
             brandLifecycle.trialEndsAt,
             brandPlan.planType,
-            brandPlan.skuAnnualLimit,
-            brandPlan.skuOnboardingLimit,
-            brandPlan.skuLimitOverride,
-            brandPlan.firstPaidStartedAt,
-            brandPlan.annualUsageAnchorAt,
+            brandPlan.totalCredits,
           )
           .orderBy(asc(brands.id));
 
-        const items = await Promise.all(
-          rows.map(async (row) => {
-            const snapshot: Pick<BrandAccessSnapshot, "brandId" | "lifecycle" | "billing" | "plan"> =
-              {
-              brandId: row.id,
-              lifecycle: row.phase
-                ? {
-                    phase: row.phase as BrandLifecyclePhase,
-                    trialStartedAt: row.trialStartedAt,
-                    trialEndsAt: row.trialEndsAt,
-                  }
-                : null,
-              billing: null,
-              plan:
-                row.skuAnnualLimit !== null ||
-                row.skuOnboardingLimit !== null ||
-                row.skuLimitOverride !== null ||
-                row.firstPaidStartedAt !== null ||
-                row.annualUsageAnchorAt !== null
-                  ? {
-                      skuAnnualLimit: row.skuAnnualLimit,
-                      skuOnboardingLimit: row.skuOnboardingLimit,
-                      skuLimitOverride: row.skuLimitOverride,
-                      firstPaidStartedAt: row.firstPaidStartedAt,
-                      annualUsageAnchorAt: row.annualUsageAnchorAt,
-                    }
-                  : null,
-              };
-            const activeSkuWindow = resolveActiveSkuWindow({
-              snapshot,
-              evaluationDate: currentDatabaseTimestamp,
-            });
-            const currentPublishUsageCount =
-              await countPublishedPassportsInActiveWindow(
-                ctx.db,
-                row.id,
-                activeSkuWindow,
-              );
-            const derivedBudget = deriveSkuBudget({
-              snapshot,
-              currentPublishUsageCount,
-              evaluationDate: currentDatabaseTimestamp,
-            });
+        const items = rows.map((row) => {
+          const creditUsage = buildCreditUsage(
+            row.totalCredits ?? 0,
+            row.publishedCount ?? 0,
+          );
 
-            return {
-              id: row.id,
-              name: row.name,
-              slug: row.slug,
-              created_at: row.createdAt,
-              phase: row.phase ?? "demo",
-              plan_type: row.planType,
-              sku_usage: {
-                used: derivedBudget.activeBudget.used,
-                limit: derivedBudget.activeBudget.limit,
-              },
-              trial_ends_at: row.trialEndsAt,
-              members_count: row.membersCount,
-            };
-          }),
-        );
+          return {
+            id: row.id,
+            name: row.name,
+            slug: row.slug,
+            created_at: row.createdAt,
+            phase: row.phase ?? "demo",
+            plan_type: row.planType,
+            sku_usage: {
+              used: creditUsage.published,
+              limit: creditUsage.total,
+            },
+            trial_ends_at: row.trialEndsAt,
+            members_count: row.membersCount,
+          };
+        });
 
         const direction = input.sort_dir === "asc" ? 1 : -1;
         const sortedItems = [...items].sort((left, right) => {
@@ -622,9 +586,6 @@ export const platformAdminRouter = createTRPCRouter({
           });
         }
 
-        const accessSnapshot = await getBrandAccessSnapshot(ctx.db, input.brand_id);
-        const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(ctx.db);
-
         const [brand] = await ctx.db
           .select({
             id: brands.id,
@@ -642,12 +603,8 @@ export const platformAdminRouter = createTRPCRouter({
             hardDeleteAfter: brandLifecycle.hardDeleteAfter,
             planType: brandPlan.planType,
             planSelectedAt: brandPlan.planSelectedAt,
-            skuAnnualLimit: brandPlan.skuAnnualLimit,
-            skuOnboardingLimit: brandPlan.skuOnboardingLimit,
-            skuLimitOverride: brandPlan.skuLimitOverride,
-            skuCountAtYearStart: brandPlan.skuCountAtYearStart,
-            skuCountAtOnboardingStart: brandPlan.skuCountAtOnboardingStart,
-            skuYearStart: brandPlan.skuYearStart,
+            totalCredits: brandPlan.totalCredits,
+            onboardingDiscountUsed: brandPlan.onboardingDiscountUsed,
             billingInterval: brandPlan.billingInterval,
             maxSeats: brandPlan.maxSeats,
             billingMode: brandBilling.billingMode,
@@ -682,21 +639,14 @@ export const platformAdminRouter = createTRPCRouter({
           throw notFound("Brand", input.brand_id);
         }
 
-        const activeSkuWindow = resolveActiveSkuWindow({
-          snapshot: accessSnapshot,
-          evaluationDate: currentDatabaseTimestamp,
-        });
-        const currentPublishUsageCount =
-          await countPublishedPassportsInActiveWindow(
-            ctx.db,
-            input.brand_id,
-            activeSkuWindow,
-          );
-        const derivedBudget = deriveSkuBudget({
-          snapshot: accessSnapshot,
-          currentPublishUsageCount,
-          evaluationDate: currentDatabaseTimestamp,
-        });
+        const publishedCount = await countPublishedPassports(
+          ctx.db,
+          input.brand_id,
+        );
+        const creditUsage = buildCreditUsage(
+          brand.totalCredits ?? 0,
+          publishedCount,
+        );
 
         const [memberCount] = await ctx.db
           .select({
@@ -787,24 +737,19 @@ export const platformAdminRouter = createTRPCRouter({
             plan_type: brand.planType,
             plan_selected_at: brand.planSelectedAt,
             billing_interval: brand.billingInterval,
-            sku_annual_limit: brand.skuAnnualLimit,
-            sku_onboarding_limit: brand.skuOnboardingLimit,
-            sku_limit_override: brand.skuLimitOverride,
-            skus_created_this_year: derivedBudget.annual.used,
-            skus_created_onboarding: derivedBudget.onboarding.used,
-            sku_year_start: brand.skuYearStart,
+            total_credits: brand.totalCredits ?? 0,
+            published_count: publishedCount,
+            remaining_credits: creditUsage.remaining,
+            utilization: creditUsage.utilization,
+            onboarding_discount_used: brand.onboardingDiscountUsed ?? false,
             max_seats: brand.maxSeats,
           },
           usage: {
-            annual: {
-              used: derivedBudget.annual.used,
-              limit: derivedBudget.annual.limit,
-              remaining: derivedBudget.annual.remaining,
-            },
-            onboarding: {
-              used: derivedBudget.onboarding.used,
-              limit: derivedBudget.onboarding.limit,
-              remaining: derivedBudget.onboarding.remaining,
+            credits: {
+              total: creditUsage.total,
+              published: creditUsage.published,
+              remaining: creditUsage.remaining,
+              utilization: creditUsage.utilization,
             },
           },
           billing: {
@@ -923,6 +868,14 @@ export const platformAdminRouter = createTRPCRouter({
             trialEndsAt: input.trial_ends_at,
           })
           .where(eq(brandLifecycle.brandId, input.brand_id));
+
+        await ctx.db
+          .update(brandPlan)
+          .set({
+            totalCredits: sql`GREATEST(${brandPlan.totalCredits}, ${FREE_CREDITS})`,
+            updatedAt: nowIso,
+          })
+          .where(eq(brandPlan.brandId, input.brand_id));
 
         await logPlatformAdminAction(ctx, {
           action: "platform_admin.lifecycle.extend_trial",
@@ -1074,7 +1027,6 @@ export const platformAdminRouter = createTRPCRouter({
           .select({
             planType: brandPlan.planType,
             billingInterval: brandPlan.billingInterval,
-            skuYearStart: brandPlan.skuYearStart,
             billingMode: brandBilling.billingMode,
             currentPeriodStart: brandBilling.currentPeriodStart,
             currentPeriodEnd: brandBilling.currentPeriodEnd,
@@ -1104,13 +1056,7 @@ export const platformAdminRouter = createTRPCRouter({
         const planUpdates: Partial<{
           planType: "starter" | "growth" | "scale" | "enterprise" | null;
           planSelectedAt: string | null;
-          billingInterval: "monthly" | "yearly" | null;
-          skuAnnualLimit: number | null;
-          skuOnboardingLimit: number | null;
-          skuLimitOverride: number | null;
-          skuYearStart: Date | null;
-          firstPaidStartedAt: string | null;
-          annualUsageAnchorAt: string | null;
+          billingInterval: "quarterly" | "yearly" | null;
         }> = {};
 
         const billingUpdates: Partial<{
@@ -1120,7 +1066,7 @@ export const platformAdminRouter = createTRPCRouter({
           currentPeriodEnd: string | null;
         }> = {};
 
-        if (nextPlanType === "enterprise" && nextBillingInterval === "monthly") {
+        if (nextPlanType === "enterprise" && nextBillingInterval === "quarterly") {
           throw badRequest("Enterprise billing is yearly-only");
         }
 
@@ -1130,15 +1076,6 @@ export const platformAdminRouter = createTRPCRouter({
         }
         if (input.billing_interval !== undefined) {
           planUpdates.billingInterval = input.billing_interval;
-        }
-        if (input.sku_annual_limit !== undefined) {
-          planUpdates.skuAnnualLimit = input.sku_annual_limit;
-        }
-        if (input.sku_onboarding_limit !== undefined) {
-          planUpdates.skuOnboardingLimit = input.sku_onboarding_limit;
-        }
-        if (input.sku_limit_override !== undefined) {
-          planUpdates.skuLimitOverride = input.sku_limit_override;
         }
 
         if (input.custom_price_cents !== undefined) {
@@ -1151,7 +1088,6 @@ export const platformAdminRouter = createTRPCRouter({
 
         if (input.plan_type === null) {
           planUpdates.billingInterval = null;
-          planUpdates.skuYearStart = null;
           billingUpdates.currentPeriodStart = null;
           billingUpdates.currentPeriodEnd = null;
         }
@@ -1165,10 +1101,6 @@ export const platformAdminRouter = createTRPCRouter({
           if (!existingPlanState.currentPeriodStart && nextBillingMode === "stripe_invoice") {
             billingUpdates.currentPeriodStart = anchorStart;
             billingUpdates.currentPeriodEnd = addOneYearIso(anchorStart);
-          }
-
-          if (!existingPlanState.skuYearStart) {
-            planUpdates.skuYearStart = isoToDate(anchorStart);
           }
         }
 
@@ -1200,17 +1132,6 @@ export const platformAdminRouter = createTRPCRouter({
               hardDeleteAfter: null,
             })
             .where(eq(brandLifecycle.brandId, input.brand_id));
-
-          await syncBrandPaidSkuAnchors({
-            dbOrTx: ctx.db,
-            brandId: input.brand_id,
-            paidEntitlementStartsAt:
-              existingPlanState.currentPeriodStart ?? nowIso,
-            allowAnnualAnchorRealignment:
-              existingPlanState.lifecyclePhase !== "active",
-            previousEntitlementEndedAt:
-              existingPlanState.currentPeriodEnd ?? null,
-          });
         }
 
         await logPlatformAdminAction(ctx, {
@@ -1260,7 +1181,7 @@ export const platformAdminRouter = createTRPCRouter({
         z.object({
           brand_id: z.string().uuid(),
           tier: z.enum(["starter", "growth", "scale"]),
-          interval: z.enum(["monthly", "yearly"]),
+          interval: z.enum(["quarterly", "yearly"]),
           include_impact: z.boolean().default(false),
         }),
       )
@@ -1324,11 +1245,17 @@ export const platformAdminRouter = createTRPCRouter({
         });
 
         const appUrl = getAppUrl();
+        const normalizedInterval = normalizeBillingInterval(input.interval);
+
+        if (!normalizedInterval) {
+          throw badRequest("Unsupported billing interval for Stripe Checkout");
+        }
+
         const session = await createCheckoutSession({
           brandId: input.brand_id,
           stripeCustomerId,
           tier: input.tier,
-          interval: input.interval,
+          interval: normalizedInterval,
           includeImpact: input.include_impact,
           successUrl: `${appUrl}/settings/billing?checkout=success`,
           cancelUrl: `${appUrl}/settings/billing?checkout=cancelled`,
@@ -1458,18 +1385,9 @@ export const platformAdminRouter = createTRPCRouter({
             .update(brandPlan)
             .set({
               billingInterval: "yearly",
-              skuYearStart: isoToDate(input.service_period_start),
               updatedAt: new Date().toISOString(),
             })
             .where(eq(brandPlan.brandId, input.brand_id));
-
-          await syncBrandPaidSkuAnchors({
-            dbOrTx: db,
-            brandId: input.brand_id,
-            paidEntitlementStartsAt: input.service_period_start,
-            allowAnnualAnchorRealignment: true,
-            previousEntitlementEndedAt: brand.currentPeriodEnd ?? null,
-          });
         }
 
         await logPlatformAdminAction(ctx, {

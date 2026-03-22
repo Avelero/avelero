@@ -1,7 +1,7 @@
 /**
  * Resolves brand access after Stripe deletes a subscription.
  */
-import { db } from "@v1/db/client";
+import { db, type DatabaseOrTransaction } from "@v1/db/client";
 import { and, eq, notInArray } from "@v1/db/queries";
 import {
   brandBilling,
@@ -20,10 +20,14 @@ const log = billingLogger.child({ component: "handler:subscription-deleted" });
 
 export async function handleSubscriptionDeleted(
   event: Stripe.Event,
+  conn: DatabaseOrTransaction = db,
 ): Promise<void> {
   // Preserve paid entitlements until the subscription's remaining access window ends.
   const subscription = event.data.object as Stripe.Subscription;
-  const brandId = await resolveBrandIdForSubscription({ db, subscription });
+  const brandId = await resolveBrandIdForSubscription({
+    db: conn,
+    subscription,
+  });
 
   if (!brandId) {
     log.error(
@@ -37,6 +41,44 @@ export async function handleSubscriptionDeleted(
     return;
   }
 
+  // Guard: if the brand already has a different subscription (e.g. from an upgrade
+  // checkout), this deletion is for the superseded subscription. Record the event
+  // for the audit trail but skip all state teardown.
+  const [currentBilling] = await conn
+    .select({ stripeSubscriptionId: brandBilling.stripeSubscriptionId })
+    .from(brandBilling)
+    .where(eq(brandBilling.brandId, brandId))
+    .limit(1);
+
+  if (
+    currentBilling?.stripeSubscriptionId &&
+    currentBilling.stripeSubscriptionId !== subscription.id
+  ) {
+    await conn.insert(brandBillingEvents).values({
+      brandId,
+      eventType: "subscription_deleted",
+      stripeEventId: event.id,
+      payload: {
+        subscription_id: subscription.id,
+        reason: subscription.cancellation_details?.reason ?? null,
+        resolved_phase: "skipped_superseded",
+        has_remaining_access: false,
+        period_end: null,
+      },
+    });
+
+    log.info(
+      {
+        stripeEventId: event.id,
+        brandId,
+        deletedSubscriptionId: subscription.id,
+        activeSubscriptionId: currentBilling.stripeSubscriptionId,
+      },
+      "subscription deleted was superseded by upgrade — skipping teardown",
+    );
+    return;
+  }
+
   const now = new Date();
   const nowIso = now.toISOString();
   const reason = subscription.cancellation_details?.reason ?? null;
@@ -46,10 +88,20 @@ export async function handleSubscriptionDeleted(
   const periodEnd = projection.currentPeriodEnd
     ? new Date(projection.currentPeriodEnd)
     : null;
+  // Compare two Stripe-originated timestamps to determine whether the paid
+  // entitlement window extends beyond the actual termination instant.  This
+  // avoids any dependency on the server wall clock, which diverges from
+  // Stripe test-clock simulated time and can also drift due to webhook
+  // delivery delays in production.
+  const endedAt = subscription.ended_at
+    ? new Date(subscription.ended_at * 1000)
+    : null;
   const hasRemainingAccess =
-    periodEnd !== null && periodEnd.getTime() > now.getTime();
+    periodEnd !== null &&
+    endedAt !== null &&
+    periodEnd.getTime() > endedAt.getTime();
 
-  await db
+  await conn
     .update(brandBilling)
     .set({
       stripeSubscriptionId: null,
@@ -60,7 +112,7 @@ export async function handleSubscriptionDeleted(
     })
     .where(eq(brandBilling.brandId, brandId));
 
-  await db
+  await conn
     .update(brandPlan)
     .set({
       hasImpactPredictions: hasRemainingAccess
@@ -74,7 +126,7 @@ export async function handleSubscriptionDeleted(
 
   if (hasRemainingAccess) {
     resolvedPhase = "active";
-    await db
+    await conn
       .update(brandLifecycle)
       .set({
         phase: "active",
@@ -89,7 +141,7 @@ export async function handleSubscriptionDeleted(
       );
   } else if (isBillingFailure) {
     resolvedPhase = "expired";
-    await db
+    await conn
       .update(brandLifecycle)
       .set({
         phase: "expired",
@@ -102,7 +154,7 @@ export async function handleSubscriptionDeleted(
     const hardDeleteDate = new Date(now);
     hardDeleteDate.setDate(hardDeleteDate.getDate() + 30);
 
-    await db
+    await conn
       .update(brandLifecycle)
       .set({
         phase: "cancelled",
@@ -114,7 +166,7 @@ export async function handleSubscriptionDeleted(
       .where(eq(brandLifecycle.brandId, brandId));
   }
 
-  await db.insert(brandBillingEvents).values({
+  await conn.insert(brandBillingEvents).values({
     brandId,
     eventType: "subscription_deleted",
     stripeEventId: event.id,

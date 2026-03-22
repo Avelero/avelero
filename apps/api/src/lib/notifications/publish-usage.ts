@@ -7,11 +7,10 @@
 
 import type { Database } from "@v1/db/client";
 import {
-  countPublishedPassportsInActiveWindow,
-  getBrandAccessSnapshot,
-  getCurrentDatabaseTimestamp,
-  resolveActiveSkuWindow,
+  countPublishedPassports,
 } from "@v1/db/queries/brand";
+import { brandPlan } from "@v1/db/schema";
+import { eq } from "drizzle-orm";
 import { publishNotificationEvent } from "@v1/db/queries/notifications";
 
 const PUBLISH_NOTIFICATION_THRESHOLD = 0.9;
@@ -25,53 +24,50 @@ export async function notifyPublishUsageIfNeeded(params: {
   usageDelta: number;
 }): Promise<void> {
   const { db, brandId, usageDelta } = params;
+
   if (!Number.isFinite(usageDelta) || usageDelta <= 0) {
     return;
   }
 
-  const evaluationDate = await getCurrentDatabaseTimestamp(db);
-  const snapshot = await getBrandAccessSnapshot(db, brandId);
-  const activeWindow = resolveActiveSkuWindow({
-    snapshot,
-    evaluationDate,
-  });
+  const [plan] = await db
+    .select({ totalCredits: brandPlan.totalCredits })
+    .from(brandPlan)
+    .where(eq(brandPlan.brandId, brandId))
+    .limit(1);
 
-  if (!activeWindow.kind || activeWindow.limit == null || activeWindow.limit === 0) {
+  if (!plan || plan.totalCredits <= 0) {
     return;
   }
 
-  const used = await countPublishedPassportsInActiveWindow(
-    db,
-    brandId,
-    activeWindow,
-  );
+  const used = await countPublishedPassports(db, brandId);
+  const previousUsed = Math.max(0, used - usageDelta);
+  const limit = plan.totalCredits;
 
-  if (used >= activeWindow.limit) {
+  if (previousUsed < limit && used >= limit) {
     await publishNotificationEvent(db, {
-      event: "sku_limit_reached",
+      event: "credit_limit_reached",
       brandId,
       payload: {
         brandId,
-        budgetKind: activeWindow.kind,
         used,
-        limit: activeWindow.limit,
+        limit,
       },
     });
     return;
   }
 
-  if (used / activeWindow.limit < PUBLISH_NOTIFICATION_THRESHOLD) {
-    return;
-  }
-
-  await publishNotificationEvent(db, {
-    event: "sku_limit_warning",
-    brandId,
-    payload: {
+  if (
+    previousUsed / limit < PUBLISH_NOTIFICATION_THRESHOLD &&
+    used / limit >= PUBLISH_NOTIFICATION_THRESHOLD
+  ) {
+    await publishNotificationEvent(db, {
+      event: "credit_limit_warning",
       brandId,
-      budgetKind: activeWindow.kind,
-      used,
-      limit: activeWindow.limit,
-    },
-  });
+      payload: {
+        brandId,
+        used,
+        limit,
+      },
+    });
+  }
 }

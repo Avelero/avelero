@@ -131,6 +131,15 @@ export function BillingPageContent() {
   const tier = status.plan_type as PlanTier | null;
   const display = tier ? PLAN_DISPLAY[tier] : null;
   const interval = status.billing_interval as "quarterly" | "yearly" | null;
+  const scheduledTier = status.scheduled_plan_type as PlanTier | null;
+  const scheduledDisplay = scheduledTier ? PLAN_DISPLAY[scheduledTier] : null;
+  const scheduledInterval =
+    status.scheduled_billing_interval as "quarterly" | "yearly" | null;
+  const scheduledChangeDate =
+    status.scheduled_plan_change_effective_at != null
+      ? (formatBillingDate(status.scheduled_plan_change_effective_at) ??
+        status.scheduled_plan_change_effective_at)
+      : null;
   const monthlyEquivalentPrice =
     display && interval === "yearly" && display.yearlyPrice != null
       ? getEffectiveMonthlyPrice(display.yearlyPrice)
@@ -142,7 +151,13 @@ export function BillingPageContent() {
       ? `${formatPrice(monthlyEquivalentPrice)} per month, billed ${interval === "yearly" ? "yearly" : "quarterly"}`
       : null;
   const showPlanSelectorButton = status.billing_mode === "stripe_checkout";
-  const planSelectorLabel = status.pending_cancellation ? "Renew" : "Upgrade";
+  const hasScheduledPlanChange =
+    !!scheduledTier && !!scheduledInterval && !!scheduledChangeDate;
+  const planSelectorLabel = status.pending_cancellation
+    ? "Renew"
+    : hasScheduledPlanChange
+      ? "Manage plan"
+      : "Upgrade";
   const canManageBilling = !!status.stripe_customer_id;
   // Only show cadence-specific credit text when the stored interval is explicit.
   const creditsPerPeriod =
@@ -202,6 +217,13 @@ export function BillingPageContent() {
             {creditsPerPeriod != null && periodLabel && (
               <p className="text-sm text-secondary">
                 {formatCredits(creditsPerPeriod)} passports per {periodLabel}
+              </p>
+            )}
+            {hasScheduledPlanChange && (
+              <p className="text-sm text-secondary">
+                Scheduled to change to {scheduledDisplay?.name ?? scheduledTier} (
+                {scheduledInterval}) on{" "}
+                <span className="text-primary">{scheduledChangeDate}</span>.
               </p>
             )}
             {status.phase === "past_due" && (

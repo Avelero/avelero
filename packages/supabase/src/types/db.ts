@@ -132,8 +132,13 @@ export type Database = {
           past_due_since: string | null;
           pending_cancellation: boolean;
           plan_currency: string;
+          scheduled_billing_interval: string | null;
+          scheduled_has_impact_predictions: boolean | null;
+          scheduled_plan_change_effective_at: string | null;
+          scheduled_plan_type: string | null;
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
+          stripe_subscription_schedule_id: string | null;
           updated_at: string;
         };
         Insert: {
@@ -158,8 +163,13 @@ export type Database = {
           past_due_since?: string | null;
           pending_cancellation?: boolean;
           plan_currency?: string;
+          scheduled_billing_interval?: string | null;
+          scheduled_has_impact_predictions?: boolean | null;
+          scheduled_plan_change_effective_at?: string | null;
+          scheduled_plan_type?: string | null;
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
+          stripe_subscription_schedule_id?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -184,8 +194,13 @@ export type Database = {
           past_due_since?: string | null;
           pending_cancellation?: boolean;
           plan_currency?: string;
+          scheduled_billing_interval?: string | null;
+          scheduled_has_impact_predictions?: boolean | null;
+          scheduled_plan_change_effective_at?: string | null;
+          scheduled_plan_type?: string | null;
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
+          stripe_subscription_schedule_id?: string | null;
           updated_at?: string;
         };
         Relationships: [
@@ -890,61 +905,46 @@ export type Database = {
       };
       brand_plan: {
         Row: {
-          annual_usage_anchor_at: string | null;
           billing_interval: string | null;
           brand_id: string;
           created_at: string;
-          first_paid_started_at: string | null;
           has_impact_predictions: boolean;
           id: string;
           max_seats: number | null;
+          onboarding_discount_used: boolean;
           plan_selected_at: string | null;
           plan_type: string | null;
-          sku_annual_limit: number | null;
-          sku_count_at_onboarding_start: number | null;
-          sku_count_at_year_start: number | null;
-          sku_limit_override: number | null;
-          sku_onboarding_limit: number | null;
-          sku_year_start: string | null;
+          total_credits: number;
           updated_at: string;
+          variant_global_cap: number | null;
         };
         Insert: {
-          annual_usage_anchor_at?: string | null;
           billing_interval?: string | null;
           brand_id: string;
           created_at?: string;
-          first_paid_started_at?: string | null;
           has_impact_predictions?: boolean;
           id?: string;
           max_seats?: number | null;
+          onboarding_discount_used?: boolean;
           plan_selected_at?: string | null;
           plan_type?: string | null;
-          sku_annual_limit?: number | null;
-          sku_count_at_onboarding_start?: number | null;
-          sku_count_at_year_start?: number | null;
-          sku_limit_override?: number | null;
-          sku_onboarding_limit?: number | null;
-          sku_year_start?: string | null;
+          total_credits?: number;
           updated_at?: string;
+          variant_global_cap?: number | null;
         };
         Update: {
-          annual_usage_anchor_at?: string | null;
           billing_interval?: string | null;
           brand_id?: string;
           created_at?: string;
-          first_paid_started_at?: string | null;
           has_impact_predictions?: boolean;
           id?: string;
           max_seats?: number | null;
+          onboarding_discount_used?: boolean;
           plan_selected_at?: string | null;
           plan_type?: string | null;
-          sku_annual_limit?: number | null;
-          sku_count_at_onboarding_start?: number | null;
-          sku_count_at_year_start?: number | null;
-          sku_limit_override?: number | null;
-          sku_onboarding_limit?: number | null;
-          sku_year_start?: string | null;
+          total_credits?: number;
           updated_at?: string;
+          variant_global_cap?: number | null;
         };
         Relationships: [
           {
@@ -2448,6 +2448,7 @@ export type Database = {
           manufacturer_id: string | null;
           name: string;
           product_handle: string;
+          published_at: string | null;
           season_id: string | null;
           source: string;
           source_integration_id: string | null;
@@ -2464,6 +2465,7 @@ export type Database = {
           manufacturer_id?: string | null;
           name: string;
           product_handle: string;
+          published_at?: string | null;
           season_id?: string | null;
           source?: string;
           source_integration_id?: string | null;
@@ -2480,6 +2482,7 @@ export type Database = {
           manufacturer_id?: string | null;
           name?: string;
           product_handle?: string;
+          published_at?: string | null;
           season_id?: string | null;
           source?: string;
           source_integration_id?: string | null;

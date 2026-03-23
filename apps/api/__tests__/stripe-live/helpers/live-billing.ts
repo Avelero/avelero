@@ -579,11 +579,16 @@ export async function readLiveBrandBillingState(brandId: string): Promise<{
   billing: {
     stripeCustomerId: string | null;
     stripeSubscriptionId: string | null;
+    stripeSubscriptionScheduleId: string | null;
     billingMode: string | null;
     currentPeriodStart: string | null;
     currentPeriodEnd: string | null;
     pastDueSince: string | null;
     pendingCancellation: boolean;
+    scheduledPlanType: string | null;
+    scheduledBillingInterval: string | null;
+    scheduledHasImpactPredictions: boolean | null;
+    scheduledPlanChangeEffectiveAt: string | null;
     updatedAt: string | null;
   } | null;
   lifecycle: {
@@ -601,11 +606,18 @@ export async function readLiveBrandBillingState(brandId: string): Promise<{
     .select({
       stripeCustomerId: schema.brandBilling.stripeCustomerId,
       stripeSubscriptionId: schema.brandBilling.stripeSubscriptionId,
+      stripeSubscriptionScheduleId: schema.brandBilling.stripeSubscriptionScheduleId,
       billingMode: schema.brandBilling.billingMode,
       currentPeriodStart: schema.brandBilling.currentPeriodStart,
       currentPeriodEnd: schema.brandBilling.currentPeriodEnd,
       pastDueSince: schema.brandBilling.pastDueSince,
       pendingCancellation: schema.brandBilling.pendingCancellation,
+      scheduledPlanType: schema.brandBilling.scheduledPlanType,
+      scheduledBillingInterval: schema.brandBilling.scheduledBillingInterval,
+      scheduledHasImpactPredictions:
+        schema.brandBilling.scheduledHasImpactPredictions,
+      scheduledPlanChangeEffectiveAt:
+        schema.brandBilling.scheduledPlanChangeEffectiveAt,
       updatedAt: schema.brandBilling.updatedAt,
     })
     .from(schema.brandBilling)

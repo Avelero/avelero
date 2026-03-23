@@ -107,14 +107,18 @@ export function PlanSelector({
 
   const updatePlanMutation = useMutation(
     trpc.brand.billing.updatePlan.mutationOptions({
-      onSuccess: () => {
+      onSuccess: (data) => {
         setLoadingTier(null);
         setDowngradeTarget(null);
         void queryClient.invalidateQueries({
           queryKey: trpc.brand.billing.getStatus.queryKey(),
         });
         router.refresh();
-        toast.success("Your plan has been updated.");
+        toast.success(
+          data.changeTiming === "scheduled"
+            ? "Your downgrade has been scheduled."
+            : "Your plan has been updated.",
+        );
       },
       onError: () => {
         setLoadingTier(null);

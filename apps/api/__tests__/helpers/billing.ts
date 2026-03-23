@@ -76,10 +76,15 @@ export async function setBrandSubscriptionState(params: {
   billingMode?: "stripe_checkout" | "stripe_invoice" | null;
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
+  stripeSubscriptionScheduleId?: string | null;
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
   pastDueSince?: string | null;
   pendingCancellation?: boolean;
+  scheduledPlanType?: "starter" | "growth" | "scale" | "enterprise" | null;
+  scheduledBillingInterval?: "quarterly" | "yearly" | null;
+  scheduledHasImpactPredictions?: boolean | null;
+  scheduledPlanChangeEffectiveAt?: string | null;
   billingOverride?: "none" | "temporary_allow" | "temporary_block";
   billingOverrideExpiresAt?: string | null;
   hasImpactPredictions?: boolean;
@@ -130,12 +135,19 @@ export async function setBrandSubscriptionState(params: {
       billingMode: params.billingMode ?? null,
       stripeCustomerId: params.stripeCustomerId ?? null,
       stripeSubscriptionId: params.stripeSubscriptionId ?? null,
+      stripeSubscriptionScheduleId: params.stripeSubscriptionScheduleId ?? null,
       planCurrency: "EUR",
       customPriceCents: null,
       currentPeriodStart,
       currentPeriodEnd,
       pastDueSince: params.pastDueSince ?? null,
       pendingCancellation: params.pendingCancellation ?? false,
+      scheduledPlanType: params.scheduledPlanType ?? null,
+      scheduledBillingInterval: params.scheduledBillingInterval ?? null,
+      scheduledHasImpactPredictions:
+        params.scheduledHasImpactPredictions ?? null,
+      scheduledPlanChangeEffectiveAt:
+        params.scheduledPlanChangeEffectiveAt ?? null,
       billingAccessOverride: params.billingOverride ?? "none",
       billingOverrideExpiresAt: params.billingOverrideExpiresAt ?? null,
       updatedAt: now,
@@ -146,12 +158,20 @@ export async function setBrandSubscriptionState(params: {
         billingMode: params.billingMode ?? null,
         stripeCustomerId: params.stripeCustomerId ?? null,
         stripeSubscriptionId: params.stripeSubscriptionId ?? null,
+        stripeSubscriptionScheduleId:
+          params.stripeSubscriptionScheduleId ?? null,
         planCurrency: "EUR",
         customPriceCents: null,
         currentPeriodStart,
         currentPeriodEnd,
         pastDueSince: params.pastDueSince ?? null,
         pendingCancellation: params.pendingCancellation ?? false,
+        scheduledPlanType: params.scheduledPlanType ?? null,
+        scheduledBillingInterval: params.scheduledBillingInterval ?? null,
+        scheduledHasImpactPredictions:
+          params.scheduledHasImpactPredictions ?? null,
+        scheduledPlanChangeEffectiveAt:
+          params.scheduledPlanChangeEffectiveAt ?? null,
         billingAccessOverride: params.billingOverride ?? "none",
         billingOverrideExpiresAt: params.billingOverrideExpiresAt ?? null,
         updatedAt: now,

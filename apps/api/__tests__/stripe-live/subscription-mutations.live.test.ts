@@ -8,6 +8,7 @@ import { testDb } from "@v1/db/testing";
 import { PASSPORTS_PRICE_IDS } from "../../src/lib/stripe/config";
 import { ensureLiveStripePriceCatalog } from "./helpers/live-billing";
 import {
+  advanceStripeTestClock,
   listCheckoutSessionLineItems,
   listOpenCheckoutSessions,
   provisionActiveStripeBillingBrand,
@@ -22,7 +23,7 @@ beforeAll(async () => {
 });
 
 describe("live Stripe subscription mutations", () => {
-  it("renews a pending cancellation while downgrading through updatePlan", async () => {
+  it("renews a pending cancellation immediately when the plan stays the same", async () => {
     const provisioned = await provisionActiveStripeBillingBrand({
       namePrefix: "Plan Mutation Renew Downgrade",
       tier: "growth",
@@ -43,20 +44,23 @@ describe("live Stripe subscription mutations", () => {
       });
 
       const result = await provisioned.harness.caller.brand.billing.updatePlan({
-        tier: "starter",
-        interval: "quarterly",
+        tier: "growth",
+        interval: "yearly",
         include_impact: false,
       });
 
-      expect(result.success).toBe(true);
+      expect(result).toEqual({
+        success: true,
+        changeTiming: "immediate",
+      });
 
       await waitForCondition({
-        description: `updated plan projection for brand ${provisioned.harness.brandId}`,
+        description: `renewed plan projection for brand ${provisioned.harness.brandId}`,
         evaluate: async () =>
           readLiveBrandBillingState(provisioned.harness.brandId),
         isDone: (state) =>
-          state.plan?.planType === "starter" &&
-          state.plan.billingInterval === "quarterly" &&
+          state.plan?.planType === "growth" &&
+          state.plan.billingInterval === "yearly" &&
           state.billing?.pendingCancellation === false,
       });
 
@@ -260,7 +264,7 @@ describe("live Stripe subscription mutations", () => {
     }
   });
 
-  it("downgrades the subscription with real Stripe state propagation", async () => {
+  it("schedules downgrades for the end of the current billing period", async () => {
     const provisioned = await provisionActiveStripeBillingBrand({
       namePrefix: "Plan Mutation Downgrade",
       tier: "growth",
@@ -269,22 +273,58 @@ describe("live Stripe subscription mutations", () => {
     });
 
     try {
+      const initialState = await readLiveBrandBillingState(
+        provisioned.harness.brandId,
+      );
+      const originalPeriodEnd = initialState.billing?.currentPeriodEnd;
+      expect(originalPeriodEnd).toBeTruthy();
+
       const result = await provisioned.harness.caller.brand.billing.updatePlan({
         tier: "starter",
         interval: "quarterly",
         include_impact: false,
       });
 
-      expect(result.success).toBe(true);
+      expect(result).toEqual({
+        success: true,
+        changeTiming: "scheduled",
+      });
 
       await waitForCondition({
-        description: `downgraded plan projection for brand ${provisioned.harness.brandId}`,
+        description: `scheduled downgrade projection for brand ${provisioned.harness.brandId}`,
+        evaluate: async () =>
+          readLiveBrandBillingState(provisioned.harness.brandId),
+        isDone: (state) =>
+          state.plan?.planType === "growth" &&
+          state.plan.billingInterval === "yearly" &&
+          state.plan.hasImpactPredictions === true &&
+          state.billing?.currentPeriodEnd === originalPeriodEnd &&
+          state.billing?.scheduledPlanType === "starter" &&
+          state.billing?.scheduledBillingInterval === "quarterly" &&
+          state.billing?.scheduledHasImpactPredictions === false &&
+          state.billing?.scheduledPlanChangeEffectiveAt === originalPeriodEnd &&
+          !!state.billing?.stripeSubscriptionScheduleId,
+      });
+
+      await advanceStripeTestClock({
+        stripe: provisioned.stripe,
+        clockId: provisioned.clock.id,
+        frozenTime: new Date(
+          new Date(originalPeriodEnd!).getTime() + 2 * 60 * 60 * 1000,
+        ),
+      });
+
+      await waitForCondition({
+        description: `effective downgraded plan projection for brand ${provisioned.harness.brandId}`,
         evaluate: async () =>
           readLiveBrandBillingState(provisioned.harness.brandId),
         isDone: (state) =>
           state.plan?.planType === "starter" &&
           state.plan.billingInterval === "quarterly" &&
-          state.plan.hasImpactPredictions === false,
+          state.plan.hasImpactPredictions === false &&
+          state.billing?.scheduledPlanType === null &&
+          state.billing?.scheduledBillingInterval === null &&
+          state.billing?.scheduledPlanChangeEffectiveAt === null,
       });
     } finally {
       await provisioned.cleanup.cleanup();

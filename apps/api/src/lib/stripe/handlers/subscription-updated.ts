@@ -8,8 +8,8 @@ import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
 import {
   isStripeSubscriptionPendingCancellation,
-  projectStripeSubscription,
   resolveBrandIdForSubscription,
+  syncStripeSubscriptionProjectionById,
 } from "../projection.js";
 
 const log = billingLogger.child({ component: "handler:subscription-updated" });
@@ -36,11 +36,11 @@ export async function handleSubscriptionUpdated(
     return;
   }
 
-  const { projection } = await projectStripeSubscription({
+  const { projection } = await syncStripeSubscriptionProjectionById({
     db: conn,
-    subscription,
+    subscriptionId: subscription.id,
     clearPastDue: subscription.status === "active",
-    knownBrandId: brandId,
+    brandId,
   });
   const nowIso = new Date().toISOString();
   let resolvedPhase: string | null = null;

@@ -1,6 +1,7 @@
 /**
  * Stripe helpers for mutating live subscriptions.
  */
+import type Stripe from "stripe";
 import { getStripeClient } from "./client.js";
 import {
   TIER_CONFIG,
@@ -94,6 +95,200 @@ export function resolveCurrentPlan(
     }
   }
   return null;
+}
+
+/**
+ * Builds schedule phase items that preserve the current subscription lineup.
+ */
+function buildCurrentSchedulePhaseItems(
+  subscription: Stripe.Subscription,
+): Array<{ price: string; quantity: number }> {
+  // Copy the current recurring prices into the active schedule phase unchanged.
+  const items: Array<{ price: string; quantity: number }> = [];
+  let foundAvelero = false;
+
+  for (const item of subscription.items.data) {
+    const resolved = resolvePriceId(item.price.id);
+    if (!resolved) {
+      throw new Error(
+        `Subscription ${subscription.id} contains unrecognised price ${item.price.id}. Cannot safely schedule a plan change.`,
+      );
+    }
+
+    if (resolved.product === "avelero") {
+      foundAvelero = true;
+    }
+
+    items.push({
+      price: item.price.id,
+      quantity: item.quantity ?? 1,
+    });
+  }
+
+  if (!foundAvelero) {
+    throw new Error(
+      `Subscription ${subscription.id} has no Avelero line item. Cannot schedule a plan change.`,
+    );
+  }
+
+  return items;
+}
+
+/**
+ * Builds schedule phase items for the requested future plan state.
+ */
+function buildTargetSchedulePhaseItems(params: {
+  newTier: PlanTier;
+  newInterval: BillingInterval;
+  hasImpact: boolean;
+}): Array<{ price: string; quantity: number }> {
+  // Encode the future recurring price lineup that should begin next cycle.
+  const prices = TIER_CONFIG[params.newTier].prices[params.newInterval];
+  const items = [{ price: prices.avelero, quantity: 1 }];
+
+  if (params.hasImpact) {
+    items.push({ price: prices.impact, quantity: 1 });
+  }
+
+  return items;
+}
+
+/**
+ * Resolves the active phase window that the current subscription is already in.
+ */
+function resolveCurrentPhaseWindow(params: {
+  subscription: Stripe.Subscription;
+  schedule: Stripe.SubscriptionSchedule | null;
+}): { startDate: number; endDate: number } {
+  // Prefer Stripe's schedule current-phase bounds and fall back to subscription periods.
+  const subscriptionPeriods = params.subscription as Stripe.Subscription & {
+    current_period_start?: number | null;
+    current_period_end?: number | null;
+  };
+  const startDate =
+    params.schedule?.current_phase?.start_date ??
+    subscriptionPeriods.current_period_start ??
+    null;
+  const endDate =
+    params.schedule?.current_phase?.end_date ??
+    subscriptionPeriods.current_period_end ??
+    null;
+
+  if (startDate === null || endDate === null) {
+    throw new Error(
+      `Subscription ${params.subscription.id} is missing a current billing window. Cannot schedule a plan change.`,
+    );
+  }
+
+  return { startDate, endDate };
+}
+
+/**
+ * Calculates the end of the first downgraded billing cycle after the phase starts.
+ */
+function resolveScheduledPhaseEndDate(
+  startDate: number,
+  interval: BillingInterval,
+): number {
+  // Bound the last scheduled phase to one full billing cycle before releasing it.
+  const phaseEnd = new Date(startDate * 1000);
+
+  if (interval === "quarterly") {
+    phaseEnd.setUTCMonth(phaseEnd.getUTCMonth() + 3);
+  } else {
+    phaseEnd.setUTCFullYear(phaseEnd.getUTCFullYear() + 1);
+  }
+
+  return Math.floor(phaseEnd.getTime() / 1000);
+}
+
+/**
+ * Loads or creates the Stripe subscription schedule that will carry future phases.
+ */
+async function getOrCreateSubscriptionSchedule(params: {
+  stripe: Stripe;
+  subscription: Stripe.Subscription;
+}): Promise<Stripe.SubscriptionSchedule> {
+  // Reuse the existing active schedule when one already manages this subscription.
+  const { stripe, subscription } = params;
+
+  if (subscription.schedule && typeof subscription.schedule !== "string") {
+    if (
+      subscription.schedule.status === "active" ||
+      subscription.schedule.status === "not_started"
+    ) {
+      return subscription.schedule;
+    }
+  }
+
+  if (typeof subscription.schedule === "string") {
+    const existingSchedule = await stripe.subscriptionSchedules.retrieve(
+      subscription.schedule,
+    );
+
+    if (
+      existingSchedule.status === "active" ||
+      existingSchedule.status === "not_started"
+    ) {
+      return existingSchedule;
+    }
+  }
+
+  return stripe.subscriptionSchedules.create({
+    from_subscription: subscription.id,
+  });
+}
+
+/**
+ * Schedules a downgrade to begin at the end of the current billing period.
+ */
+export async function scheduleSubscriptionPlanChange(opts: {
+  stripeSubscriptionId: string;
+  newTier: PlanTier;
+  newInterval: BillingInterval;
+  hasImpact: boolean;
+}): Promise<{ scheduleId: string; effectiveAt: string }> {
+  // Create or update a subscription schedule so the lower tier starts next cycle.
+  const { stripeSubscriptionId, newTier, newInterval, hasImpact } = opts;
+  const stripe = getStripeClient();
+  const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
+    expand: ["schedule"],
+  });
+  const schedule = await getOrCreateSubscriptionSchedule({ stripe, subscription });
+  const currentPhaseItems = buildCurrentSchedulePhaseItems(subscription);
+  const targetPhaseItems = buildTargetSchedulePhaseItems({
+    newTier,
+    newInterval,
+    hasImpact,
+  });
+  const { startDate, endDate } = resolveCurrentPhaseWindow({
+    subscription,
+    schedule,
+  });
+  const futurePhaseEndDate = resolveScheduledPhaseEndDate(endDate, newInterval);
+
+  const updatedSchedule = await stripe.subscriptionSchedules.update(schedule.id, {
+    end_behavior: "release",
+    phases: [
+      {
+        start_date: startDate,
+        end_date: endDate,
+        items: currentPhaseItems,
+        proration_behavior: "none",
+      },
+      {
+        start_date: endDate,
+        end_date: futurePhaseEndDate,
+        items: targetPhaseItems,
+        proration_behavior: "none",
+      },
+    ],
+  });
+
+  return {
+    scheduleId: updatedSchedule.id,
+    effectiveAt: new Date(endDate * 1000).toISOString(),
+  };
 }
 
 /**

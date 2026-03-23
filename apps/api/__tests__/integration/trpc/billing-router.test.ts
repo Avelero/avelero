@@ -35,6 +35,12 @@ const mockCreateTopupCheckoutSession = mock(async (_params?: Record<string, unkn
   sessionId: "cs_test_topup",
   url: "https://checkout.stripe.com/create-topup",
 }));
+const mockScheduleSubscriptionPlanChange = mock(
+  async (_params?: Record<string, unknown>) => ({
+    scheduleId: "sub_sched_test_downgrade",
+    effectiveAt: "2026-06-23T00:00:00.000Z",
+  }),
+);
 const mockUpdateSubscriptionPlan = mock(async (_params?: Record<string, unknown>) => {});
 const mockAddImpactToSubscription = mock(async (_params?: Record<string, unknown>) => {});
 const mockRemoveImpactFromSubscription = mock(async (_params?: Record<string, unknown>) => {});
@@ -51,6 +57,7 @@ mock.module("../../../src/lib/stripe/topup.js", () => ({
 mock.module("../../../src/lib/stripe/subscription.js", () => ({
   addImpactToSubscription: mockAddImpactToSubscription,
   removeImpactFromSubscription: mockRemoveImpactFromSubscription,
+  scheduleSubscriptionPlanChange: mockScheduleSubscriptionPlanChange,
   updateSubscriptionPlan: mockUpdateSubscriptionPlan,
 }));
 
@@ -84,6 +91,7 @@ describe("billing router plan and top-up flows", () => {
     mockCreateCheckoutSession.mockClear();
     mockCreateUpgradeCheckoutSession.mockClear();
     mockCreateTopupCheckoutSession.mockClear();
+    mockScheduleSubscriptionPlanChange.mockClear();
     mockUpdateSubscriptionPlan.mockClear();
     mockAddImpactToSubscription.mockClear();
     mockRemoveImpactFromSubscription.mockClear();
@@ -312,7 +320,7 @@ describe("billing router plan and top-up flows", () => {
     expect(mockCreateUpgradeCheckoutSession).not.toHaveBeenCalled();
   });
 
-  it("blocks upgrades through updatePlan and allows downgrades", async () => {
+  it("blocks upgrades through updatePlan and schedules downgrades", async () => {
     await setBrandSubscriptionState({
       brandId,
       phase: "active",
@@ -353,10 +361,11 @@ describe("billing router plan and top-up flows", () => {
         interval: "quarterly",
         include_impact: false,
       }),
-    ).resolves.toEqual({ success: true });
+    ).resolves.toEqual({ success: true, changeTiming: "scheduled" });
 
-    expect(mockUpdateSubscriptionPlan).toHaveBeenCalledTimes(1);
-    expect(mockUpdateSubscriptionPlan.mock.calls[0]?.[0]).toMatchObject({
+    expect(mockUpdateSubscriptionPlan).not.toHaveBeenCalled();
+    expect(mockScheduleSubscriptionPlanChange).toHaveBeenCalledTimes(1);
+    expect(mockScheduleSubscriptionPlanChange.mock.calls[0]?.[0]).toMatchObject({
       stripeSubscriptionId: "sub_update_plan_guard",
       newTier: "starter",
       newInterval: "quarterly",
@@ -364,7 +373,7 @@ describe("billing router plan and top-up flows", () => {
     });
   });
 
-  it("routes same-tier yearly to quarterly changes through updatePlan", async () => {
+  it("schedules same-tier yearly to quarterly changes through updatePlan", async () => {
     await setBrandSubscriptionState({
       brandId,
       phase: "active",
@@ -382,13 +391,42 @@ describe("billing router plan and top-up flows", () => {
       include_impact: true,
     });
 
-    expect(result).toEqual({ success: true });
-    expect(mockUpdateSubscriptionPlan).toHaveBeenCalledTimes(1);
-    expect(mockUpdateSubscriptionPlan.mock.calls[0]?.[0]).toMatchObject({
+    expect(result).toEqual({ success: true, changeTiming: "scheduled" });
+    expect(mockUpdateSubscriptionPlan).not.toHaveBeenCalled();
+    expect(mockScheduleSubscriptionPlanChange).toHaveBeenCalledTimes(1);
+    expect(mockScheduleSubscriptionPlanChange.mock.calls[0]?.[0]).toMatchObject({
       stripeSubscriptionId: "sub_same_tier_update",
       newTier: "growth",
       newInterval: "quarterly",
       hasImpact: true,
     });
+  });
+
+  it("rejects updatePlan when the current plan metadata cannot be reconstructed", async () => {
+    await setBrandSubscriptionState({
+      brandId,
+      phase: "active",
+      planType: null,
+      billingInterval: null,
+      billingMode: "stripe_checkout",
+      stripeCustomerId: "cus_missing_update_plan",
+      stripeSubscriptionId: "sub_missing_update_plan",
+    });
+
+    const caller = createBillingCaller({ brandId, userId, userEmail });
+
+    await expect(
+      caller.updatePlan({
+        tier: "starter",
+        interval: "quarterly",
+        include_impact: false,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining("Current plan metadata is missing"),
+    });
+
+    expect(mockScheduleSubscriptionPlanChange).not.toHaveBeenCalled();
+    expect(mockUpdateSubscriptionPlan).not.toHaveBeenCalled();
   });
 });

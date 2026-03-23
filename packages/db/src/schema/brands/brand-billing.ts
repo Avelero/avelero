@@ -29,6 +29,7 @@ export const brandBilling = pgTable(
     billingMode: text("billing_mode"),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
+    stripeSubscriptionScheduleId: text("stripe_subscription_schedule_id"),
     planCurrency: text("plan_currency").notNull().default("EUR"),
     customPriceCents: integer("custom_price_cents"),
     currentPeriodStart: timestamp("current_period_start", {
@@ -46,6 +47,16 @@ export const brandBilling = pgTable(
     pendingCancellation: boolean("pending_cancellation")
       .notNull()
       .default(false),
+    scheduledPlanType: text("scheduled_plan_type"),
+    scheduledBillingInterval: text("scheduled_billing_interval"),
+    scheduledHasImpactPredictions: boolean("scheduled_has_impact_predictions"),
+    scheduledPlanChangeEffectiveAt: timestamp(
+      "scheduled_plan_change_effective_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    ),
     billingAccessOverride: text("billing_access_override")
       .notNull()
       .default("none"),
@@ -90,6 +101,14 @@ export const brandBilling = pgTable(
       "brand_billing_access_override_check",
       sql`billing_access_override = ANY (ARRAY['none'::text, 'temporary_allow'::text, 'temporary_block'::text])`,
     ),
+    check(
+      "brand_billing_scheduled_plan_type_check",
+      sql`scheduled_plan_type IS NULL OR scheduled_plan_type = ANY (ARRAY['starter'::text, 'growth'::text, 'scale'::text, 'enterprise'::text])`,
+    ),
+    check(
+      "brand_billing_scheduled_billing_interval_check",
+      sql`scheduled_billing_interval IS NULL OR scheduled_billing_interval = ANY (ARRAY['quarterly'::text, 'yearly'::text])`,
+    ),
     uniqueIndex("brand_billing_brand_id_unq").on(table.brandId),
     uniqueIndex("brand_billing_stripe_customer_id_unq")
       .on(table.stripeCustomerId)
@@ -97,6 +116,9 @@ export const brandBilling = pgTable(
     uniqueIndex("brand_billing_stripe_subscription_id_unq")
       .on(table.stripeSubscriptionId)
       .where(sql`(stripe_subscription_id IS NOT NULL)`),
+    uniqueIndex("brand_billing_stripe_subscription_schedule_id_unq")
+      .on(table.stripeSubscriptionScheduleId)
+      .where(sql`(stripe_subscription_schedule_id IS NOT NULL)`),
     index("idx_brand_billing_override_expires").on(
       table.billingOverrideExpiresAt,
     ),

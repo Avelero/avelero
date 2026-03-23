@@ -10,7 +10,12 @@ import { resolveSubscriptionProjection } from "../../../src/lib/stripe/projectio
  * Builds a minimal Stripe subscription object for projection tests.
  */
 function buildSubscription(
-  overrides: Partial<Stripe.Subscription> = {},
+  overrides: Partial<
+    Stripe.Subscription & {
+      current_period_start?: number | null;
+      current_period_end?: number | null;
+    }
+  > = {},
 ): Stripe.Subscription {
   return {
     id: "sub_projection_test",
@@ -73,6 +78,70 @@ describe("resolveSubscriptionProjection", () => {
     expect(resolveSubscriptionProjection(subscription)).toMatchObject({
       planType: "starter",
       billingInterval: "quarterly",
+    });
+  });
+
+  it("captures the next scheduled plan change when Stripe returns an expanded schedule", () => {
+    const subscription = buildSubscription({
+      current_period_start: 1_700_000_000,
+      current_period_end: 1_725_920_000,
+      items: {
+        object: "list",
+        data: [
+          {
+            id: "si_projection_yearly",
+            object: "subscription_item",
+            current_period_start: 1_700_000_000,
+            current_period_end: 1_725_920_000,
+            price: {
+              id: TIER_CONFIG.growth.prices.yearly.avelero,
+            } as Stripe.Price,
+          } as Stripe.SubscriptionItem,
+        ],
+        has_more: false,
+        url: "/v1/subscription_items",
+      },
+      schedule: {
+        id: "sub_sched_projection",
+        object: "subscription_schedule",
+        status: "active",
+        current_phase: {
+          start_date: 1_700_000_000,
+          end_date: 1_725_920_000,
+        },
+        phases: [
+          {
+            start_date: 1_700_000_000,
+            end_date: 1_725_920_000,
+            items: [
+              {
+                price: TIER_CONFIG.growth.prices.yearly.avelero,
+                quantity: 1,
+              },
+            ],
+          },
+          {
+            start_date: 1_725_920_000,
+            items: [
+              {
+                price: TIER_CONFIG.starter.prices.quarterly.avelero,
+                quantity: 1,
+              },
+            ],
+          },
+        ],
+      } as Stripe.SubscriptionSchedule,
+    });
+
+    expect(resolveSubscriptionProjection(subscription)).toMatchObject({
+      planType: "growth",
+      billingInterval: "yearly",
+      scheduledPlanChange: {
+        scheduleId: "sub_sched_projection",
+        planType: "starter",
+        billingInterval: "quarterly",
+        effectiveAt: "2024-09-09T22:13:20.000Z",
+      },
     });
   });
 });

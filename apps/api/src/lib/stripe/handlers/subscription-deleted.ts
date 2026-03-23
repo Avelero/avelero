@@ -105,9 +105,14 @@ export async function handleSubscriptionDeleted(
     .update(brandBilling)
     .set({
       stripeSubscriptionId: null,
+      stripeSubscriptionScheduleId: null,
       currentPeriodStart: projection.currentPeriodStart,
       currentPeriodEnd: projection.currentPeriodEnd,
       pendingCancellation: false,
+      scheduledPlanType: null,
+      scheduledBillingInterval: null,
+      scheduledHasImpactPredictions: null,
+      scheduledPlanChangeEffectiveAt: null,
       updatedAt: nowIso,
     })
     .where(eq(brandBilling.brandId, brandId));

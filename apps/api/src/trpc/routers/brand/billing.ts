@@ -29,6 +29,7 @@ import { createPortalSession } from "../../../lib/stripe/portal.js";
 import {
   addImpactToSubscription,
   removeImpactFromSubscription,
+  scheduleSubscriptionPlanChange,
   updateSubscriptionPlan,
 } from "../../../lib/stripe/subscription.js";
 
@@ -297,8 +298,8 @@ export const billingRouter = createTRPCRouter({
 
   /**
    * Update the plan tier and/or interval for an active subscription.
-   * Used for downgrades that take effect on the existing subscription. Upgrades
-   * must use createUpgradeCheckout so the new billing cycle restarts immediately.
+   * Used for renewals and downgrades. Upgrades must use createUpgradeCheckout
+   * so the new billing cycle restarts immediately.
    */
   updatePlan: brandWriteProcedure
     .input(
@@ -341,7 +342,7 @@ export const billingRouter = createTRPCRouter({
       }
 
       // Block upgrades through this endpoint — they must use the checkout flow.
-      const [plan] = await db
+      let [plan] = await db
         .select({
           planType: brandPlan.planType,
           billingInterval: brandPlan.billingInterval,
@@ -350,11 +351,42 @@ export const billingRouter = createTRPCRouter({
         .where(eq(brandPlan.brandId, brandId))
         .limit(1);
 
+      if (!plan?.planType || !plan.billingInterval) {
+        try {
+          await syncStripeSubscriptionProjectionById({
+            db,
+            subscriptionId: billing.stripeSubscriptionId,
+            brandId,
+          });
+        } catch (err) {
+          log.error(
+            { brandId, operation: "syncStripeSubscriptionProjectionById", err },
+            "failed to backfill plan metadata before updating plan",
+          );
+        }
+
+        [plan] = await db
+          .select({
+            planType: brandPlan.planType,
+            billingInterval: brandPlan.billingInterval,
+          })
+          .from(brandPlan)
+          .where(eq(brandPlan.brandId, brandId))
+          .limit(1);
+      }
+
       const currentInterval = getNormalizedBillingInterval(plan?.billingInterval);
+      if (!plan?.planType || !currentInterval) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Current plan metadata is missing",
+        });
+      }
+
+      const isSamePlan =
+        plan.planType === input.tier && currentInterval === input.interval;
 
       if (
-        plan?.planType &&
-        currentInterval &&
         isUpgradeChange({
           currentTier: plan.planType as PlanTier,
           currentInterval,
@@ -369,18 +401,56 @@ export const billingRouter = createTRPCRouter({
       }
 
       try {
+        if (!isSamePlan) {
+          const scheduledChange =
+            await scheduleSubscriptionPlanChange({
+              stripeSubscriptionId: billing.stripeSubscriptionId,
+              newTier: input.tier,
+              newInterval: input.interval,
+              hasImpact: input.include_impact,
+            });
+
+          await db
+            .update(brandBilling)
+            .set({
+              stripeSubscriptionScheduleId: scheduledChange.scheduleId,
+              scheduledPlanType: input.tier,
+              scheduledBillingInterval: input.interval,
+              scheduledHasImpactPredictions: input.include_impact,
+              scheduledPlanChangeEffectiveAt: scheduledChange.effectiveAt,
+              updatedAt: new Date().toISOString(),
+            })
+            .where(eq(brandBilling.brandId, brandId));
+
+          return {
+            success: true as const,
+            changeTiming: "scheduled" as const,
+          };
+        }
+
         await updateSubscriptionPlan({
           stripeSubscriptionId: billing.stripeSubscriptionId,
           newTier: input.tier,
           newInterval: input.interval,
           hasImpact: input.include_impact,
         });
+
+        await db
+          .update(brandBilling)
+          .set({
+            pendingCancellation: false,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(brandBilling.brandId, brandId));
       } catch (err) {
         log.error({ brandId, operation: "updateSubscriptionPlan", tier: input.tier, interval: input.interval, err }, "plan update failed");
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to update plan" });
       }
 
-      return { success: true as const };
+      return {
+        success: true as const,
+        changeTiming: "immediate" as const,
+      };
     }),
 
   /**
@@ -684,10 +754,17 @@ export const billingRouter = createTRPCRouter({
         billingMode: brandBilling.billingMode,
         stripeCustomerId: brandBilling.stripeCustomerId,
         stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+        stripeSubscriptionScheduleId: brandBilling.stripeSubscriptionScheduleId,
         currentPeriodStart: brandBilling.currentPeriodStart,
         currentPeriodEnd: brandBilling.currentPeriodEnd,
         pastDueSince: brandBilling.pastDueSince,
         pendingCancellation: brandBilling.pendingCancellation,
+        scheduledPlanType: brandBilling.scheduledPlanType,
+        scheduledBillingInterval: brandBilling.scheduledBillingInterval,
+        scheduledHasImpactPredictions:
+          brandBilling.scheduledHasImpactPredictions,
+        scheduledPlanChangeEffectiveAt:
+          brandBilling.scheduledPlanChangeEffectiveAt,
       })
       .from(brandBilling)
       .where(eq(brandBilling.brandId, brandId))
@@ -727,6 +804,12 @@ export const billingRouter = createTRPCRouter({
       current_period_end: billing?.currentPeriodEnd ?? null,
       past_due_since: billing?.pastDueSince ?? null,
       pending_cancellation: billing?.pendingCancellation ?? false,
+      scheduled_plan_type: billing?.scheduledPlanType ?? null,
+      scheduled_billing_interval: billing?.scheduledBillingInterval ?? null,
+      scheduled_has_impact_predictions:
+        billing?.scheduledHasImpactPredictions ?? null,
+      scheduled_plan_change_effective_at:
+        billing?.scheduledPlanChangeEffectiveAt ?? null,
       grace_ends_at: brandAccess.graceEndsAt,
       total_credits: plan?.totalCredits ?? skuAccess.activeBudget.totalCredits,
       published_count: skuAccess.activeBudget.publishedCount,
@@ -735,6 +818,8 @@ export const billingRouter = createTRPCRouter({
       onboarding_discount_used: plan?.onboardingDiscountUsed ?? false,
       has_active_subscription: !!billing?.stripeSubscriptionId,
       stripe_customer_id: billing?.stripeCustomerId ?? null,
+      stripe_subscription_schedule_id:
+        billing?.stripeSubscriptionScheduleId ?? null,
     };
   }),
 

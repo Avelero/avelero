@@ -46,11 +46,26 @@ interface ResolvedSubscriptionProjection {
   planType: PlanTier | null;
   billingInterval: BillingInterval | null;
   hasImpactPredictions: boolean;
+  scheduledPlanChange: ResolvedScheduledPlanChange | null;
+  scheduledPlanChangeStateKnown: boolean;
+}
+
+interface ResolvedScheduledPlanChange {
+  scheduleId: string;
+  effectiveAt: string;
+  planType: PlanTier;
+  billingInterval: BillingInterval;
+  hasImpactPredictions: boolean;
 }
 
 interface StripeSubscriptionPeriodFields {
   current_period_start?: number | null;
   current_period_end?: number | null;
+}
+
+interface ResolvedScheduledPlanChangeState {
+  change: ResolvedScheduledPlanChange | null;
+  known: boolean;
 }
 
 /**
@@ -78,6 +93,122 @@ export function getStripeId(
 ): string | null {
   if (!value) return null;
   return typeof value === "string" ? value : value.id;
+}
+
+/**
+ * Extracts a Stripe price identifier from an expandable schedule phase item.
+ */
+function getStripePriceId(
+  value: string | Stripe.Price | Stripe.DeletedPrice | null | undefined,
+): string | null {
+  // Normalize expandable price references before resolving local plan metadata.
+  if (!value) return null;
+  return typeof value === "string" ? value : value.id;
+}
+
+/**
+ * Narrows a subscription schedule reference to an expanded schedule object.
+ */
+function isExpandedSubscriptionSchedule(
+  value: Stripe.Subscription["schedule"],
+): value is Stripe.SubscriptionSchedule {
+  // Stripe encodes absent schedules as null and unresolved expansions as ids.
+  return !!value && typeof value !== "string";
+}
+
+/**
+ * Resolves plan metadata from a single subscription schedule phase.
+ */
+function resolveSubscriptionSchedulePhasePlan(
+  phase: Stripe.SubscriptionSchedule.Phase,
+): Omit<ResolvedScheduledPlanChange, "effectiveAt" | "scheduleId"> | null {
+  // Inspect the scheduled phase items to determine the future plan and add-ons.
+  let planType: PlanTier | null = null;
+  let billingInterval: BillingInterval | null = null;
+  let hasImpactPredictions = false;
+
+  for (const item of phase.items ?? []) {
+    const priceId = getStripePriceId(item.price);
+    if (!priceId) continue;
+
+    const resolvedPrice = resolvePriceId(priceId);
+    if (!resolvedPrice) continue;
+
+    if (resolvedPrice.product === "avelero") {
+      planType = resolvedPrice.tier;
+      billingInterval = resolvedPrice.interval;
+      continue;
+    }
+
+    if (resolvedPrice.product === "impact") {
+      hasImpactPredictions = true;
+    }
+  }
+
+  if (!planType || !billingInterval) {
+    return null;
+  }
+
+  return {
+    planType,
+    billingInterval,
+    hasImpactPredictions,
+  };
+}
+
+/**
+ * Resolves the next scheduled subscription phase, when Stripe provides it.
+ */
+function resolveScheduledPlanChange(
+  subscription: Stripe.Subscription,
+): ResolvedScheduledPlanChangeState {
+  // Derive the next planned tier from an expanded subscription schedule.
+  if (subscription.schedule === null) {
+    return { change: null, known: true };
+  }
+
+  if (!isExpandedSubscriptionSchedule(subscription.schedule)) {
+    return { change: null, known: false };
+  }
+
+  const schedule = subscription.schedule;
+  if (schedule.status !== "active" && schedule.status !== "not_started") {
+    return { change: null, known: true };
+  }
+
+  const subscriptionPeriods =
+    subscription as Stripe.Subscription & StripeSubscriptionPeriodFields;
+  const currentPeriodEnd =
+    subscriptionPeriods.current_period_end ?? schedule.current_phase?.end_date ?? null;
+
+  const nextPhase =
+    schedule.phases.find((phase) => {
+      if (typeof phase.start_date !== "number") return false;
+      if (currentPeriodEnd === null) return false;
+      return phase.start_date >= currentPeriodEnd;
+    }) ?? null;
+
+  if (!nextPhase) {
+    return { change: null, known: true };
+  }
+
+  const phasePlan = resolveSubscriptionSchedulePhasePlan(nextPhase);
+  const effectiveAt = unixToIso(nextPhase.start_date);
+
+  if (!phasePlan || !effectiveAt) {
+    return { change: null, known: true };
+  }
+
+  return {
+    known: true,
+    change: {
+      scheduleId: schedule.id,
+      effectiveAt,
+      planType: phasePlan.planType,
+      billingInterval: phasePlan.billingInterval,
+      hasImpactPredictions: phasePlan.hasImpactPredictions,
+    },
+  };
 }
 
 /**
@@ -229,6 +360,7 @@ export function resolveSubscriptionProjection(
 ): ResolvedSubscriptionProjection {
   const subscriptionPeriods =
     subscription as Stripe.Subscription & StripeSubscriptionPeriodFields;
+  const scheduledPlanChangeState = resolveScheduledPlanChange(subscription);
   let planType: PlanTier | null = null;
   let billingInterval: BillingInterval | null = null;
   let hasImpactPredictions = false;
@@ -263,6 +395,8 @@ export function resolveSubscriptionProjection(
     planType,
     billingInterval,
     hasImpactPredictions,
+    scheduledPlanChange: scheduledPlanChangeState.change,
+    scheduledPlanChangeStateKnown: scheduledPlanChangeState.known,
   };
 }
 
@@ -303,6 +437,20 @@ export async function projectStripeSubscription(opts: {
       currentPeriodStart: projection.currentPeriodStart,
       currentPeriodEnd: projection.currentPeriodEnd,
       pendingCancellation: isStripeSubscriptionPendingCancellation(subscription),
+      ...(projection.scheduledPlanChangeStateKnown
+        ? {
+            stripeSubscriptionScheduleId:
+              projection.scheduledPlanChange?.scheduleId ?? null,
+            scheduledPlanType:
+              projection.scheduledPlanChange?.planType ?? null,
+            scheduledBillingInterval:
+              projection.scheduledPlanChange?.billingInterval ?? null,
+            scheduledHasImpactPredictions:
+              projection.scheduledPlanChange?.hasImpactPredictions ?? null,
+            scheduledPlanChangeEffectiveAt:
+              projection.scheduledPlanChange?.effectiveAt ?? null,
+          }
+        : {}),
       ...(clearPastDue ? { pastDueSince: null } : {}),
       updatedAt: nowIso,
     })
@@ -563,9 +711,15 @@ export async function applyEnterpriseInvoiceEntitlement(opts: {
     .set({
       billingMode: "stripe_invoice",
       stripeCustomerId: customerId,
+      stripeSubscriptionId: null,
+      stripeSubscriptionScheduleId: null,
       currentPeriodStart: servicePeriod.servicePeriodStart,
       currentPeriodEnd: servicePeriod.servicePeriodEnd,
       pendingCancellation: false,
+      scheduledPlanType: null,
+      scheduledBillingInterval: null,
+      scheduledHasImpactPredictions: null,
+      scheduledPlanChangeEffectiveAt: null,
       ...(clearPastDue ? { pastDueSince: null } : {}),
       updatedAt: nowIso,
     })
@@ -605,7 +759,18 @@ export async function syncStripeSubscriptionProjectionById(opts: {
   const stripe = getStripeClient();
   let subscription: Stripe.Subscription;
   try {
-    subscription = await stripe.subscriptions.retrieve(opts.subscriptionId);
+    subscription = await stripe.subscriptions.retrieve(opts.subscriptionId, {
+      expand: ["schedule"],
+    });
+
+    if (subscription.schedule && typeof subscription.schedule === "string") {
+      subscription = {
+        ...subscription,
+        schedule: await stripe.subscriptionSchedules.retrieve(
+          subscription.schedule,
+        ),
+      };
+    }
   } catch (err) {
     log.error(
       {

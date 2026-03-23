@@ -501,37 +501,10 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: 🚀 Start Supabase Local
-        # Runs full Supabase stack in Docker (Postgres, Auth, Storage, etc.)
-        # Migrations are automatically applied from supabase/migrations
-        run: |
-          # Create .env with placeholder values for config.toml env() references
-          # Tests don't use auth hooks or OAuth - they use direct DB connections
-          {
-            echo "APP_URL=http://localhost:3000"
-            echo "ADDITIONAL_REDIRECT_URL=http://localhost:3000"
-            echo "SEND_EMAIL_HOOK_URI=http://localhost:54321/functions/v1/send-email"
-            echo "SEND_EMAIL_HOOK_SECRET=v1,whsec_YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
-            echo "GOOGLE_CLIENT_ID=test-google-client-id"
-            echo "GOOGLE_SECRET=test-google-secret"
-            echo "GOOGLE_REDIRECT_URI=http://localhost:54321/auth/v1/callback"
-          } > .env
-
-          supabase start
-          supabase status
-        working-directory: ./apps/api
-
-      - name: 📚 Sync Taxonomy Data
-        run: |
-          export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-          bun run sync
-        working-directory: ./packages/taxonomy
-
       - name: 🧪 Run all tests
-        # Runs tests for all packages: db, integrations, jobs, api
-        # Uses turbo with --concurrency=1 (defined in root package.json)
+        # The isolated test runner provisions its own disposable Supabase stack,
+        # syncs taxonomy data into that stack, and tears it down afterward.
         run: |
-          export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           export INTERNAL_API_KEY="test-internal-api-key"
           export STRIPE_PRICE_ID_AVELERO_STARTER_QUARTERLY="${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_QUARTERLY }}"
           export STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY="${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY }}"
@@ -549,11 +522,6 @@ jobs:
           export STRIPE_PRICE_ID_PASSPORTS_GROWTH="${{ secrets.STRIPE_PRICE_ID_PASSPORTS_GROWTH }}"
           export STRIPE_PRICE_ID_PASSPORTS_SCALE="${{ secrets.STRIPE_PRICE_ID_PASSPORTS_SCALE }}"
           bun run test
-
-      - name: 🛑 Stop Supabase Local
-        if: always()
-        run: supabase stop --no-backup || true
-        working-directory: ./apps/api
 
   # ============================================
   # Gate Job: Reports single status for branch protection

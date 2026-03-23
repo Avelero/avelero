@@ -144,11 +144,19 @@ export function BillingPageContent() {
   const showPlanSelectorButton = status.billing_mode === "stripe_checkout";
   const planSelectorLabel = status.pending_cancellation ? "Renew" : "Upgrade";
   const canManageBilling = !!status.stripe_customer_id;
+  // Only show cadence-specific credit text when the stored interval is explicit.
   const creditsPerPeriod =
     interval === "yearly"
       ? display?.creditsPerYear
-      : display?.creditsPerQuarter;
-  const periodLabel = interval === "yearly" ? "year" : "quarter";
+      : interval === "quarterly"
+        ? display?.creditsPerQuarter
+        : null;
+  const periodLabel =
+    interval === "yearly"
+      ? "year"
+      : interval === "quarterly"
+        ? "quarter"
+        : null;
   const invoices = invoicesQuery.data ?? [];
 
   /**
@@ -191,7 +199,7 @@ export function BillingPageContent() {
                 .
               </p>
             )}
-            {creditsPerPeriod != null && (
+            {creditsPerPeriod != null && periodLabel && (
               <p className="text-sm text-secondary">
                 {formatCredits(creditsPerPeriod)} passports per {periodLabel}
               </p>

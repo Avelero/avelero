@@ -112,9 +112,8 @@ export async function updateSubscriptionPlan(opts: {
   newTier: PlanTier;
   newInterval: BillingInterval;
   hasImpact: boolean;
-  prorationDate?: number;
 }): Promise<void> {
-  const { stripeSubscriptionId, newTier, newInterval, hasImpact, prorationDate } = opts;
+  const { stripeSubscriptionId, newTier, newInterval, hasImpact } = opts;
   const stripe = getStripeClient();
 
   const subscription =
@@ -171,6 +170,5 @@ export async function updateSubscriptionPlan(opts: {
       include_impact: String(hasImpact),
     },
     proration_behavior: "none",
-    ...(prorationDate ? { proration_date: prorationDate } : {}),
   });
 }

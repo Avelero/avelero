@@ -2,6 +2,7 @@
  * Activates a brand after Stripe Checkout completes and billing metadata is valid.
  */
 import { db, type DatabaseOrTransaction } from "@v1/db/client";
+import { publishNotificationEvent } from "@v1/db/queries/notifications";
 import { and, eq, notInArray } from "@v1/db/queries";
 import {
   brandBillingEvents,
@@ -112,6 +113,16 @@ async function handleTopupCheckoutCompletedSession(opts: {
           : session.payment_intent?.id ?? null,
       amount_total: session.amount_total ?? null,
       currency: session.currency ?? null,
+    },
+  });
+
+  await publishNotificationEvent(conn, {
+    event: "pack_purchased",
+    brandId,
+    payload: {
+      brandId,
+      credits: topupQuantity,
+      purchaseId: session.id,
     },
   });
 

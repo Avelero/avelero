@@ -1,5 +1,5 @@
 import { and, eq, gt, inArray, isNull, or } from "drizzle-orm";
-import type { Database } from "../../client";
+import type { DatabaseOrTransaction } from "../../client";
 import { getMembersByBrandId } from "../brand/members";
 import { userNotifications } from "../../schema";
 import { createNotificationsBulk } from "./notifications";
@@ -18,7 +18,7 @@ export interface PublishNotificationResult {
  * Publishes a notification event using audience rules from the event registry.
  */
 export async function publishNotificationEvent<K extends NotificationEventKey>(
-  db: Database,
+  db: DatabaseOrTransaction,
   input: PublishNotificationInput<K>,
 ): Promise<PublishNotificationResult> {
   const definition = notificationEventDefinitions[input.event];
@@ -73,7 +73,7 @@ export async function publishNotificationEvent<K extends NotificationEventKey>(
 }
 
 async function resolveRecipients(
-  db: Database,
+  db: DatabaseOrTransaction,
   input: {
     audience: "actor_only" | "brand_members" | "brand_members_except_actor";
     brandId: string;
@@ -95,7 +95,7 @@ async function resolveRecipients(
 }
 
 async function findExistingActiveRecipients(
-  db: Database,
+  db: DatabaseOrTransaction,
   input: {
     recipients: string[];
     brandId: string;

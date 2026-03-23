@@ -3,6 +3,7 @@ import { and, eq, inArray } from "@v1/db/queries";
 import type { DatabaseOrTransaction } from "@v1/db/client";
 import {
   PublishLimitExceededError,
+  countPublishedPassports,
   enforcePublishCapacity,
 } from "@v1/db/queries/brand";
 /**
@@ -580,11 +581,20 @@ export const productsRouter = createTRPCRouter({
           };
 
           let bulkPublishedCount = 0;
+          let bulkUsageCounts:
+            | {
+                previousUsed: number;
+                used: number;
+              }
+            | null = null;
 
           // Bulk update based on selection mode
           let result: { updated: number; productIds?: string[] };
           if (input.status === "published") {
             const publishResult = await brandCtx.db.transaction(async (tx) => {
+              // Capture the exact before/after counts inside one transaction for usage notifications.
+              const previousUsed = await countPublishedPassports(tx, brandId);
+
               // Re-read publish state inside the transaction so overlapping publish requests stay serialized.
               const publishSummaries =
                 await getProductPublishTransitionSummaries(
@@ -620,9 +630,11 @@ export const productsRouter = createTRPCRouter({
                 alreadyPublishedProductIds,
                 bulkUpdates,
               );
+              const used = await countPublishedPassports(tx, brandId);
 
               return {
                 publishedCount: intendedPublishCount,
+                usageCounts: { previousUsed, used },
                 result: {
                   updated:
                     publishedTransitionResult.updated +
@@ -636,6 +648,7 @@ export const productsRouter = createTRPCRouter({
             });
 
             bulkPublishedCount = publishResult.publishedCount;
+            bulkUsageCounts = publishResult.usageCounts;
             result = publishResult.result;
           } else if (selection.mode === "all") {
             result = await bulkUpdateProductsByFilter(
@@ -680,11 +693,12 @@ export const productsRouter = createTRPCRouter({
             }
           }
 
-          if (bulkPublishedCount > 0) {
+          if (bulkPublishedCount > 0 && bulkUsageCounts) {
             notifyPublishUsageIfNeeded({
               db: brandCtx.db,
               brandId,
-              usageDelta: bulkPublishedCount,
+              previousUsed: bulkUsageCounts.previousUsed,
+              used: bulkUsageCounts.used,
             }).catch(() => {});
           }
 
@@ -696,8 +710,6 @@ export const productsRouter = createTRPCRouter({
 
         // Single product update
         const payload: UpdateProductInput = { id: input.id };
-        let singlePublishedCount = 0;
-
         // Only add fields to payload if they were explicitly provided in input
         if (input.product_handle !== undefined)
           payload.productHandle = input.product_handle;
@@ -711,9 +723,12 @@ export const productsRouter = createTRPCRouter({
           payload.manufacturerId = input.manufacturer_id;
         if (input.image_path !== undefined)
           payload.imagePath = input.image_path;
-        const product =
+        const productResult =
           input.status !== undefined
             ? await brandCtx.db.transaction(async (tx) => {
+                // Capture exact before/after counts so publish notifications stay race-free.
+                const previousUsed = await countPublishedPassports(tx, brandId);
+
                 // Re-load publish state inside the transaction so publish and update happen atomically.
                 const currentProductState =
                   (
@@ -740,8 +755,6 @@ export const productsRouter = createTRPCRouter({
                   await enforcePublishCapacity(tx, brandId, publishedCount);
                 }
 
-                singlePublishedCount = publishedCount;
-
                 if (input.status === "published") {
                   txPayload.publishedAt =
                     currentProductState.status !== "published"
@@ -754,9 +767,25 @@ export const productsRouter = createTRPCRouter({
                   txPayload.publishedAt = null;
                 }
 
-                return updateProductRecord(tx, brandId, txPayload);
+                const updatedProduct = await updateProductRecord(
+                  tx,
+                  brandId,
+                  txPayload,
+                );
+                const used = await countPublishedPassports(tx, brandId);
+
+                return {
+                  product: updatedProduct,
+                  publishedCount,
+                  usageCounts: { previousUsed, used },
+                };
               })
-            : await updateProduct(brandCtx.db, brandId, payload);
+            : {
+                product: await updateProduct(brandCtx.db, brandId, payload),
+                publishedCount: 0,
+                usageCounts: null,
+              };
+        const product = productResult.product;
 
         await applyProductAttributes(brandCtx, input.id, {
           materials: input.materials,
@@ -799,11 +828,12 @@ export const productsRouter = createTRPCRouter({
           }
         }
 
-        if (singlePublishedCount > 0) {
+        if (productResult.publishedCount > 0 && productResult.usageCounts) {
           notifyPublishUsageIfNeeded({
             db: brandCtx.db,
             brandId,
-            usageDelta: singlePublishedCount,
+            previousUsed: productResult.usageCounts.previousUsed,
+            used: productResult.usageCounts.used,
           }).catch(() => {});
         }
 

@@ -15,4 +15,5 @@ ALTER TABLE "brand_plan" DROP COLUMN "annual_usage_anchor_at";--> statement-brea
 ALTER TABLE "brand_plan" DROP COLUMN "sku_year_start";--> statement-breakpoint
 ALTER TABLE "brand_plan" DROP COLUMN "sku_count_at_year_start";--> statement-breakpoint
 ALTER TABLE "brand_plan" DROP COLUMN "sku_count_at_onboarding_start";--> statement-breakpoint
+UPDATE "brand_plan" SET "billing_interval" = 'quarterly' WHERE "billing_interval" = 'monthly';--> statement-breakpoint
 ALTER TABLE "brand_plan" ADD CONSTRAINT "brand_plan_billing_interval_check" CHECK (billing_interval IS NULL OR billing_interval = ANY (ARRAY['quarterly'::text, 'yearly'::text]));

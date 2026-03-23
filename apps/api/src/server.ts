@@ -25,6 +25,14 @@ import { createTRPCContext } from "./trpc/init.js";
 import { appRouter } from "./trpc/routers/_app.js";
 
 const log = billingLogger.child({ component: "api-server" });
+const DEFAULT_MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
+
+class RequestBodyTooLargeError extends Error {
+  constructor(limitBytes: number) {
+    super(`Request body exceeded the ${limitBytes}-byte limit.`);
+    this.name = "RequestBodyTooLargeError";
+  }
+}
 
 export interface ApiServerHandle {
   app: Hono;
@@ -80,6 +88,23 @@ function resolveCorsOrigin(origin?: string | null): string | undefined {
 }
 
 /**
+ * Resolves the maximum request body size enforced by the Node.js bridge.
+ */
+function getMaxRequestBodyBytes(): number {
+  // Read the env lazily so tests and local environments can override it per process.
+  const parsed = Number.parseInt(
+    process.env.API_MAX_REQUEST_BODY_BYTES ?? "",
+    10,
+  );
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_MAX_REQUEST_BODY_BYTES;
+  }
+
+  return parsed;
+}
+
+/**
  * Reads the raw bytes from a Node.js request so webhook signatures remain stable.
  */
 async function readNodeRequestBody(
@@ -94,14 +119,73 @@ async function readNodeRequestBody(
   }
 
   const chunks: Buffer[] = [];
+  const maxRequestBodyBytes = getMaxRequestBodyBytes();
+  let totalBytes = 0;
+  const declaredContentLength = req.headers["content-length"];
+  const declaredLengthValue = Array.isArray(declaredContentLength)
+    ? declaredContentLength[0]
+    : declaredContentLength;
+  const parsedDeclaredLength = Number.parseInt(declaredLengthValue ?? "", 10);
+
+  if (
+    Number.isFinite(parsedDeclaredLength) &&
+    parsedDeclaredLength > maxRequestBodyBytes
+  ) {
+    throw new RequestBodyTooLargeError(maxRequestBodyBytes);
+  }
 
   await new Promise<void>((resolve, reject) => {
+    // Track completion so oversized bodies can abort without double-settling the promise.
+    let settled = false;
+
+    const cleanup = () => {
+      req.off("data", handleData);
+      req.off("end", handleEnd);
+      req.off("error", handleError);
+      req.off("aborted", handleAborted);
+    };
+
+    const settleResolve = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+
+    const settleReject = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+
     // Buffer the request body so downstream handlers receive an exact, stable payload.
-    req.on("data", (chunk: Buffer | string) => {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    });
-    req.on("end", resolve);
-    req.on("error", reject);
+    const handleData = (chunk: Buffer | string) => {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      totalBytes += buffer.byteLength;
+
+      if (totalBytes > maxRequestBodyBytes) {
+        req.pause();
+        settleReject(new RequestBodyTooLargeError(maxRequestBodyBytes));
+        return;
+      }
+
+      chunks.push(buffer);
+    };
+    const handleEnd = () => {
+      settleResolve();
+    };
+    const handleError = (error: Error) => {
+      settleReject(error);
+    };
+    const handleAborted = () => {
+      settleReject(new Error("Request body stream aborted before completion."));
+    };
+
+    req.on("data", handleData);
+    req.on("end", handleEnd);
+    req.on("error", handleError);
+    req.on("aborted", handleAborted);
   });
 
   return Buffer.concat(chunks);
@@ -241,11 +325,17 @@ export function createApiHttpServer(app: Hono): HttpServer {
         const response = await app.fetch(request);
         await writeNodeResponse(response, res);
       } catch (error) {
-        log.error({ err: error }, "failed to handle API request");
-
         if (res.writableEnded || res.destroyed) {
           return;
         }
+
+        if (error instanceof RequestBodyTooLargeError) {
+          res.statusCode = 413;
+          res.end("Payload Too Large");
+          return;
+        }
+
+        log.error({ err: error }, "failed to handle API request");
 
         res.statusCode = 500;
         res.end("Internal Server Error");

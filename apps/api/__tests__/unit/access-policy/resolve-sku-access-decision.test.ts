@@ -14,6 +14,13 @@ import type {
 function buildSnapshot(
   overrides: Partial<BrandAccessSnapshot> = {},
 ): BrandAccessSnapshot {
+  // Split nested overrides so partial fixtures keep the base nested defaults.
+  const {
+    lifecycle: lifecycleOverride,
+    billing: billingOverride,
+    plan: planOverride,
+    ...topLevelOverrides
+  } = overrides;
   const baseLifecycle: NonNullable<BrandAccessSnapshot["lifecycle"]> = {
     phase: "active",
     trialStartedAt: null,
@@ -38,10 +45,19 @@ function buildSnapshot(
 
   return {
     brandId: "brand-1",
-    lifecycle: { ...baseLifecycle, ...(overrides.lifecycle ?? {}) },
-    billing: { ...baseBilling, ...(overrides.billing ?? {}) },
-    plan: { ...basePlan, ...(overrides.plan ?? {}) },
-    ...overrides,
+    lifecycle:
+      lifecycleOverride === null
+        ? null
+        : { ...baseLifecycle, ...(lifecycleOverride ?? {}) },
+    billing:
+      billingOverride === null
+        ? null
+        : { ...baseBilling, ...(billingOverride ?? {}) },
+    plan:
+      planOverride === null
+        ? null
+        : { ...basePlan, ...(planOverride ?? {}) },
+    ...topLevelOverrides,
   };
 }
 
@@ -135,5 +151,17 @@ describe("resolveSkuAccessDecision", () => {
     expect(result.activeBudget.totalCredits).toBe(50);
     expect(result.activeBudget.remaining).toBe(20);
     expect(result.status).toBe("allowed");
+  });
+
+  it("preserves nested plan defaults when applying partial overrides", () => {
+    const snapshot = buildSnapshot({
+      plan: { totalCredits: 500, onboardingDiscountUsed: false },
+    });
+
+    expect(snapshot.plan).toEqual({
+      totalCredits: 500,
+      onboardingDiscountUsed: false,
+      variantGlobalCap: null,
+    });
   });
 });

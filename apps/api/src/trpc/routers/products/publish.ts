@@ -13,6 +13,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DatabaseOrTransaction } from "@v1/db/client";
 import {
   PublishLimitExceededError,
+  countPublishedPassports,
   enforcePublishCapacity,
 } from "@v1/db/queries/brand";
 import {
@@ -208,6 +209,9 @@ export const publishRouter = createTRPCRouter({
 
       try {
         const publishResult = await db.transaction(async (tx) => {
+          // Capture the exact publish counts inside the transaction before any status flips.
+          const previousUsed = await countPublishedPassports(tx, brandId);
+
           // Load the owning product so publish can enforce capacity only on real transitions.
           const target = await getVariantPublishTarget(
             tx,
@@ -229,9 +233,6 @@ export const publishRouter = createTRPCRouter({
             throw badRequest("No variants found for product");
           }
 
-          const publishedCount =
-            summary.status !== "published" ? summary.variantCount : 0;
-
           if (summary.status !== "published") {
             await enforcePublishCapacity(tx, brandId, summary.variantCount);
           }
@@ -244,19 +245,14 @@ export const publishRouter = createTRPCRouter({
           if (!passport) {
             throw badRequest("Failed to create or retrieve passport");
           }
-          // A passport row can exist before its first published version exists.
-          const wasUnpublished =
-            passport.currentVersionId === null &&
-            passport.firstPublishedAt === null;
-
           await setProductsPublished(tx, brandId, [target.productId]);
           await markPassportDirty(tx, passport.id);
+          const used = await countPublishedPassports(tx, brandId);
 
           return {
             passportId: passport.id,
             isNew,
-            publishedCount,
-            wasUnpublished,
+            usageCounts: { previousUsed, used },
           };
         });
 
@@ -273,18 +269,14 @@ export const publishRouter = createTRPCRouter({
             : [],
         });
 
-        const notificationUsageDelta =
-          publishResult.publishedCount > 0
-            ? publishResult.publishedCount
-            : publishResult.wasUnpublished
-              ? 1
-              : 0;
-
-        if (notificationUsageDelta > 0) {
+        if (
+          publishResult.usageCounts.used > publishResult.usageCounts.previousUsed
+        ) {
           notifyPublishUsageIfNeeded({
             db,
             brandId,
-            usageDelta: notificationUsageDelta,
+            previousUsed: publishResult.usageCounts.previousUsed,
+            used: publishResult.usageCounts.used,
           }).catch(() => {});
         }
 
@@ -321,6 +313,9 @@ export const publishRouter = createTRPCRouter({
 
       try {
         const txResult = await db.transaction(async (tx) => {
+          // Capture the exact publish counts inside the transaction before the status flip.
+          const previousUsed = await countPublishedPassports(tx, brandId);
+
           // Re-check the product state inside one transaction so publish capacity cannot race.
           const rows = await getProductPublishSummaries(tx, brandId, [
             input.productId,
@@ -333,16 +328,17 @@ export const publishRouter = createTRPCRouter({
             throw badRequest("No variants found for product");
           }
 
-          const publishedCount =
-            summary.status !== "published" ? summary.variantCount : 0;
-
           if (summary.status !== "published") {
             await enforcePublishCapacity(tx, brandId, summary.variantCount);
           }
 
           await setProductsPublished(tx, brandId, [input.productId]);
+          const used = await countPublishedPassports(tx, brandId);
 
-          return { summary, publishedCount };
+          return {
+            summary,
+            usageCounts: { previousUsed, used },
+          };
         });
 
         await markPassportsDirtyByProductIds(db, brandId, [input.productId]);
@@ -355,16 +351,12 @@ export const publishRouter = createTRPCRouter({
           barcodes: projection.barcodes,
         });
 
-        const notificationUsageDelta =
-          txResult.publishedCount > 0
-            ? txResult.publishedCount
-            : projection.firstPublishedSet;
-
-        if (notificationUsageDelta > 0) {
+        if (txResult.usageCounts.used > txResult.usageCounts.previousUsed) {
           notifyPublishUsageIfNeeded({
             db,
             brandId,
-            usageDelta: notificationUsageDelta,
+            previousUsed: txResult.usageCounts.previousUsed,
+            used: txResult.usageCounts.used,
           }).catch(() => {});
         }
 
@@ -401,6 +393,9 @@ export const publishRouter = createTRPCRouter({
       try {
         const uniqueProductIds = Array.from(new Set(input.productIds));
         const publishResult = await db.transaction(async (tx) => {
+          // Capture the exact publish counts inside the transaction before bulk status changes.
+          const previousUsed = await countPublishedPassports(tx, brandId);
+
           // Enforce the publish budget only for products that are not already published.
           const summaries = await getProductPublishSummaries(
             tx,
@@ -415,14 +410,18 @@ export const publishRouter = createTRPCRouter({
             await enforcePublishCapacity(tx, brandId, intendedPublishCount);
           }
 
+          const updatedProductIds = await setProductsPublished(
+            tx,
+            brandId,
+            uniqueProductIds,
+          );
+          const used = await countPublishedPassports(tx, brandId);
+
           return {
-            updatedProductIds: await setProductsPublished(
-              tx,
-              brandId,
-              uniqueProductIds,
-            ),
+            updatedProductIds,
             foundProductCount: summaries.length,
             intendedPublishCount,
+            usageCounts: { previousUsed, used },
           };
         });
         const dirtyResult = await markPassportsDirtyByProductIds(
@@ -431,11 +430,15 @@ export const publishRouter = createTRPCRouter({
           uniqueProductIds,
         );
 
-        if (publishResult.intendedPublishCount > 0) {
+        if (
+          publishResult.intendedPublishCount > 0 &&
+          publishResult.usageCounts.used > publishResult.usageCounts.previousUsed
+        ) {
           notifyPublishUsageIfNeeded({
             db,
             brandId,
-            usageDelta: publishResult.intendedPublishCount,
+            previousUsed: publishResult.usageCounts.previousUsed,
+            used: publishResult.usageCounts.used,
           }).catch(() => {});
         }
 

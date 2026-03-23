@@ -30,9 +30,11 @@ export function CheckoutReturnHandler() {
     handledRef.current = true;
 
     if (checkoutStatus === "success") {
-      if (topupQuantity) {
+      const parsedTopupQuantity = parseTopupQuantity(topupQuantity);
+
+      if (parsedTopupQuantity !== null) {
         toast.success(
-          `${Number(topupQuantity).toLocaleString("en-US")} credits will be added to your account shortly.`,
+          `${parsedTopupQuantity.toLocaleString("en-US")} credits will be added to your account shortly.`,
         );
       } else {
         toast.success("Payment successful! Your plan is now active.");
@@ -53,4 +55,22 @@ export function CheckoutReturnHandler() {
   }, [pathname, router, searchParams]);
 
   return null;
+}
+
+/**
+ * Parses the returned top-up quantity from the billing success URL.
+ */
+function parseTopupQuantity(value: string | null): number | null {
+  // Reject malformed query values so the success toast never renders NaN.
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
 }

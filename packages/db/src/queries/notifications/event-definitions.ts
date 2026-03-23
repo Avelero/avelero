@@ -1,6 +1,7 @@
 /**
  * Notification event definitions and payload mapping helpers.
  */
+import { createHash } from "node:crypto";
 import type {
   CreateNotificationParams,
   NotificationActionData,
@@ -37,6 +38,7 @@ export type CreditLimitReachedPayload = CreditLimitWarningPayload;
 export interface PackPurchasedPayload {
   brandId: string;
   credits: number;
+  purchaseId: string;
 }
 
 export interface NotificationEventPayloadMap {
@@ -103,6 +105,25 @@ interface NotificationEventDefinition<K extends NotificationEventKey> {
 type NotificationEventDefinitions = {
   [K in NotificationEventKey]: NotificationEventDefinition<K>;
 };
+
+/**
+ * Converts external identifiers into a stable UUID-shaped notification resource id.
+ */
+function toNotificationResourceUuid(namespace: string, value: string): string {
+  // Hash external ids because the notifications table stores resource ids as UUIDs.
+  const hex = createHash("sha256")
+    .update(`${namespace}:${value}`, "utf8")
+    .digest("hex")
+    .slice(0, 32);
+
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join("-");
+}
 
 export const notificationEventDefinitions: NotificationEventDefinitions = {
   import_success: {
@@ -261,7 +282,10 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
       title: "Additional credits added",
       message: `${payload.credits.toLocaleString()} passport credits were added to your balance. ${ACTION_PLACEHOLDER}`,
       resourceType: "credit_pack",
-      resourceId: payload.brandId,
+      resourceId: toNotificationResourceUuid(
+        "pack_purchased",
+        payload.purchaseId,
+      ),
       actionUrl: "/settings/billing",
       actionData: {
         kind: "link",

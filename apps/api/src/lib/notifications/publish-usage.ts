@@ -6,9 +6,6 @@
  */
 
 import type { Database } from "@v1/db/client";
-import {
-  countPublishedPassports,
-} from "@v1/db/queries/brand";
 import { brandPlan } from "@v1/db/schema";
 import { eq } from "drizzle-orm";
 import { publishNotificationEvent } from "@v1/db/queries/notifications";
@@ -21,11 +18,17 @@ const PUBLISH_NOTIFICATION_THRESHOLD = 0.9;
 export async function notifyPublishUsageIfNeeded(params: {
   db: Database;
   brandId: string;
-  usageDelta: number;
+  previousUsed: number;
+  used: number;
 }): Promise<void> {
-  const { db, brandId, usageDelta } = params;
+  const { db, brandId, previousUsed, used } = params;
 
-  if (!Number.isFinite(usageDelta) || usageDelta <= 0) {
+  if (
+    !Number.isFinite(previousUsed) ||
+    !Number.isFinite(used) ||
+    previousUsed < 0 ||
+    used <= previousUsed
+  ) {
     return;
   }
 
@@ -39,8 +42,6 @@ export async function notifyPublishUsageIfNeeded(params: {
     return;
   }
 
-  const used = await countPublishedPassports(db, brandId);
-  const previousUsed = Math.max(0, used - usageDelta);
   const limit = plan.totalCredits;
 
   if (previousUsed < limit && used >= limit) {

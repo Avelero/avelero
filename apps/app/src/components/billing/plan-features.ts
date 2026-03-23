@@ -95,33 +95,84 @@ export function getPlanFeatures(
   interval: "quarterly" | "yearly",
 ): PlanFeature[] {
   return [
-    interval === "quarterly"
-      ? {
-          label: "Passports per quarter",
-          starter: "400",
-          growth: "1,200",
-          scale: "4,000",
-          enterprise: "Custom",
-        }
-      : {
-          label: "Passports per year",
-          starter: "1,600",
-          growth: "4,800",
-          scale: "16,000",
-          enterprise: "Custom",
-        },
+    buildCreditAllowanceFeature(interval),
+    ...getSharedPlanFeatures(),
+  ];
+}
+
+export const TOPUP_RATES: Record<PaidPlanTier, number> = {
+  starter: 2.5,
+  growth: 2,
+  scale: 1.75,
+};
+export const ONBOARDING_DISCOUNT_CAP: Record<PaidPlanTier, number> = {
+  starter: 4_800,
+  growth: 14_400,
+  scale: 48_000,
+};
+export const TOPUP_QUICK_AMOUNTS: Record<
+  PaidPlanTier,
+  readonly [number, number, number]
+> = {
+  starter: [100, 200, 400],
+  growth: [300, 600, 1_200],
+  scale: [1_000, 2_000, 4_000],
+};
+
+/** Builds the cadence-specific credit allowance row from the shared plan catalog. */
+function buildCreditAllowanceFeature(
+  interval: "quarterly" | "yearly",
+): PlanFeature {
+  // Keep the feature table aligned with the plan display catalog.
+  return {
+    label:
+      interval === "quarterly" ? "Passports per quarter" : "Passports per year",
+    starter: getPlanCreditAllowance("starter", interval),
+    growth: getPlanCreditAllowance("growth", interval),
+    scale: getPlanCreditAllowance("scale", interval),
+    enterprise: getPlanCreditAllowance("enterprise", interval),
+  };
+}
+
+/** Builds the comparison rows shared by both billing intervals. */
+function getSharedPlanFeatures(): PlanFeature[] {
+  // Derive shared pricing text from the top-up catalog to prevent drift.
+  return [
+    {
+      label: "Per additional passport",
+      starter: getAdditionalPassportPrice("starter"),
+      growth: getAdditionalPassportPrice("growth"),
+      scale: getAdditionalPassportPrice("scale"),
+      enterprise: getAdditionalPassportPrice("enterprise"),
+    },
     ...SHARED_PLAN_FEATURES,
   ];
 }
 
+/** Formats the included credit allowance for the selected plan cadence. */
+function getPlanCreditAllowance(
+  tier: PlanTier,
+  interval: "quarterly" | "yearly",
+): string {
+  // Enterprise stays custom while paid plans read their allowances from PLAN_DISPLAY.
+  const display = PLAN_DISPLAY[tier];
+  const credits =
+    interval === "quarterly" ? display.creditsPerQuarter : display.creditsPerYear;
+
+  return credits == null ? "Custom" : formatCredits(credits);
+}
+
+/** Formats the per-passport top-up rate for the feature table. */
+function getAdditionalPassportPrice(tier: PlanTier): string {
+  // Enterprise does not have a fixed per-passport top-up rate.
+  if (tier === "enterprise") {
+    return "Custom";
+  }
+
+  return formatPrice(TOPUP_RATES[tier]);
+}
+
 const SHARED_PLAN_FEATURES: PlanFeature[] = [
-  {
-    label: "Per additional passport",
-    starter: "€2.50",
-    growth: "€2.00",
-    scale: "€1.75",
-    enterprise: "Custom",
-  },
   {
     label: "Integrations",
     starter: "1",
@@ -188,25 +239,6 @@ const SHARED_PLAN_FEATURES: PlanFeature[] = [
     enterprise: true,
   },
 ];
-
-export const TOPUP_RATES: Record<PaidPlanTier, number> = {
-  starter: 2.5,
-  growth: 2,
-  scale: 1.75,
-};
-export const ONBOARDING_DISCOUNT_CAP: Record<PaidPlanTier, number> = {
-  starter: 4_800,
-  growth: 14_400,
-  scale: 48_000,
-};
-export const TOPUP_QUICK_AMOUNTS: Record<
-  PaidPlanTier,
-  readonly [number, number, number]
-> = {
-  starter: [100, 200, 400],
-  growth: [300, 600, 1_200],
-  scale: [1_000, 2_000, 4_000],
-};
 
 /** Format a euro-denominated price for display with cents only when needed. */
 export function formatPrice(euros: number): string {

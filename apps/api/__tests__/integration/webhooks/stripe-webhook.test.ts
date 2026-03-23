@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { db as appDb } from "@v1/db/client";
 import { desc, eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
-import { createTestBrand, testDb } from "@v1/db/testing";
+import { createTestBrand, createTestUser, testDb } from "@v1/db/testing";
 import Stripe from "stripe";
 
 const stripe = new Stripe("sk_test_codex");
@@ -191,6 +191,14 @@ describe("Stripe webhook processing", () => {
 
     try {
       const brandId = await createTestBrand("Webhook Top-up Brand");
+      const userId = await createTestUser(
+        `topup-notification-${Math.random().toString(36).slice(2, 10)}@example.com`,
+      );
+      await testDb.insert(schema.brandMembers).values({
+        brandId,
+        userId,
+        role: "owner",
+      });
       await setBrandSubscriptionState({
         brandId,
         phase: "active",
@@ -202,11 +210,12 @@ describe("Stripe webhook processing", () => {
         totalCredits: 50,
         onboardingDiscountUsed: false,
       });
+      const checkoutSessionId = `cs_test_${crypto.randomUUID()}`;
 
       const { rawBody, signature } = await buildSignedWebhook({
         eventType: "checkout.session.completed",
         object: {
-          id: `cs_test_${crypto.randomUUID()}`,
+          id: checkoutSessionId,
           object: "checkout.session",
           mode: "payment",
           payment_status: "paid",
@@ -252,6 +261,24 @@ describe("Stripe webhook processing", () => {
       expect(plan?.onboardingDiscountUsed).toBe(true);
       expect((billingEvent?.payload as Record<string, unknown>)?.topup_quantity).toBe(200);
       expect((billingEvent?.payload as Record<string, unknown>)?.tier).toBe("growth");
+
+      const [notification] = await testDb
+        .select({
+          type: schema.userNotifications.type,
+          userId: schema.userNotifications.userId,
+          resourceId: schema.userNotifications.resourceId,
+        })
+        .from(schema.userNotifications)
+        .where(eq(schema.userNotifications.brandId, brandId))
+        .orderBy(desc(schema.userNotifications.createdAt))
+        .limit(1);
+
+      expect(notification?.type).toBe("pack_purchased");
+      expect(notification?.userId).toBe(userId);
+      expect(notification?.resourceId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+      expect(notification?.resourceId).not.toBe(checkoutSessionId);
     } finally {
       restoreAppDb();
     }

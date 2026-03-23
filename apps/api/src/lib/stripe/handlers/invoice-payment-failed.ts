@@ -18,6 +18,14 @@ export async function handleInvoicePaymentFailed(
   event: Stripe.Event,
   conn: DatabaseOrTransaction = db,
 ): Promise<void> {
+  // Route bare-db calls through a transaction so lifecycle and billing writes stay atomic.
+  if (conn === db) {
+    await db.transaction(async (tx) => {
+      await handleInvoicePaymentFailed(event, tx);
+    });
+    return;
+  }
+
   // Transition eligible brands to past_due and keep billing grace-period state aligned with the persisted lifecycle phase.
   const invoice = event.data.object as Stripe.Invoice;
   const customerId = getStripeId(invoice.customer);

@@ -5,7 +5,7 @@
  */
 
 import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
-import type { Database } from "../../client";
+import type { Database, DatabaseOrTransaction } from "../../client";
 import { userNotifications } from "../../schema";
 import type {
   CreateNotificationParams,
@@ -20,7 +20,7 @@ const DEFAULT_EXPIRES_MS = 7 * 24 * 60 * 60 * 1000;
  * Creates a new notification for a user.
  */
 export async function createNotification(
-  db: Database,
+  db: DatabaseOrTransaction,
   params: CreateNotificationParams,
 ): Promise<UserNotification> {
   const expiresAt = computeExpiresAt(params.expiresInMs);
@@ -53,7 +53,7 @@ export async function createNotification(
  * Creates multiple notifications in a single insert.
  */
 export async function createNotificationsBulk(
-  db: Database,
+  db: DatabaseOrTransaction,
   params: CreateNotificationParams[],
 ): Promise<UserNotification[]> {
   if (params.length === 0) {

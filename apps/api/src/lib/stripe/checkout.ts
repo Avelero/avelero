@@ -36,12 +36,20 @@ function isMatchingOpenCheckoutSession(params: {
   metadata: Record<string, string>;
 }): boolean {
   const { session, brandId, metadata } = params;
+
+  // Require upgrade metadata to match exactly so regular and upgrade checkouts never alias.
+  const sessionUpgradeSource =
+    session.metadata?.upgrade_from_subscription_id ?? null;
+  const requestedUpgradeSource =
+    metadata.upgrade_from_subscription_id ?? null;
+
   return (
     session.mode === "subscription" &&
     session.client_reference_id === brandId &&
     session.metadata?.plan_type === metadata.plan_type &&
     session.metadata?.billing_interval === metadata.billing_interval &&
-    session.metadata?.include_impact === metadata.include_impact
+    session.metadata?.include_impact === metadata.include_impact &&
+    sessionUpgradeSource === requestedUpgradeSource
   );
 }
 

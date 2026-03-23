@@ -1,11 +1,9 @@
 /**
- * Modal for purchasing one-time passport packs via Stripe Checkout.
- * Follows the same Dialog pattern as DeleteProductsModal, etc.
+ * Modal for purchasing quantity-based passport top-ups via Stripe Checkout.
  */
 "use client";
 
-import { formatCredits, formatPrice } from "@/components/billing/plan-features";
-import { PackSizeSelect } from "@/components/select/pack-size-select";
+import { CreditQuantityInput } from "@/components/billing/credit-quantity-input";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -20,24 +18,32 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
 import { useState } from "react";
-import { CREDIT_PACKS } from "../billing/plan-features";
+import {
+  ONBOARDING_DISCOUNT_CAP,
+  TOPUP_RATES,
+  formatCredits,
+  formatPrice,
+  type PaidPlanTier,
+} from "../billing/plan-features";
 
 interface PurchaseCreditsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  tier: PaidPlanTier;
   onboardingDiscountAvailable: boolean;
 }
 
 function PurchaseCreditsModal({
   open,
   onOpenChange,
+  tier,
   onboardingDiscountAvailable,
 }: PurchaseCreditsModalProps) {
-  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState<number | null>(null);
 
   const trpc = useTRPC();
-  const packCheckoutMutation = useMutation(
-    trpc.brand.billing.createPackCheckout.mutationOptions({
+  const topupCheckoutMutation = useMutation(
+    trpc.brand.billing.createTopupCheckout.mutationOptions({
       onSuccess: (data) => {
         window.location.href = data.url;
       },
@@ -47,32 +53,26 @@ function PurchaseCreditsModal({
     }),
   );
 
-  const selectedPack = selectedSize
-    ? CREDIT_PACKS.find((p) => String(p.credits) === selectedSize)
-    : null;
-  const price = selectedPack?.price ?? 0;
-  const discountedPrice = onboardingDiscountAvailable
-    ? Math.round(price * 0.5)
-    : price;
-  const perPassport = selectedPack ? price / selectedPack.credits : 0;
+  const rate = TOPUP_RATES[tier];
+  const discountCap = ONBOARDING_DISCOUNT_CAP[tier];
+  const hasDiscount = onboardingDiscountAvailable && !!quantity;
+  const discountedQuantity = hasDiscount ? Math.min(quantity, discountCap) : 0;
+  const fullPriceQuantity = hasDiscount ? Math.max(0, quantity - discountCap) : (quantity ?? 0);
+  const discountedSubtotal = discountedQuantity * rate * 0.5;
+  const fullPriceSubtotal = fullPriceQuantity * rate;
+  const totalDue = hasDiscount
+    ? discountedSubtotal + fullPriceSubtotal
+    : (quantity ?? 0) * rate;
+  const totalBeforeDiscount = (quantity ?? 0) * rate;
 
   function handlePurchase() {
-    if (!selectedSize) return;
-    packCheckoutMutation.mutate({
-      pack_size: selectedSize as
-        | "100"
-        | "250"
-        | "500"
-        | "1000"
-        | "2500"
-        | "5000",
-    });
+    if (!quantity) return;
+    topupCheckoutMutation.mutate({ quantity });
   }
 
-  // Reset selection when modal closes
   function handleOpenChange(next: boolean) {
     if (!next) {
-      setSelectedSize(null);
+      setQuantity(null);
     }
     onOpenChange(next);
   }
@@ -82,7 +82,7 @@ function PurchaseCreditsModal({
       <DialogContent size="md" className="gap-0 overflow-visible p-0">
         <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle className="text-foreground">
-            Purchase passports
+            Purchase additional passports
           </DialogTitle>
         </DialogHeader>
 
@@ -92,67 +92,62 @@ function PurchaseCreditsModal({
               <p className="font-medium text-foreground">
                 How purchasing passports works
               </p>
-              <ul className="list-disc space-y-1 pl-4 text-secondary">
-                <li>Passports are added to your balance after payment</li>
-                <li>
-                  Credits never expire as long as your subscription is active
-                </li>
-                <li>
-                  Want a better rate? Upgrade your plan for recurring credits
-                </li>
+              <ul className="list-disc space-y-1 pl-4">
+                <li>Each purchased passport adds one credit to your balance</li>
+                <li>Credits are added after payment and can be used immediately</li>
+                <li>Want a better rate? Upgrade your plan for more included passports</li>
               </ul>
             </div>
           </DialogDescription>
 
           {onboardingDiscountAvailable ? (
-            <div className="inline-flex items-center gap-2 border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-primary">
-              <Icons.CheckCircle2 className="h-4 w-4" />
-              First pack 50% off — applied automatically
+            <div className="flex items-center gap-2 border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-primary">
+              <Icons.CheckCircle2 className="h-4 w-4 shrink-0" />
+              First purchase 50% off — up to {formatCredits(discountCap)} passports
             </div>
           ) : null}
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              Select amount
-            </label>
-            <PackSizeSelect
-              value={selectedSize}
-              onValueChange={setSelectedSize}
-            />
-          </div>
+          <CreditQuantityInput
+            tier={tier}
+            value={quantity}
+            onChange={setQuantity}
+          />
 
-          {/* Price summary — only shown after selection */}
-          {selectedPack ? (
-            <div className="border border-border bg-accent-light/40 px-4 py-3">
-              <div className="flex items-baseline justify-between">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {formatCredits(selectedPack.credits)} passports
-                  </p>
-                  <p className="text-xs text-secondary">
-                    €
-                    {perPassport.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    per passport
-                  </p>
-                </div>
-                <div className="text-right">
-                  {onboardingDiscountAvailable ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-tertiary line-through">
-                        {formatPrice(price)}
-                      </span>
-                      <span className="text-lg font-semibold text-primary">
-                        {formatPrice(discountedPrice)}
-                      </span>
+          {quantity && quantity > 0 ? (
+            <div className="space-y-2">
+              {hasDiscount ? (
+                <>
+                  <div className="flex justify-between text-sm text-secondary">
+                    <span>{formatCredits(discountedQuantity)} passports at 50% off</span>
+                    <span>{formatPrice(discountedSubtotal)}</span>
+                  </div>
+                  {fullPriceQuantity > 0 ? (
+                    <div className="flex justify-between text-sm text-secondary">
+                      <span>{formatCredits(fullPriceQuantity)} passports at €{rate.toFixed(2)}</span>
+                      <span>{formatPrice(fullPriceSubtotal)}</span>
                     </div>
-                  ) : (
-                    <span className="text-lg font-semibold text-primary">
-                      {formatPrice(price)}
+                  ) : null}
+                </>
+              ) : (
+                <div className="flex justify-between text-sm text-secondary">
+                  <span>{formatCredits(quantity)} passports at €{rate.toFixed(2)}</span>
+                  <span>{formatPrice(totalDue)}</span>
+                </div>
+              )}
+
+              <div className="flex items-baseline justify-between border-t border-border pt-2">
+                <span className="text-sm font-medium text-foreground">
+                  Due today
+                </span>
+                <div className="flex items-baseline gap-2">
+                  {hasDiscount && totalBeforeDiscount !== totalDue ? (
+                    <span className="text-sm text-tertiary line-through">
+                      {formatPrice(totalBeforeDiscount)}
                     </span>
-                  )}
+                  ) : null}
+                  <span className="text-lg font-semibold text-primary">
+                    {formatPrice(totalDue)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -166,9 +161,9 @@ function PurchaseCreditsModal({
           <Button
             type="button"
             onClick={handlePurchase}
-            disabled={!selectedSize || packCheckoutMutation.isPending}
+            disabled={!quantity || topupCheckoutMutation.isPending}
           >
-            {packCheckoutMutation.isPending ? (
+            {topupCheckoutMutation.isPending ? (
               <>
                 <Icons.Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Redirecting...

@@ -1,8 +1,8 @@
-"use client";
-
 /**
  * Renders the customer-facing billing page with plan status, invoices, and billing actions.
  */
+"use client";
+
 import { formatBillingDate } from "@/lib/format-billing-date";
 import { useTRPC } from "@/trpc/client";
 import { usePlanSelector } from "@/components/billing/plan-selector-context";
@@ -19,6 +19,7 @@ import {
 } from "./plan-features";
 
 export function BillingPageContent() {
+  // Reuse the billing status query for the plan summary, invoices, and portal actions.
   // Reuse the shared plan-selector overlay instead of introducing a second billing modal.
   const trpc = useTRPC();
   const { open: openPlanSelector } = usePlanSelector();
@@ -137,8 +138,8 @@ export function BillingPageContent() {
   const billedPrice =
     interval === "yearly" ? display?.yearlyPrice : display?.quarterlyPrice;
   const billingSummary =
-    monthlyEquivalentPrice != null && interval
-      ? `${formatPrice(monthlyEquivalentPrice)} per month, charged ${interval === "yearly" ? "yearly" : "quarterly"}`
+    monthlyEquivalentPrice != null && billedPrice != null && interval
+      ? `${formatPrice(monthlyEquivalentPrice)} per month, billed ${interval === "yearly" ? "yearly" : "quarterly"}`
       : null;
   const showPlanSelectorButton = status.billing_mode === "stripe_checkout";
   const planSelectorLabel = status.pending_cancellation ? "Renew" : "Upgrade";

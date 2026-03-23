@@ -313,6 +313,38 @@ export async function advanceStripeTestClock(params: {
 }
 
 /**
+ * After a test-clock advance, Stripe sometimes leaves the renewal invoice in
+ * `draft` and never auto-finalizes it. This helper polls for a draft invoice
+ * on the subscription and explicitly finalizes it so the payment attempt (and
+ * any resulting failure) actually fires.
+ */
+export async function finalizeDraftRenewalInvoice(params: {
+  stripe?: Stripe;
+  subscriptionId: string;
+  knownInvoiceIds?: Set<string>;
+}): Promise<Stripe.Invoice> {
+  const stripe = params.stripe ?? getLiveStripeClient();
+
+  const invoice = await waitForCondition({
+    description: `draft renewal invoice on subscription ${params.subscriptionId}`,
+    timeoutMs: 30_000,
+    evaluate: async () => {
+      const invoices = await stripe.invoices.list({
+        subscription: params.subscriptionId,
+        status: "draft",
+        limit: 5,
+      });
+      return invoices.data.find(
+        (inv) => !params.knownInvoiceIds?.has(inv.id),
+      ) ?? null;
+    },
+    isDone: (inv) => inv !== null,
+  });
+
+  return stripe.invoices.finalizeInvoice(invoice!.id);
+}
+
+/**
  * Maps well-known Stripe test card numbers to their token equivalents so tests
  * never send raw PANs (which requires special account access).
  * See: https://docs.stripe.com/testing#cards
@@ -321,6 +353,16 @@ const TEST_CARD_TOKENS: Record<string, string> = {
   "4242424242424242": "tok_visa",
   // "Decline after attaching" — attaches to Customer successfully, charges fail.
   "4000000000000341": "tok_chargeCustomerFail",
+};
+
+/**
+ * Maps card numbers to Stripe's pre-built `pm_card_*` PaymentMethod IDs.
+ * These work reliably with Stripe Billing / PaymentIntents (unlike legacy
+ * tok_* tokens which may not trigger payment failures in modern flows).
+ * See: https://docs.stripe.com/testing#cards
+ */
+const TEST_CARD_PM_IDS: Record<string, string> = {
+  "4000000000000341": "pm_card_chargeCustomerFail",
 };
 
 /**
@@ -348,27 +390,51 @@ export async function createCardPaymentMethod(params?: {
 
 /**
  * Attaches a card PaymentMethod to a customer and sets it as the invoice default.
+ *
+ * For cards that have a `pm_card_*` mapping (e.g. charge-decline test cards),
+ * the pre-built PaymentMethod ID is attached directly so that Stripe Billing
+ * correctly triggers payment failures.
  */
 export async function attachCustomerCardPaymentMethod(params: {
   stripe?: Stripe;
   customerId: string;
   cardNumber?: string;
+  subscriptionId?: string;
 }): Promise<Stripe.PaymentMethod> {
   const stripe = params.stripe ?? getLiveStripeClient();
-  const paymentMethod = await createCardPaymentMethod({
-    stripe,
-    cardNumber: params.cardNumber,
-  });
+  const cardNumber = params.cardNumber ?? "4242424242424242";
 
-  await stripe.paymentMethods.attach(paymentMethod.id, {
-    customer: params.customerId,
-  });
+  // Prefer pm_card_* IDs for cards that need special billing behavior
+  const pmId = TEST_CARD_PM_IDS[cardNumber];
+  let paymentMethod: Stripe.PaymentMethod;
+
+  if (pmId) {
+    paymentMethod = await stripe.paymentMethods.attach(pmId, {
+      customer: params.customerId,
+    });
+  } else {
+    paymentMethod = await createCardPaymentMethod({
+      stripe,
+      cardNumber,
+    });
+    await stripe.paymentMethods.attach(paymentMethod.id, {
+      customer: params.customerId,
+    });
+  }
 
   await stripe.customers.update(params.customerId, {
     invoice_settings: {
       default_payment_method: paymentMethod.id,
     },
   });
+
+  if (params.subscriptionId) {
+    // Existing subscriptions can keep charging their own default payment method,
+    // so update the subscription as well when tests need renewal behavior to flip.
+    await stripe.subscriptions.update(params.subscriptionId, {
+      default_payment_method: paymentMethod.id,
+    });
+  }
 
   return paymentMethod;
 }

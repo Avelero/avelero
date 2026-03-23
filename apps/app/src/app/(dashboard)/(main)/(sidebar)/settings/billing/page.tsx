@@ -1,3 +1,6 @@
+/**
+ * Server-rendered billing settings page.
+ */
 import { CheckoutReturnHandler } from "@/components/billing/checkout-success-toast";
 import { BillingPageContent } from "@/components/billing/billing-page-content";
 import { getDashboardInit, shouldBlockSidebarContent } from "@/lib/brand-access";
@@ -12,8 +15,9 @@ import { connection } from "next/server";
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ checkout?: string | string[]; pack?: string | string[] }>;
+  searchParams: Promise<{ checkout?: string | string[]; topup?: string | string[] }>;
 }) {
+  // Force dynamic rendering so billing status and checkout returns are evaluated per request.
   await connection();
 
   if (await shouldBlockSidebarContent()) {

@@ -8,7 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 /**
- * Handles checkout return query params (?checkout=success|cancelled&pack=500).
+ * Handles checkout return query params (?checkout=success|cancelled&topup=500).
  * Shows a toast and clears the query param from the URL.
  *
  * Mount this component on the billing settings page.
@@ -24,15 +24,15 @@ export function CheckoutReturnHandler() {
     if (handledRef.current) return;
 
     const checkoutStatus = searchParams.get("checkout");
-    const packSize = searchParams.get("pack");
+    const topupQuantity = searchParams.get("topup");
     if (!checkoutStatus) return;
 
     handledRef.current = true;
 
     if (checkoutStatus === "success") {
-      if (packSize) {
+      if (topupQuantity) {
         toast.success(
-          `${Number(packSize).toLocaleString("en-US")} credits will be added to your account shortly.`,
+          `${Number(topupQuantity).toLocaleString("en-US")} credits will be added to your account shortly.`,
         );
       } else {
         toast.success("Payment successful! Your plan is now active.");
@@ -44,7 +44,7 @@ export function CheckoutReturnHandler() {
     // Clear only the billing return flags so unrelated filters survive the redirect.
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("checkout");
-    nextParams.delete("pack");
+    nextParams.delete("topup");
     const nextUrl = nextParams.size > 0
       ? `${pathname}?${nextParams.toString()}`
       : pathname;

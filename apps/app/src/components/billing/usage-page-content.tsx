@@ -9,7 +9,7 @@ import { Skeleton } from "@v1/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { CreditBalanceCard } from "./credit-balance-card";
 import { CreditPackSelector } from "./credit-pack-selector";
-import { PLAN_DISPLAY, type PlanTier } from "./plan-features";
+import { PLAN_DISPLAY, type PaidPlanTier, type PlanTier } from "./plan-features";
 
 /**
  * Renders the credit balance overview for the brand.
@@ -53,10 +53,15 @@ export function UsagePageContent() {
   const publishedCount = status.published_count ?? 0;
   const remainingCredits = status.remaining_credits ?? 0;
   const utilization = status.utilization;
-  const showPackPurchases =
+  const topupTier =
+    status.plan_type && status.plan_type !== "enterprise"
+      ? (status.plan_type as PaidPlanTier)
+      : null;
+  const showTopupPurchases =
     status.phase === "active" &&
     status.billing_mode === "stripe_checkout" &&
-    status.has_active_subscription;
+    status.has_active_subscription &&
+    !!topupTier;
 
   if (totalCredits <= 0) {
     return (
@@ -121,8 +126,9 @@ export function UsagePageContent() {
           status.billing_interval as "quarterly" | "yearly" | null,
         )}
         action={
-          showPackPurchases ? (
+          showTopupPurchases ? (
             <CreditPackSelector
+              tier={topupTier!}
               onboardingDiscountAvailable={!status.onboarding_discount_used}
             />
           ) : undefined
@@ -132,6 +138,9 @@ export function UsagePageContent() {
   );
 }
 
+/**
+ * Map the current plan cadence to the next recurring credit grant amount.
+ */
 function deriveNextCreditGrant(
   planType: PlanTier | null,
   billingInterval: "quarterly" | "yearly" | null,

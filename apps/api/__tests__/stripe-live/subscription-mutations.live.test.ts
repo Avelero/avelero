@@ -5,8 +5,11 @@ import { describe, expect, it, beforeAll } from "bun:test";
 import { eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 import { testDb } from "@v1/db/testing";
+import { PASSPORTS_PRICE_IDS } from "../../src/lib/stripe/config";
 import { ensureLiveStripePriceCatalog } from "./helpers/live-billing";
 import {
+  listCheckoutSessionLineItems,
+  listOpenCheckoutSessions,
   provisionActiveStripeBillingBrand,
   readLiveBrandBillingState,
   waitForBillingEvent,
@@ -19,11 +22,11 @@ beforeAll(async () => {
 });
 
 describe("live Stripe subscription mutations", () => {
-  it("renews a pending cancellation with a plan upgrade via updatePlan", async () => {
+  it("renews a pending cancellation while downgrading through updatePlan", async () => {
     const provisioned = await provisionActiveStripeBillingBrand({
-      namePrefix: "Plan Mutation Renew Upgrade",
-      tier: "starter",
-      interval: "quarterly",
+      namePrefix: "Plan Mutation Renew Downgrade",
+      tier: "growth",
+      interval: "yearly",
       includeImpact: false,
     });
 
@@ -39,10 +42,9 @@ describe("live Stripe subscription mutations", () => {
         isDone: (state) => state.billing?.pendingCancellation === true,
       });
 
-      // Renewals with pending cancellation bypass the upgrade guard
       const result = await provisioned.harness.caller.brand.billing.updatePlan({
-        tier: "growth",
-        interval: "yearly",
+        tier: "starter",
+        interval: "quarterly",
         include_impact: false,
       });
 
@@ -53,8 +55,8 @@ describe("live Stripe subscription mutations", () => {
         evaluate: async () =>
           readLiveBrandBillingState(provisioned.harness.brandId),
         isDone: (state) =>
-          state.plan?.planType === "growth" &&
-          state.plan.billingInterval === "yearly" &&
+          state.plan?.planType === "starter" &&
+          state.plan.billingInterval === "quarterly" &&
           state.billing?.pendingCancellation === false,
       });
 
@@ -97,7 +99,7 @@ describe("live Stripe subscription mutations", () => {
     }
   });
 
-  it("creates an upgrade checkout session with prorated credit coupon", async () => {
+  it("creates an upgrade checkout session without a proration coupon", async () => {
     const provisioned = await provisionActiveStripeBillingBrand({
       namePrefix: "Upgrade Checkout",
       tier: "starter",
@@ -126,14 +128,7 @@ describe("live Stripe subscription mutations", () => {
         (s) => s.metadata?.upgrade_from_subscription_id === provisioned.subscription.id,
       );
       expect(upgradeSession).toBeDefined();
-      expect(upgradeSession!.metadata?.upgrade_coupon_id).toBeTruthy();
-
-      // Verify the coupon exists and has the right amount
-      const coupon = await provisioned.stripe.coupons.retrieve(
-        upgradeSession!.metadata!.upgrade_coupon_id!,
-      );
-      expect(coupon.duration).toBe("once");
-      expect(coupon.amount_off).toBeGreaterThan(0);
+      expect(upgradeSession!.metadata?.upgrade_coupon_id).toBeUndefined();
 
       // Old subscription should still be active
       const oldSub = await provisioned.stripe.subscriptions.retrieve(
@@ -141,9 +136,56 @@ describe("live Stripe subscription mutations", () => {
       );
       expect(oldSub.status).toBe("active");
 
-      // Clean up: expire the session and delete the coupon
+      // Clean up: expire the session so the shared sandbox does not accumulate open checkouts.
       await provisioned.stripe.checkout.sessions.expire(upgradeSession!.id);
-      await provisioned.stripe.coupons.del(coupon.id);
+    } finally {
+      await provisioned.cleanup.cleanup();
+    }
+  });
+
+  it("creates a live top-up checkout session with the tier-priced unit line item", async () => {
+    const provisioned = await provisionActiveStripeBillingBrand({
+      namePrefix: "Top-up Checkout",
+      tier: "growth",
+      interval: "quarterly",
+      includeImpact: false,
+    });
+
+    try {
+      const result = await provisioned.harness.caller.brand.billing.createTopupCheckout({
+        quantity: 600,
+      });
+
+      expect(result.url).toContain("stripe.com");
+
+      const openSessions = await listOpenCheckoutSessions({
+        stripe: provisioned.stripe,
+        customerId: provisioned.customer.id,
+      });
+      const topupSession = openSessions.find(
+        (candidate) =>
+          candidate.mode === "payment" &&
+          candidate.client_reference_id === provisioned.harness.brandId &&
+          candidate.metadata?.tier === "growth" &&
+          candidate.metadata?.topup_quantity === "600",
+      );
+
+      expect(topupSession).toBeDefined();
+
+      const lineItems = await listCheckoutSessionLineItems({
+        stripe: provisioned.stripe,
+        sessionId: topupSession!.id,
+      });
+      const priceIds = lineItems
+        .map((item) =>
+          typeof item.price === "string" ? item.price : item.price?.id ?? null,
+        )
+        .filter((value): value is string => !!value);
+      const quantities = lineItems.map((item) => item.quantity ?? 0);
+
+      expect(priceIds).toEqual([PASSPORTS_PRICE_IDS.growth]);
+      expect(quantities).toEqual([600]);
+      expect(topupSession?.url).toBe(result.url);
     } finally {
       await provisioned.cleanup.cleanup();
     }

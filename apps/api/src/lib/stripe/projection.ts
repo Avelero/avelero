@@ -333,7 +333,7 @@ export async function awardCredits(opts: {
   db: DatabaseOrTransaction;
   brandId: string;
   credits: number;
-  reason: "subscription_payment" | "pack_purchase";
+  reason: "subscription_payment" | "topup_purchase";
 }): Promise<number> {
   const [updated] = await opts.db
     .update(brandPlan)

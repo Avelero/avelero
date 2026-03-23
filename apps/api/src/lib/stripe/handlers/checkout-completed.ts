@@ -12,11 +12,9 @@ import { getStripeClient } from "../client.js";
 import { billingLogger } from "@v1/logger/billing";
 import type Stripe from "stripe";
 import {
-  PACK_CONFIG,
   TIER_CONFIG,
   isBillingInterval,
   isPlanTier,
-  type PackSize,
 } from "../config.js";
 import {
   awardCredits,
@@ -26,22 +24,22 @@ import {
 const log = billingLogger.child({ component: "handler:checkout-completed" });
 
 /**
- * Parses the pack size metadata stored on a payment-mode checkout session.
+ * Parses the top-up quantity metadata stored on a payment-mode checkout session.
  */
-function parsePackSize(value: string | undefined): PackSize | null {
+function parseTopupQuantity(value: string | undefined): number | null {
   const parsed = Number(value);
 
-  if (!Number.isFinite(parsed) || !(parsed in PACK_CONFIG)) {
+  if (!Number.isInteger(parsed) || parsed <= 0) {
     return null;
   }
 
-  return parsed as PackSize;
+  return parsed;
 }
 
 /**
- * Applies a completed credit-pack checkout to the brand's credit balance.
+ * Applies a completed credit top-up checkout to the brand's credit balance.
  */
-async function handlePackCheckoutCompletedSession(opts: {
+async function handleTopupCheckoutCompletedSession(opts: {
   conn: DatabaseOrTransaction;
   event: Stripe.Event;
   session: Stripe.Checkout.Session;
@@ -58,14 +56,15 @@ async function handlePackCheckoutCompletedSession(opts: {
         brandId,
         paymentStatus: session.payment_status,
       },
-      "payment checkout completed before the pack purchase was fully paid",
+      "payment checkout completed before the top-up purchase was fully paid",
     );
     return;
   }
 
-  const packSize = parsePackSize(metadata.pack_size);
+  const topupQuantity = parseTopupQuantity(metadata.topup_quantity);
+  const tier = isPlanTier(metadata.tier) ? metadata.tier : null;
 
-  if (!packSize) {
+  if (!topupQuantity) {
     log.warn(
       {
         stripeEventId: event.id,
@@ -73,18 +72,17 @@ async function handlePackCheckoutCompletedSession(opts: {
         brandId,
         metadata,
       },
-      "payment checkout completed without a valid credit pack size",
+      "payment checkout completed without a valid top-up quantity",
     );
     return;
   }
 
-  const packConfig = PACK_CONFIG[packSize];
   const onboardingDiscountApplied = metadata.is_onboarding_discount === "true";
   const totalCredits = await awardCredits({
     db: conn,
     brandId,
-    credits: packConfig.credits,
-    reason: "pack_purchase",
+    credits: topupQuantity,
+    reason: "topup_purchase",
   });
 
   if (onboardingDiscountApplied) {
@@ -103,8 +101,9 @@ async function handlePackCheckoutCompletedSession(opts: {
     stripeEventId: event.id,
     payload: {
       checkout_mode: "payment",
-      pack_size: packSize,
-      credits_awarded: packConfig.credits,
+      tier,
+      topup_quantity: topupQuantity,
+      credits_awarded: topupQuantity,
       total_credits: totalCredits,
       onboarding_discount_applied: onboardingDiscountApplied,
       payment_intent_id:
@@ -121,12 +120,13 @@ async function handlePackCheckoutCompletedSession(opts: {
       stripeEventId: event.id,
       brandId,
       sessionId: session.id,
-      packSize,
-      creditsAwarded: packConfig.credits,
+      tier,
+      topupQuantity,
+      creditsAwarded: topupQuantity,
       totalCredits,
       onboardingDiscountApplied,
     },
-    "credit pack checkout completed",
+    "credit top-up checkout completed",
   );
 }
 
@@ -157,7 +157,7 @@ export async function handleCheckoutCompleted(
   }
 
   if (session.mode === "payment") {
-    await handlePackCheckoutCompletedSession({
+    await handleTopupCheckoutCompletedSession({
       conn,
       event,
       session,

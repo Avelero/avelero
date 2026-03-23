@@ -3,13 +3,25 @@
  */
 import "../../setup";
 
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import * as schema from "@v1/db/schema";
 import {
   createTestBrand,
   createTestUser,
   testDb,
 } from "@v1/db/testing";
+import Stripe from "stripe";
+
+// Ensure this test file has a working Stripe client (guards against global
+// mock.module leaking from other test files).
+const stripeClient = new Stripe("sk_test_codex");
+mock.module("../../../src/lib/stripe/client.js", () => ({
+  getStripeClient: () => stripeClient,
+  createStripeClient: (key?: string) => new Stripe(key ?? "sk_test_codex"),
+  resetStripeClient: () => {},
+  isStripeError: (err: unknown) => err instanceof Stripe.errors.StripeError,
+}));
+
 import type { AuthenticatedTRPCContext } from "../../../src/trpc/init";
 import { appRouter } from "../../../src/trpc/routers/_app";
 import { ACCESS_ERROR_TOKENS } from "../../../src/utils/errors";
@@ -249,7 +261,10 @@ describe("Access policy enforcement (tRPC)", () => {
       createMockContext({ brandId, userId, userEmail, role: "owner" }),
     );
 
-    await expect(caller.summary.productStatus()).resolves.toBeDefined();
+    await expectToken(
+      caller.summary.productStatus(),
+      ACCESS_ERROR_TOKENS.TEMPORARY_BLOCKED,
+    );
     await expectToken(
       caller.brand.collections.create({
         name: "Blocked by temporary override",

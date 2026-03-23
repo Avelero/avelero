@@ -2,7 +2,7 @@
  * Product × tier × interval Stripe catalog definitions.
  *
  * Maps the paid plan catalog, quarterly/yearly billing intervals, recurring
- * credit grants, and one-time pack prices loaded from environment variables.
+ * credit grants, and per-credit top-up prices loaded from environment variables.
  */
 
 export const PLAN_TIERS = ["starter", "growth", "scale"] as const;
@@ -31,38 +31,32 @@ function readIntervalPriceId(envName: string): string {
   return process.env[envName] ?? "";
 }
 
-export const PACK_SIZES = [100, 250, 500, 1_000, 2_500, 5_000] as const;
-export type PackSize = (typeof PACK_SIZES)[number];
-
-export interface PackConfig {
-  credits: number;
-  priceCents: number;
-}
-
-export const PACK_CONFIG: Record<PackSize, PackConfig> = {
-  100: { credits: 100, priceCents: 55_000 },
-  250: { credits: 250, priceCents: 125_000 },
-  500: { credits: 500, priceCents: 200_000 },
-  1000: { credits: 1_000, priceCents: 350_000 },
-  2500: { credits: 2_500, priceCents: 750_000 },
-  5000: { credits: 5_000, priceCents: 1_250_000 },
-};
-
 export const ONBOARDING_DISCOUNT_FACTOR = 0.5;
-
-export const PACK_PRICE_IDS: Record<PackSize, string> = {
-  100: process.env.STRIPE_PRICE_ID_PACK_100 ?? "",
-  250: process.env.STRIPE_PRICE_ID_PACK_250 ?? "",
-  500: process.env.STRIPE_PRICE_ID_PACK_500 ?? "",
-  1000: process.env.STRIPE_PRICE_ID_PACK_1000 ?? "",
-  2500: process.env.STRIPE_PRICE_ID_PACK_2500 ?? "",
-  5000: process.env.STRIPE_PRICE_ID_PACK_5000 ?? "",
+export const PASSPORTS_PRICE_IDS: Record<PlanTier, string> = {
+  starter: process.env.STRIPE_PRICE_ID_PASSPORTS_STARTER ?? "",
+  growth: process.env.STRIPE_PRICE_ID_PASSPORTS_GROWTH ?? "",
+  scale: process.env.STRIPE_PRICE_ID_PASSPORTS_SCALE ?? "",
+};
+export const TOPUP_RATES: Record<PlanTier, number> = {
+  starter: 250,
+  growth: 200,
+  scale: 175,
+};
+export const ONBOARDING_DISCOUNT_CAP: Record<PlanTier, number> = {
+  starter: 4_800,
+  growth: 14_400,
+  scale: 48_000,
+};
+export const TOPUP_QUICK_AMOUNTS: Record<PlanTier, readonly [number, number, number]> = {
+  starter: [100, 200, 400],
+  growth: [300, 600, 1_200],
+  scale: [1_000, 2_000, 4_000],
 };
 
 export const TIER_CONFIG: Record<PlanTier, TierConfig> = {
   starter: {
-    creditsPerQuarter: 125,
-    creditsPerYear: 500,
+    creditsPerQuarter: 400,
+    creditsPerYear: 1_600,
     variantGlobalCap: 50_000,
     prices: {
       quarterly: {
@@ -76,8 +70,8 @@ export const TIER_CONFIG: Record<PlanTier, TierConfig> = {
     },
   },
   growth: {
-    creditsPerQuarter: 500,
-    creditsPerYear: 2_000,
+    creditsPerQuarter: 1_200,
+    creditsPerYear: 4_800,
     variantGlobalCap: 250_000,
     prices: {
       quarterly: {
@@ -91,8 +85,8 @@ export const TIER_CONFIG: Record<PlanTier, TierConfig> = {
     },
   },
   scale: {
-    creditsPerQuarter: 2_500,
-    creditsPerYear: 10_000,
+    creditsPerQuarter: 4_000,
+    creditsPerYear: 16_000,
     variantGlobalCap: 1_000_000,
     prices: {
       quarterly: {
@@ -112,9 +106,9 @@ export const TIER_CONFIG: Record<PlanTier, TierConfig> = {
  * Used to classify plan changes as upgrades vs downgrades.
  */
 export const TIER_AMOUNTS: Record<PlanTier, Record<BillingInterval, number>> = {
-  starter: { quarterly: 75_000, yearly: 270_000 },
-  growth: { quarterly: 195_000, yearly: 702_000 },
-  scale: { quarterly: 375_000, yearly: 1_350_000 },
+  starter: { quarterly: 75_000, yearly: 254_400 },
+  growth: { quarterly: 195_000, yearly: 662_400 },
+  scale: { quarterly: 555_000, yearly: 1_886_400 },
 };
 
 const TIER_ORDER: Record<PlanTier, number> = {
@@ -136,11 +130,17 @@ export function isUpgradeChange(params: {
   newTier: PlanTier;
   newInterval: BillingInterval;
 }): boolean {
-  const { currentTier, newTier } = params;
+  const { currentTier, currentInterval, newTier, newInterval } = params;
+  const intervalCommitmentRank: Record<BillingInterval, number> = {
+    quarterly: 0,
+    yearly: 1,
+  };
 
-  // A downgrade is strictly moving to a lower tier. Everything else
-  // (same tier with interval change, or higher tier) is an upgrade.
-  return TIER_ORDER[newTier] >= TIER_ORDER[currentTier];
+  if (TIER_ORDER[newTier] !== TIER_ORDER[currentTier]) {
+    return TIER_ORDER[newTier] > TIER_ORDER[currentTier];
+  }
+
+  return intervalCommitmentRank[newInterval] > intervalCommitmentRank[currentInterval];
 }
 
 /**
@@ -171,6 +171,12 @@ export function assertPriceIdsConfigured(): void {
           `Missing STRIPE_PRICE_ID_IMPACT_${tier.toUpperCase()}_${interval.toUpperCase()}`,
         );
       }
+    }
+
+    if (!PASSPORTS_PRICE_IDS[tier as PlanTier]) {
+      throw new Error(
+        `Missing STRIPE_PRICE_ID_PASSPORTS_${tier.toUpperCase()}`,
+      );
     }
   }
 }
@@ -243,29 +249,29 @@ export function resolvePriceId(priceId: string): {
 }
 
 /**
- * Resolves the configured Stripe price ID for a one-time credit pack purchase.
+ * Resolves the configured Stripe price ID for a per-credit top-up purchase.
  */
-export function getPackPriceId(packSize: PackSize): string {
-  const priceId = PACK_PRICE_IDS[packSize];
+export function getPassportsPriceId(tier: PlanTier): string {
+  const priceId = PASSPORTS_PRICE_IDS[tier];
 
   if (!priceId) {
-    throw new Error(`Missing STRIPE_PRICE_ID_PACK_${packSize}`);
+    throw new Error(`Missing STRIPE_PRICE_ID_PASSPORTS_${tier.toUpperCase()}`);
   }
 
   return priceId;
 }
 
 /**
- * Reverse-looks up the configured pack size for a Stripe one-time price.
+ * Reverse-looks up the plan tier for a Stripe per-credit top-up price.
  */
-export function resolvePackPriceId(priceId: string): PackSize | null {
+export function resolvePassportsPriceId(priceId: string): PlanTier | null {
   if (typeof priceId !== "string" || priceId.length === 0) {
     return null;
   }
 
-  for (const [packSize, configuredPriceId] of Object.entries(PACK_PRICE_IDS)) {
+  for (const [tier, configuredPriceId] of Object.entries(PASSPORTS_PRICE_IDS)) {
     if (configuredPriceId === priceId) {
-      return Number(packSize) as PackSize;
+      return tier as PlanTier;
     }
   }
 

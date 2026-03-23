@@ -6,6 +6,7 @@
  */
 
 export type PlanTier = "starter" | "growth" | "scale" | "enterprise";
+export type PaidPlanTier = Exclude<PlanTier, "enterprise">;
 
 export interface PlanFeature {
   label: string;
@@ -36,12 +37,7 @@ export interface PlanDisplay {
   creditsPerYear: number | null;
 }
 
-export interface CreditPackDisplay {
-  credits: number;
-  price: number;
-}
-
-export const PLAN_TIERS: PlanTier[] = ["starter", "growth", "scale"];
+export const PLAN_TIERS: PaidPlanTier[] = ["starter", "growth", "scale"];
 
 export const PLAN_DISPLAY: Record<PlanTier, PlanDisplay> = {
   starter: {
@@ -49,36 +45,36 @@ export const PLAN_DISPLAY: Record<PlanTier, PlanDisplay> = {
     description: "For small catalogs",
     monthlyPrice: 250,
     quarterlyPrice: 750,
-    yearlyPrice: 2700,
+    yearlyPrice: 2544,
     impactMonthlyPrice: 100,
     impactQuarterlyPrice: 300,
     impactYearlyPrice: 1080,
-    creditsPerQuarter: 125,
-    creditsPerYear: 500,
+    creditsPerQuarter: 400,
+    creditsPerYear: 1600,
   },
   growth: {
     name: "Growth",
     description: "For growing brands",
     monthlyPrice: 650,
     quarterlyPrice: 1950,
-    yearlyPrice: 7020,
+    yearlyPrice: 6624,
     impactMonthlyPrice: 200,
     impactQuarterlyPrice: 600,
     impactYearlyPrice: 2160,
-    creditsPerQuarter: 500,
-    creditsPerYear: 2000,
+    creditsPerQuarter: 1200,
+    creditsPerYear: 4800,
   },
   scale: {
     name: "Scale",
     description: "For large catalogs",
-    monthlyPrice: 1250,
-    quarterlyPrice: 3750,
-    yearlyPrice: 13500,
+    monthlyPrice: 1850,
+    quarterlyPrice: 5550,
+    yearlyPrice: 18864,
     impactMonthlyPrice: 400,
     impactQuarterlyPrice: 1200,
     impactYearlyPrice: 4320,
-    creditsPerQuarter: 2500,
-    creditsPerYear: 10000,
+    creditsPerQuarter: 4000,
+    creditsPerYear: 16000,
   },
   enterprise: {
     name: "Enterprise",
@@ -102,16 +98,16 @@ export function getPlanFeatures(
     interval === "quarterly"
       ? {
           label: "Passports per quarter",
-          starter: "125",
-          growth: "500",
-          scale: "2,500",
+          starter: "400",
+          growth: "1,200",
+          scale: "4,000",
           enterprise: "Custom",
         }
       : {
           label: "Passports per year",
-          starter: "500",
-          growth: "2,000",
-          scale: "10,000",
+          starter: "1,600",
+          growth: "4,800",
+          scale: "16,000",
           enterprise: "Custom",
         },
     ...SHARED_PLAN_FEATURES,
@@ -120,10 +116,10 @@ export function getPlanFeatures(
 
 const SHARED_PLAN_FEATURES: PlanFeature[] = [
   {
-    label: "Add-on passport packs",
-    starter: "Available",
-    growth: "Available",
-    scale: "Available",
+    label: "Per additional passport",
+    starter: "€2.50",
+    growth: "€2.00",
+    scale: "€1.75",
     enterprise: "Custom",
   },
   {
@@ -193,19 +189,36 @@ const SHARED_PLAN_FEATURES: PlanFeature[] = [
   },
 ];
 
-export const CREDIT_PACKS: CreditPackDisplay[] = [
-  { credits: 100, price: 550 },
-  { credits: 250, price: 1250 },
-  { credits: 500, price: 2000 },
-  { credits: 1000, price: 3500 },
-  { credits: 2500, price: 7500 },
-  { credits: 5000, price: 12500 },
-];
+export const TOPUP_RATES: Record<PaidPlanTier, number> = {
+  starter: 2.5,
+  growth: 2,
+  scale: 1.75,
+};
+export const ONBOARDING_DISCOUNT_CAP: Record<PaidPlanTier, number> = {
+  starter: 4_800,
+  growth: 14_400,
+  scale: 48_000,
+};
+export const TOPUP_QUICK_AMOUNTS: Record<
+  PaidPlanTier,
+  readonly [number, number, number]
+> = {
+  starter: [100, 200, 400],
+  growth: [300, 600, 1_200],
+  scale: [1_000, 2_000, 4_000],
+};
 
-/** Format a euro-denominated price for display (e.g. 250 -> "€250"). */
+/** Format a euro-denominated price for display with cents only when needed. */
 export function formatPrice(euros: number): string {
-  // Keep billing labels compact without pulling in Intl currency formatting everywhere.
-  return `€${euros.toLocaleString("en-US")}`;
+  // Preserve clean integer display for plan prices while still showing cents for per-unit top-ups.
+  const hasFractionalAmount = Math.round(euros * 100) % 100 !== 0;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: hasFractionalAmount ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(euros);
 }
 
 /** Format a credit count for display in cards and summaries. */

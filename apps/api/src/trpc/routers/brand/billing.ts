@@ -20,12 +20,11 @@ import { createCheckoutSession, createUpgradeCheckoutSession } from "../../../li
 import {
   type BillingInterval,
   normalizeBillingInterval,
-  PACK_SIZES,
   type PlanTier,
   isUpgradeChange,
 } from "../../../lib/stripe/config.js";
 import { findOrCreateStripeCustomer } from "../../../lib/stripe/customer.js";
-import { createPackCheckoutSession } from "../../../lib/stripe/pack.js";
+import { createTopupCheckoutSession } from "../../../lib/stripe/topup.js";
 import { createPortalSession } from "../../../lib/stripe/portal.js";
 import {
   addImpactToSubscription,
@@ -45,12 +44,6 @@ const STRIPE_PROJECTION_SYNC_MAX_AGE_MS = 5 * 60_000;
 const billingIntervalInputSchema = z
   .enum(["quarterly", "yearly"])
   .transform((value) => normalizeBillingInterval(value) ?? "quarterly");
-const packSizeInputSchema = z.enum(
-  PACK_SIZES.map((packSize) => String(packSize)) as [
-    `${typeof PACK_SIZES[number]}`,
-    ...Array<`${typeof PACK_SIZES[number]}`>,
-  ],
-);
 
 /**
  * Decides whether the local Stripe subscription projection is stale enough to refresh.
@@ -391,12 +384,12 @@ export const billingRouter = createTRPCRouter({
     }),
 
   /**
-   * Create a Stripe Checkout Session for purchasing a one-time credit pack.
+   * Create a Stripe Checkout Session for purchasing additional credits.
    */
-  createPackCheckout: brandBillingProcedure
+  createTopupCheckout: brandBillingProcedure
     .input(
       z.object({
-        pack_size: packSizeInputSchema,
+        quantity: z.number().int().min(1).max(100_000),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -420,6 +413,7 @@ export const billingRouter = createTRPCRouter({
 
       const [plan] = await db
         .select({
+          planType: brandPlan.planType,
           onboardingDiscountUsed: brandPlan.onboardingDiscountUsed,
         })
         .from(brandPlan)
@@ -433,7 +427,7 @@ export const billingRouter = createTRPCRouter({
       ) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: "Credit packs are only available for active Stripe subscriptions",
+          message: "Additional credits are only available for active Stripe subscriptions",
         });
       }
 
@@ -442,22 +436,30 @@ export const billingRouter = createTRPCRouter({
       if (lifecycle?.phase !== "active") {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: "Credit packs are only available for active brands",
+          message: "Additional credits are only available for active brands",
+        });
+      }
+
+      if (!plan?.planType) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Current plan metadata is missing",
         });
       }
 
       try {
         const { url } = await db.transaction(async (tx) => {
           await tx.execute(
-            sql`select pg_advisory_xact_lock(hashtext(${`stripe_pack_checkout:${brandId}`}))`,
+            sql`select pg_advisory_xact_lock(hashtext(${`stripe_topup_checkout:${brandId}`}))`,
           );
 
-          const session = await createPackCheckoutSession({
+          const session = await createTopupCheckoutSession({
             brandId,
             stripeCustomerId,
-            packSize: Number(input.pack_size) as (typeof PACK_SIZES)[number],
+            tier: plan.planType as PlanTier,
+            quantity: input.quantity,
             applyOnboardingDiscount: !(plan?.onboardingDiscountUsed ?? false),
-            successUrl: `${APP_URL}/settings/billing?checkout=success&pack=${input.pack_size}`,
+            successUrl: `${APP_URL}/settings/billing?checkout=success&topup=${input.quantity}`,
             cancelUrl: `${APP_URL}/settings/billing?checkout=cancelled`,
           });
 
@@ -467,12 +469,12 @@ export const billingRouter = createTRPCRouter({
         return { url };
       } catch (err) {
         log.error(
-          { brandId, operation: "createPackCheckoutSession", packSize: input.pack_size, err },
-          "credit pack checkout session creation failed",
+          { brandId, operation: "createTopupCheckoutSession", quantity: input.quantity, err },
+          "credit top-up checkout session creation failed",
         );
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create credit pack checkout session",
+          message: "Failed to create credit top-up checkout session",
         });
       }
     }),

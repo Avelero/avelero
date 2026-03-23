@@ -1,8 +1,8 @@
-"use client";
-
 /**
  * Billing interval toggle shared by the plan selector surfaces.
  */
+"use client";
+
 import { cn } from "@v1/ui/cn";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
@@ -15,6 +15,7 @@ export function BillingIntervalToggle({
   interval,
   onChange,
 }: BillingIntervalToggleProps) {
+  // Track the active pill geometry so the sliding thumb stays aligned.
   const quarterlyRef = useRef<HTMLButtonElement>(null);
   const yearlyRef = useRef<HTMLButtonElement>(null);
   const [thumb, setThumb] = useState({ left: 0, width: 0 });
@@ -71,7 +72,7 @@ export function BillingIntervalToggle({
             : "text-tertiary hover:text-primary cursor-pointer",
         )}
       >
-        Yearly (save 10%)
+        Yearly (save 15%)
       </button>
     </div>
   );

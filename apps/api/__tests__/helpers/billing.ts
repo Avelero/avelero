@@ -89,6 +89,16 @@ export async function setBrandSubscriptionState(params: {
 }) {
   const now = new Date().toISOString();
 
+  // Auto-fill period dates when a subscription ID is set but no period was
+  // provided.  This prevents the brand-access middleware from calling
+  // syncStripeSubscriptionProjectionById (which would hit the real Stripe API).
+  const currentPeriodStart =
+    params.currentPeriodStart ??
+    (params.stripeSubscriptionId ? daysAgo(30) : null);
+  const currentPeriodEnd =
+    params.currentPeriodEnd ??
+    (params.stripeSubscriptionId ? daysFromNow(30) : null);
+
   await testDb
     .insert(schema.brandLifecycle)
     .values({
@@ -122,8 +132,8 @@ export async function setBrandSubscriptionState(params: {
       stripeSubscriptionId: params.stripeSubscriptionId ?? null,
       planCurrency: "EUR",
       customPriceCents: null,
-      currentPeriodStart: params.currentPeriodStart ?? null,
-      currentPeriodEnd: params.currentPeriodEnd ?? null,
+      currentPeriodStart,
+      currentPeriodEnd,
       pastDueSince: params.pastDueSince ?? null,
       pendingCancellation: params.pendingCancellation ?? false,
       billingAccessOverride: params.billingOverride ?? "none",
@@ -138,8 +148,8 @@ export async function setBrandSubscriptionState(params: {
         stripeSubscriptionId: params.stripeSubscriptionId ?? null,
         planCurrency: "EUR",
         customPriceCents: null,
-        currentPeriodStart: params.currentPeriodStart ?? null,
-        currentPeriodEnd: params.currentPeriodEnd ?? null,
+        currentPeriodStart,
+        currentPeriodEnd,
         pastDueSince: params.pastDueSince ?? null,
         pendingCancellation: params.pendingCancellation ?? false,
         billingAccessOverride: params.billingOverride ?? "none",

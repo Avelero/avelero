@@ -7,6 +7,7 @@
  * 3. Current usage at a glance
  * 4. When the next credits arrive
  */
+import { Icons } from "@v1/ui/icons";
 import type { ReactNode } from "react";
 
 interface CreditBalanceCardProps {
@@ -32,6 +33,7 @@ export function CreditBalanceCard({
   nextCreditGrant,
   action,
 }: CreditBalanceCardProps) {
+  // Convert utilization into a simple progress-bar percentage for the balance summary.
   const percentage =
     utilization != null && Number.isFinite(utilization)
       ? Math.round(utilization * 100)
@@ -54,14 +56,16 @@ export function CreditBalanceCard({
       <div className="border border-border p-5">
         <div className="flex gap-10">
           <div>
-            <p className="text-xs text-secondary">Available credits</p>
-            <p className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-primary">
+            <p className="text-xs text-secondary">Available passports</p>
+            <p className="mt-1 flex items-center gap-1.5 text-2xl font-semibold tracking-[-0.03em] text-primary">
+              <Icons.Passport className="h-5 w-5" />
               {remainingCredits.toLocaleString("en-US")}
             </p>
           </div>
           <div>
-            <p className="text-xs text-secondary">Total credits</p>
-            <p className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-primary">
+            <p className="text-xs text-secondary">Total passports</p>
+            <p className="mt-1 flex items-center gap-1.5 text-2xl font-semibold tracking-[-0.03em] text-primary">
+              <Icons.Passport className="h-5 w-5" />
               {totalCredits.toLocaleString("en-US")}
             </p>
           </div>
@@ -87,7 +91,7 @@ export function CreditBalanceCard({
         {/* Next renewal */}
         {renewalDate && nextCreditGrant ? (
           <div className="mt-4 border-t border-border pt-4">
-            <p className="text-xs text-secondary">Next credit top-up</p>
+            <p className="text-xs text-secondary">Next passport grant</p>
             <p className="mt-1 text-sm text-primary">
               {nextCreditGrant.toLocaleString("en-US")} passports on{" "}
               {renewalDate}
@@ -96,9 +100,9 @@ export function CreditBalanceCard({
         ) : null}
       </div>
 
-      {/* How credits work */}
+      {/* How passport credits work */}
       <div className="border border-border p-5">
-        <p className="text-sm font-medium text-foreground">How credits work</p>
+        <p className="text-sm font-medium text-foreground">How passport credits work</p>
         <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm text-secondary">
           <li>
             Each published passport uses one credit. Unpublishing frees it up
@@ -117,6 +121,9 @@ export function CreditBalanceCard({
   );
 }
 
+/**
+ * Format the next renewal timestamp into a human-readable billing date.
+ */
 function formatRenewalDate(
   nextRenewalAt: string | Date | null,
 ): string | null {

@@ -1,8 +1,8 @@
-"use client";
-
 /**
  * Displays a single selectable plan card inside the billing selector.
  */
+"use client";
+
 import { cn } from "@v1/ui/cn";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
@@ -36,6 +36,7 @@ export function PlanCard({
   currentPlanActionLabel,
   onCurrentPlanSelect,
 }: PlanCardProps) {
+  // Read the display catalog once so the price and feature copy stay in sync.
   const display = PLAN_DISPLAY[tier];
 
   const price =

@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * Interactive plan selector used by paywalls and billing settings.
  *
@@ -8,6 +6,8 @@
  * - Renew (undo cancellation) → immediate with success toast
  * - New subscription (no active sub) → Stripe Checkout redirect
  */
+"use client";
+
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -19,18 +19,13 @@ import { PLAN_DISPLAY, PLAN_TIERS, type PlanTier } from "./plan-features";
 import { DowngradeConfirmationDialog } from "./upgrade-confirmation-dialog";
 
 /**
- * Determines whether a plan change is an upgrade (higher cost).
- * Quarterly → yearly on the same or higher tier is always an upgrade.
- */
-/**
- * A downgrade is strictly moving to a lower tier. Everything else
- * (same tier with interval change, or higher tier) is an upgrade.
+ * Determine whether the selected plan change should use the upgrade checkout flow.
  */
 function isUpgrade(
   fromTier: PlanTier,
-  _fromInterval: "quarterly" | "yearly",
+  fromInterval: "quarterly" | "yearly",
   toTier: PlanTier,
-  _toInterval: "quarterly" | "yearly",
+  toInterval: "quarterly" | "yearly",
 ): boolean {
   const tierOrder: Record<PlanTier, number> = {
     starter: 0,
@@ -38,8 +33,16 @@ function isUpgrade(
     scale: 2,
     enterprise: 3,
   };
+  const intervalRank: Record<"quarterly" | "yearly", number> = {
+    quarterly: 0,
+    yearly: 1,
+  };
 
-  return tierOrder[toTier] >= tierOrder[fromTier];
+  if (tierOrder[toTier] !== tierOrder[fromTier]) {
+    return tierOrder[toTier] > tierOrder[fromTier];
+  }
+
+  return intervalRank[toInterval] > intervalRank[fromInterval];
 }
 
 interface PlanSelectorProps {
@@ -62,6 +65,7 @@ export function PlanSelector({
   periodEnd = null,
   context,
 }: PlanSelectorProps) {
+  // Keep the selector state local so the page can switch between upgrade and downgrade flows instantly.
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();

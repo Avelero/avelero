@@ -134,6 +134,10 @@ describe("brand sku usage queries", () => {
     await createTestVariant(product.id, { sku: "BUDGET-1" });
     await createTestVariant(product.id, { sku: "BUDGET-2" });
     await createTestVariant(product.id, { sku: "BUDGET-3" });
+    await testDb
+      .insert(schema.brandLifecycle)
+      .values({ brandId, phase: "demo", phaseChangedAt: new Date().toISOString() })
+      .onConflictDoNothing();
     await upsertBrandPlan({
       brandId,
       totalCredits: 125,
@@ -163,5 +167,110 @@ describe("brand sku usage queries", () => {
 
     expect(storedPlan?.totalCredits).toBe(125);
     expect(storedPlan?.onboardingDiscountUsed).toBe(true);
+  });
+
+  it("treats subscription renewals as additive credit grants instead of resetting usage", async () => {
+    const brandId = await createTestBrand("Additive Renewal Brand");
+    const product = await createTestProduct(brandId, {
+      status: "published",
+      publishedAt: "2026-03-01T00:00:00.000Z",
+    });
+
+    await createTestVariant(product.id, { sku: "RENEWAL-1" });
+    await createTestVariant(product.id, { sku: "RENEWAL-2" });
+    await createTestVariant(product.id, { sku: "RENEWAL-3" });
+    await upsertBrandPlan({
+      brandId,
+      totalCredits: 450,
+    });
+
+    const beforeRenewal = await deriveSkuBudget({
+      snapshot: await getBrandAccessSnapshot(testDb, brandId),
+      currentPublishUsageCount: 3,
+    });
+
+    await upsertBrandPlan({
+      brandId,
+      totalCredits: 850,
+    });
+
+    const afterRenewal = await deriveSkuBudget({
+      snapshot: await getBrandAccessSnapshot(testDb, brandId),
+      currentPublishUsageCount: 3,
+    });
+
+    expect(beforeRenewal.activeBudget.totalCredits).toBe(450);
+    expect(beforeRenewal.activeBudget.remaining).toBe(447);
+    expect(afterRenewal.activeBudget.totalCredits).toBe(850);
+    expect(afterRenewal.activeBudget.remaining).toBe(847);
+  });
+
+  it("keeps purchased top-up credits available after later subscription renewals", async () => {
+    const brandId = await createTestBrand("Top-up Persistence Brand");
+    const product = await createTestProduct(brandId, {
+      status: "published",
+      publishedAt: "2026-03-01T00:00:00.000Z",
+    });
+
+    await createTestVariant(product.id, { sku: "TOPUP-1" });
+    await createTestVariant(product.id, { sku: "TOPUP-2" });
+    await upsertBrandPlan({
+      brandId,
+      totalCredits: 700,
+    });
+
+    const afterTopup = await deriveSkuBudget({
+      snapshot: await getBrandAccessSnapshot(testDb, brandId),
+      currentPublishUsageCount: 2,
+    });
+
+    await upsertBrandPlan({
+      brandId,
+      totalCredits: 1_100,
+    });
+
+    const afterRenewal = await deriveSkuBudget({
+      snapshot: await getBrandAccessSnapshot(testDb, brandId),
+      currentPublishUsageCount: 2,
+    });
+
+    expect(afterTopup.activeBudget.totalCredits).toBe(700);
+    expect(afterTopup.activeBudget.remaining).toBe(698);
+    expect(afterRenewal.activeBudget.totalCredits).toBe(1_100);
+    expect(afterRenewal.activeBudget.remaining).toBe(1_098);
+  });
+
+  it("restores publish headroom when a published product is unpublished", async () => {
+    const brandId = await createTestBrand("Unpublish Restores Headroom Brand");
+    const product = await createTestProduct(brandId, {
+      status: "published",
+      publishedAt: "2026-03-01T00:00:00.000Z",
+    });
+
+    await createTestVariant(product.id, { sku: "UNPUBLISH-1" });
+    await createTestVariant(product.id, { sku: "UNPUBLISH-2" });
+    await upsertBrandPlan({
+      brandId,
+      totalCredits: 2,
+    });
+
+    await expect(
+      enforcePublishCapacity(testDb, brandId, 1),
+    ).rejects.toBeInstanceOf(PublishLimitExceededError);
+
+    await testDb
+      .update(schema.products)
+      .set({
+        status: "unpublished",
+        publishedAt: null,
+      })
+      .where(eq(schema.products.id, product.id));
+
+    await expect(enforcePublishCapacity(testDb, brandId, 1)).resolves.toEqual({
+      used: 0,
+      limit: 2,
+      remaining: 2,
+      budgetKind: "credits",
+    });
   });
 });

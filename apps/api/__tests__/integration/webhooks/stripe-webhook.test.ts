@@ -7,19 +7,34 @@
 
 import "../../setup";
 
-import { beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { db as appDb } from "@v1/db/client";
-import { eq } from "@v1/db/queries";
+import { desc, eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
+import { createTestBrand, testDb } from "@v1/db/testing";
 import Stripe from "stripe";
+
+const stripe = new Stripe("sk_test_codex");
+
+// Ensure this test file uses a real Stripe client (guards against global
+// mock.module leaking from other test files).
+mock.module("../../../src/lib/stripe/client.js", () => ({
+  getStripeClient: () => stripe,
+  createStripeClient: (key?: string) => new Stripe(key ?? "sk_test_codex"),
+  resetStripeClient: () => {},
+  isStripeError: (err: unknown) => err instanceof Stripe.errors.StripeError,
+}));
+
+import {
+  bindAppDbToTestDb,
+  setBrandSubscriptionState,
+} from "../../helpers/billing";
 import {
   LoggedWebhookProcessingError,
   registerWebhookHandler,
   verifyAndDispatch,
 } from "../../../src/lib/stripe/webhook-handler";
 import { stripeWebhookRouter } from "../../../src/routes/webhooks/stripe";
-
-const stripe = new Stripe("sk_test_codex");
 
 /**
  * Creates a signed Stripe webhook payload for the requested event type.
@@ -135,12 +150,353 @@ async function cleanupWebhookEvent(eventId: string) {
     .where(eq(schema.stripeWebhookEvents.stripeEventId, eventId));
 }
 
+/**
+ * Loads the plan credit state for a brand after webhook processing.
+ */
+async function getBrandPlanState(brandId: string) {
+  const [plan] = await testDb
+    .select({
+      totalCredits: schema.brandPlan.totalCredits,
+      onboardingDiscountUsed: schema.brandPlan.onboardingDiscountUsed,
+    })
+    .from(schema.brandPlan)
+    .where(eq(schema.brandPlan.brandId, brandId))
+    .limit(1);
+
+  return plan ?? null;
+}
+
+/**
+ * Counts billing events recorded for a specific Stripe event delivery.
+ */
+async function countBillingEventsForStripeEvent(eventId: string) {
+  const rows = await testDb
+    .select({
+      stripeEventId: schema.brandBillingEvents.stripeEventId,
+    })
+    .from(schema.brandBillingEvents)
+    .where(eq(schema.brandBillingEvents.stripeEventId, eventId));
+
+  return rows.length;
+}
+
 beforeEach(() => {
   process.env.STRIPE_SECRET_KEY = "sk_test_codex";
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_codex";
 });
 
 describe("Stripe webhook processing", () => {
+  it("awards credits for payment-mode top-up checkouts", async () => {
+    const restoreAppDb = bindAppDbToTestDb();
+
+    try {
+      const brandId = await createTestBrand("Webhook Top-up Brand");
+      await setBrandSubscriptionState({
+        brandId,
+        phase: "active",
+        planType: "growth",
+        billingInterval: "quarterly",
+        billingMode: "stripe_checkout",
+        stripeCustomerId: "cus_topup_checkout_test",
+        stripeSubscriptionId: "sub_topup_checkout_test",
+        totalCredits: 50,
+        onboardingDiscountUsed: false,
+      });
+
+      const { rawBody, signature } = await buildSignedWebhook({
+        eventType: "checkout.session.completed",
+        object: {
+          id: `cs_test_${crypto.randomUUID()}`,
+          object: "checkout.session",
+          mode: "payment",
+          payment_status: "paid",
+          client_reference_id: brandId,
+          customer: "cus_topup_checkout_test",
+          payment_intent: `pi_${crypto.randomUUID()}`,
+          amount_total: 20_000,
+          currency: "eur",
+          metadata: {
+            brand_id: brandId,
+            tier: "growth",
+            topup_quantity: "200",
+            is_onboarding_discount: "true",
+          },
+        },
+      });
+
+      const response = await stripeWebhookRouter.request("http://localhost/", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "stripe-signature": signature,
+        },
+        body: rawBody,
+      });
+
+      expect(response.status).toBe(200);
+
+      const plan = await getBrandPlanState(brandId);
+
+      const [billingEvent] = await testDb
+        .select({
+          payload: schema.brandBillingEvents.payload,
+        })
+        .from(schema.brandBillingEvents)
+        .where(
+          eq(schema.brandBillingEvents.brandId, brandId),
+        )
+        .orderBy(desc(schema.brandBillingEvents.createdAt))
+        .limit(1);
+
+      expect(plan?.totalCredits).toBe(250);
+      expect(plan?.onboardingDiscountUsed).toBe(true);
+      expect((billingEvent?.payload as Record<string, unknown>)?.topup_quantity).toBe(200);
+      expect((billingEvent?.payload as Record<string, unknown>)?.tier).toBe("growth");
+    } finally {
+      restoreAppDb();
+    }
+  });
+
+  it("does not award credits when a payment-mode top-up session is not yet paid", async () => {
+    const restoreAppDb = bindAppDbToTestDb();
+
+    try {
+      const brandId = await createTestBrand("Webhook Unpaid Top-up Brand");
+      await setBrandSubscriptionState({
+        brandId,
+        phase: "active",
+        planType: "growth",
+        billingInterval: "quarterly",
+        billingMode: "stripe_checkout",
+        stripeCustomerId: "cus_topup_unpaid_test",
+        stripeSubscriptionId: "sub_topup_unpaid_test",
+        totalCredits: 50,
+        onboardingDiscountUsed: false,
+      });
+
+      const { rawBody, signature } = await buildSignedWebhook({
+        eventType: "checkout.session.completed",
+        object: {
+          id: `cs_test_${crypto.randomUUID()}`,
+          object: "checkout.session",
+          mode: "payment",
+          payment_status: "unpaid",
+          client_reference_id: brandId,
+          customer: "cus_topup_unpaid_test",
+          payment_intent: `pi_${crypto.randomUUID()}`,
+          amount_total: 20_000,
+          currency: "eur",
+          metadata: {
+            brand_id: brandId,
+            tier: "growth",
+            topup_quantity: "200",
+            is_onboarding_discount: "true",
+          },
+        },
+      });
+
+      const response = await stripeWebhookRouter.request("http://localhost/", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "stripe-signature": signature,
+        },
+        body: rawBody,
+      });
+
+      expect(response.status).toBe(200);
+      expect(await getBrandPlanState(brandId)).toEqual({
+        totalCredits: 50,
+        onboardingDiscountUsed: false,
+      });
+    } finally {
+      restoreAppDb();
+    }
+  });
+
+  it("does not award credits when the top-up quantity metadata is invalid", async () => {
+    const restoreAppDb = bindAppDbToTestDb();
+
+    try {
+      const brandId = await createTestBrand("Webhook Invalid Top-up Quantity Brand");
+      await setBrandSubscriptionState({
+        brandId,
+        phase: "active",
+        planType: "growth",
+        billingInterval: "quarterly",
+        billingMode: "stripe_checkout",
+        stripeCustomerId: "cus_topup_invalid_quantity_test",
+        stripeSubscriptionId: "sub_topup_invalid_quantity_test",
+        totalCredits: 50,
+        onboardingDiscountUsed: false,
+      });
+
+      const { rawBody, signature } = await buildSignedWebhook({
+        eventType: "checkout.session.completed",
+        object: {
+          id: `cs_test_${crypto.randomUUID()}`,
+          object: "checkout.session",
+          mode: "payment",
+          payment_status: "paid",
+          client_reference_id: brandId,
+          customer: "cus_topup_invalid_quantity_test",
+          payment_intent: `pi_${crypto.randomUUID()}`,
+          amount_total: 20_000,
+          currency: "eur",
+          metadata: {
+            brand_id: brandId,
+            tier: "growth",
+            topup_quantity: "not-an-integer",
+            is_onboarding_discount: "true",
+          },
+        },
+      });
+
+      const response = await stripeWebhookRouter.request("http://localhost/", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "stripe-signature": signature,
+        },
+        body: rawBody,
+      });
+
+      expect(response.status).toBe(200);
+      expect(await getBrandPlanState(brandId)).toEqual({
+        totalCredits: 50,
+        onboardingDiscountUsed: false,
+      });
+    } finally {
+      restoreAppDb();
+    }
+  });
+
+  it("adds credits without flipping onboarding discount when the top-up is full price", async () => {
+    const restoreAppDb = bindAppDbToTestDb();
+
+    try {
+      const brandId = await createTestBrand("Webhook Full-price Top-up Brand");
+      await setBrandSubscriptionState({
+        brandId,
+        phase: "active",
+        planType: "growth",
+        billingInterval: "quarterly",
+        billingMode: "stripe_checkout",
+        stripeCustomerId: "cus_topup_full_price_test",
+        stripeSubscriptionId: "sub_topup_full_price_test",
+        totalCredits: 50,
+        onboardingDiscountUsed: false,
+      });
+
+      const { rawBody, signature } = await buildSignedWebhook({
+        eventType: "checkout.session.completed",
+        object: {
+          id: `cs_test_${crypto.randomUUID()}`,
+          object: "checkout.session",
+          mode: "payment",
+          payment_status: "paid",
+          client_reference_id: brandId,
+          customer: "cus_topup_full_price_test",
+          payment_intent: `pi_${crypto.randomUUID()}`,
+          amount_total: 40_000,
+          currency: "eur",
+          metadata: {
+            brand_id: brandId,
+            tier: "growth",
+            topup_quantity: "200",
+            is_onboarding_discount: "false",
+          },
+        },
+      });
+
+      const response = await stripeWebhookRouter.request("http://localhost/", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "stripe-signature": signature,
+        },
+        body: rawBody,
+      });
+
+      expect(response.status).toBe(200);
+      expect(await getBrandPlanState(brandId)).toEqual({
+        totalCredits: 250,
+        onboardingDiscountUsed: false,
+      });
+    } finally {
+      restoreAppDb();
+    }
+  });
+
+  it("does not double-award credits when the same top-up event is delivered twice", async () => {
+    const restoreAppDb = bindAppDbToTestDb();
+
+    try {
+      const brandId = await createTestBrand("Webhook Duplicate Top-up Brand");
+      await setBrandSubscriptionState({
+        brandId,
+        phase: "active",
+        planType: "growth",
+        billingInterval: "quarterly",
+        billingMode: "stripe_checkout",
+        stripeCustomerId: "cus_topup_duplicate_test",
+        stripeSubscriptionId: "sub_topup_duplicate_test",
+        totalCredits: 50,
+        onboardingDiscountUsed: false,
+      });
+
+      const eventId = `evt_${crypto.randomUUID()}`;
+      const { rawBody, signature } = await buildSignedWebhook({
+        eventType: "checkout.session.completed",
+        eventId,
+        object: {
+          id: `cs_test_${crypto.randomUUID()}`,
+          object: "checkout.session",
+          mode: "payment",
+          payment_status: "paid",
+          client_reference_id: brandId,
+          customer: "cus_topup_duplicate_test",
+          payment_intent: `pi_${crypto.randomUUID()}`,
+          amount_total: 20_000,
+          currency: "eur",
+          metadata: {
+            brand_id: brandId,
+            tier: "growth",
+            topup_quantity: "200",
+            is_onboarding_discount: "true",
+          },
+        },
+      });
+
+      const first = await stripeWebhookRouter.request("http://localhost/", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "stripe-signature": signature,
+        },
+        body: rawBody,
+      });
+      const second = await stripeWebhookRouter.request("http://localhost/", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "stripe-signature": signature,
+        },
+        body: rawBody,
+      });
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      expect(await getBrandPlanState(brandId)).toEqual({
+        totalCredits: 250,
+        onboardingDiscountUsed: true,
+      });
+      expect(await countBillingEventsForStripeEvent(eventId)).toBe(1);
+    } finally {
+      restoreAppDb();
+    }
+  });
+
   it("serializes duplicate deliveries of the same event", async () => {
     const eventType = `codex.webhook.race.${crypto.randomUUID()}`;
     const { eventId, rawBody, signature } = await buildSignedWebhook({

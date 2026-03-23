@@ -224,7 +224,7 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
       return {
         type: "credit_limit_warning",
         title: "You're approaching your passport credit limit",
-        message: `You've used ${payload.used.toLocaleString()} of ${payload.limit.toLocaleString()} passport credits. Purchase additional packs or upgrade your plan. ${ACTION_PLACEHOLDER}`,
+        message: `You've used ${payload.used.toLocaleString()} of ${payload.limit.toLocaleString()} passport credits. Purchase additional passports or upgrade your plan. ${ACTION_PLACEHOLDER}`,
         resourceType: "credit_balance",
         resourceId: payload.brandId,
         actionUrl: "/settings/billing",
@@ -242,7 +242,7 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
     resolve: (payload) => ({
       type: "credit_limit_reached",
       title: "You've reached your passport credit limit",
-      message: `You've used all ${payload.limit.toLocaleString()} passport credits. Purchase additional packs or upgrade your plan to publish more. ${ACTION_PLACEHOLDER}`,
+      message: `You've used all ${payload.limit.toLocaleString()} passport credits. Purchase additional passports or upgrade your plan to publish more. ${ACTION_PLACEHOLDER}`,
       resourceType: "credit_balance",
       resourceId: payload.brandId,
       actionUrl: "/settings/billing",

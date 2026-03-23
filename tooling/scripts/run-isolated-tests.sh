@@ -24,6 +24,25 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# Run the package test commands directly in GitHub Actions.
+# This avoids Turbo task startup hangs that only occur in CI.
+run_github_actions_tests() {
+  (cd "$ROOT_DIR/packages/integrations" && bun run test)
+  (cd "$ROOT_DIR/packages/jobs" && bun run test)
+  (cd "$ROOT_DIR/packages/db" && bun run test)
+}
+
+# Choose the test runner that matches the current environment.
+run_test_suite() {
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    echo "Running package tests directly in GitHub Actions..."
+    run_github_actions_tests
+    return
+  fi
+
+  (cd "$ROOT_DIR" && bun run test:raw)
+}
+
 mkdir -p "$TEMP_PROJECT_DIR"
 cp -R "$ROOT_DIR/apps/api/supabase" "$TEMP_SUPABASE_DIR"
 
@@ -75,4 +94,4 @@ echo "Syncing taxonomy data into disposable test DB..."
 (cd "$ROOT_DIR/packages/taxonomy" && bun run sync)
 
 echo "Running monorepo test suite against disposable test DB..."
-(cd "$ROOT_DIR" && bun run test:raw)
+run_test_suite

@@ -3,10 +3,12 @@
  */
 "use client";
 
+import { PurchaseCreditsModal } from "@/components/modals/purchase-credits-modal";
 import { SkuLimitBanner } from "@/components/products/sku-limit-banner";
 import { useTRPC } from "@/trpc/client";
 import { Skeleton } from "@v1/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { CreditBalanceCard } from "./credit-balance-card";
 import { CreditPackSelector } from "./credit-pack-selector";
 import { PLAN_DISPLAY, type PaidPlanTier, type PlanTier } from "./plan-features";
@@ -63,6 +65,9 @@ export function UsagePageContent() {
     status.has_active_subscription &&
     !!topupTier;
 
+  const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
+  const handleBuyCredits = useCallback(() => setPurchaseModalOpen(true), []);
+
   if (totalCredits <= 0) {
     return (
       <div className="w-full max-w-[700px]">
@@ -109,7 +114,16 @@ export function UsagePageContent() {
             utilization,
           },
         }}
+        onAction={showTopupPurchases ? handleBuyCredits : undefined}
       />
+      {showTopupPurchases && topupTier && (
+        <PurchaseCreditsModal
+          open={purchaseModalOpen}
+          onOpenChange={setPurchaseModalOpen}
+          tier={topupTier}
+          onboardingDiscountAvailable={!status.onboarding_discount_used}
+        />
+      )}
       <CreditBalanceCard
         description={description}
         totalCredits={totalCredits}

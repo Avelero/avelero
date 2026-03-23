@@ -49,9 +49,15 @@ export interface LinkNotificationActionData {
   url?: string;
 }
 
+export interface OpenPlanSelectorNotificationActionData {
+  kind: "open_plan_selector";
+  label: string;
+}
+
 export type NotificationActionData =
   | DownloadNotificationActionData
-  | LinkNotificationActionData;
+  | LinkNotificationActionData
+  | OpenPlanSelectorNotificationActionData;
 
 /**
  * User notification record from the database

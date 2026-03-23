@@ -6,6 +6,7 @@
  */
 "use client";
 
+import { usePlanSelector } from "@/components/billing/plan-selector-context";
 import { type Notification, useNotifications } from "@/hooks/use-notifications";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
@@ -44,6 +45,7 @@ function NotificationCenterContent() {
   const [open, setOpen] = useState(false);
   const seenInSessionRef = useRef(new Set<string>());
 
+  const { open: openPlanSelector } = usePlanSelector();
   const exportCorrectionsMutation = useMutation(
     trpc.bulk.import.exportCorrections.mutationOptions(),
   );
@@ -117,6 +119,12 @@ function NotificationCenterContent() {
         }
 
         toast.error("Download is not available yet");
+        return;
+      }
+
+      if (actionData.kind === "open_plan_selector") {
+        setOpen(false);
+        openPlanSelector();
         return;
       }
 

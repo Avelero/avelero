@@ -26,6 +26,8 @@ interface SkuLimitBannerProps {
     status: "allowed" | "warning" | "blocked";
     activeBudget: SkuBudget;
   };
+  /** When provided, the CTA renders as a button that calls this handler instead of linking to billing. */
+  onAction?: () => void;
 }
 
 /**
@@ -54,7 +56,7 @@ function getBudgetCopy(budget: SkuBudget) {
   };
 }
 
-export function SkuLimitBanner({ sku }: SkuLimitBannerProps) {
+export function SkuLimitBanner({ sku, onAction }: SkuLimitBannerProps) {
   if (sku.status === "allowed") {
     return null;
   }
@@ -77,13 +79,23 @@ export function SkuLimitBanner({ sku }: SkuLimitBannerProps) {
           <Icons.AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <p className="type-small">{message}</p>
         </div>
-        <Link
-          href="/settings/billing"
-          className="type-small !font-semibold underline underline-offset-2 shrink-0 whitespace-nowrap"
-          prefetch
-        >
-          {copy.ctaLabel}
-        </Link>
+        {onAction ? (
+          <button
+            type="button"
+            onClick={onAction}
+            className="type-small !font-semibold underline underline-offset-2 shrink-0 whitespace-nowrap"
+          >
+            {copy.ctaLabel}
+          </button>
+        ) : (
+          <Link
+            href="/settings/billing"
+            className="type-small !font-semibold underline underline-offset-2 shrink-0 whitespace-nowrap"
+            prefetch
+          >
+            {copy.ctaLabel}
+          </Link>
+        )}
       </div>
     </div>
   );

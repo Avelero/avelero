@@ -248,11 +248,10 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
         message: `You've used ${payload.used.toLocaleString()} of ${payload.limit.toLocaleString()} passport credits. Purchase additional passports or upgrade your plan. ${ACTION_PLACEHOLDER}`,
         resourceType: "credit_balance",
         resourceId: payload.brandId,
-        actionUrl: "/settings/billing",
+        actionUrl: "/settings/usage",
         actionData: {
-          kind: "link",
+          kind: "open_plan_selector",
           label: "View plans",
-          url: "/settings/billing",
         },
         expiresInMs: 30 * 24 * 60 * 60 * 1000,
       };
@@ -266,11 +265,10 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
       message: `You've used all ${payload.limit.toLocaleString()} passport credits. Purchase additional passports or upgrade your plan to publish more. ${ACTION_PLACEHOLDER}`,
       resourceType: "credit_balance",
       resourceId: payload.brandId,
-      actionUrl: "/settings/billing",
+      actionUrl: "/settings/usage",
       actionData: {
-        kind: "link",
+        kind: "open_plan_selector",
         label: "View plans",
-        url: "/settings/billing",
       },
       expiresInMs: 30 * 24 * 60 * 60 * 1000,
     }),

@@ -4,8 +4,10 @@
 import "../../setup";
 
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { eq } from "@v1/db/queries";
+import * as schema from "@v1/db/schema";
 import Stripe from "stripe";
-import { createTestBrand, createTestUser } from "@v1/db/testing";
+import { createTestBrand, createTestUser, testDb } from "@v1/db/testing";
 
 // Ensure this test file has a working Stripe client (guards against global
 // mock.module leaking from other test files).
@@ -41,6 +43,11 @@ const mockScheduleSubscriptionPlanChange = mock(
     effectiveAt: "2026-06-23T00:00:00.000Z",
   }),
 );
+const mockCancelScheduledSubscriptionPlanChange = mock(
+  async (_params?: Record<string, unknown>) => ({
+    scheduleId: "sub_sched_test_downgrade",
+  }),
+);
 const mockUpdateSubscriptionPlan = mock(async (_params?: Record<string, unknown>) => {});
 const mockAddImpactToSubscription = mock(async (_params?: Record<string, unknown>) => {});
 const mockRemoveImpactFromSubscription = mock(async (_params?: Record<string, unknown>) => {});
@@ -56,6 +63,7 @@ mock.module("../../../src/lib/stripe/topup.js", () => ({
 
 mock.module("../../../src/lib/stripe/subscription.js", () => ({
   addImpactToSubscription: mockAddImpactToSubscription,
+  cancelScheduledSubscriptionPlanChange: mockCancelScheduledSubscriptionPlanChange,
   removeImpactFromSubscription: mockRemoveImpactFromSubscription,
   scheduleSubscriptionPlanChange: mockScheduleSubscriptionPlanChange,
   updateSubscriptionPlan: mockUpdateSubscriptionPlan,
@@ -92,6 +100,7 @@ describe("billing router plan and top-up flows", () => {
     mockCreateUpgradeCheckoutSession.mockClear();
     mockCreateTopupCheckoutSession.mockClear();
     mockScheduleSubscriptionPlanChange.mockClear();
+    mockCancelScheduledSubscriptionPlanChange.mockClear();
     mockUpdateSubscriptionPlan.mockClear();
     mockAddImpactToSubscription.mockClear();
     mockRemoveImpactFromSubscription.mockClear();
@@ -399,6 +408,64 @@ describe("billing router plan and top-up flows", () => {
       newTier: "growth",
       newInterval: "quarterly",
       hasImpact: true,
+    });
+  });
+
+  it("clears the scheduled downgrade when the active plan is reselected", async () => {
+    await setBrandSubscriptionState({
+      brandId,
+      phase: "active",
+      planType: "growth",
+      billingInterval: "yearly",
+      hasImpactPredictions: true,
+      billingMode: "stripe_checkout",
+      stripeCustomerId: "cus_cancel_schedule",
+      stripeSubscriptionId: "sub_cancel_schedule",
+      stripeSubscriptionScheduleId: "sub_sched_test_downgrade",
+      scheduledPlanType: "starter",
+      scheduledBillingInterval: "quarterly",
+      scheduledHasImpactPredictions: false,
+      scheduledPlanChangeEffectiveAt: "2026-06-23T00:00:00.000Z",
+    });
+
+    const caller = createBillingCaller({ brandId, userId, userEmail });
+    const result = await caller.updatePlan({
+      tier: "growth",
+      interval: "yearly",
+      include_impact: true,
+    });
+
+    expect(result).toEqual({ success: true, changeTiming: "cancelled" });
+    expect(mockCancelScheduledSubscriptionPlanChange).toHaveBeenCalledTimes(1);
+    expect(
+      mockCancelScheduledSubscriptionPlanChange.mock.calls[0]?.[0],
+    ).toMatchObject({
+      stripeSubscriptionId: "sub_cancel_schedule",
+    });
+    expect(mockScheduleSubscriptionPlanChange).not.toHaveBeenCalled();
+    expect(mockUpdateSubscriptionPlan).not.toHaveBeenCalled();
+
+    const [billingRow] = await testDb
+      .select({
+        stripeSubscriptionScheduleId:
+          schema.brandBilling.stripeSubscriptionScheduleId,
+        scheduledPlanType: schema.brandBilling.scheduledPlanType,
+        scheduledBillingInterval: schema.brandBilling.scheduledBillingInterval,
+        scheduledHasImpactPredictions:
+          schema.brandBilling.scheduledHasImpactPredictions,
+        scheduledPlanChangeEffectiveAt:
+          schema.brandBilling.scheduledPlanChangeEffectiveAt,
+      })
+      .from(schema.brandBilling)
+      .where(eq(schema.brandBilling.brandId, brandId))
+      .limit(1);
+
+    expect(billingRow).toMatchObject({
+      stripeSubscriptionScheduleId: null,
+      scheduledPlanType: null,
+      scheduledBillingInterval: null,
+      scheduledHasImpactPredictions: null,
+      scheduledPlanChangeEffectiveAt: null,
     });
   });
 

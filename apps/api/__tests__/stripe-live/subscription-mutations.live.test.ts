@@ -330,4 +330,65 @@ describe("live Stripe subscription mutations", () => {
       await provisioned.cleanup.cleanup();
     }
   });
+
+  it("releases a scheduled downgrade when the active plan is reselected", async () => {
+    const provisioned = await provisionActiveStripeBillingBrand({
+      namePrefix: "Plan Mutation Cancel Downgrade",
+      tier: "growth",
+      interval: "yearly",
+      includeImpact: true,
+    });
+
+    try {
+      await provisioned.harness.caller.brand.billing.updatePlan({
+        tier: "starter",
+        interval: "quarterly",
+        include_impact: false,
+      });
+
+      const scheduledState = await waitForCondition({
+        description: `scheduled downgrade setup for brand ${provisioned.harness.brandId}`,
+        evaluate: async () =>
+          readLiveBrandBillingState(provisioned.harness.brandId),
+        isDone: (state) =>
+          !!state.billing?.stripeSubscriptionScheduleId &&
+          state.billing?.scheduledPlanType === "starter" &&
+          state.billing?.scheduledBillingInterval === "quarterly",
+      });
+      const scheduleId = scheduledState.billing?.stripeSubscriptionScheduleId;
+      expect(scheduleId).toBeTruthy();
+
+      const result = await provisioned.harness.caller.brand.billing.updatePlan({
+        tier: "growth",
+        interval: "yearly",
+        include_impact: true,
+      });
+
+      expect(result).toEqual({
+        success: true,
+        changeTiming: "cancelled",
+      });
+
+      await waitForCondition({
+        description: `cleared scheduled downgrade projection for brand ${provisioned.harness.brandId}`,
+        evaluate: async () =>
+          readLiveBrandBillingState(provisioned.harness.brandId),
+        isDone: (state) =>
+          state.plan?.planType === "growth" &&
+          state.plan.billingInterval === "yearly" &&
+          state.plan.hasImpactPredictions === true &&
+          state.billing?.stripeSubscriptionScheduleId === null &&
+          state.billing?.scheduledPlanType === null &&
+          state.billing?.scheduledBillingInterval === null &&
+          state.billing?.scheduledHasImpactPredictions === null &&
+          state.billing?.scheduledPlanChangeEffectiveAt === null,
+      });
+
+      const releasedSchedule =
+        await provisioned.stripe.subscriptionSchedules.retrieve(scheduleId!);
+      expect(releasedSchedule.status).toBe("released");
+    } finally {
+      await provisioned.cleanup.cleanup();
+    }
+  });
 });

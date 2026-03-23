@@ -28,6 +28,7 @@ import { createTopupCheckoutSession } from "../../../lib/stripe/topup.js";
 import { createPortalSession } from "../../../lib/stripe/portal.js";
 import {
   addImpactToSubscription,
+  cancelScheduledSubscriptionPlanChange,
   removeImpactFromSubscription,
   scheduleSubscriptionPlanChange,
   updateSubscriptionPlan,
@@ -316,6 +317,7 @@ export const billingRouter = createTRPCRouter({
       const [billing] = await db
         .select({
           stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+          pendingCancellation: brandBilling.pendingCancellation,
         })
         .from(brandBilling)
         .where(eq(brandBilling.brandId, brandId))
@@ -346,6 +348,7 @@ export const billingRouter = createTRPCRouter({
         .select({
           planType: brandPlan.planType,
           billingInterval: brandPlan.billingInterval,
+          hasImpactPredictions: brandPlan.hasImpactPredictions,
         })
         .from(brandPlan)
         .where(eq(brandPlan.brandId, brandId))
@@ -369,6 +372,7 @@ export const billingRouter = createTRPCRouter({
           .select({
             planType: brandPlan.planType,
             billingInterval: brandPlan.billingInterval,
+            hasImpactPredictions: brandPlan.hasImpactPredictions,
           })
           .from(brandPlan)
           .where(eq(brandPlan.brandId, brandId))
@@ -428,29 +432,46 @@ export const billingRouter = createTRPCRouter({
           };
         }
 
-        await updateSubscriptionPlan({
+        const cancelledScheduledChange =
+          await cancelScheduledSubscriptionPlanChange({
           stripeSubscriptionId: billing.stripeSubscriptionId,
-          newTier: input.tier,
-          newInterval: input.interval,
-          hasImpact: input.include_impact,
         });
+
+        if (
+          billing.pendingCancellation ||
+          plan.hasImpactPredictions !== input.include_impact
+        ) {
+          await updateSubscriptionPlan({
+            stripeSubscriptionId: billing.stripeSubscriptionId,
+            newTier: input.tier,
+            newInterval: input.interval,
+            hasImpact: input.include_impact,
+          });
+        }
 
         await db
           .update(brandBilling)
           .set({
             pendingCancellation: false,
+            stripeSubscriptionScheduleId: null,
+            scheduledPlanType: null,
+            scheduledBillingInterval: null,
+            scheduledHasImpactPredictions: null,
+            scheduledPlanChangeEffectiveAt: null,
             updatedAt: new Date().toISOString(),
           })
           .where(eq(brandBilling.brandId, brandId));
+
+        return {
+          success: true as const,
+          changeTiming: cancelledScheduledChange.scheduleId
+            ? ("cancelled" as const)
+            : ("immediate" as const),
+        };
       } catch (err) {
         log.error({ brandId, operation: "updateSubscriptionPlan", tier: input.tier, interval: input.interval, err }, "plan update failed");
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to update plan" });
       }
-
-      return {
-        success: true as const,
-        changeTiming: "immediate" as const,
-      };
     }),
 
   /**

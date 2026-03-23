@@ -21,6 +21,8 @@ interface PlanSelectorOverlayProps {
   hasSubscription?: boolean;
   /** Whether the current subscription is scheduled to end at period close. */
   pendingCancellation?: boolean;
+  /** Whether Stripe already has a future plan change scheduled. */
+  hasScheduledPlanChange?: boolean;
   /** Current billing period start (ISO string). */
   periodStart?: string | null;
   /** Current billing period end (ISO string). */
@@ -38,6 +40,7 @@ export function PlanSelectorOverlay({
   hasImpact = false,
   hasSubscription = false,
   pendingCancellation = false,
+  hasScheduledPlanChange = false,
   periodStart = null,
   periodEnd = null,
   position = "fixed",
@@ -69,6 +72,7 @@ export function PlanSelectorOverlay({
           hasImpact={hasImpact}
           hasSubscription={hasSubscription}
           pendingCancellation={pendingCancellation}
+          hasScheduledPlanChange={hasScheduledPlanChange}
           periodStart={periodStart}
           periodEnd={periodEnd}
           context="paywall"

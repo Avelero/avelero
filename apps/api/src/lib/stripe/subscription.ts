@@ -186,20 +186,49 @@ function resolveCurrentPhaseWindow(params: {
 /**
  * Calculates the end of the first downgraded billing cycle after the phase starts.
  */
-function resolveScheduledPhaseEndDate(
+export function resolveScheduledPhaseEndDate(
   startDate: number,
   interval: BillingInterval,
 ): number {
   // Bound the last scheduled phase to one full billing cycle before releasing it.
-  const phaseEnd = new Date(startDate * 1000);
-
-  if (interval === "quarterly") {
-    phaseEnd.setUTCMonth(phaseEnd.getUTCMonth() + 3);
-  } else {
-    phaseEnd.setUTCFullYear(phaseEnd.getUTCFullYear() + 1);
-  }
+  const phaseEnd = addUtcMonthsClamped(
+    new Date(startDate * 1000),
+    interval === "quarterly" ? 3 : 12,
+  );
 
   return Math.floor(phaseEnd.getTime() / 1000);
+}
+
+/**
+ * Adds whole UTC months while clamping to the target month's last day.
+ */
+function addUtcMonthsClamped(startDate: Date, months: number): Date {
+  // Preserve wall-clock time and clamp month-end dates like Jan 31 -> Apr 30.
+  const year = startDate.getUTCFullYear();
+  const month = startDate.getUTCMonth();
+  const day = startDate.getUTCDate();
+  const hours = startDate.getUTCHours();
+  const minutes = startDate.getUTCMinutes();
+  const seconds = startDate.getUTCSeconds();
+  const milliseconds = startDate.getUTCMilliseconds();
+
+  const targetStart = new Date(
+    Date.UTC(year, month + months, 1, hours, minutes, seconds, milliseconds),
+  );
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(
+      targetStart.getUTCFullYear(),
+      targetStart.getUTCMonth() + 1,
+      0,
+      hours,
+      minutes,
+      seconds,
+      milliseconds,
+    ),
+  ).getUTCDate();
+
+  targetStart.setUTCDate(Math.min(day, lastDayOfTargetMonth));
+  return targetStart;
 }
 
 /**
@@ -237,6 +266,35 @@ async function getOrCreateSubscriptionSchedule(params: {
   return stripe.subscriptionSchedules.create({
     from_subscription: subscription.id,
   });
+}
+
+/**
+ * Loads the current Stripe subscription schedule when one is actively managing the subscription.
+ */
+async function getExistingSubscriptionSchedule(params: {
+  stripe: Stripe;
+  subscription: Stripe.Subscription;
+}): Promise<Stripe.SubscriptionSchedule | null> {
+  // Normalize expanded and unexpanded schedule references into one active schedule object.
+  const { stripe, subscription } = params;
+
+  if (subscription.schedule && typeof subscription.schedule !== "string") {
+    return subscription.schedule.status === "active" ||
+      subscription.schedule.status === "not_started"
+      ? subscription.schedule
+      : null;
+  }
+
+  if (typeof subscription.schedule !== "string") {
+    return null;
+  }
+
+  const schedule = await stripe.subscriptionSchedules.retrieve(
+    subscription.schedule,
+  );
+  return schedule.status === "active" || schedule.status === "not_started"
+    ? schedule
+    : null;
 }
 
 /**
@@ -289,6 +347,37 @@ export async function scheduleSubscriptionPlanChange(opts: {
     scheduleId: updatedSchedule.id,
     effectiveAt: new Date(endDate * 1000).toISOString(),
   };
+}
+
+/**
+ * Cancels any pending subscription schedule so the current subscription keeps renewing as-is.
+ */
+export async function cancelScheduledSubscriptionPlanChange(opts: {
+  stripeSubscriptionId: string;
+}): Promise<{ scheduleId: string | null }> {
+  // Release the active schedule so future phase changes are removed immediately.
+  const { stripeSubscriptionId } = opts;
+  const stripe = getStripeClient();
+  const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
+    expand: ["schedule"],
+  });
+  const schedule = await getExistingSubscriptionSchedule({ stripe, subscription });
+
+  if (!schedule) {
+    return { scheduleId: null };
+  }
+
+  if (schedule.status === "active") {
+    await stripe.subscriptionSchedules.release(schedule.id);
+    return { scheduleId: schedule.id };
+  }
+
+  if (schedule.status === "not_started") {
+    await stripe.subscriptionSchedules.cancel(schedule.id);
+    return { scheduleId: schedule.id };
+  }
+
+  return { scheduleId: null };
 }
 
 /**

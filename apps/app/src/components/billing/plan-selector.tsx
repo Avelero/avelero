@@ -4,6 +4,7 @@
  * - Upgrade → Stripe Checkout with a fresh billing cycle (button loading → redirect)
  * - Downgrade → confirmation modal, change takes effect at period end
  * - Renew (undo cancellation) → immediate with success toast
+ * - Keep current plan (undo scheduled downgrade) → immediate with success toast
  * - New subscription (no active sub) → Stripe Checkout redirect
  */
 "use client";
@@ -51,6 +52,7 @@ interface PlanSelectorProps {
   hasImpact?: boolean;
   hasSubscription?: boolean;
   pendingCancellation?: boolean;
+  hasScheduledPlanChange?: boolean;
   periodStart?: string | null;
   periodEnd?: string | null;
   context: "paywall" | "settings";
@@ -62,6 +64,7 @@ export function PlanSelector({
   hasImpact,
   hasSubscription = false,
   pendingCancellation = false,
+  hasScheduledPlanChange = false,
   periodEnd = null,
   context,
 }: PlanSelectorProps) {
@@ -117,6 +120,8 @@ export function PlanSelector({
         toast.success(
           data.changeTiming === "scheduled"
             ? "Your downgrade has been scheduled."
+            : data.changeTiming === "cancelled"
+              ? "Your scheduled plan change has been canceled."
             : "Your plan has been updated.",
         );
       },
@@ -138,6 +143,19 @@ export function PlanSelector({
 
   // Renew: undo pending cancellation. Frictionless — no confirmation needed.
   const handleRenew = (tier: PlanTier) => {
+    if (tier === "enterprise" || !hasActiveSubscription) return;
+    setLoadingTier(tier);
+    updatePlanMutation.mutate({
+      tier: tier as "starter" | "growth" | "scale",
+      interval: currentInterval ?? interval,
+      include_impact: hasImpact ?? false,
+    });
+  };
+
+  /**
+   * Keep the current plan and remove any scheduled downgrade.
+   */
+  const handleKeepCurrentPlan = (tier: PlanTier) => {
     if (tier === "enterprise" || !hasActiveSubscription) return;
     setLoadingTier(tier);
     updatePlanMutation.mutate({
@@ -228,6 +246,10 @@ export function PlanSelector({
             isCurrent && interval === currentInterval;
           const showRenewAction =
             pendingCancellation && isCurrentAndSameInterval;
+          const showKeepCurrentAction =
+            hasScheduledPlanChange &&
+            isCurrentAndSameInterval &&
+            !showRenewAction;
 
           const treatAsCurrent = isCurrentAndSameInterval;
 
@@ -243,10 +265,16 @@ export function PlanSelector({
               currentPlanActionLabel={
                 showRenewAction
                   ? `Renew ${PLAN_DISPLAY[tier].name}`
+                  : showKeepCurrentAction
+                    ? `Keep ${PLAN_DISPLAY[tier].name}`
                   : undefined
               }
               onCurrentPlanSelect={
-                showRenewAction ? () => handleRenew(tier) : undefined
+                showRenewAction
+                  ? () => handleRenew(tier)
+                  : showKeepCurrentAction
+                    ? () => handleKeepCurrentPlan(tier)
+                    : undefined
               }
             />
           );

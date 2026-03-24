@@ -1,5 +1,13 @@
+/**
+ * Theme route chrome.
+ *
+ * This layout blocks the theme route tree for cancelled and suspended brands
+ * so the white content overlay is the only thing rendered in the content area.
+ */
+import { getDashboardInit, isSidebarContentBlocked } from "@/lib/brand-access";
 import { Skeleton } from "@v1/ui/skeleton";
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
@@ -20,11 +28,19 @@ function ThemePageSkeleton() {
   );
 }
 
-export default function ThemeLayout({
+export default async function ThemeLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Resolve access before rendering nested theme pages.
+  await connection();
+
+  const initDashboard = await getDashboardInit();
+  if (isSidebarContentBlocked(initDashboard.access.overlay)) {
+    return null;
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex w-full h-full justify-center items-start p-8 overflow-y-auto scrollbar-hide">

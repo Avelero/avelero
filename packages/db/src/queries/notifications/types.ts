@@ -12,7 +12,10 @@ export type NotificationType =
   | "qr_export_ready"
   | "invite_accepted"
   | "sync_complete"
-  | "sync_failure";
+  | "sync_failure"
+  | "credit_limit_warning"
+  | "credit_limit_reached"
+  | "pack_purchased";
 
 /**
  * Known resource types for polymorphic references
@@ -22,7 +25,9 @@ export type NotificationResourceType =
   | "export_job"
   | "qr_export_job"
   | "brand_invite"
-  | "sync_job";
+  | "sync_job"
+  | "credit_balance"
+  | "credit_pack";
 
 export interface ImportCorrectionsRegenerateAction {
   type: "import_corrections";
@@ -44,9 +49,15 @@ export interface LinkNotificationActionData {
   url?: string;
 }
 
+export interface OpenPlanSelectorNotificationActionData {
+  kind: "open_plan_selector";
+  label: string;
+}
+
 export type NotificationActionData =
   | DownloadNotificationActionData
-  | LinkNotificationActionData;
+  | LinkNotificationActionData
+  | OpenPlanSelectorNotificationActionData;
 
 /**
  * User notification record from the database

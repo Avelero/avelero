@@ -6,7 +6,7 @@
 
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import type { Database } from "../../client";
+import type { Database, DatabaseOrTransaction } from "../../client";
 import { products } from "../../schema";
 
 /**
@@ -24,6 +24,7 @@ export async function createProduct(
     manufacturerId?: string;
     imagePath?: string;
     status?: string;
+    publishedAt?: string | null;
   },
 ) {
   let created:
@@ -46,6 +47,7 @@ export async function createProduct(
         manufacturerId: input.manufacturerId ?? null,
         imagePath: input.imagePath ?? null,
         status: input.status ?? "unpublished",
+        publishedAt: input.publishedAt ?? null,
       })
       .returning({ id: products.id, productHandle: products.productHandle });
 
@@ -59,7 +61,74 @@ export async function createProduct(
 }
 
 /**
- * Updates an existing product.
+ * Applies a product update using the provided database handle.
+ *
+ * Only updates fields that are explicitly provided (not undefined).
+ */
+export async function updateProductRecord(
+  db: DatabaseOrTransaction,
+  brandId: string,
+  input: {
+    id: string;
+    name?: string;
+    productHandle?: string | null;
+    description?: string | null;
+    categoryId?: string | null;
+    seasonId?: string | null;
+    manufacturerId?: string | null;
+    imagePath?: string | null;
+    status?: string | null;
+    publishedAt?: string | null;
+  },
+) {
+  // Only include fields that are explicitly provided (not undefined)
+  // This prevents accidentally nullifying fields that weren't meant to be updated
+  const updateData: Record<string, unknown> = {};
+
+  if (input.name !== undefined) updateData.name = input.name;
+  if (input.description !== undefined)
+    updateData.description = input.description;
+  if (input.categoryId !== undefined) updateData.categoryId = input.categoryId;
+  if (input.seasonId !== undefined) updateData.seasonId = input.seasonId;
+  if (input.productHandle !== undefined)
+    updateData.productHandle = input.productHandle;
+  if (input.manufacturerId !== undefined)
+    updateData.manufacturerId = input.manufacturerId;
+  if (input.imagePath !== undefined) updateData.imagePath = input.imagePath;
+  if (input.status !== undefined) updateData.status = input.status;
+  if (input.publishedAt !== undefined)
+    updateData.publishedAt = input.publishedAt;
+
+  // If no content fields to update, return early without modifying anything
+  if (Object.keys(updateData).length === 0) {
+    const [existing] = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
+      .limit(1);
+    if (existing) {
+      return { id: existing.id };
+    }
+    return undefined;
+  }
+
+  updateData.updatedAt = new Date().toISOString();
+
+  const [row] = await db
+    .update(products)
+    .set(updateData)
+    .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
+    .returning({ id: products.id });
+
+  if (!row?.id) {
+    return undefined;
+  }
+
+  return { id: row.id };
+}
+
+/**
+ * Updates an existing product inside its own transaction.
  *
  * Only updates fields that are explicitly provided (not undefined).
  * This prevents accidentally nullifying fields that weren't meant to be updated.
@@ -77,55 +146,10 @@ export async function updateProduct(
     manufacturerId?: string | null;
     imagePath?: string | null;
     status?: string | null;
+    publishedAt?: string | null;
   },
 ) {
-  let updated: { id: string; variantIds?: readonly string[] } | undefined;
-  await db.transaction(async (tx) => {
-    // Only include fields that are explicitly provided (not undefined)
-    // This prevents accidentally nullifying fields that weren't meant to be updated
-    const updateData: Record<string, unknown> = {};
-
-    if (input.name !== undefined) updateData.name = input.name;
-    if (input.description !== undefined)
-      updateData.description = input.description;
-    if (input.categoryId !== undefined)
-      updateData.categoryId = input.categoryId;
-    if (input.seasonId !== undefined) updateData.seasonId = input.seasonId;
-    if (input.productHandle !== undefined)
-      updateData.productHandle = input.productHandle;
-    if (input.manufacturerId !== undefined)
-      updateData.manufacturerId = input.manufacturerId;
-    if (input.imagePath !== undefined) updateData.imagePath = input.imagePath;
-    if (input.status !== undefined) updateData.status = input.status;
-
-    // If no content fields to update, return early without modifying anything
-    if (Object.keys(updateData).length === 0) {
-      const [existing] = await tx
-        .select({ id: products.id })
-        .from(products)
-        .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
-        .limit(1);
-      if (existing) {
-        updated = { id: existing.id };
-      }
-      return;
-    }
-
-    updateData.updatedAt = new Date().toISOString();
-
-    const [row] = await tx
-      .update(products)
-      .set(updateData)
-      .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
-      .returning({ id: products.id });
-
-    if (!row?.id) {
-      return;
-    }
-
-    updated = { id: row.id };
-  });
-  return updated;
+  return db.transaction(async (tx) => updateProductRecord(tx, brandId, input));
 }
 
 /**

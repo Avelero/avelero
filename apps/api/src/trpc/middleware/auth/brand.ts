@@ -1,13 +1,21 @@
-import { type Role, isRole } from "@api/config/roles.js";
+/**
+ * Resolves and caches brand membership plus live access policy state for requests.
+ */
+import { ROLES, type Role, isRole } from "@api/config/roles.js";
 import { resolveBrandAccessDecision } from "@api/lib/access-policy/resolve-brand-access-decision.js";
 import { resolveSkuAccessDecision } from "@api/lib/access-policy/resolve-sku-access-decision.js";
+import { syncStripeSubscriptionProjectionById } from "@api/lib/stripe/projection.js";
 import type {
   BrandAccessSnapshot,
   ResolvedBrandAccessDecision,
   ResolvedSkuAccessDecision,
 } from "@api/lib/access-policy/types.js";
 import type { TRPCContext } from "@api/trpc/init.ts";
-import { getBrandAccessSnapshot } from "@v1/db/queries/brand";
+import {
+  countPublishedPassports,
+  getCurrentDatabaseTimestamp,
+  getBrandAccessSnapshot,
+} from "@v1/db/queries/brand";
 import { logger } from "@v1/logger";
 
 const BRAND_CONTEXT_CACHE = Symbol("brandContextCache");
@@ -22,6 +30,8 @@ export type BrandAccessContextCache = {
   snapshot: BrandAccessSnapshot;
   brandAccess: ResolvedBrandAccessDecision;
   skuAccess: ResolvedSkuAccessDecision;
+  currentSkuUsageCount: number;
+  currentDatabaseTimestamp: Date;
 };
 
 type ContextWithBrandCache = TRPCContext & {
@@ -131,7 +141,27 @@ export async function ensureBrandAccessContext(
     throw new Error("Active brand context required to resolve access policy");
   }
 
-  const snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
+  let snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
+  const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(ctx.db);
+
+  if (
+    snapshot.billing?.stripeSubscriptionId &&
+    !snapshot.billing.currentPeriodEnd
+  ) {
+    await syncStripeSubscriptionProjectionById({
+      db: ctx.db,
+      subscriptionId: snapshot.billing.stripeSubscriptionId,
+      brandId: ctx.brandId,
+    });
+    snapshot = await getBrandAccessSnapshot(ctx.db, ctx.brandId);
+  }
+
+  // Count the current number of published passports against the cumulative credit cap.
+  const currentPublishUsageCount = await countPublishedPassports(
+    ctx.db,
+    ctx.brandId,
+  );
+
   const resolvedBrandAccess = resolveBrandAccessDecision({
     role: ctx.role ?? null,
     snapshot,
@@ -139,15 +169,17 @@ export async function ensureBrandAccessContext(
   const skuAccess = resolveSkuAccessDecision({
     brandAccess: resolvedBrandAccess,
     snapshot,
-    intendedCreateCount: 0,
+    intendedPublishCount: 0,
+    currentPublishUsageCount,
+    evaluationDate: currentDatabaseTimestamp,
   });
   const brandAccess: ResolvedBrandAccessDecision = {
     ...resolvedBrandAccess,
     capabilities: {
       ...resolvedBrandAccess.capabilities,
       canCreateSkus:
-        resolvedBrandAccess.capabilities.canWriteBrandData &&
-        skuAccess.status !== "blocked",
+        ctx.role === ROLES.AVELERO ||
+        resolvedBrandAccess.capabilities.canWriteBrandData,
     },
   };
 
@@ -155,6 +187,8 @@ export async function ensureBrandAccessContext(
     snapshot,
     brandAccess,
     skuAccess,
+    currentSkuUsageCount: currentPublishUsageCount,
+    currentDatabaseTimestamp,
   };
 
   contextWithCache[BRAND_ACCESS_CONTEXT_CACHE] = result;

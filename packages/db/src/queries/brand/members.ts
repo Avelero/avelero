@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import type { Database } from "../../client";
+import type { Database, DatabaseOrTransaction } from "../../client";
 import { brandMembers } from "../../schema";
 
 export class BrandMemberForbiddenError extends Error {
@@ -23,7 +23,7 @@ export interface BrandMemberRecord {
 }
 
 export async function getMembersByBrandId(
-  db: Database,
+  db: DatabaseOrTransaction,
   brandId: string,
 ): Promise<BrandMemberRecord[]> {
   const rows = await db

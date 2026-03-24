@@ -1,12 +1,16 @@
 "use client";
 
+// Render the settings sidebar with access-aware navigation visibility.
+
 import {
   SETTINGS_NAV_GROUPS,
   getActiveSettingsNavItem,
   type SettingsNavIconKey,
 } from "@/lib/settings-navigation";
+import { useTRPC } from "@/trpc/client";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
+import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -23,11 +27,22 @@ const SETTINGS_NAV_ICONS: Record<SettingsNavIconKey, LucideIcon> = {
   Leaf: Icons.Leaf,
   Award: Icons.Award,
   Building: Icons.Building,
+  BarChart3: Icons.BarChart3,
 };
 
 export function SettingsSecondarySidebar() {
+  // Resolve which settings links should be visible for the current brand access state.
   const pathname = usePathname();
   const activeItem = getActiveSettingsNavItem(pathname);
+  const trpc = useTRPC();
+  const initQuery = useQuery(trpc.composite.initDashboard.queryOptions());
+  const access = initQuery.data?.access;
+  const phase = access?.phase;
+  const overlay = access?.overlay;
+  const hasBlockedOverlay =
+    overlay === "suspended" || overlay === "temporary_blocked";
+  const showBillingNav = !hasBlockedOverlay && phase !== "demo" && phase !== "trial";
+  const showUsageNav = !hasBlockedOverlay && phase !== "demo";
 
   return (
     <aside className="w-[244px] shrink-0 border-r border-border bg-background">
@@ -45,7 +60,19 @@ export function SettingsSecondarySidebar() {
               ) : null}
 
               <div className="flex flex-col gap-0.5">
-                {group.items.map((item) => {
+                {group.items
+                  .filter((item) => {
+                    if (item.href === "/settings/billing" && !showBillingNav) {
+                      return false;
+                    }
+
+                    if (item.href === "/settings/usage" && !showUsageNav) {
+                      return false;
+                    }
+
+                    return true;
+                  })
+                  .map((item) => {
                   const Icon = SETTINGS_NAV_ICONS[item.icon];
                   const isActive = activeItem?.href === item.href;
 

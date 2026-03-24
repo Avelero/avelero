@@ -34,6 +34,7 @@
     "start:api": "turbo start --filter=@v1/api",
     "test": "bash ./tooling/scripts/run-isolated-tests.sh",
     "test:isolated": "bash ./tooling/scripts/run-isolated-tests.sh",
+    "test:billing:live": "bash ./tooling/scripts/run-live-billing-tests.sh",
     "test:raw": "turbo test --concurrency=1",
     "format": "biome format --write .",
     "lint": "turbo lint && bun lint:repo",

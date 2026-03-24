@@ -31,6 +31,7 @@ import {
   useRegisterForm,
 } from "@/contexts/passport-form-context";
 import { useVariantForm } from "@/hooks/use-variant-form";
+import { getNoAttributeVariantLabel } from "@/lib/variant-utils";
 import { useTRPC } from "@/trpc/client";
 import {
   useMutation,
@@ -171,24 +172,35 @@ function VariantFormInner({
   const variants = React.useMemo(() => {
     if (!productData?.variants) return [];
 
+    const variantCount = productData.variants.length;
+    const isNoAttributeProduct = productData.variants.every(
+      (variant) => !variant.attributes || variant.attributes.length === 0,
+    );
+
     return productData.variants
-      .map((v) => {
-        // Build attribute label from variant attributes
+      .map((variant, index) => {
+        // Build the sidebar label using the shared no-attribute naming rules.
         const attrLabel =
-          v.attributes && v.attributes.length > 0
-            ? v.attributes.map((a) => a.value_name).join(" / ")
-            : v.sku || v.barcode || `Variant ${v.upid?.slice(0, 6) ?? ""}`;
+          variant.attributes && variant.attributes.length > 0
+            ? variant.attributes.map((attribute) => attribute.value_name).join(" / ")
+            : isNoAttributeProduct
+              ? getNoAttributeVariantLabel({
+                  index,
+                  total: variantCount,
+                  productName: productData.name,
+                })
+              : `Variant ${index + 1}`;
 
         return {
-          upid: v.upid ?? "",
+          upid: variant.upid ?? "",
           attributeLabel: attrLabel,
-          hasOverrides: v.hasOverrides ?? false,
-          sku: v.sku,
-          barcode: v.barcode,
+          hasOverrides: variant.hasOverrides ?? false,
+          sku: variant.sku,
+          barcode: variant.barcode,
         };
       })
-      .filter((v) => v.upid); // Only variants with UPIDs
-  }, [productData?.variants]);
+      .filter((variant) => variant.upid); // Only variants with UPIDs
+  }, [productData?.name, productData?.variants]);
 
   // Extract dimensions from existing variants (for create mode)
   const dimensions = React.useMemo(() => {
@@ -357,6 +369,12 @@ function VariantFormInner({
               includeVariants: true,
               includeAttributes: true,
             }),
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.brand.billing.getStatus.queryKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.initDashboard.queryKey(),
           });
         }
       } catch (err) {

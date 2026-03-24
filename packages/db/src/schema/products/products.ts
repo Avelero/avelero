@@ -1,3 +1,6 @@
+/**
+ * Product schema definitions, including publish status and publish-window anchors.
+ */
 import { sql } from "drizzle-orm";
 import {
   index,
@@ -49,6 +52,14 @@ export const products = pgTable(
      */
     status: text("status").notNull().default("unpublished"),
     /**
+     * Timestamp of the most recent unpublished -> published transition.
+     * Reset to null whenever the product leaves the published state.
+     */
+    publishedAt: timestamp("published_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    /**
      * Source of product creation.
      * Values: 'manual' | 'integration'
      * - 'manual': Created by user in UI or bulk upload (create mode)
@@ -88,6 +99,14 @@ export const products = pgTable(
       table.brandId.asc().nullsLast().op("uuid_ops"),
       table.status.asc().nullsLast().op("text_ops"),
     ),
+    // For publish-window usage counting across currently published products
+    index("idx_products_brand_published_at")
+      .using(
+        "btree",
+        table.brandId.asc().nullsLast().op("uuid_ops"),
+        table.publishedAt.desc().nullsLast().op("timestamptz_ops"),
+      )
+      .where(sql`${table.publishedAt} IS NOT NULL`),
     // For products.list - ordering by createdAt DESC
     index("idx_products_brand_created").using(
       "btree",

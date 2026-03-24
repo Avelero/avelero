@@ -26,8 +26,7 @@ export const resolveQrExportProductIds = resolveSelectedProductIds;
 export const getQrExportSelectionSummary = getProductSelectionCounts;
 
 /**
- * Loads eligible variant rows (non-ghost variants with non-empty barcode)
- * for QR export generation.
+ * Loads eligible variant rows with non-empty barcodes for QR export generation.
  */
 export async function getQrExportVariantRows(
   db: Database,
@@ -52,7 +51,6 @@ export async function getQrExportVariantRows(
       and(
         eq(products.brandId, brandId),
         inArray(productVariants.productId, productIds),
-        eq(productVariants.isGhost, false),
         sql`${productVariants.barcode} is not null`,
         sql`btrim(${productVariants.barcode}) <> ''`,
       ),

@@ -1,3 +1,6 @@
+/**
+ * Product import modal and trigger button for the passports list.
+ */
 "use client";
 
 import { useUserQuerySuspense } from "@/hooks/use-user";
@@ -16,6 +19,12 @@ import {
 } from "@v1/ui/dialog";
 import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@v1/ui/tooltip";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -35,8 +44,12 @@ const TEMPLATE_URL = "/templates/avelero-bulk-import-template.xlsx";
 
 function ImportProductsModalContent({
   onSuccess,
+  disabled = false,
+  disabledReason = "Upgrade your plan to import more products.",
 }: {
   onSuccess?: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   const router = useRouter();
   const trpc = useTRPC();
@@ -208,6 +221,29 @@ function ImportProductsModalContent({
   };
 
   const isImporting = startImportMutation.isPending;
+
+  if (disabled) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                variant="outline"
+                size="default"
+                className="relative"
+                disabled
+              >
+                <Icons.Upload className="h-[14px] w-[14px]" />
+                <span className="px-1">Import</span>
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{disabledReason}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -675,6 +711,20 @@ export function ImportProductsModalSkeleton() {
  * Import Products Modal.
  * Uses suspense queries - must be wrapped in a Suspense boundary by the parent.
  */
-export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
-  return <ImportProductsModalContent onSuccess={onSuccess} />;
+export function ImportProductsModal({
+  onSuccess,
+  disabled = false,
+  disabledReason,
+}: {
+  onSuccess?: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
+}) {
+  return (
+    <ImportProductsModalContent
+      onSuccess={onSuccess}
+      disabled={disabled}
+      disabledReason={disabledReason}
+    />
+  );
 }

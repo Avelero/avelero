@@ -32,7 +32,8 @@
     },
     "test": {
       "cache": false,
-      "env": ["DATABASE_URL", "INTERNAL_API_KEY"]
+      "env": ["DATABASE_URL", "INTERNAL_API_KEY"],
+      "passThroughEnv": ["STRIPE_*"]
     },
     "clean": {
       "cache": false

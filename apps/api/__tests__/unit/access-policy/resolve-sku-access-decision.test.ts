@@ -1,3 +1,6 @@
+/**
+ * Covers credit-based SKU access decisions across demo, trial, and paid brands.
+ */
 import { describe, expect, it } from "bun:test";
 import { resolveSkuAccessDecision } from "../../../src/lib/access-policy/resolve-sku-access-decision";
 import type {
@@ -5,30 +8,62 @@ import type {
   ResolvedBrandAccessDecision,
 } from "../../../src/lib/access-policy/types";
 
+/**
+ * Builds a minimal access snapshot for credit-budget tests.
+ */
 function buildSnapshot(
   overrides: Partial<BrandAccessSnapshot> = {},
 ): BrandAccessSnapshot {
+  // Split nested overrides so partial fixtures keep the base nested defaults.
+  const {
+    lifecycle: lifecycleOverride,
+    billing: billingOverride,
+    plan: planOverride,
+    ...topLevelOverrides
+  } = overrides;
+  const baseLifecycle: NonNullable<BrandAccessSnapshot["lifecycle"]> = {
+    phase: "active",
+    trialStartedAt: null,
+    trialEndsAt: null,
+  };
+  const baseBilling: NonNullable<BrandAccessSnapshot["billing"]> = {
+    billingMode: null,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+    billingAccessOverride: "none",
+    billingOverrideExpiresAt: null,
+    currentPeriodStart: null,
+    currentPeriodEnd: null,
+    pastDueSince: null,
+    pendingCancellation: false,
+  };
+  const basePlan: NonNullable<BrandAccessSnapshot["plan"]> = {
+    totalCredits: 500,
+    onboardingDiscountUsed: false,
+    variantGlobalCap: null,
+  };
+
   return {
     brandId: "brand-1",
-    lifecycle: {
-      phase: "active",
-      trialEndsAt: null,
-    },
-    billing: {
-      billingAccessOverride: "none",
-      billingOverrideExpiresAt: null,
-    },
-    plan: {
-      skuAnnualLimit: 100,
-      skuOnboardingLimit: null,
-      skuLimitOverride: null,
-      skusCreatedThisYear: 0,
-      skusCreatedOnboarding: 0,
-    },
-    ...overrides,
+    lifecycle:
+      lifecycleOverride === null
+        ? null
+        : { ...baseLifecycle, ...(lifecycleOverride ?? {}) },
+    billing:
+      billingOverride === null
+        ? null
+        : { ...baseBilling, ...(billingOverride ?? {}) },
+    plan:
+      planOverride === null
+        ? null
+        : { ...basePlan, ...(planOverride ?? {}) },
+    ...topLevelOverrides,
   };
 }
 
+/**
+ * Builds a resolved brand access decision with minimal overrides.
+ */
 function buildBrandAccess(
   overrides: Partial<ResolvedBrandAccessDecision> = {},
 ): ResolvedBrandAccessDecision {
@@ -43,144 +78,90 @@ function buildBrandAccess(
     banner: "none",
     phase: "active",
     trialEndsAt: null,
+    currentPeriodStart: null,
+    currentPeriodEnd: null,
+    pastDueSince: null,
+    pendingCancellation: false,
+    graceEndsAt: null,
     ...overrides,
   };
 }
 
 describe("resolveSkuAccessDecision", () => {
-  it("applies 79%, 80%, and 100% thresholds", () => {
+  it("applies 79%, 80%, and 100% thresholds to the credit balance", () => {
     const brandAccess = buildBrandAccess();
 
     const seventyNine = resolveSkuAccessDecision({
       brandAccess,
-      snapshot: buildSnapshot({
-        plan: {
-          skuAnnualLimit: 100,
-          skuOnboardingLimit: null,
-          skuLimitOverride: null,
-          skusCreatedThisYear: 79,
-          skusCreatedOnboarding: 0,
-        },
-      }),
+      snapshot: buildSnapshot({ plan: { totalCredits: 500, onboardingDiscountUsed: false } }),
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 399,
     });
     expect(seventyNine.status).toBe("allowed");
 
     const eighty = resolveSkuAccessDecision({
       brandAccess,
-      snapshot: buildSnapshot({
-        plan: {
-          skuAnnualLimit: 100,
-          skuOnboardingLimit: null,
-          skuLimitOverride: null,
-          skusCreatedThisYear: 80,
-          skusCreatedOnboarding: 0,
-        },
-      }),
+      snapshot: buildSnapshot({ plan: { totalCredits: 500, onboardingDiscountUsed: false } }),
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 400,
     });
     expect(eighty.status).toBe("warning");
 
     const hundred = resolveSkuAccessDecision({
       brandAccess,
-      snapshot: buildSnapshot({
-        plan: {
-          skuAnnualLimit: 100,
-          skuOnboardingLimit: null,
-          skuLimitOverride: null,
-          skusCreatedThisYear: 100,
-          skusCreatedOnboarding: 0,
-        },
-      }),
+      snapshot: buildSnapshot({ plan: { totalCredits: 500, onboardingDiscountUsed: false } }),
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 500,
     });
     expect(hundred.status).toBe("blocked");
   });
 
-  it("enforces trial universal cap", () => {
-    const trialAccess = buildBrandAccess({
-      decision: "trial_active",
-      phase: "trial",
-    });
-
-    const nearCap = resolveSkuAccessDecision({
-      brandAccess: trialAccess,
-      snapshot: buildSnapshot({
-        lifecycle: {
-          phase: "trial",
-          trialEndsAt: "2026-03-10T00:00:00.000Z",
-        },
-        plan: {
-          skuAnnualLimit: null,
-          skuOnboardingLimit: null,
-          skuLimitOverride: null,
-          skusCreatedThisYear: 49_999,
-          skusCreatedOnboarding: 49_999,
-        },
-      }),
-    });
-
-    expect(nearCap.status).toBe("warning");
-    expect(nearCap.remainingCreateBudget).toBe(1);
-
-    const atCap = resolveSkuAccessDecision({
-      brandAccess: trialAccess,
-      snapshot: buildSnapshot({
-        lifecycle: {
-          phase: "trial",
-          trialEndsAt: "2026-03-10T00:00:00.000Z",
-        },
-        plan: {
-          skuAnnualLimit: null,
-          skuOnboardingLimit: null,
-          skuLimitOverride: null,
-          skusCreatedThisYear: 50_000,
-          skusCreatedOnboarding: 50_000,
-        },
-      }),
-    });
-
-    expect(atCap.status).toBe("blocked");
-    expect(atCap.remainingCreateBudget).toBe(0);
-  });
-
-  it("blocks when intended create count exceeds remaining budget", () => {
+  it("blocks publishes that would exceed the remaining credit balance", () => {
     const result = resolveSkuAccessDecision({
       brandAccess: buildBrandAccess(),
       snapshot: buildSnapshot({
-        plan: {
-          skuAnnualLimit: 10,
-          skuOnboardingLimit: null,
-          skuLimitOverride: null,
-          skusCreatedThisYear: 9,
-          skusCreatedOnboarding: 0,
-        },
+        plan: { totalCredits: 500, onboardingDiscountUsed: false },
       }),
-      intendedCreateCount: 2,
+      intendedPublishCount: 51,
+      currentPublishUsageCount: 450,
     });
 
     expect(result.status).toBe("blocked");
-    expect(result.wouldExceedIntendedCreateCount).toBe(true);
+    expect(result.remainingPublishBudget).toBe(50);
+    expect(result.wouldExceedIntendedPublishCount).toBe(true);
   });
 
-  it("forces blocked status when brand write access is blocked", () => {
+  it("uses the same credit path for trial brands", () => {
     const result = resolveSkuAccessDecision({
-      brandAccess: buildBrandAccess({
-        decision: "payment_required",
-        capabilities: {
-          canReadBrandData: true,
-          canWriteBrandData: false,
-          canCreateSkus: false,
-        },
-      }),
+      brandAccess: buildBrandAccess({ phase: "trial" }),
       snapshot: buildSnapshot({
-        plan: {
-          skuAnnualLimit: 100,
-          skuOnboardingLimit: null,
-          skuLimitOverride: null,
-          skusCreatedThisYear: 0,
-          skusCreatedOnboarding: 0,
+        lifecycle: {
+          phase: "trial",
+          trialStartedAt: "2026-03-01T00:00:00.000Z",
+          trialEndsAt: "2026-04-01T00:00:00.000Z",
         },
+        plan: { totalCredits: 50, onboardingDiscountUsed: false },
       }),
+      intendedPublishCount: 0,
+      currentPublishUsageCount: 30,
     });
 
-    expect(result.status).toBe("blocked");
+    expect(result.activeBudget.kind).toBe("credits");
+    expect(result.activeBudget.phase).toBe("trial");
+    expect(result.activeBudget.totalCredits).toBe(50);
+    expect(result.activeBudget.remaining).toBe(20);
+    expect(result.status).toBe("allowed");
+  });
+
+  it("preserves nested plan defaults when applying partial overrides", () => {
+    const snapshot = buildSnapshot({
+      plan: { totalCredits: 500, onboardingDiscountUsed: false },
+    });
+
+    expect(snapshot.plan).toEqual({
+      totalCredits: 500,
+      onboardingDiscountUsed: false,
+      variantGlobalCap: null,
+    });
   });
 });

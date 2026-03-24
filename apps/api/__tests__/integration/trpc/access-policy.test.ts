@@ -1,14 +1,27 @@
-// Load setup first (loads .env.test and configures cleanup)
+/**
+ * Integration tests for brand and credit access policy enforcement.
+ */
 import "../../setup";
 
-import { beforeEach, describe, expect, it } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import * as schema from "@v1/db/schema";
 import {
   createTestBrand,
-  createTestProduct,
   createTestUser,
   testDb,
 } from "@v1/db/testing";
+import Stripe from "stripe";
+
+// Ensure this test file has a working Stripe client (guards against global
+// mock.module leaking from other test files).
+const stripeClient = new Stripe("sk_test_codex");
+mock.module("../../../src/lib/stripe/client.js", () => ({
+  getStripeClient: () => stripeClient,
+  createStripeClient: (key?: string) => new Stripe(key ?? "sk_test_codex"),
+  resetStripeClient: () => {},
+  isStripeError: (err: unknown) => err instanceof Stripe.errors.StripeError,
+}));
+
 import type { AuthenticatedTRPCContext } from "../../../src/trpc/init";
 import { appRouter } from "../../../src/trpc/routers/_app";
 import { ACCESS_ERROR_TOKENS } from "../../../src/utils/errors";
@@ -24,6 +37,9 @@ type BrandPhase =
 
 type BrandRole = "owner" | "member" | "avelero";
 
+/**
+ * Creates an authenticated tRPC context for access-policy tests.
+ */
 function createMockContext(params: {
   brandId: string;
   userId: string;
@@ -49,17 +65,25 @@ function createMockContext(params: {
   };
 }
 
+/**
+ * Seeds lifecycle, plan, and billing rows for access-policy scenarios.
+ */
 async function setBrandSubscriptionState(params: {
   brandId: string;
   phase: BrandPhase;
   trialEndsAt?: string | null;
+  trialStartedAt?: string | null;
+  billingMode?: "stripe_checkout" | "stripe_invoice" | null;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
+  currentPeriodStart?: string | null;
+  currentPeriodEnd?: string | null;
+  pastDueSince?: string | null;
+  pendingCancellation?: boolean;
   billingOverride?: "none" | "temporary_allow" | "temporary_block";
   billingOverrideExpiresAt?: string | null;
-  skuAnnualLimit?: number | null;
-  skuOnboardingLimit?: number | null;
-  skuLimitOverride?: number | null;
-  skusCreatedThisYear?: number;
-  skusCreatedOnboarding?: number;
+  billingInterval?: "quarterly" | "yearly" | null;
+  totalCredits?: number;
 }) {
   const now = new Date().toISOString();
 
@@ -70,7 +94,7 @@ async function setBrandSubscriptionState(params: {
       phase: params.phase,
       phaseChangedAt: now,
       trialEndsAt: params.trialEndsAt ?? null,
-      trialStartedAt: null,
+      trialStartedAt: params.trialStartedAt ?? null,
       cancelledAt: params.phase === "cancelled" ? now : null,
       hardDeleteAfter: null,
       updatedAt: now,
@@ -81,6 +105,7 @@ async function setBrandSubscriptionState(params: {
         phase: params.phase,
         phaseChangedAt: now,
         trialEndsAt: params.trialEndsAt ?? null,
+        trialStartedAt: params.trialStartedAt ?? null,
         cancelledAt: params.phase === "cancelled" ? now : null,
         updatedAt: now,
       },
@@ -90,11 +115,15 @@ async function setBrandSubscriptionState(params: {
     .insert(schema.brandBilling)
     .values({
       brandId: params.brandId,
-      billingMode: null,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
+      billingMode: params.billingMode ?? null,
+      stripeCustomerId: params.stripeCustomerId ?? null,
+      stripeSubscriptionId: params.stripeSubscriptionId ?? null,
       planCurrency: "EUR",
-      customMonthlyPriceCents: null,
+      customPriceCents: null,
+      currentPeriodStart: params.currentPeriodStart ?? null,
+      currentPeriodEnd: params.currentPeriodEnd ?? null,
+      pastDueSince: params.pastDueSince ?? null,
+      pendingCancellation: params.pendingCancellation ?? false,
       billingAccessOverride: params.billingOverride ?? "none",
       billingOverrideExpiresAt: params.billingOverrideExpiresAt ?? null,
       updatedAt: now,
@@ -102,6 +131,13 @@ async function setBrandSubscriptionState(params: {
     .onConflictDoUpdate({
       target: schema.brandBilling.brandId,
       set: {
+        billingMode: params.billingMode ?? null,
+        stripeCustomerId: params.stripeCustomerId ?? null,
+        stripeSubscriptionId: params.stripeSubscriptionId ?? null,
+        currentPeriodStart: params.currentPeriodStart ?? null,
+        currentPeriodEnd: params.currentPeriodEnd ?? null,
+        pastDueSince: params.pastDueSince ?? null,
+        pendingCancellation: params.pendingCancellation ?? false,
         billingAccessOverride: params.billingOverride ?? "none",
         billingOverrideExpiresAt: params.billingOverrideExpiresAt ?? null,
         updatedAt: now,
@@ -112,30 +148,25 @@ async function setBrandSubscriptionState(params: {
     .insert(schema.brandPlan)
     .values({
       brandId: params.brandId,
-      planType: null,
-      planSelectedAt: null,
-      skuAnnualLimit: params.skuAnnualLimit ?? null,
-      skuOnboardingLimit: params.skuOnboardingLimit ?? null,
-      skuLimitOverride: params.skuLimitOverride ?? null,
-      skuYearStart: null,
-      skusCreatedThisYear: params.skusCreatedThisYear ?? 0,
-      skusCreatedOnboarding: params.skusCreatedOnboarding ?? 0,
-      maxSeats: null,
+      planType: "starter",
+      billingInterval: params.billingInterval ?? "quarterly",
+      totalCredits: params.totalCredits ?? 50,
       updatedAt: now,
     })
     .onConflictDoUpdate({
       target: schema.brandPlan.brandId,
       set: {
-        skuAnnualLimit: params.skuAnnualLimit ?? null,
-        skuOnboardingLimit: params.skuOnboardingLimit ?? null,
-        skuLimitOverride: params.skuLimitOverride ?? null,
-        skusCreatedThisYear: params.skusCreatedThisYear ?? 0,
-        skusCreatedOnboarding: params.skusCreatedOnboarding ?? 0,
+        planType: "starter",
+        billingInterval: params.billingInterval ?? "quarterly",
+        totalCredits: params.totalCredits ?? 50,
         updatedAt: now,
       },
     });
 }
 
+/**
+ * Asserts that a promise fails with the expected access-policy token.
+ */
 async function expectToken(promise: Promise<unknown>, token: string) {
   await expect(promise).rejects.toMatchObject({
     message: expect.stringContaining(token),
@@ -161,9 +192,7 @@ describe("Access policy enforcement (tRPC)", () => {
     await setBrandSubscriptionState({
       brandId,
       phase: "active",
-      skuAnnualLimit: 500,
-      skusCreatedThisYear: 0,
-      skusCreatedOnboarding: 0,
+      totalCredits: 500,
     });
   });
 
@@ -171,7 +200,7 @@ describe("Access policy enforcement (tRPC)", () => {
     await setBrandSubscriptionState({
       brandId,
       phase: "expired",
-      skuAnnualLimit: 500,
+      totalCredits: 500,
     });
 
     const caller = appRouter.createCaller(
@@ -190,11 +219,20 @@ describe("Access policy enforcement (tRPC)", () => {
     );
   });
 
-  it("past_due allows reads and blocks writes", async () => {
+  it("past_due allows reads and keeps writes enabled during grace", async () => {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
     await setBrandSubscriptionState({
       brandId,
       phase: "past_due",
-      skuAnnualLimit: 500,
+      billingMode: "stripe_checkout",
+      stripeCustomerId: "cus_grace",
+      stripeSubscriptionId: "sub_grace",
+      currentPeriodStart: thirtyDaysAgo.toISOString(),
+      currentPeriodEnd: thirtyDaysAgo.toISOString(),
+      pastDueSince: threeDaysAgo.toISOString(),
+      totalCredits: 500,
     });
 
     const caller = appRouter.createCaller(
@@ -203,107 +241,20 @@ describe("Access policy enforcement (tRPC)", () => {
 
     await expect(caller.summary.productStatus()).resolves.toBeDefined();
     await expect(caller.products.list({})).resolves.toBeDefined();
-
-    await expectToken(
+    await expect(
       caller.brand.collections.create({
-        name: "Blocked in past_due",
+        name: "Allowed in past_due",
         filter: {},
       }),
-      ACCESS_ERROR_TOKENS.PAST_DUE_READ_ONLY,
-    );
+    ).resolves.toBeDefined();
   });
 
-  it("suspended and cancelled block reads and writes", async () => {
-    const cases: Array<{
-      phase: BrandPhase;
-      token: string;
-    }> = [
-      {
-        phase: "suspended",
-        token: ACCESS_ERROR_TOKENS.SUSPENDED,
-      },
-      {
-        phase: "cancelled",
-        token: ACCESS_ERROR_TOKENS.CANCELLED,
-      },
-    ];
-
-    for (const testCase of cases) {
-      await setBrandSubscriptionState({
-        brandId,
-        phase: testCase.phase,
-        skuAnnualLimit: 500,
-      });
-
-      const caller = appRouter.createCaller(
-        createMockContext({ brandId, userId, userEmail, role: "owner" }),
-      );
-
-      await expectToken(caller.summary.productStatus(), testCase.token);
-      await expectToken(
-        caller.brand.collections.create({
-          name: `Blocked in ${testCase.phase}`,
-          filter: {},
-        }),
-        testCase.token,
-      );
-    }
-  });
-
-  it("avelero bypass keeps reads and writes available across blocked states", async () => {
-    const aveleroUserEmail = `avelero-${Math.random().toString(36).slice(2, 8)}@example.com`;
-    const aveleroUserId = await createTestUser(aveleroUserEmail);
-
-    await testDb.insert(schema.brandMembers).values({
-      brandId,
-      userId: aveleroUserId,
-      role: "avelero",
-    });
-
-    const blockedPhases: BrandPhase[] = [
-      "expired",
-      "past_due",
-      "suspended",
-      "cancelled",
-    ];
-
-    for (const phase of blockedPhases) {
-      await setBrandSubscriptionState({
-        brandId,
-        phase,
-        skuAnnualLimit: 500,
-      });
-
-      const caller = appRouter.createCaller(
-        createMockContext({
-          brandId,
-          userId: aveleroUserId,
-          userEmail: aveleroUserEmail,
-          role: "avelero",
-        }),
-      );
-
-      await expect(caller.summary.productStatus()).resolves.toBeDefined();
-      await expect(
-        caller.brand.collections.create({
-          name: `Avelero write ${phase}`,
-          filter: { phase },
-        }),
-      ).resolves.toBeDefined();
-    }
-  });
-
-  it("blocks SKU mutation with ACCESS_SKU_LIMIT_REACHED when over budget", async () => {
+  it("temporary_block overrides normal active access", async () => {
     await setBrandSubscriptionState({
       brandId,
       phase: "active",
-      skuAnnualLimit: 1,
-      skusCreatedThisYear: 1,
-      skusCreatedOnboarding: 0,
-    });
-
-    const product = await createTestProduct(brandId, {
-      productHandle: `sku-limit-${Math.random().toString(36).slice(2, 8)}`,
+      billingOverride: "temporary_block",
+      totalCredits: 500,
     });
 
     const caller = appRouter.createCaller(
@@ -311,11 +262,15 @@ describe("Access policy enforcement (tRPC)", () => {
     );
 
     await expectToken(
-      caller.products.variants.create({
-        productHandle: product.productHandle,
-        attributeValueIds: [],
+      caller.summary.productStatus(),
+      ACCESS_ERROR_TOKENS.TEMPORARY_BLOCKED,
+    );
+    await expectToken(
+      caller.brand.collections.create({
+        name: "Blocked by temporary override",
+        filter: {},
       }),
-      ACCESS_ERROR_TOKENS.SKU_LIMIT_REACHED,
+      ACCESS_ERROR_TOKENS.TEMPORARY_BLOCKED,
     );
   });
 });

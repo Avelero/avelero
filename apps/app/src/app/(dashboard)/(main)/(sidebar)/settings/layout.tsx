@@ -1,6 +1,14 @@
+/**
+ * Settings layout chrome.
+ *
+ * This layout renders the settings secondary navigation and blocks the entire
+ * settings route tree when the active brand is cancelled or suspended.
+ */
+import { getDashboardInit, isSidebarContentBlocked } from "@/lib/brand-access";
 import { SettingsSecondarySidebar } from "@/components/settings/settings-secondary-sidebar";
 import { Skeleton } from "@v1/ui/skeleton";
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
@@ -23,11 +31,19 @@ function SettingsPageSkeleton() {
   );
 }
 
-export default function AccountLayout({
+export default async function AccountLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Resolve access before rendering nested settings pages.
+  await connection();
+
+  const initDashboard = await getDashboardInit();
+  if (isSidebarContentBlocked(initDashboard.access.overlay)) {
+    return null;
+  }
+
   return (
     <div className="flex h-full min-h-0">
       <SettingsSecondarySidebar />

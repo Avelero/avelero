@@ -58,8 +58,6 @@ export interface ProductVariantSummary {
   upid: string | null;
   created_at: string;
   updated_at: string;
-  /** Whether this is a ghost variant (system-created, invisible to users) */
-  isGhost: boolean;
 }
 
 /**
@@ -157,9 +155,9 @@ export interface ProductWithRelations extends ProductRecord {
   attributes?: ProductAttributesBundle;
   /** UPID of the first variant's passport (for viewing the public passport) */
   first_variant_upid?: string | null;
-  /** Total number of non-ghost variants for this product */
+  /** Total number of variants for this product */
   variant_count?: number;
-  /** Number of non-ghost variants that have a non-empty barcode */
+  /** Number of variants that have a non-empty barcode */
   variants_with_barcode?: number;
 }
 
@@ -209,6 +207,7 @@ export interface BulkUpdateResult {
  */
 export interface BulkUpdateFields {
   status?: string | null;
+  publishedAt?: string | null;
   categoryId?: string | null;
   seasonId?: string | null;
 }

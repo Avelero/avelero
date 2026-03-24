@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 import { and, eq, inArray } from "@v1/db/queries";
+import type { DatabaseOrTransaction } from "@v1/db/client";
+import {
+  PublishLimitExceededError,
+  countPublishedPassports,
+  enforcePublishCapacity,
+} from "@v1/db/queries/brand";
 /**
  * Products domain router implementation.
  *
@@ -25,6 +31,7 @@ import {
   setProductJourneySteps,
   setProductTags,
   updateProduct,
+  updateProductRecord,
   upsertProductEnvironment,
   upsertProductMaterials,
   upsertProductWeight,
@@ -40,6 +47,7 @@ import {
   revalidatePassports,
   revalidateProduct,
 } from "../../../lib/dpp-revalidation.js";
+import { notifyPublishUsageIfNeeded } from "../../../lib/notifications/publish-usage.js";
 import { generateProductHandle } from "../../../schemas/_shared/primitives.js";
 import {
   productUnifiedGetSchema,
@@ -123,6 +131,61 @@ async function collectPublicProductVariantIdentifiers(
       ),
     ),
   };
+}
+
+interface ProductPublishTransitionSummary {
+  productId: string;
+  status: string;
+  variantCount: number;
+}
+
+/**
+ * Loads the current status and variant count for the targeted products.
+ */
+async function getProductPublishTransitionSummaries(
+  db: DatabaseOrTransaction,
+  brandId: string,
+  productIds: string[],
+): Promise<ProductPublishTransitionSummary[]> {
+  // Scope the lookup to one brand so publish enforcement cannot cross tenants.
+  if (productIds.length === 0) {
+    return [];
+  }
+
+  const rows = await db
+    .select({
+      productId: products.id,
+      status: products.status,
+      variantId: productVariants.id,
+    })
+    .from(products)
+    .leftJoin(productVariants, eq(productVariants.productId, products.id))
+    .where(
+      and(eq(products.brandId, brandId), inArray(products.id, productIds)),
+    );
+
+  const summaries = new Map<string, ProductPublishTransitionSummary>();
+  for (const row of rows) {
+    const existing = summaries.get(row.productId);
+    if (existing) {
+      if (row.variantId) {
+        existing.variantCount += 1;
+      }
+      continue;
+    }
+
+    summaries.set(row.productId, {
+      productId: row.productId,
+      status: row.status,
+      variantCount: row.variantId ? 1 : 0,
+    });
+  }
+
+  return productIds
+    .map((productId) => summaries.get(productId))
+    .filter((summary): summary is ProductPublishTransitionSummary =>
+      Boolean(summary),
+    );
 }
 
 /**
@@ -445,7 +508,11 @@ export const productsRouter = createTRPCRouter({
           seasonId: input.season_id ?? null,
           manufacturerId: input.manufacturer_id ?? null,
           imagePath: input.image_path ?? null,
-          status: input.status ?? undefined,
+          // New products always start unpublished; explicit publish happens after variants are synced.
+          status:
+            input.status === "published"
+              ? "unpublished"
+              : input.status ?? undefined,
         };
 
         const product = await createProduct(
@@ -493,15 +560,97 @@ export const productsRouter = createTRPCRouter({
         // Check if this is a bulk operation (has selection property)
         if ("selection" in input) {
           const selection = input.selection;
+          const selectedProductIds =
+            selection.mode === "all"
+              ? await resolveSelectedProductIds(brandCtx.db, brandId, {
+                  selectionMode: "all",
+                  includeIds: [],
+                  excludeIds: selection.excludeIds ?? [],
+                  filterState: selection.filters ?? null,
+                  searchQuery: selection.search ?? null,
+                })
+              : selection.ids;
           const bulkUpdates = {
             status: input.status ?? undefined,
+            publishedAt:
+              input.status === "unpublished" || input.status === "scheduled"
+                ? null
+                : undefined,
             categoryId: input.category_id ?? undefined,
             seasonId: input.season_id ?? undefined,
           };
 
+          let bulkPublishedCount = 0;
+          let bulkUsageCounts:
+            | {
+                previousUsed: number;
+                used: number;
+              }
+            | null = null;
+
           // Bulk update based on selection mode
           let result: { updated: number; productIds?: string[] };
-          if (selection.mode === "all") {
+          if (input.status === "published") {
+            const publishResult = await brandCtx.db.transaction(async (tx) => {
+              // Capture the exact before/after counts inside one transaction for usage notifications.
+              const previousUsed = await countPublishedPassports(tx, brandId);
+
+              // Re-read publish state inside the transaction so overlapping publish requests stay serialized.
+              const publishSummaries =
+                await getProductPublishTransitionSummaries(
+                  tx,
+                  brandId,
+                  selectedProductIds,
+                );
+              const intendedPublishCount = publishSummaries
+                .filter((summary) => summary.status !== "published")
+                .reduce((total, summary) => total + summary.variantCount, 0);
+              const unpublishedProductIds = publishSummaries
+                .filter((summary) => summary.status !== "published")
+                .map((summary) => summary.productId);
+              const alreadyPublishedProductIds = publishSummaries
+                .filter((summary) => summary.status === "published")
+                .map((summary) => summary.productId);
+              if (intendedPublishCount > 0) {
+                await enforcePublishCapacity(tx, brandId, intendedPublishCount);
+              }
+              const publishTransitionTimestamp = new Date().toISOString();
+              const publishedTransitionResult = await bulkUpdateProductsByIds(
+                tx,
+                brandId,
+                unpublishedProductIds,
+                {
+                  ...bulkUpdates,
+                  publishedAt: publishTransitionTimestamp,
+                },
+              );
+              const publishedNoopResult = await bulkUpdateProductsByIds(
+                tx,
+                brandId,
+                alreadyPublishedProductIds,
+                bulkUpdates,
+              );
+              const used = await countPublishedPassports(tx, brandId);
+
+              return {
+                publishedCount: intendedPublishCount,
+                usageCounts: { previousUsed, used },
+                result: {
+                  updated:
+                    publishedTransitionResult.updated +
+                    publishedNoopResult.updated,
+                  productIds: [
+                    ...(publishedTransitionResult.productIds ?? []),
+                    ...(publishedNoopResult.productIds ?? []),
+                  ],
+                },
+              };
+            });
+
+            bulkPublishedCount = publishResult.publishedCount;
+            bulkUsageCounts = publishResult.usageCounts;
+            result = publishResult.result;
+          } else if (selection.mode === "all") {
             result = await bulkUpdateProductsByFilter(
               brandCtx.db,
               brandId,
@@ -544,6 +693,15 @@ export const productsRouter = createTRPCRouter({
             }
           }
 
+          if (bulkPublishedCount > 0 && bulkUsageCounts) {
+            notifyPublishUsageIfNeeded({
+              db: brandCtx.db,
+              brandId,
+              previousUsed: bulkUsageCounts.previousUsed,
+              used: bulkUsageCounts.used,
+            }).catch(() => {});
+          }
+
           return {
             success: true,
             updated: result.updated,
@@ -551,8 +709,7 @@ export const productsRouter = createTRPCRouter({
         }
 
         // Single product update
-        const payload: Record<string, unknown> = { id: input.id };
-
+        const payload: UpdateProductInput = { id: input.id };
         // Only add fields to payload if they were explicitly provided in input
         if (input.product_handle !== undefined)
           payload.productHandle = input.product_handle;
@@ -566,13 +723,69 @@ export const productsRouter = createTRPCRouter({
           payload.manufacturerId = input.manufacturer_id;
         if (input.image_path !== undefined)
           payload.imagePath = input.image_path;
-        if (input.status !== undefined) payload.status = input.status;
+        const productResult =
+          input.status !== undefined
+            ? await brandCtx.db.transaction(async (tx) => {
+                // Capture exact before/after counts so publish notifications stay race-free.
+                const previousUsed = await countPublishedPassports(tx, brandId);
 
-        const product = await updateProduct(
-          brandCtx.db,
-          brandId,
-          payload as UpdateProductInput,
-        );
+                // Re-load publish state inside the transaction so publish and update happen atomically.
+                const currentProductState =
+                  (
+                    await getProductPublishTransitionSummaries(tx, brandId, [
+                      input.id,
+                    ])
+                  )[0] ?? null;
+
+                if (!currentProductState) {
+                  throw badRequest("Product not found");
+                }
+
+                const txPayload: UpdateProductInput = {
+                  ...payload,
+                  status: input.status,
+                };
+                const publishedCount =
+                  input.status === "published" &&
+                  currentProductState.status !== "published"
+                    ? currentProductState.variantCount
+                    : 0;
+
+                if (publishedCount > 0) {
+                  await enforcePublishCapacity(tx, brandId, publishedCount);
+                }
+
+                if (input.status === "published") {
+                  txPayload.publishedAt =
+                    currentProductState.status !== "published"
+                      ? new Date().toISOString()
+                      : undefined;
+                } else if (
+                  input.status === "unpublished" ||
+                  input.status === "scheduled"
+                ) {
+                  txPayload.publishedAt = null;
+                }
+
+                const updatedProduct = await updateProductRecord(
+                  tx,
+                  brandId,
+                  txPayload,
+                );
+                const used = await countPublishedPassports(tx, brandId);
+
+                return {
+                  product: updatedProduct,
+                  publishedCount,
+                  usageCounts: { previousUsed, used },
+                };
+              })
+            : {
+                product: await updateProduct(brandCtx.db, brandId, payload),
+                publishedCount: 0,
+                usageCounts: null,
+              };
+        const product = productResult.product;
 
         await applyProductAttributes(brandCtx, input.id, {
           materials: input.materials,
@@ -615,8 +828,20 @@ export const productsRouter = createTRPCRouter({
           }
         }
 
+        if (productResult.publishedCount > 0 && productResult.usageCounts) {
+          notifyPublishUsageIfNeeded({
+            db: brandCtx.db,
+            brandId,
+            previousUsed: productResult.usageCounts.previousUsed,
+            used: productResult.usageCounts.used,
+          }).catch(() => {});
+        }
+
         return createEntityResponse(product);
       } catch (error) {
+        if (error instanceof PublishLimitExceededError) {
+          throw badRequest(error.message);
+        }
         throw wrapError(error, "Failed to update product");
       }
     }),

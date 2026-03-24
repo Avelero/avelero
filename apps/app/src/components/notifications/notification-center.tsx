@@ -1,5 +1,12 @@
+/**
+ * Notification center popover.
+ *
+ * The header can render this in a disabled state for blocked brands so the
+ * component does not issue suspense queries that will be denied server-side.
+ */
 "use client";
 
+import { usePlanSelector } from "@/components/billing/plan-selector-context";
 import { type Notification, useNotifications } from "@/hooks/use-notifications";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
@@ -38,6 +45,7 @@ function NotificationCenterContent() {
   const [open, setOpen] = useState(false);
   const seenInSessionRef = useRef(new Set<string>());
 
+  const { open: openPlanSelector } = usePlanSelector();
   const exportCorrectionsMutation = useMutation(
     trpc.bulk.import.exportCorrections.mutationOptions(),
   );
@@ -114,6 +122,12 @@ function NotificationCenterContent() {
         return;
       }
 
+      if (actionData.kind === "open_plan_selector") {
+        setOpen(false);
+        openPlanSelector();
+        return;
+      }
+
       if (actionData.kind === "link" && actionData.url) {
         window.location.assign(actionData.url);
         return;
@@ -182,7 +196,7 @@ function NotificationCenterContent() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="type-small line-clamp-1 font-medium text-foreground">
+                      <p className="type-small whitespace-normal break-words font-medium text-foreground">
                         {notification.title}
                       </p>
                       <p className="type-xsmall shrink-0 text-tertiary">
@@ -221,7 +235,18 @@ function NotificationCenterSkeleton() {
   );
 }
 
-export function NotificationCenter() {
+interface NotificationCenterProps {
+  disabled?: boolean;
+}
+
+export function NotificationCenter({
+  disabled = false,
+}: NotificationCenterProps) {
+  // Render a static button when notification queries should stay disabled.
+  if (disabled) {
+    return <NotificationCenterSkeleton />;
+  }
+
   return (
     <Suspense fallback={<NotificationCenterSkeleton />}>
       <NotificationCenterContent />
@@ -339,6 +364,12 @@ function getNotificationIcon(type: string) {
       return <Icons.Download className="h-4 w-4" />;
     case "invite_accepted":
       return <Icons.UserRound className="h-4 w-4" />;
+    case "credit_limit_warning":
+      return <Icons.AlertTriangle className="h-4 w-4 text-amber-600" />;
+    case "credit_limit_reached":
+      return <Icons.AlertTriangle className="h-4 w-4 text-destructive" />;
+    case "pack_purchased":
+      return <Icons.CheckCircle className="h-4 w-4 text-brand" />;
     default:
       return <Icons.Bell className="h-4 w-4" />;
   }

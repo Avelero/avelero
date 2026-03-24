@@ -14,7 +14,7 @@ import { getBrandAccessSnapshot } from "@v1/db/queries/brand";
 import { platformAdminAllowlist } from "@v1/db/schema";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
-import { type Role, isRole } from "../config/roles";
+import { ROLES, type Role, isRole } from "../config/roles";
 import { resolveBrandAccessDecision } from "../lib/access-policy/resolve-brand-access-decision.js";
 import { resolveSkuAccessDecision } from "../lib/access-policy/resolve-sku-access-decision.js";
 import type {
@@ -23,14 +23,18 @@ import type {
   ResolvedBrandAccessDecision,
   ResolvedSkuAccessDecision,
 } from "../lib/access-policy/types.js";
+import { billingLogger } from "@v1/logger/billing";
 import type { DataLoaders } from "../utils/dataloader.js";
 import { createDataLoaders } from "../utils/dataloader.js";
+
+const accessLog = billingLogger.child({ component: "access-enforcement" });
 import {
   accessCancelled,
   accessPastDueReadOnly,
   accessPaymentRequired,
-  accessSkuLimitReached,
+  accessPublishLimitReached,
   accessSuspended,
+  accessTemporaryBlocked,
   forbidden,
   noBrandSelected,
   unauthorized,
@@ -74,6 +78,10 @@ export interface TRPCContext {
   brandAccess?: ResolvedBrandAccessDecision | null;
   /** Resolved SKU policy decision for the active brand, when requested. */
   skuAccess?: ResolvedSkuAccessDecision | null;
+  /** Live SKU usage count inside the active SKU window. */
+  currentSkuUsageCount?: number | null;
+  /** Database-backed current timestamp reused for SKU period evaluation. */
+  currentDatabaseTimestamp?: Date | null;
   /** Raw lifecycle/billing/plan snapshot used to compute access decisions. */
   brandAccessSnapshot?: BrandAccessSnapshot | null;
   /** Shared Drizzle database connection used for transactional work. */
@@ -95,6 +103,8 @@ export type BrandScopedTRPCContext = AuthenticatedTRPCContext & {
 export type BrandAccessTRPCContext = BrandScopedTRPCContext & {
   brandAccess: ResolvedBrandAccessDecision;
   skuAccess: ResolvedSkuAccessDecision;
+  currentSkuUsageCount: number;
+  currentDatabaseTimestamp: Date;
   brandAccessSnapshot: BrandAccessSnapshot;
 };
 
@@ -303,6 +313,8 @@ const withResolvedBrandAccess = t.middleware(async ({ ctx, next }) => {
       ...brandCtx,
       brandAccess: accessContext.brandAccess,
       skuAccess: accessContext.skuAccess,
+      currentSkuUsageCount: accessContext.currentSkuUsageCount,
+      currentDatabaseTimestamp: accessContext.currentDatabaseTimestamp,
       brandAccessSnapshot: accessContext.snapshot,
     },
   });
@@ -311,6 +323,9 @@ const withResolvedBrandAccess = t.middleware(async ({ ctx, next }) => {
 function throwReadAccessError(decision: BrandAccessDecision): never {
   if (decision === "suspended") {
     throw accessSuspended();
+  }
+  if (decision === "temporary_blocked") {
+    throw accessTemporaryBlocked();
   }
   if (decision === "cancelled") {
     throw accessCancelled();
@@ -327,6 +342,9 @@ function throwWriteAccessError(decision: BrandAccessDecision): never {
   }
   if (decision === "suspended") {
     throw accessSuspended();
+  }
+  if (decision === "temporary_blocked") {
+    throw accessTemporaryBlocked();
   }
   if (decision === "cancelled") {
     throw accessCancelled();
@@ -350,19 +368,39 @@ export function assertResolvedBrandReadAccess(
   }
 }
 
+/**
+ * Explicitly allows billing-management actions in recovery states while still blocking support suspensions.
+ */
+export function assertResolvedBrandBillingAccess(
+  brandAccess: ResolvedBrandAccessDecision,
+): void {
+  if (brandAccess.decision === "suspended") {
+    throw accessSuspended();
+  }
+  if (brandAccess.decision === "temporary_blocked") {
+    throw accessTemporaryBlocked();
+  }
+}
+
 export function resolveSkuDecisionWithIntendedCount(params: {
+  role?: Role | null;
   brandAccess: ResolvedBrandAccessDecision;
   snapshot: BrandAccessSnapshot;
-  intendedCreateCount: number;
+  intendedPublishCount: number;
+  currentPublishUsageCount: number;
+  evaluationDate?: Date | string | null;
 }): ResolvedSkuAccessDecision {
+  // Resolve the intended publish against the caller's current live publish budget.
   const decision = resolveSkuAccessDecision({
     brandAccess: params.brandAccess,
     snapshot: params.snapshot,
-    intendedCreateCount: params.intendedCreateCount,
+    intendedPublishCount: params.intendedPublishCount,
+    currentPublishUsageCount: params.currentPublishUsageCount,
+    evaluationDate: params.evaluationDate,
   });
 
-  if (decision.status === "blocked") {
-    throw accessSkuLimitReached();
+  if (params.role !== ROLES.AVELERO && decision.status === "blocked") {
+    throw accessPublishLimitReached();
   }
 
   return decision;
@@ -487,8 +525,20 @@ export const brandReadProcedure = protectedProcedure
   .use(requireBrand)
   .use(withResolvedBrandAccess)
   .use(
-    t.middleware(({ ctx, next }) => {
+    t.middleware(({ ctx, path, next }) => {
       const brandCtx = ctx as BrandAccessTRPCContext;
+      if (!brandCtx.brandAccess.capabilities.canReadBrandData) {
+        accessLog.info(
+          {
+            brandId: brandCtx.brandId,
+            userId: brandCtx.user.id,
+            decision: brandCtx.brandAccess.decision,
+            phase: brandCtx.brandAccess.phase,
+            procedure: path,
+          },
+          "read access denied",
+        );
+      }
       assertResolvedBrandReadAccess(brandCtx.brandAccess);
       return next({
         ctx: brandCtx,
@@ -503,9 +553,37 @@ export const brandWriteProcedure = protectedProcedure
   .use(requireBrand)
   .use(withResolvedBrandAccess)
   .use(
+    t.middleware(({ ctx, path, next }) => {
+      const brandCtx = ctx as BrandAccessTRPCContext;
+      if (!brandCtx.brandAccess.capabilities.canWriteBrandData) {
+        accessLog.info(
+          {
+            brandId: brandCtx.brandId,
+            userId: brandCtx.user.id,
+            decision: brandCtx.brandAccess.decision,
+            phase: brandCtx.brandAccess.phase,
+            procedure: path,
+          },
+          "write access denied",
+        );
+      }
+      assertResolvedBrandWriteAccess(brandCtx.brandAccess);
+      return next({
+        ctx: brandCtx,
+      });
+    }),
+  );
+
+/**
+ * Procedure variant for billing management surfaces that remain reachable in recovery states.
+ */
+export const brandBillingProcedure = protectedProcedure
+  .use(requireBrand)
+  .use(withResolvedBrandAccess)
+  .use(
     t.middleware(({ ctx, next }) => {
       const brandCtx = ctx as BrandAccessTRPCContext;
-      assertResolvedBrandWriteAccess(brandCtx.brandAccess);
+      assertResolvedBrandBillingAccess(brandCtx.brandAccess);
       return next({
         ctx: brandCtx,
       });
@@ -515,18 +593,11 @@ export const brandWriteProcedure = protectedProcedure
 /**
  * Procedure variant for SKU-creating writes.
  *
- * This enforces general write access and blocks when no SKU creation budget remains.
+ * This enforces general write access; SKU limit checks happen inside write transactions.
  */
 export const brandSkuWriteProcedure = brandWriteProcedure.use(
   t.middleware(({ ctx, next }) => {
     const brandCtx = ctx as BrandAccessTRPCContext;
-
-    if (
-      brandCtx.brandAccess.capabilities.canWriteBrandData &&
-      brandCtx.skuAccess.status === "blocked"
-    ) {
-      throw accessSkuLimitReached();
-    }
 
     return next({
       ctx: brandCtx,

@@ -1,6 +1,15 @@
+/**
+ * Empty states for the passports listing experience.
+ */
 "use client";
 
 import { Button } from "@v1/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@v1/ui/tooltip";
 import Link from "next/link";
 
 interface BaseProps {
@@ -8,7 +17,8 @@ interface BaseProps {
   description?: string;
   action?:
     | { label: string; onClick: () => void }
-    | { label: string; href: string };
+    | { label: string; href: string }
+    | { label: string; disabledReason: string };
 }
 
 function EmptyPanel({ title, description, action }: BaseProps) {
@@ -21,7 +31,20 @@ function EmptyPanel({ title, description, action }: BaseProps) {
         ) : null}
         {action ? (
           <div className="pt-2">
-            {"href" in action ? (
+            {"disabledReason" in action ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button variant="default" size="default" disabled>
+                        {action.label}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{action.disabledReason}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : "href" in action ? (
               <Button asChild variant="default" size="default">
                 <Link href={action.href} prefetch>
                   {action.label}

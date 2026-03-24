@@ -1,5 +1,9 @@
+/**
+ * Stores billing configuration, entitlement windows, and reusable invoice details for a brand.
+ */
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
@@ -25,8 +29,34 @@ export const brandBilling = pgTable(
     billingMode: text("billing_mode"),
     stripeCustomerId: text("stripe_customer_id"),
     stripeSubscriptionId: text("stripe_subscription_id"),
+    stripeSubscriptionScheduleId: text("stripe_subscription_schedule_id"),
     planCurrency: text("plan_currency").notNull().default("EUR"),
-    customMonthlyPriceCents: integer("custom_monthly_price_cents"),
+    customPriceCents: integer("custom_price_cents"),
+    currentPeriodStart: timestamp("current_period_start", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    currentPeriodEnd: timestamp("current_period_end", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    pastDueSince: timestamp("past_due_since", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    pendingCancellation: boolean("pending_cancellation")
+      .notNull()
+      .default(false),
+    scheduledPlanType: text("scheduled_plan_type"),
+    scheduledBillingInterval: text("scheduled_billing_interval"),
+    scheduledHasImpactPredictions: boolean("scheduled_has_impact_predictions"),
+    scheduledPlanChangeEffectiveAt: timestamp(
+      "scheduled_plan_change_effective_at",
+      {
+        withTimezone: true,
+        mode: "string",
+      },
+    ),
     billingAccessOverride: text("billing_access_override")
       .notNull()
       .default("none"),
@@ -34,6 +64,15 @@ export const brandBilling = pgTable(
       withTimezone: true,
       mode: "string",
     }),
+    billingLegalName: text("billing_legal_name"),
+    billingEmail: text("billing_email"),
+    billingTaxId: text("billing_tax_id"),
+    billingAddressLine1: text("billing_address_line_1"),
+    billingAddressLine2: text("billing_address_line_2"),
+    billingAddressCity: text("billing_address_city"),
+    billingAddressRegion: text("billing_address_region"),
+    billingAddressPostalCode: text("billing_address_postal_code"),
+    billingAddressCountry: text("billing_address_country"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -51,12 +90,24 @@ export const brandBilling = pgTable(
       sql`char_length(plan_currency) = 3`,
     ),
     check(
-      "brand_billing_custom_monthly_price_check",
-      sql`custom_monthly_price_cents IS NULL OR custom_monthly_price_cents >= 0`,
+      "brand_billing_custom_price_check",
+      sql`custom_price_cents IS NULL OR custom_price_cents >= 0`,
+    ),
+    check(
+      "brand_billing_period_window_check",
+      sql`current_period_end IS NULL OR current_period_start IS NULL OR current_period_end >= current_period_start`,
     ),
     check(
       "brand_billing_access_override_check",
       sql`billing_access_override = ANY (ARRAY['none'::text, 'temporary_allow'::text, 'temporary_block'::text])`,
+    ),
+    check(
+      "brand_billing_scheduled_plan_type_check",
+      sql`scheduled_plan_type IS NULL OR scheduled_plan_type = ANY (ARRAY['starter'::text, 'growth'::text, 'scale'::text, 'enterprise'::text])`,
+    ),
+    check(
+      "brand_billing_scheduled_billing_interval_check",
+      sql`scheduled_billing_interval IS NULL OR scheduled_billing_interval = ANY (ARRAY['quarterly'::text, 'yearly'::text])`,
     ),
     uniqueIndex("brand_billing_brand_id_unq").on(table.brandId),
     uniqueIndex("brand_billing_stripe_customer_id_unq")
@@ -65,9 +116,14 @@ export const brandBilling = pgTable(
     uniqueIndex("brand_billing_stripe_subscription_id_unq")
       .on(table.stripeSubscriptionId)
       .where(sql`(stripe_subscription_id IS NOT NULL)`),
+    uniqueIndex("brand_billing_stripe_subscription_schedule_id_unq")
+      .on(table.stripeSubscriptionScheduleId)
+      .where(sql`(stripe_subscription_schedule_id IS NOT NULL)`),
     index("idx_brand_billing_override_expires").on(
       table.billingOverrideExpiresAt,
     ),
+    index("idx_brand_billing_current_period_end").on(table.currentPeriodEnd),
+    index("idx_brand_billing_past_due_since").on(table.pastDueSince),
     pgPolicy("brand_billing_select_for_brand_members", {
       as: "permissive",
       for: "select",

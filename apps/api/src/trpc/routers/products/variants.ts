@@ -1,3 +1,20 @@
+/**
+ * Unified Product Variants Router
+ *
+ * Provides CRUD operations for product variants using public identifiers
+ * (productHandle + variantUpid) instead of internal UUIDs.
+ *
+ * Includes:
+ * - Core variant operations (list, get, create, update, delete)
+ * - Override data management (environment, materials, journey, etc.)
+ * - Batch operations (batchCreate, batchUpdate, batchDelete)
+ * - Sync operation for product form saves
+ */
+import type { DatabaseOrTransaction } from "@v1/db/client";
+import {
+  VariantGlobalCapExceededError,
+  enforceVariantGlobalCap,
+} from "@v1/db/queries/brand";
 import { and, eq, inArray } from "@v1/db/queries";
 import {
   batchCreatePassportsForVariants,
@@ -25,18 +42,6 @@ import {
   variantMaterials,
   variantWeight,
 } from "@v1/db/schema";
-/**
- * Unified Product Variants Router
- *
- * Provides CRUD operations for product variants using public identifiers
- * (productHandle + variantUpid) instead of internal UUIDs.
- *
- * Includes:
- * - Core variant operations (list, get, create, update, delete)
- * - Override data management (environment, materials, journey, etc.)
- * - Batch operations (batchCreate, batchUpdate, batchDelete)
- * - Sync operation for product form saves
- */
 import { z } from "zod";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import {
@@ -66,11 +71,10 @@ import {
   brandSkuWriteProcedure,
   brandWriteProcedure,
   createTRPCRouter,
-  resolveSkuDecisionWithIntendedCount,
 } from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
-type BrandDb = BrandContext["db"];
+type BrandDb = DatabaseOrTransaction;
 
 // =============================================================================
 // INPUT SCHEMAS
@@ -149,7 +153,6 @@ const syncVariantInputSchema = z.object({
   attributeValueIds: z.array(z.string().uuid()).optional().default([]),
   sku: z.string().max(100).optional(),
   barcode: barcodeSchema,
-  isGhost: z.boolean().optional(),
 });
 
 // =============================================================================
@@ -567,12 +570,6 @@ export const productVariantsRouter = createTRPCRouter({
           input.productHandle,
         );
 
-        resolveSkuDecisionWithIntendedCount({
-          brandAccess: skuCtx.brandAccess,
-          snapshot: skuCtx.brandAccessSnapshot,
-          intendedCreateCount: 1,
-        });
-
         // Normalize and validate barcode uniqueness
         const normalizedBarcode = normalizeBarcode(input.barcode);
         if (normalizedBarcode) {
@@ -641,6 +638,9 @@ export const productVariantsRouter = createTRPCRouter({
 
         // Use transaction to ensure atomicity - if any step fails, rollback
         const variant = await db.transaction(async (tx) => {
+          // Re-check SKU capacity inside the transaction so concurrent writes cannot oversubscribe the brand.
+          await enforceVariantGlobalCap(tx, brandId, 1);
+
           // Create variant
           const [newVariant] = await tx
             .insert(productVariants)
@@ -704,6 +704,9 @@ export const productVariantsRouter = createTRPCRouter({
           throw badRequest(
             "This barcode is already used by another variant in your brand",
           );
+        }
+        if (error instanceof VariantGlobalCapExceededError) {
+          throw badRequest(error.message);
         }
         throw wrapError(error, "Failed to create variant");
       }
@@ -883,12 +886,6 @@ export const productVariantsRouter = createTRPCRouter({
           input.productHandle,
         );
 
-        resolveSkuDecisionWithIntendedCount({
-          brandAccess: skuCtx.brandAccess,
-          snapshot: skuCtx.brandAccessSnapshot,
-          intendedCreateCount: input.variants.length,
-        });
-
         // ── Barcode Validation ────────────────────────────────────────────────
         // Normalize all barcodes and check for duplicates within the batch
         const normalizedBarcodes: Array<string | null> = [];
@@ -947,6 +944,9 @@ export const productVariantsRouter = createTRPCRouter({
         }> = [];
 
         await db.transaction(async (tx) => {
+          // Re-check SKU capacity inside the transaction so batch creates see the latest live usage.
+          await enforceVariantGlobalCap(tx, brandId, input.variants.length);
+
           for (let i = 0; i < input.variants.length; i++) {
             const variantInput = input.variants[i]!;
             const upid = upids[i]!;
@@ -1033,6 +1033,9 @@ export const productVariantsRouter = createTRPCRouter({
           throw badRequest(
             "One or more barcodes are already used by another variant in your brand",
           );
+        }
+        if (error instanceof VariantGlobalCapExceededError) {
+          throw badRequest(error.message);
         }
         throw wrapError(error, "Failed to batch create variants");
       }
@@ -1373,12 +1376,6 @@ export const productVariantsRouter = createTRPCRouter({
           }
         }
 
-        resolveSkuDecisionWithIntendedCount({
-          brandAccess: skuCtx.brandAccess,
-          snapshot: skuCtx.brandAccessSnapshot,
-          intendedCreateCount: toCreate.length,
-        });
-
         // Find variants to delete (existing but not in input)
         const toDelete = existingVariants.filter(
           (v) => v.upid && !inputUpids.has(v.upid),
@@ -1471,6 +1468,9 @@ export const productVariantsRouter = createTRPCRouter({
             deletedCount = toDelete.length;
           }
 
+          // Re-check SKU capacity after deletions so sync writes can replace variants without false blocks.
+          await enforceVariantGlobalCap(tx, brandId, toCreate.length);
+
           // Create new variants
           for (let i = 0; i < toCreate.length; i++) {
             const { input: variantInput, originalIndex } = toCreate[i]!;
@@ -1485,7 +1485,6 @@ export const productVariantsRouter = createTRPCRouter({
                 upid,
                 sku: variantInput.sku ?? null,
                 barcode: barcodeToStore,
-                isGhost: variantInput.isGhost ?? false,
               })
               .returning({
                 id: productVariants.id,
@@ -1533,8 +1532,6 @@ export const productVariantsRouter = createTRPCRouter({
               updatePayload.sku = variantInput.sku;
             if (barcodeToStore !== undefined)
               updatePayload.barcode = barcodeToStore;
-            if (variantInput.isGhost !== undefined)
-              updatePayload.isGhost = variantInput.isGhost;
 
             if (Object.keys(updatePayload).length > 1) {
               await tx
@@ -1623,6 +1620,9 @@ export const productVariantsRouter = createTRPCRouter({
           throw badRequest(
             "One or more barcodes are already used by another variant in your brand",
           );
+        }
+        if (error instanceof VariantGlobalCapExceededError) {
+          throw badRequest(error.message);
         }
         throw wrapError(error, "Failed to sync variants");
       }

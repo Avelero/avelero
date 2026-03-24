@@ -15,6 +15,7 @@ export * from "./brands/brand-lifecycle";
 export * from "./brands/brand-plan";
 export * from "./brands/brand-billing";
 export * from "./brands/brand-billing-events";
+export * from "./brands/brand-billing-invoices";
 
 // Catalog schemas
 export * from "./catalog/brand-attributes";

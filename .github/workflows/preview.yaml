@@ -114,6 +114,47 @@ jobs:
         run: bun run typecheck
         working-directory: ./apps/api
 
+  test-billing-live:
+    name: 💳 Live Stripe Billing Tests
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api_changed == 'true' && github.event.action != 'closed'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Install Stripe CLI
+        run: |
+          curl -s https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public | gpg --dearmor | sudo tee /usr/share/keyrings/stripe.gpg >/dev/null
+          echo "deb [signed-by=/usr/share/keyrings/stripe.gpg] https://packages.stripe.dev/stripe-cli-debian-local stable main" | sudo tee /etc/apt/sources.list.d/stripe.list >/dev/null
+          sudo apt update
+          sudo apt install -y stripe
+      - name: Install dependencies
+        run: bun install
+      - name: 🧪 Run live Stripe billing suite
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PRICE_ID_AVELERO_STARTER_QUARTERLY: ${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_QUARTERLY }}
+          STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY: ${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY }}
+          STRIPE_PRICE_ID_AVELERO_GROWTH_QUARTERLY: ${{ secrets.STRIPE_PRICE_ID_AVELERO_GROWTH_QUARTERLY }}
+          STRIPE_PRICE_ID_AVELERO_GROWTH_YEARLY: ${{ secrets.STRIPE_PRICE_ID_AVELERO_GROWTH_YEARLY }}
+          STRIPE_PRICE_ID_AVELERO_SCALE_QUARTERLY: ${{ secrets.STRIPE_PRICE_ID_AVELERO_SCALE_QUARTERLY }}
+          STRIPE_PRICE_ID_AVELERO_SCALE_YEARLY: ${{ secrets.STRIPE_PRICE_ID_AVELERO_SCALE_YEARLY }}
+          STRIPE_PRICE_ID_IMPACT_STARTER_QUARTERLY: ${{ secrets.STRIPE_PRICE_ID_IMPACT_STARTER_QUARTERLY }}
+          STRIPE_PRICE_ID_IMPACT_STARTER_YEARLY: ${{ secrets.STRIPE_PRICE_ID_IMPACT_STARTER_YEARLY }}
+          STRIPE_PRICE_ID_IMPACT_GROWTH_QUARTERLY: ${{ secrets.STRIPE_PRICE_ID_IMPACT_GROWTH_QUARTERLY }}
+          STRIPE_PRICE_ID_IMPACT_GROWTH_YEARLY: ${{ secrets.STRIPE_PRICE_ID_IMPACT_GROWTH_YEARLY }}
+          STRIPE_PRICE_ID_IMPACT_SCALE_QUARTERLY: ${{ secrets.STRIPE_PRICE_ID_IMPACT_SCALE_QUARTERLY }}
+          STRIPE_PRICE_ID_IMPACT_SCALE_YEARLY: ${{ secrets.STRIPE_PRICE_ID_IMPACT_SCALE_YEARLY }}
+          STRIPE_PRICE_ID_PASSPORTS_STARTER: ${{ secrets.STRIPE_PRICE_ID_PASSPORTS_STARTER }}
+          STRIPE_PRICE_ID_PASSPORTS_GROWTH: ${{ secrets.STRIPE_PRICE_ID_PASSPORTS_GROWTH }}
+          STRIPE_PRICE_ID_PASSPORTS_SCALE: ${{ secrets.STRIPE_PRICE_ID_PASSPORTS_SCALE }}
+        run: bun run test:billing:live
+
   test-jobs:
     name: 🧪 Lint & Type Check (Jobs)
     needs: detect-changes
@@ -460,51 +501,34 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: 🚀 Start Supabase Local
-        # Runs full Supabase stack in Docker (Postgres, Auth, Storage, etc.)
-        # Migrations are automatically applied from supabase/migrations
-        run: |
-          # Create .env with placeholder values for config.toml env() references
-          # Tests don't use auth hooks or OAuth - they use direct DB connections
-          {
-            echo "APP_URL=http://localhost:3000"
-            echo "ADDITIONAL_REDIRECT_URL=http://localhost:3000"
-            echo "SEND_EMAIL_HOOK_URI=http://localhost:54321/functions/v1/send-email"
-            echo "SEND_EMAIL_HOOK_SECRET=v1,whsec_YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
-            echo "GOOGLE_CLIENT_ID=test-google-client-id"
-            echo "GOOGLE_SECRET=test-google-secret"
-            echo "GOOGLE_REDIRECT_URI=http://localhost:54321/auth/v1/callback"
-          } > .env
-
-          supabase start
-          supabase status
-        working-directory: ./apps/api
-
-      - name: 📚 Sync Taxonomy Data
-        run: |
-          export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-          bun run sync
-        working-directory: ./packages/taxonomy
-
       - name: 🧪 Run all tests
-        # Runs tests for all packages: db, integrations, jobs, api
-        # Uses turbo with --concurrency=1 (defined in root package.json)
+        # The isolated test runner provisions its own disposable Supabase stack,
+        # syncs taxonomy data into that stack, and tears it down afterward.
         run: |
-          export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           export INTERNAL_API_KEY="test-internal-api-key"
+          export STRIPE_PRICE_ID_AVELERO_STARTER_QUARTERLY="${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_QUARTERLY }}"
+          export STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY="${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY }}"
+          export STRIPE_PRICE_ID_AVELERO_GROWTH_QUARTERLY="${{ secrets.STRIPE_PRICE_ID_AVELERO_GROWTH_QUARTERLY }}"
+          export STRIPE_PRICE_ID_AVELERO_GROWTH_YEARLY="${{ secrets.STRIPE_PRICE_ID_AVELERO_GROWTH_YEARLY }}"
+          export STRIPE_PRICE_ID_AVELERO_SCALE_QUARTERLY="${{ secrets.STRIPE_PRICE_ID_AVELERO_SCALE_QUARTERLY }}"
+          export STRIPE_PRICE_ID_AVELERO_SCALE_YEARLY="${{ secrets.STRIPE_PRICE_ID_AVELERO_SCALE_YEARLY }}"
+          export STRIPE_PRICE_ID_IMPACT_STARTER_QUARTERLY="${{ secrets.STRIPE_PRICE_ID_IMPACT_STARTER_QUARTERLY }}"
+          export STRIPE_PRICE_ID_IMPACT_STARTER_YEARLY="${{ secrets.STRIPE_PRICE_ID_IMPACT_STARTER_YEARLY }}"
+          export STRIPE_PRICE_ID_IMPACT_GROWTH_QUARTERLY="${{ secrets.STRIPE_PRICE_ID_IMPACT_GROWTH_QUARTERLY }}"
+          export STRIPE_PRICE_ID_IMPACT_GROWTH_YEARLY="${{ secrets.STRIPE_PRICE_ID_IMPACT_GROWTH_YEARLY }}"
+          export STRIPE_PRICE_ID_IMPACT_SCALE_QUARTERLY="${{ secrets.STRIPE_PRICE_ID_IMPACT_SCALE_QUARTERLY }}"
+          export STRIPE_PRICE_ID_IMPACT_SCALE_YEARLY="${{ secrets.STRIPE_PRICE_ID_IMPACT_SCALE_YEARLY }}"
+          export STRIPE_PRICE_ID_PASSPORTS_STARTER="${{ secrets.STRIPE_PRICE_ID_PASSPORTS_STARTER }}"
+          export STRIPE_PRICE_ID_PASSPORTS_GROWTH="${{ secrets.STRIPE_PRICE_ID_PASSPORTS_GROWTH }}"
+          export STRIPE_PRICE_ID_PASSPORTS_SCALE="${{ secrets.STRIPE_PRICE_ID_PASSPORTS_SCALE }}"
           bun run test
-
-      - name: 🛑 Stop Supabase Local
-        if: always()
-        run: supabase stop --no-backup || true
-        working-directory: ./apps/api
 
   # ============================================
   # Gate Job: Reports single status for branch protection
   # ============================================
   all-tests-passed:
     name: ✅ All Tests Passed
-    needs: [test-app, test-api, test-jobs, test-dpp, test-web, test-admin, test-integrations]
+    needs: [test-app, test-api, test-billing-live, test-jobs, test-dpp, test-web, test-admin, test-integrations]
     if: always() && github.event.action != 'closed'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
@@ -513,6 +537,7 @@ jobs:
           echo "Test results:"
           echo "  test-app: ${{ needs.test-app.result }}"
           echo "  test-api: ${{ needs.test-api.result }}"
+          echo "  test-billing-live: ${{ needs.test-billing-live.result }}"
           echo "  test-jobs: ${{ needs.test-jobs.result }}"
           echo "  test-dpp: ${{ needs.test-dpp.result }}"
           echo "  test-web: ${{ needs.test-web.result }}"
@@ -522,6 +547,7 @@ jobs:
           # If ANY test failed or was cancelled, this gate fails
           if [[ "${{ needs.test-app.result }}" == "failure" ]] || \
              [[ "${{ needs.test-api.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-billing-live.result }}" == "failure" ]] || \
              [[ "${{ needs.test-jobs.result }}" == "failure" ]] || \
              [[ "${{ needs.test-dpp.result }}" == "failure" ]] || \
              [[ "${{ needs.test-web.result }}" == "failure" ]] || \
@@ -529,6 +555,7 @@ jobs:
              [[ "${{ needs.test-integrations.result }}" == "failure" ]] || \
              [[ "${{ needs.test-app.result }}" == "cancelled" ]] || \
              [[ "${{ needs.test-api.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-billing-live.result }}" == "cancelled" ]] || \
              [[ "${{ needs.test-jobs.result }}" == "cancelled" ]] || \
              [[ "${{ needs.test-dpp.result }}" == "cancelled" ]] || \
              [[ "${{ needs.test-web.result }}" == "cancelled" ]] || \
@@ -777,6 +804,7 @@ jobs:
       (needs.test-api.result == 'success' || needs.test-api.result == 'skipped') &&
       needs.detect-changes.outputs.api_changed == 'true' &&
       needs.deploy-app.result == 'success' &&
+      (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
       (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -857,6 +885,68 @@ jobs:
           echo "api_url=${API_URL}" >> $GITHUB_OUTPUT
           echo "app_url=${APP_URL}" >> $GITHUB_OUTPUT
           echo "dpp_url=${DPP_URL}" >> $GITHUB_OUTPUT
+      - name: 🔗 Create Stripe Webhook for Preview
+        id: stripe-webhook
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+
+          WEBHOOK_URL="${{ steps.urls.outputs.api_url }}/webhooks/stripe"
+          echo "Preparing Stripe webhook endpoint: $WEBHOOK_URL"
+
+          EXISTING_ENDPOINTS=$(curl -sS -G https://api.stripe.com/v1/webhook_endpoints \
+            -u "${STRIPE_SECRET_KEY}:" \
+            -d "limit=100")
+
+          mapfile -t EXISTING_WEBHOOK_IDS < <(echo "$EXISTING_ENDPOINTS" | jq -r --arg url "$WEBHOOK_URL" '.data[] | select(.url == $url) | .id')
+
+          if [[ ${#EXISTING_WEBHOOK_IDS[@]} -gt 0 ]]; then
+            echo "Deleting ${#EXISTING_WEBHOOK_IDS[@]} existing Stripe webhook endpoint(s) for this preview URL"
+            for WEBHOOK_ID in "${EXISTING_WEBHOOK_IDS[@]}"; do
+              curl -sS -X DELETE "https://api.stripe.com/v1/webhook_endpoints/${WEBHOOK_ID}" \
+                -u "${STRIPE_SECRET_KEY}:"
+            done
+          fi
+
+          echo "Creating Stripe webhook endpoint: $WEBHOOK_URL"
+
+          RESPONSE=$(curl -sS -X POST https://api.stripe.com/v1/webhook_endpoints \
+            -u "${STRIPE_SECRET_KEY}:" \
+            -d "url=${WEBHOOK_URL}" \
+            -d "enabled_events[]=checkout.session.completed" \
+            -d "enabled_events[]=invoice.created" \
+            -d "enabled_events[]=invoice.finalized" \
+            -d "enabled_events[]=invoice.updated" \
+            -d "enabled_events[]=invoice.overdue" \
+            -d "enabled_events[]=invoice.paid" \
+            -d "enabled_events[]=invoice.payment_failed" \
+            -d "enabled_events[]=invoice.voided" \
+            -d "enabled_events[]=invoice.marked_uncollectible" \
+            -d "enabled_events[]=customer.subscription.updated" \
+            -d "enabled_events[]=customer.subscription.deleted")
+
+          WEBHOOK_ID=$(echo "$RESPONSE" | jq -r '.id')
+          WEBHOOK_SECRET=$(echo "$RESPONSE" | jq -r '.secret')
+
+          if [[ -z "$WEBHOOK_ID" || "$WEBHOOK_ID" == "null" || -z "$WEBHOOK_SECRET" || "$WEBHOOK_SECRET" == "null" ]]; then
+            echo "❌ Failed to create Stripe webhook endpoint or retrieve webhook secret"
+            echo "$RESPONSE" | jq .
+            exit 1
+          fi
+
+          echo "✅ Stripe webhook created: $WEBHOOK_ID"
+          echo "webhook_id=$WEBHOOK_ID" >> $GITHUB_OUTPUT
+          echo "webhook_secret=$WEBHOOK_SECRET" >> $GITHUB_OUTPUT
+
+      - name: ✅ Require Preview Stripe Webhook Secret
+        run: |
+          if [[ -z "${{ steps.stripe-webhook.outputs.webhook_secret }}" ]]; then
+            echo "❌ Preview Stripe webhook secret was not produced."
+            echo "Preview API deploy must fail rather than ship a broken webhook configuration."
+            exit 1
+          fi
+
       - name: 🚀 Deploy PR API to Fly.io
         uses: superfly/fly-pr-review-apps@1.3.0
         with:
@@ -877,6 +967,23 @@ jobs:
             API_URL=${{ steps.urls.outputs.api_url }}
             APP_URL=${{ steps.urls.outputs.app_url }}
             DPP_URL=${{ steps.urls.outputs.dpp_url }}
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            STRIPE_WEBHOOK_SECRET=${{ steps.stripe-webhook.outputs.webhook_secret }}
+            STRIPE_PRICE_ID_AVELERO_STARTER_QUARTERLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_QUARTERLY }}
+            STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_STARTER_YEARLY }}
+            STRIPE_PRICE_ID_AVELERO_GROWTH_QUARTERLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_GROWTH_QUARTERLY }}
+            STRIPE_PRICE_ID_AVELERO_GROWTH_YEARLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_GROWTH_YEARLY }}
+            STRIPE_PRICE_ID_AVELERO_SCALE_QUARTERLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_SCALE_QUARTERLY }}
+            STRIPE_PRICE_ID_AVELERO_SCALE_YEARLY=${{ secrets.STRIPE_PRICE_ID_AVELERO_SCALE_YEARLY }}
+            STRIPE_PRICE_ID_IMPACT_STARTER_QUARTERLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_STARTER_QUARTERLY }}
+            STRIPE_PRICE_ID_IMPACT_STARTER_YEARLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_STARTER_YEARLY }}
+            STRIPE_PRICE_ID_IMPACT_GROWTH_QUARTERLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_GROWTH_QUARTERLY }}
+            STRIPE_PRICE_ID_IMPACT_GROWTH_YEARLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_GROWTH_YEARLY }}
+            STRIPE_PRICE_ID_IMPACT_SCALE_QUARTERLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_SCALE_QUARTERLY }}
+            STRIPE_PRICE_ID_IMPACT_SCALE_YEARLY=${{ secrets.STRIPE_PRICE_ID_IMPACT_SCALE_YEARLY }}
+            STRIPE_PRICE_ID_PASSPORTS_STARTER=${{ secrets.STRIPE_PRICE_ID_PASSPORTS_STARTER }}
+            STRIPE_PRICE_ID_PASSPORTS_GROWTH=${{ secrets.STRIPE_PRICE_ID_PASSPORTS_GROWTH }}
+            STRIPE_PRICE_ID_PASSPORTS_SCALE=${{ secrets.STRIPE_PRICE_ID_PASSPORTS_SCALE }}
 
   # ============================================
   # Step 6b: Configure Supabase Auth for Preview Branch
@@ -1262,6 +1369,30 @@ jobs:
             supabase branches delete "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID
           else
             echo "Branch $BRANCH_NAME does not exist, skipping."
+          fi
+      - name: 🗑️ Delete Stripe Webhook for Preview
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          WEBHOOK_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev/webhooks/stripe"
+          echo "Looking for Stripe webhook endpoint: $WEBHOOK_URL"
+
+          # List all webhook endpoints and delete every one matching this PR's URL.
+          ENDPOINTS=$(curl -s -G https://api.stripe.com/v1/webhook_endpoints \
+            -u "${STRIPE_SECRET_KEY}:" \
+            -d "limit=100")
+
+          mapfile -t WEBHOOK_IDS < <(echo "$ENDPOINTS" | jq -r --arg url "$WEBHOOK_URL" '.data[] | select(.url == $url) | .id')
+
+          if [[ ${#WEBHOOK_IDS[@]} -gt 0 ]]; then
+            echo "Deleting ${#WEBHOOK_IDS[@]} Stripe webhook endpoint(s)"
+            for WEBHOOK_ID in "${WEBHOOK_IDS[@]}"; do
+              curl -s -X DELETE "https://api.stripe.com/v1/webhook_endpoints/${WEBHOOK_ID}" \
+                -u "${STRIPE_SECRET_KEY}:"
+            done
+            echo "✅ Stripe webhook(s) deleted"
+          else
+            echo "No Stripe webhook found for $WEBHOOK_URL, skipping."
           fi
       - name: 🗑️ Delete Fly.io Preview App
         run: |

@@ -104,8 +104,6 @@ export interface TestProduct {
   description?: string;
   /** Product image URL */
   image?: string;
-  /** Product status (unpublished, published, archived, scheduled) */
-  status?: string;
   /** Category path (e.g., "Clothing > T-shirts") */
   category?: string;
   /** Season name (e.g., "NOS", "SS26") */
@@ -152,7 +150,6 @@ const COLUMN_HEADERS = [
   "Manufacturer",
   "Description",
   "Image",
-  "Status",
   "Category",
   "Season",
   "Tags",
@@ -189,7 +186,7 @@ const COLUMN_HEADERS = [
  * Category header groups for row 1
  */
 const CATEGORY_HEADERS = [
-  { name: "Product Information", columns: 9 },
+  { name: "Product Information", columns: 8 },
   { name: "Variant Information", columns: 9 },
   { name: "Environmental Data", columns: 5 },
   { name: "Materials", columns: 2 },
@@ -239,7 +236,6 @@ function buildRowData(
     row["Manufacturer"] = product.manufacturer;
     row["Description"] = product.description;
     row["Image"] = product.image;
-    row["Status"] = product.status;
     row["Category"] = product.category;
     row["Season"] = product.season;
     row["Tags"] = formatSemicolonList(product.tags);

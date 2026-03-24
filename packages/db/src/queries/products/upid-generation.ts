@@ -10,7 +10,7 @@
  */
 
 import { eq, inArray } from "drizzle-orm";
-import type { Database } from "../../client";
+import type { DatabaseOrTransaction } from "../../client";
 import { productPassports, productVariants } from "../../schema";
 import { generateUniqueUpids as generateUpidsBase } from "../../utils/upid";
 
@@ -41,7 +41,7 @@ import { generateUniqueUpids as generateUpidsBase } from "../../utils/upid";
  * ```
  */
 export async function generateGloballyUniqueUpids(
-  db: Database,
+  db: DatabaseOrTransaction,
   count: number,
 ): Promise<string[]> {
   if (count <= 0) return [];

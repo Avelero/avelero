@@ -11,6 +11,8 @@ import "../configure-trigger";
 import { createClient } from "@supabase/supabase-js";
 import { logger, metadata, task } from "@trigger.dev/sdk/v3";
 import { serviceDb as db } from "@v1/db/client";
+import { eq } from "@v1/db/queries";
+import { countBrandSkus } from "@v1/db/queries/brand";
 import {
   createSyncJob,
   getBrandIntegration,
@@ -20,6 +22,7 @@ import {
   updateSyncJob,
 } from "@v1/db/queries/integrations";
 import { markPassportsDirtyByProductIds } from "@v1/db/queries/products";
+import { brandPlan } from "@v1/db/schema";
 import { decryptCredentials } from "@v1/db/utils";
 import {
   type FieldConfig,
@@ -200,6 +203,15 @@ export const syncIntegration = task({
         });
       };
 
+      const [planRow] = await db
+        .select({
+          variantGlobalCap: brandPlan.variantGlobalCap,
+        })
+        .from(brandPlan)
+        .where(eq(brandPlan.brandId, brandId))
+        .limit(1);
+      const totalExistingVariants = await countBrandSkus(db, brandId);
+
       // Build sync context
       const ctx: SyncContext = {
         db,
@@ -214,6 +226,8 @@ export const syncIntegration = task({
         matchIdentifier:
           (brandIntegration.matchIdentifier as "barcode" | "sku") ?? "barcode",
         productsTotal,
+        variantGlobalCap: planRow?.variantGlobalCap ?? null,
+        totalExistingVariants,
         onProgress,
       };
 

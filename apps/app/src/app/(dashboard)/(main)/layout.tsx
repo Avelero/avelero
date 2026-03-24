@@ -1,6 +1,7 @@
-import { BlockedAccessScreen } from "@/components/access/blocked-access-screen";
-import { PastDueBanner } from "@/components/access/past-due-banner";
-import { PaymentRequiredOverlay } from "@/components/access/payment-required-overlay";
+/**
+ * Main app layout redirect logic and top-banner shell.
+ */
+import { MainLayoutBannerShell } from "@/components/access/main-layout-banner-shell";
 import {
   INVITE_REQUIRED_LOGIN_PATH,
   getForceSignOutPath,
@@ -59,19 +60,15 @@ export default async function MainLayout({
     redirect("/invites");
   }
 
-  if (access.overlay === "suspended" || access.overlay === "cancelled") {
-    return <BlockedAccessScreen reason={access.overlay} />;
-  }
+  // Access overlays are rendered inside the concrete content shells so sidebar
+  // and editor chrome can stay accessible when needed.
 
   return (
-    <div className="relative h-full min-h-0">
-      {access.banner === "past_due" ? <PastDueBanner /> : null}
-      <div className="relative h-full min-h-0">
-        {children}
-        {access.overlay === "payment_required" ? (
-          <PaymentRequiredOverlay />
-        ) : null}
-      </div>
-    </div>
+    <MainLayoutBannerShell
+      banner={access.banner}
+      accessUntil={access.currentPeriodEnd}
+    >
+      {children}
+    </MainLayoutBannerShell>
   );
 }

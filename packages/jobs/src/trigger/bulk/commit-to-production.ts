@@ -25,6 +25,11 @@ import { logger, task, tasks } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
 import {
+  VariantGlobalCapExceededError,
+  countBrandSkus,
+  enforceVariantGlobalCap,
+} from "@v1/db/queries/brand";
+import {
   type NormalizedRowData,
   type NormalizedVariant,
   getImportJobStatus,
@@ -200,6 +205,7 @@ interface PendingProductionOps {
 const {
   importJobs,
   importRows,
+  brandPlan,
   // Production tables
   products,
   productVariants,
@@ -236,6 +242,78 @@ const IMAGE_TIMEOUT_MS = 60_000;
 
 /** Email from address */
 const EMAIL_FROM = "Avelero <noreply@welcome.avelero.com>";
+
+/**
+ * Counts how many new variants this import job would create if fully committed.
+ */
+async function countPendingVariantCreatesForJob(
+  database: Database,
+  jobId: string,
+): Promise<number> {
+  const rows = await database
+    .select({
+      normalized: importRows.normalized,
+    })
+    .from(importRows)
+    .where(
+      and(
+        eq(importRows.jobId, jobId),
+        inArray(importRows.status, ["PENDING", "PENDING_WITH_WARNINGS"]),
+      ),
+    );
+
+  return rows.reduce((total, row) => {
+    const normalized = row.normalized as NormalizedRowData | null;
+    if (!normalized) {
+      return total;
+    }
+
+    return (
+      total +
+      normalized.variants.filter((variant) => variant.action === "CREATE")
+        .length
+    );
+  }, 0);
+}
+
+/**
+ * Resolves the global variant cap and throws before any import writes if over budget.
+ */
+async function runVariantGlobalCapPreflight(
+  database: Database,
+  brandId: string,
+  jobId: string,
+): Promise<void> {
+  const intendedCreateCount = await countPendingVariantCreatesForJob(
+    database,
+    jobId,
+  );
+
+  if (intendedCreateCount === 0) {
+    return;
+  }
+
+  const totalExistingVariants = await countBrandSkus(database, brandId);
+  const [planRow] = await database
+    .select({
+      variantGlobalCap: brandPlan.variantGlobalCap,
+    })
+    .from(brandPlan)
+    .where(eq(brandPlan.brandId, brandId))
+    .limit(1);
+
+  if (
+    planRow?.variantGlobalCap !== null &&
+    planRow?.variantGlobalCap !== undefined &&
+    totalExistingVariants + intendedCreateCount > planRow.variantGlobalCap
+  ) {
+    throw new VariantGlobalCapExceededError({
+      intendedCreateCount,
+      totalExistingVariants,
+      cap: planRow.variantGlobalCap,
+    });
+  }
+}
 
 // ============================================================================
 // Main Task
@@ -283,6 +361,9 @@ export const commitToProduction = task({
           commitStartedAt: new Date().toISOString(),
         })
         .where(eq(importJobs.id, jobId));
+
+      // Fail fast when the staged import would exceed the global variant cap.
+      await runVariantGlobalCapPreflight(db, brandId, jobId);
 
       // Create Supabase client for storage operations
       const storageClient = createClient(
@@ -365,7 +446,7 @@ export const commitToProduction = task({
         // Triggers are disabled inside the transaction using SET LOCAL
         // This prevents overwhelming Supabase Realtime with per-row broadcasts
         try {
-          await batchExecuteProductionOps(db, ops);
+          await batchExecuteProductionOps(db, brandId, ops);
 
           // PHASE 6.1: Mark published passports dirty instead of materializing snapshots here.
           await markPassportsDirtyByProductIds(
@@ -628,9 +709,41 @@ export const commitToProduction = task({
         .set({
           status: "FAILED",
           finishedAt: new Date().toISOString(),
-          summary: { error: errorMessage },
+          summary:
+            error instanceof VariantGlobalCapExceededError
+              ? {
+                  error: errorMessage,
+                  requestedNewVariants: error.intendedCreateCount,
+                  totalExistingVariants: error.totalExistingVariants,
+                  variantGlobalCap: error.cap,
+                }
+              : { error: errorMessage },
         })
         .where(eq(importJobs.id, jobId));
+
+      if (error instanceof VariantGlobalCapExceededError) {
+        try {
+          await publishNotificationEvent(db, {
+            event: "import_failure",
+            brandId,
+            actorUserId: payload.userId ?? null,
+            payload: {
+              jobId,
+              totalIssues: 0,
+              blockedProducts: 0,
+              warningProducts: 0,
+              errorSummary: errorMessage,
+            },
+          });
+        } catch (notificationError) {
+          logger.warn("Failed to publish import failure notification", {
+            error:
+              notificationError instanceof Error
+                ? notificationError.message
+                : "Unknown error",
+          });
+        }
+      }
 
       throw error;
     }
@@ -1049,6 +1162,7 @@ function computeProductionOps(
  */
 async function batchExecuteProductionOps(
   database: Database,
+  brandId: string,
   ops: PendingProductionOps,
 ): Promise<void> {
   await database.transaction(async (tx) => {
@@ -1070,6 +1184,7 @@ async function batchExecuteProductionOps(
 
     // 3. Variant creates (batch)
     if (ops.variantCreates.length > 0) {
+      await enforceVariantGlobalCap(tx, brandId, ops.variantCreates.length);
       await tx.insert(productVariants).values(ops.variantCreates);
     }
 

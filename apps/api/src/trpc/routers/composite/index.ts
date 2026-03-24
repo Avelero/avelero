@@ -3,8 +3,10 @@ import { and, asc, desc, eq, sql } from "@v1/db/queries";
 import {
   type BrandMembershipListItem,
   type UserInviteSummaryRow,
+  countPublishedPassports,
   getBrandAccessSnapshot,
   getBrandsByUserId,
+  getCurrentDatabaseTimestamp,
   getOwnerCountsByBrandIds,
   listPendingInvitesForEmail,
 } from "@v1/db/queries/brand";
@@ -41,13 +43,12 @@ import { getAppUrl } from "@v1/utils/envs";
  * - composite.membersWithInvites
  * - composite.catalogContent (renamed from brandCatalogContent in Phase 6)
  */
-import { isOwnerEquivalentRole } from "../../../config/roles.js";
-import { resolveBrandAccessDecision } from "../../../lib/access-policy/resolve-brand-access-decision.js";
+import { ROLES, isOwnerEquivalentRole } from "../../../config/roles.js";
 import {
   SKU_WARNING_THRESHOLD,
-  TRIAL_UNIVERSAL_CAP,
   resolveSkuAccessDecision,
 } from "../../../lib/access-policy/resolve-sku-access-decision.js";
+import { resolveBrandAccessDecision } from "../../../lib/access-policy/resolve-brand-access-decision.js";
 import { brandIdOptionalSchema } from "../../../schemas/brand.js";
 import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
 import {
@@ -315,6 +316,47 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
 
 type WorkflowInviteList = Awaited<ReturnType<typeof fetchWorkflowInvites>>;
 
+/**
+ * Resolves dashboard access data without triggering Stripe syncs or lazy writes.
+ */
+async function resolveReadonlyBrandAccessContext(params: {
+  db: Database;
+  brandId: string;
+  role: AuthenticatedTRPCContext["role"];
+}) {
+  // Resolve access and current published-credit usage in one pass for dashboard hydration.
+  const snapshot = await getBrandAccessSnapshot(params.db, params.brandId);
+  const currentDatabaseTimestamp = await getCurrentDatabaseTimestamp(params.db);
+  const currentPublishUsageCount = await countPublishedPassports(
+    params.db,
+    params.brandId,
+  );
+  const resolvedBrandAccess = resolveBrandAccessDecision({
+    role: params.role ?? null,
+    snapshot,
+  });
+  const skuAccess = resolveSkuAccessDecision({
+    brandAccess: resolvedBrandAccess,
+    snapshot,
+    intendedPublishCount: 0,
+    currentPublishUsageCount,
+    evaluationDate: currentDatabaseTimestamp,
+  });
+
+  return {
+    brandAccess: {
+      ...resolvedBrandAccess,
+      capabilities: {
+      ...resolvedBrandAccess.capabilities,
+      canCreateSkus:
+        params.role === ROLES.AVELERO ||
+        resolvedBrandAccess.capabilities.canWriteBrandData,
+      },
+    },
+    skuAccess,
+  };
+}
+
 const DEFAULT_ACCESS = {
   decision: "full_access" as const,
   capabilities: {
@@ -326,27 +368,29 @@ const DEFAULT_ACCESS = {
   banner: "none" as const,
   phase: "demo" as const,
   trialEndsAt: null as string | null,
+  currentPeriodStart: null as string | null,
+  currentPeriodEnd: null as string | null,
+  pastDueSince: null as string | null,
+  pendingCancellation: false,
+  graceEndsAt: null as string | null,
 };
 
 const DEFAULT_SKU = {
   status: "allowed" as const,
-  annual: {
+  activeBudget: {
+    kind: null as null,
+    phase: "demo" as const,
     limit: null as number | null,
     used: 0,
     remaining: null as number | null,
     utilization: null as number | null,
-  },
-  onboarding: {
-    limit: null as number | null,
-    used: 0,
-    remaining: null as number | null,
-    utilization: null as number | null,
+    totalCredits: 0,
+    publishedCount: 0,
   },
   warningThreshold: SKU_WARNING_THRESHOLD,
-  trialUniversalCap: TRIAL_UNIVERSAL_CAP,
-  remainingCreateBudget: null as number | null,
-  intendedCreateCount: 0,
-  wouldExceedIntendedCreateCount: false,
+  remainingPublishBudget: null as number | null,
+  intendedPublishCount: 0,
+  wouldExceedIntendedPublishCount: false,
 };
 
 /**
@@ -375,9 +419,9 @@ export const compositeRouter = createTRPCRouter({
     const activeMembership = memberships.find(
       (membership) => membership.id === activeBrandId,
     );
-    const activeBrandRole = activeMembership?.role ?? null;
+    const activeBrandRole = activeMembership?.role ?? ctx.role ?? null;
 
-    const [brands, invites, verifiedDomain, accessSnapshot] = await Promise.all(
+    const [brands, invites, verifiedDomain, accessContext] = await Promise.all(
       [
         mapWorkflowBrands(db, memberships),
         (async () => {
@@ -401,30 +445,26 @@ export const compositeRouter = createTRPCRouter({
             .limit(1);
           return domain ?? null;
         })(),
-        activeBrandId ? getBrandAccessSnapshot(db, activeBrandId) : null,
+        activeBrandId
+          ? resolveReadonlyBrandAccessContext({
+              db,
+              brandId: activeBrandId,
+              role: activeBrandRole,
+            })
+          : null,
       ],
     );
 
-    const resolvedAccess = accessSnapshot
-      ? resolveBrandAccessDecision({
-          role: activeBrandRole,
-          snapshot: accessSnapshot,
-        })
+    const resolvedAccess = accessContext
+      ? accessContext.brandAccess
       : DEFAULT_ACCESS;
 
-    const resolvedSku = accessSnapshot
-      ? resolveSkuAccessDecision({
-          brandAccess: resolvedAccess,
-          snapshot: accessSnapshot,
-          intendedCreateCount: 0,
-        })
+    const resolvedSku = accessContext
+      ? accessContext.skuAccess
       : DEFAULT_SKU;
 
     const accessCapabilities = {
       ...resolvedAccess.capabilities,
-      canCreateSkus:
-        resolvedAccess.capabilities.canWriteBrandData &&
-        resolvedSku.status !== "blocked",
     };
 
     return {
@@ -444,13 +484,17 @@ export const compositeRouter = createTRPCRouter({
         banner: resolvedAccess.banner,
         phase: resolvedAccess.phase,
         trialEndsAt: resolvedAccess.trialEndsAt,
+        currentPeriodStart: resolvedAccess.currentPeriodStart,
+        currentPeriodEnd: resolvedAccess.currentPeriodEnd,
+        pastDueSince: resolvedAccess.pastDueSince,
+        pendingCancellation: resolvedAccess.pendingCancellation,
+        graceEndsAt: resolvedAccess.graceEndsAt,
       },
       sku: {
         status: resolvedSku.status,
-        annual: resolvedSku.annual,
-        onboarding: resolvedSku.onboarding,
+        activeBudget: resolvedSku.activeBudget,
         warningThreshold: resolvedSku.warningThreshold,
-        trialUniversalCap: resolvedSku.trialUniversalCap,
+        remainingPublishBudget: resolvedSku.remainingPublishBudget,
       },
     };
   }),

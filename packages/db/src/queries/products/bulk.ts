@@ -6,7 +6,7 @@
  */
 
 import { and, count, eq, inArray } from "drizzle-orm";
-import type { Database } from "../../client";
+import type { Database, DatabaseOrTransaction } from "../../client";
 import { products } from "../../schema";
 import { buildProductWhereClauses } from "./_shared/where";
 import type {
@@ -125,6 +125,8 @@ export async function bulkUpdateProductsByFilter(
   // Build update data - only include fields that are explicitly provided
   const updateData: Record<string, unknown> = {};
   if (updates.status !== undefined) updateData.status = updates.status;
+  if (updates.publishedAt !== undefined)
+    updateData.publishedAt = updates.publishedAt;
   if (updates.categoryId !== undefined)
     updateData.categoryId = updates.categoryId;
   if (updates.seasonId !== undefined) updateData.seasonId = updates.seasonId;
@@ -153,7 +155,7 @@ export async function bulkUpdateProductsByFilter(
  * individual updates when modifying multiple products.
  */
 export async function bulkUpdateProductsByIds(
-  db: Database,
+  db: DatabaseOrTransaction,
   brandId: string,
   ids: string[],
   updates: BulkUpdateFields,
@@ -165,6 +167,8 @@ export async function bulkUpdateProductsByIds(
   // Build update data - only include fields that are explicitly provided
   const updateData: Record<string, unknown> = {};
   if (updates.status !== undefined) updateData.status = updates.status;
+  if (updates.publishedAt !== undefined)
+    updateData.publishedAt = updates.publishedAt;
   if (updates.categoryId !== undefined)
     updateData.categoryId = updates.categoryId;
   if (updates.seasonId !== undefined) updateData.seasonId = updates.seasonId;

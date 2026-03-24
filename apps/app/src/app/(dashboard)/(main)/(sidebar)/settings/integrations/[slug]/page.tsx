@@ -1,4 +1,5 @@
 import { IntegrationDetail } from "@/components/integrations/integration-detail";
+import { shouldBlockSidebarContent } from "@/lib/brand-access";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { connection } from "next/server";
 
@@ -8,6 +9,12 @@ interface PageProps {
 
 export default async function IntegrationDetailPage({ params }: PageProps) {
   await connection();
+
+  // Skip page prefetches when the active brand is blocked.
+  if (await shouldBlockSidebarContent()) {
+    return null;
+  }
+
   const { slug } = await params;
 
   batchPrefetch([

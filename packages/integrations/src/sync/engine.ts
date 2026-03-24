@@ -11,6 +11,10 @@
  */
 
 import type { Database } from "@v1/db/client";
+import {
+  VariantGlobalCapExceededError,
+  enforceVariantGlobalCap,
+} from "@v1/db/queries/brand";
 import { and, eq, inArray } from "@v1/db/queries";
 import {
   type ProductIdentifierBatch,
@@ -565,6 +569,19 @@ async function processBatch(
   result.timing.compute = Date.now() - computeStart;
   result.affectedProductIds = Array.from(affectedProductIds);
 
+  if (
+    ctx.variantGlobalCap !== null &&
+    allPendingOps.variantCreates.length > 0 &&
+    ctx.totalExistingVariants + allPendingOps.variantCreates.length >
+      ctx.variantGlobalCap
+  ) {
+    throw new VariantGlobalCapExceededError({
+      intendedCreateCount: allPendingOps.variantCreates.length,
+      totalExistingVariants: ctx.totalExistingVariants,
+      cap: ctx.variantGlobalCap,
+    });
+  }
+
   // PHASE 4: Execute all batch operations (PARALLELIZED where possible)
   // Note: Database-level throttling in realtime.broadcast_domain_changes() ensures
   // only one broadcast per domain/brand per second, preventing message flooding.
@@ -688,24 +705,44 @@ async function processBatch(
   if (allPendingOps.variantCreates.length > 0) {
     const variantCreates = allPendingOps.variantCreates;
 
-    // Generate UPIDs using the centralized function that checks both
-    // product_variants AND product_passports tables
-    const upids = await generateGloballyUniqueUpids(db, variantCreates.length);
+    const { inserted, upids } = await db.transaction(async (tx) => {
+      await enforceVariantGlobalCap(tx, ctx.brandId, variantCreates.length);
 
-    // Batch insert all variants
-    const inserted = await db
-      .insert(productVariants)
-      .values(
-        variantCreates.map(
-          (v: PendingOperations["variantCreates"][number], i: number) => ({
-            productId: v.productId,
-            sku: v.sku,
-            barcode: v.barcode,
-            upid: upids[i]!,
-          }),
-        ),
-      )
-      .returning({ id: productVariants.id });
+      // Generate UPIDs using the centralized function that checks both
+      // product_variants AND product_passports tables.
+      const upids = await generateGloballyUniqueUpids(
+        tx,
+        variantCreates.length,
+      );
+
+      // Batch insert all variants.
+      const inserted = await tx
+        .insert(productVariants)
+        .values(
+          variantCreates.map(
+            (v: PendingOperations["variantCreates"][number], i: number) => ({
+              productId: v.productId,
+              sku: v.sku,
+              barcode: v.barcode,
+              upid: upids[i]!,
+            }),
+          ),
+        )
+        .returning({ id: productVariants.id });
+
+      await batchCreatePassportsForVariants(
+        tx,
+        ctx.brandId,
+        inserted.map((v, i) => ({
+          variantId: v.id,
+          upid: upids[i]!,
+          sku: variantCreates[i]?.sku,
+          barcode: variantCreates[i]?.barcode,
+        })),
+      );
+
+      return { inserted, upids };
+    });
 
     result.queries.variantCreates = 2;
 
@@ -731,19 +768,9 @@ async function processBatch(
         });
       }
     }
-
-    // Create passports for all newly created variants
-    await batchCreatePassportsForVariants(
-      db,
-      ctx.brandId,
-      inserted.map((v, i) => ({
-        variantId: v.id,
-        upid: upids[i]!,
-        sku: variantCreates[i]?.sku,
-        barcode: variantCreates[i]?.barcode,
-      })),
-    );
     result.queries.variantCreates += 1; // One more query for passport creation
+
+    ctx.totalExistingVariants += allPendingOps.variantCreates.length;
   }
 
   // GROUP 4: Variant links and attributes (SEQUENTIAL to avoid deadlocks)

@@ -1,6 +1,11 @@
+/**
+ * Platform admin router for brand, billing, and membership operations.
+ */
 import { tasks } from "@trigger.dev/sdk/v3";
 import { and, asc, desc, eq, inArray, isNull, sql } from "@v1/db/queries";
 import {
+  FREE_CREDITS,
+  countPublishedPassports,
   computeNextBrandIdForUser,
   createBrand,
   createBrandInvites,
@@ -9,6 +14,7 @@ import {
 } from "@v1/db/queries/brand";
 import {
   brandBilling,
+  brandBillingInvoices,
   brandBillingEvents,
   brandInvites,
   brandLifecycle,
@@ -16,13 +22,31 @@ import {
   brandPlan,
   brands,
   platformAdminAuditLogs,
+  products,
+  productVariants,
   users,
 } from "@v1/db/schema";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
+import type {
+  BrandLifecyclePhase,
+} from "../../../lib/access-policy/types.js";
 import { brandCreateSchema } from "../../../schemas/brand.js";
 import { assignableRoleSchema } from "../../../schemas/_shared/domain.js";
+import { createCheckoutSession } from "../../../lib/stripe/checkout.js";
+import { normalizeBillingInterval } from "../../../lib/stripe/config.js";
+import { findOrCreateStripeCustomer } from "../../../lib/stripe/customer.js";
+import {
+  createEnterpriseInvoice,
+  sendEnterpriseInvoice,
+  voidEnterpriseInvoice,
+} from "../../../lib/stripe/invoice.js";
+import {
+  isoToDate,
+  syncStripeSubscriptionProjectionById,
+  syncStripeInvoiceProjectionById,
+} from "../../../lib/stripe/projection.js";
 import { badRequest, notFound, wrapError } from "../../../utils/errors.js";
 import {
   createTRPCRouter,
@@ -47,6 +71,7 @@ const billingOverrideSchema = z.enum([
   "temporary_block",
 ]);
 const billingModeSchema = z.enum(["stripe_checkout", "stripe_invoice"]);
+const billingIntervalSchema = z.enum(["quarterly", "yearly"]);
 const planTypeSchema = z.enum(["starter", "growth", "scale", "enterprise"]);
 
 const platformInviteSendSchema = z.object({
@@ -125,20 +150,16 @@ const platformPlanUpdateSchema = z
   .object({
     brand_id: z.string().uuid(),
     plan_type: planTypeSchema.nullable().optional(),
-    sku_annual_limit: z.number().int().min(0).nullable().optional(),
-    sku_onboarding_limit: z.number().int().min(0).nullable().optional(),
-    sku_limit_override: z.number().int().min(0).nullable().optional(),
     billing_mode: billingModeSchema.nullable().optional(),
-    custom_monthly_price_cents: z.number().int().min(0).nullable().optional(),
+    billing_interval: billingIntervalSchema.nullable().optional(),
+    custom_price_cents: z.number().int().min(0).nullable().optional(),
   })
   .superRefine((value, ctx) => {
     if (
       value.plan_type === undefined &&
-      value.sku_annual_limit === undefined &&
-      value.sku_onboarding_limit === undefined &&
-      value.sku_limit_override === undefined &&
       value.billing_mode === undefined &&
-      value.custom_monthly_price_cents === undefined
+      value.billing_interval === undefined &&
+      value.custom_price_cents === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -151,6 +172,54 @@ const platformBillingOverrideSchema = z.object({
   brand_id: z.string().uuid(),
   override: billingOverrideSchema,
   expires_at: z.string().datetime().nullable().optional(),
+});
+
+const platformEnterpriseInvoiceSchema = z
+  .object({
+    brand_id: z.string().uuid(),
+    recipient_name: z.string().trim().min(1).max(255),
+    recipient_email: z.string().trim().email(),
+    recipient_tax_id: z.string().trim().max(100).nullable().optional(),
+    recipient_address_line_1: z.string().trim().max(255).nullable().optional(),
+    recipient_address_line_2: z.string().trim().max(255).nullable().optional(),
+    recipient_address_city: z.string().trim().max(255).nullable().optional(),
+    recipient_address_region: z.string().trim().max(255).nullable().optional(),
+    recipient_address_postal_code: z
+      .string()
+      .trim()
+      .max(50)
+      .nullable()
+      .optional(),
+    recipient_address_country: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .length(2)
+      .nullable()
+      .optional(),
+    description: z.string().trim().min(1).max(500),
+    amount_cents: z.number().int().positive(),
+    currency: z.string().trim().toLowerCase().length(3).default("eur"),
+    service_period_start: z.string().datetime(),
+    service_period_end: z.string().datetime().optional(),
+    due_date: z.string().datetime().nullable().optional(),
+    days_until_due: z.number().int().min(1).max(365).nullable().optional(),
+    footer: z.string().trim().max(1000).nullable().optional(),
+    internal_reference: z.string().trim().max(255).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.due_date && value.days_until_due) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide either due_date or days_until_due, not both",
+        path: ["due_date"],
+      });
+    }
+  });
+
+const platformInvoiceActionSchema = z.object({
+  brand_id: z.string().uuid(),
+  invoice_id: z.string().min(1),
 });
 
 const platformMemberRemoveSchema = z.object({
@@ -166,10 +235,6 @@ const platformAuditListSchema = z.object({
   brand_id: z.string().uuid(),
   page: z.number().int().min(1).default(1),
   page_size: z.number().int().min(1).max(100).default(25),
-});
-
-const platformBillingStubSchema = z.object({
-  brand_id: z.string().uuid(),
 });
 
 type InviteResultRow = {
@@ -203,6 +268,21 @@ function buildStorageProxyUrl(
   return `${getAppUrl()}/api/storage/${bucket}/${encoded}`;
 }
 
+/**
+ * Builds a normalized credit usage snapshot for admin responses.
+ */
+function buildCreditUsage(totalCredits: number, publishedCount: number) {
+  const remaining = Math.max(0, totalCredits - publishedCount);
+  const utilization = totalCredits === 0 ? 1 : publishedCount / totalCredits;
+
+  return {
+    total: totalCredits,
+    published: publishedCount,
+    remaining,
+    utilization,
+  };
+}
+
 async function logPlatformAdminAction(
   ctx: AuthenticatedTRPCContext,
   input: {
@@ -219,6 +299,29 @@ async function logPlatformAdminAction(
     resourceId: input.resourceId,
     payload: input.payload,
   });
+}
+
+/**
+ * Computes the service-period end by adding one calendar year to the start.
+ */
+function addOneYearIso(startIso: string): string {
+  const value = new Date(startIso);
+  value.setUTCFullYear(value.getUTCFullYear() + 1);
+  return value.toISOString();
+}
+
+/**
+ * Derives the billing mode from the selected plan type.
+ */
+function deriveBillingModeFromPlanType(
+  planType: "starter" | "growth" | "scale" | "enterprise" | null,
+): "stripe_checkout" | "stripe_invoice" | null {
+  if (planType === "enterprise") return "stripe_invoice";
+  if (planType === "starter" || planType === "growth" || planType === "scale") {
+    return "stripe_checkout";
+  }
+
+  return null;
 }
 
 async function triggerInviteEmails(invites: InviteResultRow[]) {
@@ -344,33 +447,12 @@ export const platformAdminRouter = createTRPCRouter({
 
         const whereClause = and(...filters);
         const membersCountExpr = sql<number>`COUNT(${brandMembers.userId})::int`;
-        const sortDirection = input.sort_dir === "asc" ? asc : desc;
-        const sortExpression = (() => {
-          switch (input.sort_by) {
-            case "name":
-              return brands.name;
-            case "phase":
-              return sql`COALESCE(${brandLifecycle.phase}, 'demo')`;
-            case "plan":
-              return sql`COALESCE(${brandPlan.planType}, '')`;
-            case "sku_usage":
-              return sql`COALESCE(${brandPlan.skusCreatedThisYear}, 0)`;
-            case "trial_ends":
-              return sql`COALESCE(${brandLifecycle.trialEndsAt}, '1970-01-01T00:00:00.000Z'::timestamptz)`;
-            case "members":
-              return sql`COUNT(${brandMembers.userId})`;
-            default:
-              return brands.createdAt;
-          }
-        })();
-
-        const [countRow] = await ctx.db
-          .select({
-            total: sql<number>`COUNT(DISTINCT ${brands.id})::int`,
-          })
-          .from(brands)
-          .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brands.id))
-          .where(whereClause);
+        const publishedCountExpr = sql<number>`(
+          SELECT COUNT(*)::int
+          FROM ${products}
+          WHERE ${products.brandId} = ${brands.id}
+            AND ${products.status} = 'published'
+        )`;
 
         const rows = await ctx.db
           .select({
@@ -379,11 +461,11 @@ export const platformAdminRouter = createTRPCRouter({
             slug: brands.slug,
             createdAt: brands.createdAt,
             phase: brandLifecycle.phase,
+            trialStartedAt: brandLifecycle.trialStartedAt,
             trialEndsAt: brandLifecycle.trialEndsAt,
             planType: brandPlan.planType,
-            skuAnnualLimit: brandPlan.skuAnnualLimit,
-            skuLimitOverride: brandPlan.skuLimitOverride,
-            skusCreatedThisYear: brandPlan.skusCreatedThisYear,
+            totalCredits: brandPlan.totalCredits,
+            publishedCount: publishedCountExpr,
             membersCount: membersCountExpr,
           })
           .from(brands)
@@ -403,19 +485,18 @@ export const platformAdminRouter = createTRPCRouter({
             brands.slug,
             brands.createdAt,
             brandLifecycle.phase,
+            brandLifecycle.trialStartedAt,
             brandLifecycle.trialEndsAt,
             brandPlan.planType,
-            brandPlan.skuAnnualLimit,
-            brandPlan.skuLimitOverride,
-            brandPlan.skusCreatedThisYear,
+            brandPlan.totalCredits,
           )
-          .orderBy(sortDirection(sortExpression), asc(brands.id))
-          .limit(input.page_size)
-          .offset((input.page - 1) * input.page_size);
+          .orderBy(asc(brands.id));
 
         const items = rows.map((row) => {
-          const annualLimit = row.skuLimitOverride ?? row.skuAnnualLimit;
-          const annualUsed = row.skusCreatedThisYear ?? 0;
+          const creditUsage = buildCreditUsage(
+            row.totalCredits ?? 0,
+            row.publishedCount ?? 0,
+          );
 
           return {
             id: row.id,
@@ -425,17 +506,58 @@ export const platformAdminRouter = createTRPCRouter({
             phase: row.phase ?? "demo",
             plan_type: row.planType,
             sku_usage: {
-              used: annualUsed,
-              limit: annualLimit,
+              used: creditUsage.published,
+              limit: creditUsage.total,
             },
             trial_ends_at: row.trialEndsAt,
             members_count: row.membersCount,
           };
         });
 
+        const direction = input.sort_dir === "asc" ? 1 : -1;
+        const sortedItems = [...items].sort((left, right) => {
+          const compareValue = (() => {
+            switch (input.sort_by) {
+              case "name":
+                return left.name.localeCompare(right.name);
+              case "phase":
+                return left.phase.localeCompare(right.phase);
+              case "plan":
+                return (left.plan_type ?? "").localeCompare(right.plan_type ?? "");
+              case "sku_usage":
+                return left.sku_usage.used - right.sku_usage.used;
+              case "trial_ends": {
+                const leftTime = left.trial_ends_at
+                  ? Date.parse(left.trial_ends_at)
+                  : 0;
+                const rightTime = right.trial_ends_at
+                  ? Date.parse(right.trial_ends_at)
+                  : 0;
+                return leftTime - rightTime;
+              }
+              case "members":
+                return left.members_count - right.members_count;
+              default:
+                return (
+                  Date.parse(left.created_at) - Date.parse(right.created_at)
+                );
+            }
+          })();
+
+          if (compareValue !== 0) {
+            return compareValue * direction;
+          }
+
+          return left.id.localeCompare(right.id);
+        });
+        const paginatedItems = sortedItems.slice(
+          (input.page - 1) * input.page_size,
+          input.page * input.page_size,
+        );
+
         return {
-          items,
-          total: countRow?.total ?? 0,
+          items: paginatedItems,
+          total: items.length,
           page: input.page,
           page_size: input.page_size,
         };
@@ -444,6 +566,26 @@ export const platformAdminRouter = createTRPCRouter({
     get: platformAdminProcedure
       .input(platformBrandIdSchema)
       .query(async ({ ctx, input }) => {
+        const [billingLink] = await ctx.db
+          .select({
+            billingMode: brandBilling.billingMode,
+            stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+          })
+          .from(brandBilling)
+          .where(eq(brandBilling.brandId, input.brand_id))
+          .limit(1);
+
+        if (
+          billingLink?.billingMode === "stripe_checkout" &&
+          billingLink.stripeSubscriptionId
+        ) {
+          await syncStripeSubscriptionProjectionById({
+            db: ctx.db,
+            subscriptionId: billingLink.stripeSubscriptionId,
+            brandId: input.brand_id,
+          });
+        }
+
         const [brand] = await ctx.db
           .select({
             id: brands.id,
@@ -461,20 +603,30 @@ export const platformAdminRouter = createTRPCRouter({
             hardDeleteAfter: brandLifecycle.hardDeleteAfter,
             planType: brandPlan.planType,
             planSelectedAt: brandPlan.planSelectedAt,
-            skuAnnualLimit: brandPlan.skuAnnualLimit,
-            skuOnboardingLimit: brandPlan.skuOnboardingLimit,
-            skuLimitOverride: brandPlan.skuLimitOverride,
-            skusCreatedThisYear: brandPlan.skusCreatedThisYear,
-            skusCreatedOnboarding: brandPlan.skusCreatedOnboarding,
-            skuYearStart: brandPlan.skuYearStart,
+            totalCredits: brandPlan.totalCredits,
+            onboardingDiscountUsed: brandPlan.onboardingDiscountUsed,
+            billingInterval: brandPlan.billingInterval,
             maxSeats: brandPlan.maxSeats,
             billingMode: brandBilling.billingMode,
             stripeCustomerId: brandBilling.stripeCustomerId,
             stripeSubscriptionId: brandBilling.stripeSubscriptionId,
             planCurrency: brandBilling.planCurrency,
-            customMonthlyPriceCents: brandBilling.customMonthlyPriceCents,
+            customPriceCents: brandBilling.customPriceCents,
+            currentPeriodStart: brandBilling.currentPeriodStart,
+            currentPeriodEnd: brandBilling.currentPeriodEnd,
+            pastDueSince: brandBilling.pastDueSince,
+            pendingCancellation: brandBilling.pendingCancellation,
             billingAccessOverride: brandBilling.billingAccessOverride,
             billingOverrideExpiresAt: brandBilling.billingOverrideExpiresAt,
+            billingLegalName: brandBilling.billingLegalName,
+            billingEmail: brandBilling.billingEmail,
+            billingTaxId: brandBilling.billingTaxId,
+            billingAddressLine1: brandBilling.billingAddressLine1,
+            billingAddressLine2: brandBilling.billingAddressLine2,
+            billingAddressCity: brandBilling.billingAddressCity,
+            billingAddressRegion: brandBilling.billingAddressRegion,
+            billingAddressPostalCode: brandBilling.billingAddressPostalCode,
+            billingAddressCountry: brandBilling.billingAddressCountry,
           })
           .from(brands)
           .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brands.id))
@@ -486,6 +638,15 @@ export const platformAdminRouter = createTRPCRouter({
         if (!brand) {
           throw notFound("Brand", input.brand_id);
         }
+
+        const publishedCount = await countPublishedPassports(
+          ctx.db,
+          input.brand_id,
+        );
+        const creditUsage = buildCreditUsage(
+          brand.totalCredits ?? 0,
+          publishedCount,
+        );
 
         const [memberCount] = await ctx.db
           .select({
@@ -519,17 +680,38 @@ export const platformAdminRouter = createTRPCRouter({
           .orderBy(desc(brandBillingEvents.createdAt))
           .limit(10);
 
-        const annualLimit = brand.skuLimitOverride ?? brand.skuAnnualLimit;
-        const annualUsed = brand.skusCreatedThisYear ?? 0;
-        const annualRemaining =
-          annualLimit === null ? null : Math.max(annualLimit - annualUsed, 0);
-
-        const onboardingLimit = brand.skuOnboardingLimit;
-        const onboardingUsed = brand.skusCreatedOnboarding ?? 0;
-        const onboardingRemaining =
-          onboardingLimit === null
-            ? null
-            : Math.max(onboardingLimit - onboardingUsed, 0);
+        const invoiceRows = await ctx.db
+          .select({
+            id: brandBillingInvoices.id,
+            stripe_invoice_id: brandBillingInvoices.stripeInvoiceId,
+            status: brandBillingInvoices.status,
+            collection_method: brandBillingInvoices.collectionMethod,
+            currency: brandBillingInvoices.currency,
+            amount_due: brandBillingInvoices.amountDue,
+            amount_paid: brandBillingInvoices.amountPaid,
+            amount_remaining: brandBillingInvoices.amountRemaining,
+            due_date: brandBillingInvoices.dueDate,
+            paid_at: brandBillingInvoices.paidAt,
+            voided_at: brandBillingInvoices.voidedAt,
+            hosted_invoice_url: brandBillingInvoices.hostedInvoiceUrl,
+            invoice_pdf_url: brandBillingInvoices.invoicePdfUrl,
+            invoice_number: brandBillingInvoices.invoiceNumber,
+            service_period_start: brandBillingInvoices.servicePeriodStart,
+            service_period_end: brandBillingInvoices.servicePeriodEnd,
+            recipient_name: brandBillingInvoices.recipientName,
+            recipient_email: brandBillingInvoices.recipientEmail,
+            description: brandBillingInvoices.description,
+            internal_reference: brandBillingInvoices.internalReference,
+            managed_by_avelero: brandBillingInvoices.managedByAvelero,
+            last_synced_from_stripe_at: brandBillingInvoices.lastSyncedFromStripeAt,
+            last_stripe_event_id: brandBillingInvoices.lastStripeEventId,
+            created_at: brandBillingInvoices.createdAt,
+            updated_at: brandBillingInvoices.updatedAt,
+          })
+          .from(brandBillingInvoices)
+          .where(eq(brandBillingInvoices.brandId, input.brand_id))
+          .orderBy(desc(brandBillingInvoices.createdAt))
+          .limit(20);
 
         return {
           brand: {
@@ -554,24 +736,20 @@ export const platformAdminRouter = createTRPCRouter({
           plan: {
             plan_type: brand.planType,
             plan_selected_at: brand.planSelectedAt,
-            sku_annual_limit: brand.skuAnnualLimit,
-            sku_onboarding_limit: brand.skuOnboardingLimit,
-            sku_limit_override: brand.skuLimitOverride,
-            skus_created_this_year: annualUsed,
-            skus_created_onboarding: onboardingUsed,
-            sku_year_start: brand.skuYearStart,
+            billing_interval: brand.billingInterval,
+            total_credits: brand.totalCredits ?? 0,
+            published_count: publishedCount,
+            remaining_credits: creditUsage.remaining,
+            utilization: creditUsage.utilization,
+            onboarding_discount_used: brand.onboardingDiscountUsed ?? false,
             max_seats: brand.maxSeats,
           },
           usage: {
-            annual: {
-              used: annualUsed,
-              limit: annualLimit,
-              remaining: annualRemaining,
-            },
-            onboarding: {
-              used: onboardingUsed,
-              limit: onboardingLimit,
-              remaining: onboardingRemaining,
+            credits: {
+              total: creditUsage.total,
+              published: creditUsage.published,
+              remaining: creditUsage.remaining,
+              utilization: creditUsage.utilization,
             },
           },
           billing: {
@@ -579,9 +757,23 @@ export const platformAdminRouter = createTRPCRouter({
             stripe_customer_id: brand.stripeCustomerId,
             stripe_subscription_id: brand.stripeSubscriptionId,
             plan_currency: brand.planCurrency,
-            custom_monthly_price_cents: brand.customMonthlyPriceCents,
+            custom_price_cents: brand.customPriceCents,
+            current_period_start: brand.currentPeriodStart,
+            current_period_end: brand.currentPeriodEnd,
+            past_due_since: brand.pastDueSince,
+            pending_cancellation: brand.pendingCancellation,
             billing_access_override: brand.billingAccessOverride,
             billing_override_expires_at: brand.billingOverrideExpiresAt,
+            billing_legal_name: brand.billingLegalName,
+            billing_email: brand.billingEmail,
+            billing_tax_id: brand.billingTaxId,
+            billing_address_line_1: brand.billingAddressLine1,
+            billing_address_line_2: brand.billingAddressLine2,
+            billing_address_city: brand.billingAddressCity,
+            billing_address_region: brand.billingAddressRegion,
+            billing_address_postal_code: brand.billingAddressPostalCode,
+            billing_address_country: brand.billingAddressCountry,
+            invoices: invoiceRows,
             events: billingEvents,
           },
         };
@@ -676,6 +868,14 @@ export const platformAdminRouter = createTRPCRouter({
             trialEndsAt: input.trial_ends_at,
           })
           .where(eq(brandLifecycle.brandId, input.brand_id));
+
+        await ctx.db
+          .update(brandPlan)
+          .set({
+            totalCredits: sql`GREATEST(${brandPlan.totalCredits}, ${FREE_CREDITS})`,
+            updatedAt: nowIso,
+          })
+          .where(eq(brandPlan.brandId, input.brand_id));
 
         await logPlatformAdminAction(ctx, {
           action: "platform_admin.lifecycle.extend_trial",
@@ -823,40 +1023,85 @@ export const platformAdminRouter = createTRPCRouter({
       .input(platformPlanUpdateSchema)
       .mutation(async ({ ctx, input }) => {
         const nowIso = new Date().toISOString();
+        const [existingPlanState] = await ctx.db
+          .select({
+            planType: brandPlan.planType,
+            billingInterval: brandPlan.billingInterval,
+            billingMode: brandBilling.billingMode,
+            currentPeriodStart: brandBilling.currentPeriodStart,
+            currentPeriodEnd: brandBilling.currentPeriodEnd,
+            lifecyclePhase: brandLifecycle.phase,
+          })
+          .from(brandPlan)
+          .leftJoin(brandBilling, eq(brandBilling.brandId, brandPlan.brandId))
+          .leftJoin(brandLifecycle, eq(brandLifecycle.brandId, brandPlan.brandId))
+          .where(eq(brandPlan.brandId, input.brand_id))
+          .limit(1);
+
+        if (!existingPlanState) {
+          throw badRequest("Brand plan row not found");
+        }
+
+        const nextPlanType = (
+          input.plan_type !== undefined
+            ? input.plan_type
+            : existingPlanState.planType
+        ) as "starter" | "growth" | "scale" | "enterprise" | null;
+        const nextBillingMode = deriveBillingModeFromPlanType(nextPlanType);
+        const nextBillingInterval =
+          input.billing_interval !== undefined
+            ? input.billing_interval
+            : existingPlanState.billingInterval;
 
         const planUpdates: Partial<{
           planType: "starter" | "growth" | "scale" | "enterprise" | null;
           planSelectedAt: string | null;
-          skuAnnualLimit: number | null;
-          skuOnboardingLimit: number | null;
-          skuLimitOverride: number | null;
+          billingInterval: "quarterly" | "yearly" | null;
         }> = {};
 
         const billingUpdates: Partial<{
           billingMode: "stripe_checkout" | "stripe_invoice" | null;
-          customMonthlyPriceCents: number | null;
+          customPriceCents: number | null;
+          currentPeriodStart: string | null;
+          currentPeriodEnd: string | null;
         }> = {};
+
+        if (nextPlanType === "enterprise" && nextBillingInterval === "quarterly") {
+          throw badRequest("Enterprise billing is yearly-only");
+        }
 
         if (input.plan_type !== undefined) {
           planUpdates.planType = input.plan_type;
           planUpdates.planSelectedAt = input.plan_type ? nowIso : null;
         }
-        if (input.sku_annual_limit !== undefined) {
-          planUpdates.skuAnnualLimit = input.sku_annual_limit;
-        }
-        if (input.sku_onboarding_limit !== undefined) {
-          planUpdates.skuOnboardingLimit = input.sku_onboarding_limit;
-        }
-        if (input.sku_limit_override !== undefined) {
-          planUpdates.skuLimitOverride = input.sku_limit_override;
+        if (input.billing_interval !== undefined) {
+          planUpdates.billingInterval = input.billing_interval;
         }
 
-        if (input.billing_mode !== undefined) {
-          billingUpdates.billingMode = input.billing_mode;
+        if (input.custom_price_cents !== undefined) {
+          billingUpdates.customPriceCents = input.custom_price_cents;
         }
-        if (input.custom_monthly_price_cents !== undefined) {
-          billingUpdates.customMonthlyPriceCents =
-            input.custom_monthly_price_cents;
+
+        if (existingPlanState.billingMode !== nextBillingMode) {
+          billingUpdates.billingMode = nextBillingMode;
+        }
+
+        if (input.plan_type === null) {
+          planUpdates.billingInterval = null;
+          billingUpdates.currentPeriodStart = null;
+          billingUpdates.currentPeriodEnd = null;
+        }
+
+        if (nextPlanType === "enterprise") {
+          planUpdates.billingInterval = "yearly";
+
+          const anchorStart =
+            existingPlanState.currentPeriodStart ?? nowIso;
+
+          if (!existingPlanState.currentPeriodStart && nextBillingMode === "stripe_invoice") {
+            billingUpdates.currentPeriodStart = anchorStart;
+            billingUpdates.currentPeriodEnd = addOneYearIso(anchorStart);
+          }
         }
 
         if (Object.keys(planUpdates).length > 0) {
@@ -871,6 +1116,22 @@ export const platformAdminRouter = createTRPCRouter({
             .update(brandBilling)
             .set(billingUpdates)
             .where(eq(brandBilling.brandId, input.brand_id));
+        }
+
+        if (
+          nextPlanType === "enterprise" &&
+          nextBillingMode === "stripe_invoice" &&
+          existingPlanState.lifecyclePhase !== "suspended"
+        ) {
+          await ctx.db
+            .update(brandLifecycle)
+            .set({
+              phase: "active",
+              phaseChangedAt: nowIso,
+              cancelledAt: null,
+              hardDeleteAfter: null,
+            })
+            .where(eq(brandLifecycle.brandId, input.brand_id));
         }
 
         await logPlatformAdminAction(ctx, {
@@ -916,22 +1177,308 @@ export const platformAdminRouter = createTRPCRouter({
       }),
 
     createCheckoutLink: platformAdminProcedure
-      .input(platformBillingStubSchema)
-      .mutation(async ({ input }) => ({
-        ok: false as const,
-        code: "U5_PENDING" as const,
-        brand_id: input.brand_id,
-        message: "Checkout link creation is part of Undertaking 5.",
-      })),
+      .input(
+        z.object({
+          brand_id: z.string().uuid(),
+          tier: z.enum(["starter", "growth", "scale"]),
+          interval: z.enum(["quarterly", "yearly"]),
+          include_impact: z.boolean().default(false),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { db } = ctx;
+
+        const [billingState] = await db
+          .select({
+            phase: brandLifecycle.phase,
+            billingMode: brandBilling.billingMode,
+            stripeSubscriptionId: brandBilling.stripeSubscriptionId,
+          })
+          .from(brandLifecycle)
+          .leftJoin(brandBilling, eq(brandBilling.brandId, brandLifecycle.brandId))
+          .where(eq(brandLifecycle.brandId, input.brand_id))
+          .limit(1);
+
+        if (!billingState) {
+          throw badRequest("Brand billing state not found");
+        }
+
+        if (billingState.stripeSubscriptionId) {
+          throw badRequest("Brand already has an active Stripe subscription");
+        }
+
+        if (billingState.billingMode === "stripe_invoice") {
+          throw badRequest(
+            "Checkout links are not available for enterprise invoice billing",
+          );
+        }
+
+        if (
+          !["trial", "expired", "cancelled"].includes(billingState.phase)
+        ) {
+          throw badRequest(
+            "Checkout links can only be created for trial, expired, or cancelled brands that need to start or restart checkout billing.",
+          );
+        }
+
+        const [brand] = await db
+          .select({ name: brands.name, email: brands.email })
+          .from(brands)
+          .where(eq(brands.id, input.brand_id))
+          .limit(1);
+
+        if (!brand) {
+          throw notFound("Brand not found");
+        }
+
+        if (!brand.email) {
+          throw badRequest(
+            "Brand has no email set. Set the brand email first before creating a checkout link.",
+          );
+        }
+
+        const stripeCustomerId = await findOrCreateStripeCustomer({
+          brandId: input.brand_id,
+          brandName: brand.name,
+          email: brand.email,
+          db,
+        });
+
+        const appUrl = getAppUrl();
+        const normalizedInterval = normalizeBillingInterval(input.interval);
+
+        if (!normalizedInterval) {
+          throw badRequest("Unsupported billing interval for Stripe Checkout");
+        }
+
+        const session = await createCheckoutSession({
+          brandId: input.brand_id,
+          stripeCustomerId,
+          tier: input.tier,
+          interval: normalizedInterval,
+          includeImpact: input.include_impact,
+          successUrl: `${appUrl}/settings/billing?checkout=success`,
+          cancelUrl: `${appUrl}/settings/billing?checkout=cancelled`,
+        });
+
+        await logPlatformAdminAction(ctx, {
+          action: "platform_admin.billing.create_checkout_link",
+          resourceType: "brand",
+          resourceId: input.brand_id,
+          payload: {
+            brandId: input.brand_id,
+            tier: input.tier,
+            interval: input.interval,
+            includeImpact: input.include_impact,
+            checkoutUrl: session.url,
+          },
+        });
+
+        return { ok: true as const, url: session.url };
+      }),
 
     createInvoice: platformAdminProcedure
-      .input(platformBillingStubSchema)
-      .mutation(async ({ input }) => ({
-        ok: false as const,
-        code: "U5_PENDING" as const,
-        brand_id: input.brand_id,
-        message: "Invoice creation is part of Undertaking 5.",
-      })),
+      .input(platformEnterpriseInvoiceSchema)
+      .mutation(async ({ ctx, input }) => {
+        const { db } = ctx;
+
+        const [brand] = await db
+          .select({
+            name: brands.name,
+            billingMode: brandBilling.billingMode,
+            currentPeriodStart: brandBilling.currentPeriodStart,
+            currentPeriodEnd: brandBilling.currentPeriodEnd,
+          })
+          .from(brands)
+          .leftJoin(brandBilling, eq(brandBilling.brandId, brands.id))
+          .where(eq(brands.id, input.brand_id))
+          .limit(1);
+
+        if (!brand) {
+          throw notFound("Brand not found");
+        }
+
+        if (brand.billingMode !== "stripe_invoice") {
+          throw badRequest(
+            "Invoices can only be created for Enterprise brands (billing_mode = stripe_invoice)",
+          );
+        }
+
+        const servicePeriodEnd =
+          input.service_period_end ?? addOneYearIso(input.service_period_start);
+
+        const stripeCustomerId = await findOrCreateStripeCustomer({
+          brandId: input.brand_id,
+          brandName: brand.name,
+          email: input.recipient_email,
+          db,
+          billingProfile: {
+            legalName: input.recipient_name,
+            billingEmail: input.recipient_email,
+            addressLine1: input.recipient_address_line_1 ?? null,
+            addressLine2: input.recipient_address_line_2 ?? null,
+            city: input.recipient_address_city ?? null,
+            region: input.recipient_address_region ?? null,
+            postalCode: input.recipient_address_postal_code ?? null,
+            country: input.recipient_address_country ?? null,
+          },
+        });
+
+        await db
+          .update(brandBilling)
+          .set({
+            billingLegalName: input.recipient_name,
+            billingEmail: input.recipient_email,
+            billingTaxId: input.recipient_tax_id ?? null,
+            billingAddressLine1: input.recipient_address_line_1 ?? null,
+            billingAddressLine2: input.recipient_address_line_2 ?? null,
+            billingAddressCity: input.recipient_address_city ?? null,
+            billingAddressRegion: input.recipient_address_region ?? null,
+            billingAddressPostalCode: input.recipient_address_postal_code ?? null,
+            billingAddressCountry: input.recipient_address_country ?? null,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(brandBilling.brandId, input.brand_id));
+
+        const result = await createEnterpriseInvoice({
+          brandId: input.brand_id,
+          stripeCustomerId,
+          amountCents: input.amount_cents,
+          currency: input.currency,
+          description: input.description,
+          recipient: {
+            name: input.recipient_name,
+            email: input.recipient_email,
+            taxId: input.recipient_tax_id ?? null,
+            addressLine1: input.recipient_address_line_1 ?? null,
+            addressLine2: input.recipient_address_line_2 ?? null,
+            city: input.recipient_address_city ?? null,
+            region: input.recipient_address_region ?? null,
+            postalCode: input.recipient_address_postal_code ?? null,
+            country: input.recipient_address_country ?? null,
+          },
+          servicePeriodStart: input.service_period_start,
+          servicePeriodEnd: servicePeriodEnd,
+          dueDate: input.due_date ?? null,
+          daysUntilDue: input.days_until_due ?? null,
+          footer: input.footer ?? null,
+          internalReference: input.internal_reference ?? null,
+        });
+
+        await syncStripeInvoiceProjectionById({
+          db,
+          invoiceId: result.invoiceId,
+          brandId: input.brand_id,
+        });
+
+        if (!brand.currentPeriodStart || !brand.currentPeriodEnd) {
+          await db
+            .update(brandBilling)
+            .set({
+              currentPeriodStart: input.service_period_start,
+              currentPeriodEnd: servicePeriodEnd,
+              updatedAt: new Date().toISOString(),
+            })
+            .where(eq(brandBilling.brandId, input.brand_id));
+
+          await db
+            .update(brandPlan)
+            .set({
+              billingInterval: "yearly",
+              updatedAt: new Date().toISOString(),
+            })
+            .where(eq(brandPlan.brandId, input.brand_id));
+        }
+
+        await logPlatformAdminAction(ctx, {
+          action: "platform_admin.billing.create_invoice",
+          resourceType: "brand",
+          resourceId: input.brand_id,
+          payload: {
+            brandId: input.brand_id,
+            amountCents: input.amount_cents,
+            description: input.description,
+            invoiceId: result.invoiceId,
+            servicePeriodStart: input.service_period_start,
+            servicePeriodEnd,
+          },
+        });
+
+        return {
+          ok: true as const,
+          invoice_id: result.invoiceId,
+          invoice_url: result.invoiceUrl,
+          invoice_status: result.status,
+        };
+      }),
+
+    resendInvoice: platformAdminProcedure
+      .input(platformInvoiceActionSchema)
+      .mutation(async ({ ctx, input }) => {
+        await sendEnterpriseInvoice(input.invoice_id);
+        await syncStripeInvoiceProjectionById({
+          db: ctx.db,
+          invoiceId: input.invoice_id,
+          brandId: input.brand_id,
+        });
+
+        await logPlatformAdminAction(ctx, {
+          action: "platform_admin.billing.resend_invoice",
+          resourceType: "brand",
+          resourceId: input.brand_id,
+          payload: {
+            brandId: input.brand_id,
+            invoiceId: input.invoice_id,
+          },
+        });
+
+        return { success: true as const };
+      }),
+
+    voidInvoice: platformAdminProcedure
+      .input(platformInvoiceActionSchema)
+      .mutation(async ({ ctx, input }) => {
+        await voidEnterpriseInvoice(input.invoice_id);
+        await syncStripeInvoiceProjectionById({
+          db: ctx.db,
+          invoiceId: input.invoice_id,
+          brandId: input.brand_id,
+        });
+
+        await logPlatformAdminAction(ctx, {
+          action: "platform_admin.billing.void_invoice",
+          resourceType: "brand",
+          resourceId: input.brand_id,
+          payload: {
+            brandId: input.brand_id,
+            invoiceId: input.invoice_id,
+          },
+        });
+
+        return { success: true as const };
+      }),
+
+    syncInvoice: platformAdminProcedure
+      .input(platformInvoiceActionSchema)
+      .mutation(async ({ ctx, input }) => {
+        await syncStripeInvoiceProjectionById({
+          db: ctx.db,
+          invoiceId: input.invoice_id,
+          brandId: input.brand_id,
+        });
+
+        await logPlatformAdminAction(ctx, {
+          action: "platform_admin.billing.sync_invoice",
+          resourceType: "brand",
+          resourceId: input.brand_id,
+          payload: {
+            brandId: input.brand_id,
+            invoiceId: input.invoice_id,
+          },
+        });
+
+        return { success: true as const };
+      }),
   }),
 
   invites: createTRPCRouter({

@@ -1,3 +1,6 @@
+/**
+ * Brand creation, lookup, and membership query helpers.
+ */
 import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { createDefaultPassport } from "@v1/dpp-components";
 import type { Database } from "../../client";
@@ -245,6 +248,7 @@ export async function createBrand(
     creatorRole?: "owner" | "avelero";
   },
 ) {
+  // Create the full brand foundation row-set, including the default free credit grant.
   const creatorRole = options?.creatorRole ?? "owner";
 
   let slug: string;
@@ -285,12 +289,6 @@ export async function createBrand(
       brandId: brand.id,
       planType: null,
       planSelectedAt: null,
-      skuAnnualLimit: null,
-      skuOnboardingLimit: null,
-      skuLimitOverride: null,
-      skuYearStart: null,
-      skusCreatedThisYear: 0,
-      skusCreatedOnboarding: 0,
       maxSeats: null,
     });
 
@@ -300,7 +298,7 @@ export async function createBrand(
       stripeCustomerId: null,
       stripeSubscriptionId: null,
       planCurrency: "EUR",
-      customMonthlyPriceCents: null,
+      customPriceCents: null,
       billingAccessOverride: "none",
       billingOverrideExpiresAt: null,
     });

@@ -267,14 +267,17 @@ describe("getErrorReportRows", () => {
         rowStatus: "PENDING_WITH_WARNINGS",
         productErrors: [
           {
-            field: "Status",
-            message: 'Invalid status. Defaulting to "unpublished".',
+            field: "Category",
+            message: 'Category not found: "Unknown > Category". Field skipped.',
           },
         ],
         variants: [
           {
             rowNumber: 4,
-            rawData: { "Product Title": "Product", Status: "xyz" },
+            rawData: {
+              "Product Title": "Product",
+              Category: "Unknown > Category",
+            },
             errors: [],
           },
           {

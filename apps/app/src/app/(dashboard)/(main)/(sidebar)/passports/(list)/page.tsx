@@ -1,3 +1,6 @@
+/**
+ * Passports list page with SKU-aware creation controls and warnings.
+ */
 import {
   ControlBar,
   ControlBarLeft,
@@ -14,6 +17,7 @@ import { ExportButton } from "@/components/passports/export-button";
 import { SelectionProvider } from "@/components/passports/selection-context";
 import { TableSection } from "@/components/passports/table-section";
 import { TableSectionSkeleton } from "@/components/tables/passports/table-skeleton";
+import { getDashboardInit, isSidebarContentBlocked } from "@/lib/brand-access";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { Button } from "@v1/ui/button";
 import Link from "next/link";
@@ -24,11 +28,16 @@ import { Suspense } from "react";
 export default async function PassportsPage() {
   await connection();
 
+  const initDashboard = await getDashboardInit();
+  if (isSidebarContentBlocked(initDashboard.access.overlay)) {
+    return null;
+  }
+
   batchPrefetch([
+    trpc.brand.billing.getStatus.queryOptions(),
     trpc.summary.productStatus.queryOptions(),
     trpc.products.list.queryOptions({
       limit: 50,
-      includeVariants: true,
       includeAttributes: true,
     }),
     trpc.composite.catalogContent.queryOptions(),
@@ -63,16 +72,16 @@ export default async function PassportsPage() {
           <div className="flex w-full h-full justify-center items-start p-8 overflow-y-auto scrollbar-hide">
             <div className="w-full">
               <div className="flex flex-col gap-12">
-                <ErrorBoundary errorComponent={ErrorFallback}>
-                  <Suspense fallback={<DataSectionSkeleton />}>
-                    <DataSection />
-                  </Suspense>
-                </ErrorBoundary>
-                <ErrorBoundary errorComponent={ErrorFallback}>
-                  <Suspense fallback={<TableSectionSkeleton />}>
-                    <TableSection />
-                  </Suspense>
-                </ErrorBoundary>
+                  <ErrorBoundary errorComponent={ErrorFallback}>
+                    <Suspense fallback={<DataSectionSkeleton />}>
+                      <DataSection />
+                    </Suspense>
+                  </ErrorBoundary>
+                  <ErrorBoundary errorComponent={ErrorFallback}>
+                    <Suspense fallback={<TableSectionSkeleton />}>
+                      <TableSection />
+                    </Suspense>
+                  </ErrorBoundary>
               </div>
             </div>
           </div>

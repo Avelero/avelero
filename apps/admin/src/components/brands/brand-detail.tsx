@@ -2,6 +2,7 @@
 
 import { CountrySelect } from "@/components/select/country-select";
 import { MainSkeleton } from "@/components/main-skeleton";
+import { EnterpriseInvoiceSheet } from "@/components/brands/enterprise-invoice-sheet";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -42,6 +43,13 @@ function parseIntOrNull(value: string) {
   if (!value.trim()) return null;
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function formatMoneyCents(value: number, currency: string) {
+  return new Intl.NumberFormat("en-EU", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format(value / 100);
 }
 
 // ─── Reusable field layout helpers ───────────────────────────────────────────
@@ -179,13 +187,13 @@ const PLAN_TYPE_OPTIONS: {
   { value: "enterprise", label: "Enterprise" },
 ];
 
-const BILLING_MODE_OPTIONS: {
-  value: "" | "stripe_checkout" | "stripe_invoice";
+const BILLING_INTERVAL_OPTIONS: {
+  value: "" | "quarterly" | "yearly";
   label: string;
 }[] = [
-  { value: "", label: "No billing mode" },
-  { value: "stripe_checkout", label: "Stripe Checkout" },
-  { value: "stripe_invoice", label: "Stripe Invoice" },
+  { value: "", label: "No interval" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "yearly", label: "Yearly" },
 ];
 
 const INVITE_ROLE_OPTIONS: { value: "member" | "owner"; label: string }[] = [
@@ -231,18 +239,17 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
   const [planType, setPlanType] = useState<
     "" | "starter" | "growth" | "scale" | "enterprise"
   >("");
-  const [billingMode, setBillingMode] = useState<
-    "" | "stripe_checkout" | "stripe_invoice"
+  const [billingInterval, setBillingInterval] = useState<
+    "" | "quarterly" | "yearly"
   >("");
-  const [skuAnnualLimit, setSkuAnnualLimit] = useState("");
-  const [skuOnboardingLimit, setSkuOnboardingLimit] = useState("");
-  const [skuLimitOverride, setSkuLimitOverride] = useState("");
-  const [customMonthlyPriceCents, setCustomMonthlyPriceCents] = useState("");
+  const [customPriceCents, setCustomPriceCents] = useState("");
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"owner" | "member">("member");
 
   const [note, setNote] = useState("");
+
+  const [invoiceSheetOpen, setInvoiceSheetOpen] = useState(false);
 
   const loading =
     brandQuery.isLoading || membersQuery.isLoading || invitesQuery.isLoading;
@@ -288,30 +295,12 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
         | "scale"
         | "enterprise") ?? "",
     );
-    setBillingMode(
-      (brandData.billing.billing_mode as
-        | ""
-        | "stripe_checkout"
-        | "stripe_invoice") ?? "",
+    setBillingInterval(
+      (brandData.plan.billing_interval as "" | "quarterly" | "yearly") ?? "",
     );
-    setSkuAnnualLimit(
-      brandData.plan.sku_annual_limit !== null
-        ? String(brandData.plan.sku_annual_limit)
-        : "",
-    );
-    setSkuOnboardingLimit(
-      brandData.plan.sku_onboarding_limit !== null
-        ? String(brandData.plan.sku_onboarding_limit)
-        : "",
-    );
-    setSkuLimitOverride(
-      brandData.plan.sku_limit_override !== null
-        ? String(brandData.plan.sku_limit_override)
-        : "",
-    );
-    setCustomMonthlyPriceCents(
-      brandData.billing.custom_monthly_price_cents !== null
-        ? String(brandData.billing.custom_monthly_price_cents)
+    setCustomPriceCents(
+      brandData.billing.custom_price_cents !== null
+        ? String(brandData.billing.custom_price_cents)
         : "",
     );
   }, [brandData]);
@@ -475,21 +464,43 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
     }),
   );
 
-  const checkoutStubMutation = useMutation(
-    trpc.platformAdmin.billing.createCheckoutLink.mutationOptions({
-      onSuccess: (result) => {
-        toast.error(result.message);
+  const createInvoiceMutation = useMutation(
+    trpc.platformAdmin.billing.createInvoice.mutationOptions({
+      onSuccess: async (result) => {
+        if (result.invoice_url) {
+          await navigator.clipboard.writeText(result.invoice_url);
+          toast.success(`Invoice created and link copied: ${result.invoice_id}`);
+        } else {
+          toast.success(`Invoice created: ${result.invoice_id}`);
+        }
+
+        setInvoiceSheetOpen(false);
+        await refreshAll();
       },
-      onError: (error) => toast.error(error.message || "Action unavailable"),
+      onError: (error) =>
+        toast.error(error.message || "Failed to create invoice"),
     }),
   );
 
-  const invoiceStubMutation = useMutation(
-    trpc.platformAdmin.billing.createInvoice.mutationOptions({
-      onSuccess: (result) => {
-        toast.error(result.message);
+  const resendInvoiceMutation = useMutation(
+    trpc.platformAdmin.billing.resendInvoice.mutationOptions({
+      onSuccess: async () => {
+        toast.success("Invoice email sent");
+        await refreshAll();
       },
-      onError: (error) => toast.error(error.message || "Action unavailable"),
+      onError: (error) =>
+        toast.error(error.message || "Failed to resend invoice"),
+    }),
+  );
+
+  const voidInvoiceMutation = useMutation(
+    trpc.platformAdmin.billing.voidInvoice.mutationOptions({
+      onSuccess: async () => {
+        toast.success("Invoice voided");
+        await refreshAll();
+      },
+      onError: (error) =>
+        toast.error(error.message || "Failed to void invoice"),
     }),
   );
 
@@ -511,6 +522,14 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
       </div>
     );
   }
+
+  const canCreateInvoice = brandData.billing.billing_mode === "stripe_invoice";
+  const derivedBillingModeLabel =
+    planType === "enterprise"
+      ? "Stripe Invoice"
+      : planType
+        ? "Stripe Checkout"
+        : "No billing mode";
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -703,49 +722,44 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
           onChange={setPlanType}
           options={PLAN_TYPE_OPTIONS}
         />
+        <p className="type-small text-secondary">
+          Billing mode is determined by the selected plan:{" "}
+          <span className="text-primary">{derivedBillingModeLabel}</span>
+        </p>
         <SimpleSelect
-          label="Billing mode"
-          value={billingMode}
-          onChange={setBillingMode}
-          options={BILLING_MODE_OPTIONS}
+          label="Billing interval"
+          value={planType === "enterprise" ? "yearly" : billingInterval}
+          onChange={setBillingInterval}
+          options={BILLING_INTERVAL_OPTIONS}
         />
-        <FieldRow label="Custom monthly price (cents)">
+        <FieldRow
+          label={
+            planType === "enterprise"
+              ? "Custom yearly price (cents)"
+              : "Custom price (cents)"
+          }
+        >
           <Input
             type="number"
             placeholder="e.g. 4900"
-            value={customMonthlyPriceCents}
-            onChange={(e) => setCustomMonthlyPriceCents(e.target.value)}
+            value={customPriceCents}
+            onChange={(e) => setCustomPriceCents(e.target.value)}
           />
         </FieldRow>
-        <FieldRow label="SKU annual limit">
-          <Input
-            type="number"
-            placeholder="Leave empty for no limit"
-            value={skuAnnualLimit}
-            onChange={(e) => setSkuAnnualLimit(e.target.value)}
-          />
-        </FieldRow>
-        <FieldRow label="SKU onboarding limit">
-          <Input
-            type="number"
-            placeholder="Leave empty for no limit"
-            value={skuOnboardingLimit}
-            onChange={(e) => setSkuOnboardingLimit(e.target.value)}
-          />
-        </FieldRow>
-        <FieldRow label="SKU limit override">
-          <Input
-            type="number"
-            placeholder="Leave empty for no override"
-            value={skuLimitOverride}
-            onChange={(e) => setSkuLimitOverride(e.target.value)}
-          />
-        </FieldRow>
+        {planType === "enterprise" ? (
+          <p className="type-small text-secondary">
+            Enterprise billing is yearly-only. The service period anchor is set
+            the first time the enterprise plan is saved.
+          </p>
+        ) : null}
         <p className="type-small text-secondary">
-          Annual usage: {brandData.usage.annual.used}
-          {brandData.usage.annual.limit !== null
-            ? ` / ${brandData.usage.annual.limit}`
-            : " (no limit)"}
+          Credits: {brandData.usage.credits.published}
+          {` / ${brandData.usage.credits.total}`} published, with{" "}
+          {brandData.usage.credits.remaining} remaining.
+        </p>
+        <p className="type-small text-secondary">
+          Onboarding discount used:{" "}
+          {brandData.plan.onboarding_discount_used ? "Yes" : "No"}
         </p>
         <div className="pt-1">
           <Button
@@ -758,16 +772,11 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
                   | "scale"
                   | "enterprise"
                   | null,
-                billing_mode: (billingMode || null) as
-                  | "stripe_checkout"
-                  | "stripe_invoice"
-                  | null,
-                custom_monthly_price_cents: parseIntOrNull(
-                  customMonthlyPriceCents,
-                ),
-                sku_annual_limit: parseIntOrNull(skuAnnualLimit),
-                sku_onboarding_limit: parseIntOrNull(skuOnboardingLimit),
-                sku_limit_override: parseIntOrNull(skuLimitOverride),
+                billing_interval: (
+                  (planType === "enterprise" ? "yearly" : billingInterval) ||
+                  null
+                ) as "quarterly" | "yearly" | null,
+                custom_price_cents: parseIntOrNull(customPriceCents),
               })
             }
             disabled={updatePlanMutation.isPending}
@@ -778,48 +787,218 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
       </Section>
 
       {/* ── Billing ───────────────────────────────────────────────── */}
-      <section className="border border-border bg-background">
-        <div className="p-4 flex flex-col gap-3">
-          <p className="type-p !font-medium text-primary">Billing</p>
-          <div className="space-y-1">
-            <p className="type-small text-secondary">
-              <span className="text-primary font-medium">Stripe customer:</span>{" "}
-              {brandData.billing.stripe_customer_id ?? "Not linked"}
-            </p>
-            <p className="type-small text-secondary">
-              <span className="text-primary font-medium">
-                Stripe subscription:
-              </span>{" "}
-              {brandData.billing.stripe_subscription_id ?? "Not linked"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+      <Section
+        title="Billing"
+        subtitle="Stripe-linked billing state for this brand."
+        headerRight={
+          canCreateInvoice ? (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => checkoutStubMutation.mutate({ brand_id: brandId })}
-              disabled={checkoutStubMutation.isPending}
+              onClick={() => setInvoiceSheetOpen(true)}
+              disabled={createInvoiceMutation.isPending}
+              className="whitespace-nowrap"
             >
-              Create Checkout Session
+              {createInvoiceMutation.isPending ? "Creating…" : "New invoice"}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => invoiceStubMutation.mutate({ brand_id: brandId })}
-              disabled={invoiceStubMutation.isPending}
-            >
-              Create Invoice
-            </Button>
-          </div>
+          ) : null
+        }
+      >
+        {!canCreateInvoice ? (
+          <p className="type-small text-secondary">
+            Set billing mode to{" "}
+            <span className="text-primary">Stripe Invoice</span> under Plan &
+            Limits to create enterprise invoices.
+          </p>
+        ) : null}
+
+        <div className="grid gap-x-6 gap-y-1 md:grid-cols-2">
+          <p className="type-small text-secondary">
+            <span className="text-primary font-medium">Customer:</span>{" "}
+            {brandData.billing.stripe_customer_id ?? "Not linked"}
+          </p>
+          <p className="type-small text-secondary">
+            <span className="text-primary font-medium">Subscription:</span>{" "}
+            {brandData.billing.stripe_subscription_id ?? "Not linked"}
+          </p>
+          <p className="type-small text-secondary">
+            <span className="text-primary font-medium">Period:</span>{" "}
+            {brandData.billing.current_period_start
+              ? `${formatDate(brandData.billing.current_period_start)} → ${formatDate(brandData.billing.current_period_end)}`
+              : "Not set"}
+          </p>
+          <p className="type-small text-secondary">
+            <span className="text-primary font-medium">Past due since:</span>{" "}
+            {formatDate(brandData.billing.past_due_since)}
+          </p>
+          <p className="type-small text-secondary">
+            <span className="text-primary font-medium">
+              Pending cancellation:
+            </span>{" "}
+            {brandData.billing.pending_cancellation ? "Yes" : "No"}
+          </p>
         </div>
-        <div className="grid grid-cols-[1fr_1fr_160px]">
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+
+        {/* Billing contact defaults */}
+        <div className="border-t border-border pt-3 mt-1 space-y-1">
+          <p className="type-small font-medium text-primary">
+            Billing contact
+          </p>
+          <p className="type-small text-secondary">
+            {brandData.billing.billing_legal_name || "No billing name saved"}
+          </p>
+          <p className="type-small text-secondary">
+            {brandData.billing.billing_email || "No billing email saved"}
+          </p>
+          <p className="type-small text-secondary">
+            {[
+              brandData.billing.billing_address_line_1,
+              brandData.billing.billing_address_line_2,
+              brandData.billing.billing_address_postal_code,
+              brandData.billing.billing_address_city,
+              brandData.billing.billing_address_region,
+              brandData.billing.billing_address_country,
+            ]
+              .filter(Boolean)
+              .join(", ") || "No billing address saved"}
+          </p>
+        </div>
+      </Section>
+
+      {/* ── Invoices ──────────────────────────────────────────────── */}
+      <section className="border border-border bg-background">
+        <div className="p-4">
+          <p className="type-p !font-medium text-primary">Invoices</p>
+        </div>
+        {brandData.billing.invoices.length === 0 ? (
+          <div className="flex items-center justify-center h-[120px] border-t border-border">
+            <p className="type-p text-tertiary">No invoices yet</p>
+          </div>
+        ) : (
+          brandData.billing.invoices.map((invoice, index, items) => {
+            const isLast = index === items.length - 1;
+            const invoiceLabel =
+              invoice.invoice_number ?? invoice.stripe_invoice_id;
+            const statusLabel = invoice.status.replaceAll("_", " ");
+
+            return (
+              <div
+                key={invoice.stripe_invoice_id}
+                className={cn(
+                  "px-4 py-3 border-t border-border",
+                  isLast && "border-b-0",
+                )}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="type-p text-primary truncate">
+                      {invoiceLabel}
+                    </p>
+                    <p className="type-small text-secondary capitalize">
+                      {statusLabel}
+                    </p>
+                  </div>
+                  <p className="type-p text-primary whitespace-nowrap">
+                    {formatMoneyCents(invoice.amount_due, invoice.currency)}
+                  </p>
+                </div>
+                <div className="mt-2 grid gap-1 sm:grid-cols-2">
+                  <p className="type-small text-secondary">
+                    <span className="text-primary font-medium">Period:</span>{" "}
+                    {invoice.service_period_start
+                      ? `${formatDate(invoice.service_period_start)} → ${formatDate(invoice.service_period_end)}`
+                      : "-"}
+                  </p>
+                  <p className="type-small text-secondary">
+                    <span className="text-primary font-medium">Due:</span>{" "}
+                    {formatDate(invoice.due_date)}
+                  </p>
+                </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {invoice.hosted_invoice_url ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          const hostedInvoiceUrl = invoice.hosted_invoice_url;
+                          if (!hostedInvoiceUrl) return;
+
+                          await navigator.clipboard.writeText(hostedInvoiceUrl);
+                          toast.success("Invoice link copied");
+                        }}
+                      >
+                        Copy Link
+                      </Button>
+                    ) : null}
+                    {invoice.hosted_invoice_url ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                      onClick={() => {
+                        const hostedInvoiceUrl = invoice.hosted_invoice_url;
+                        if (!hostedInvoiceUrl) return;
+                        window.open(
+                          hostedInvoiceUrl,
+                          "_blank",
+                          "noopener,noreferrer",
+                        );
+                      }}
+                    >
+                      Open
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      resendInvoiceMutation.mutate({
+                        brand_id: brandId,
+                        invoice_id: invoice.stripe_invoice_id,
+                      })
+                    }
+                    disabled={
+                      resendInvoiceMutation.isPending ||
+                      invoice.status !== "open"
+                    }
+                  >
+                    Resend
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      voidInvoiceMutation.mutate({
+                        brand_id: brandId,
+                        invoice_id: invoice.stripe_invoice_id,
+                      })
+                    }
+                    disabled={
+                      voidInvoiceMutation.isPending ||
+                      !["draft", "open"].includes(invoice.status)
+                    }
+                  >
+                    Void
+                  </Button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </section>
+
+      {/* ── Billing Events ────────────────────────────────────────── */}
+      <section className="border border-border bg-background">
+        <div className="p-4">
+          <p className="type-p !font-medium text-primary">Billing Events</p>
+        </div>
+        <div className="grid grid-cols-[1fr_1fr_160px] border-t border-border">
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-r border-border">
             Event
           </div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-r border-border">
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-r border-border">
             Stripe Event
           </div>
-          <div className="bg-accent-light px-4 py-2 type-small text-secondary border-y border-border">
+          <div className="bg-accent-light px-4 py-2 type-small text-secondary">
             Created
           </div>
         </div>
@@ -831,11 +1010,13 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
           brandData.billing.events.map((event, i, arr) => {
             const isLast = i === arr.length - 1;
             return (
-              <div key={event.id} className="grid grid-cols-[1fr_1fr_160px]">
+              <div
+                key={event.id}
+                className="grid grid-cols-[1fr_1fr_160px] border-t border-border"
+              >
                 <div
                   className={cn(
                     "border-r border-border px-4 py-2.5 type-p text-primary",
-                    !isLast && "border-b",
                   )}
                 >
                   {event.event_type}
@@ -843,17 +1024,11 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
                 <div
                   className={cn(
                     "border-r border-border px-4 py-2.5 type-p text-primary",
-                    !isLast && "border-b",
                   )}
                 >
                   {event.stripe_event_id ?? "-"}
                 </div>
-                <div
-                  className={cn(
-                    "border-border px-4 py-2.5 type-p text-primary",
-                    !isLast && "border-b",
-                  )}
-                >
+                <div className="px-4 py-2.5 type-p text-primary">
                   {formatDate(event.created_at)}
                 </div>
               </div>
@@ -861,6 +1036,46 @@ export function BrandDetail({ brandId }: BrandDetailProps) {
           })
         )}
       </section>
+
+      <EnterpriseInvoiceSheet
+        open={invoiceSheetOpen}
+        onOpenChange={setInvoiceSheetOpen}
+        defaults={{
+          recipientName:
+            brandData.billing.billing_legal_name || brandData.brand.name || "",
+          recipientEmail:
+            brandData.billing.billing_email || brandData.brand.email || "",
+          recipientTaxId: brandData.billing.billing_tax_id || "",
+          recipientAddressLine1: brandData.billing.billing_address_line_1 || "",
+          recipientAddressLine2: brandData.billing.billing_address_line_2 || "",
+          recipientAddressCity: brandData.billing.billing_address_city || "",
+          recipientAddressRegion: brandData.billing.billing_address_region || "",
+          recipientAddressPostalCode:
+            brandData.billing.billing_address_postal_code || "",
+          recipientAddressCountry:
+            brandData.billing.billing_address_country ||
+            brandData.brand.country_code ||
+            "",
+          description: "Avelero Enterprise",
+          amountCents:
+            brandData.billing.custom_price_cents !== null
+              ? String(brandData.billing.custom_price_cents)
+              : "",
+          servicePeriodStart: brandData.billing.current_period_start
+            ? new Date(brandData.billing.current_period_start)
+            : new Date(),
+          dueDate: null,
+          footer: "",
+          internalReference: "",
+        }}
+        isSubmitting={createInvoiceMutation.isPending}
+        onSubmit={(payload) =>
+          createInvoiceMutation.mutate({
+            brand_id: brandId,
+            ...payload,
+          })
+        }
+      />
 
       {/* ── Members ───────────────────────────────────────────────── */}
       <section className="border border-border bg-background">

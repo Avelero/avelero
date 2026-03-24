@@ -30,7 +30,7 @@ import {
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import {
   brandReadProcedure,
-  brandSkuWriteProcedure,
+  brandWriteProcedure,
   createTRPCRouter,
 } from "../../init.js";
 
@@ -57,7 +57,7 @@ export const syncRouter = createTRPCRouter({
    * - Integration is not active
    * - A sync is already in progress
    */
-  trigger: brandSkuWriteProcedure
+  trigger: brandWriteProcedure
     .input(triggerSyncSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;

@@ -1,3 +1,7 @@
+/**
+ * Notification event definitions and payload mapping helpers.
+ */
+import { createHash } from "node:crypto";
 import type {
   CreateNotificationParams,
   NotificationActionData,
@@ -18,7 +22,24 @@ export type NotificationEventKey =
   | "import_failure"
   | "export_ready"
   | "qr_export_ready"
-  | "invite_accepted";
+  | "invite_accepted"
+  | "credit_limit_warning"
+  | "credit_limit_reached"
+  | "pack_purchased";
+
+export interface CreditLimitWarningPayload {
+  brandId: string;
+  used: number;
+  limit: number;
+}
+
+export type CreditLimitReachedPayload = CreditLimitWarningPayload;
+
+export interface PackPurchasedPayload {
+  brandId: string;
+  credits: number;
+  purchaseId: string;
+}
 
 export interface NotificationEventPayloadMap {
   import_success: {
@@ -32,6 +53,7 @@ export interface NotificationEventPayloadMap {
     totalIssues: number;
     blockedProducts: number;
     warningProducts: number;
+    errorSummary?: string | null;
     correctionDownloadUrl?: string | null;
     correctionExpiresAt?: string | null;
     correctionFilename?: string | null;
@@ -57,6 +79,9 @@ export interface NotificationEventPayloadMap {
     acceptedUserEmail?: string | null;
     brandName?: string | null;
   };
+  credit_limit_warning: CreditLimitWarningPayload;
+  credit_limit_reached: CreditLimitReachedPayload;
+  pack_purchased: PackPurchasedPayload;
 }
 
 export interface ResolvedNotificationEvent {
@@ -81,6 +106,25 @@ type NotificationEventDefinitions = {
   [K in NotificationEventKey]: NotificationEventDefinition<K>;
 };
 
+/**
+ * Converts external identifiers into a stable UUID-shaped notification resource id.
+ */
+function toNotificationResourceUuid(namespace: string, value: string): string {
+  // Hash external ids because the notifications table stores resource ids as UUIDs.
+  const hex = createHash("sha256")
+    .update(`${namespace}:${value}`, "utf8")
+    .digest("hex")
+    .slice(0, 32);
+
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join("-");
+}
+
 export const notificationEventDefinitions: NotificationEventDefinitions = {
   import_success: {
     audience: "brand_members",
@@ -101,29 +145,42 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
   },
   import_failure: {
     audience: "brand_members",
-    resolve: (payload) => ({
-      type: "import_failure",
-      title:
-        payload.totalIssues > 0
-          ? `${payload.totalIssues} product${payload.totalIssues === 1 ? "" : "s"} had issues during import`
-          : "Some products had issues during import",
-      message: `Download the error report to review product corrections ${ACTION_PLACEHOLDER}.`,
-      resourceType: "import_job",
-      resourceId: payload.jobId,
-      actionUrl: "/passports",
-      actionData: {
-        kind: "download",
-        label: "here",
-        url: payload.correctionDownloadUrl ?? undefined,
-        expiresAt: payload.correctionExpiresAt ?? undefined,
-        filename: payload.correctionFilename ?? undefined,
-        regenerate: {
-          type: "import_corrections",
-          jobId: payload.jobId,
-        },
-      },
-      expiresInMs: NOTIFICATION_DEFAULT_EXPIRES_MS,
-    }),
+    resolve: (payload) => {
+      const hasCorrectionReport =
+        payload.totalIssues > 0 || Boolean(payload.correctionDownloadUrl);
+
+      return {
+        type: "import_failure",
+        title:
+          payload.totalIssues > 0
+            ? `${payload.totalIssues} product${payload.totalIssues === 1 ? "" : "s"} had issues during import`
+            : "Import could not be completed",
+        message: hasCorrectionReport
+          ? `Download the error report to review product corrections ${ACTION_PLACEHOLDER}.`
+          : `${payload.errorSummary ?? "Review the import settings and try again."} ${ACTION_PLACEHOLDER}`,
+        resourceType: "import_job",
+        resourceId: payload.jobId,
+        actionUrl: "/passports",
+        actionData: hasCorrectionReport
+          ? {
+              kind: "download",
+              label: "here",
+              url: payload.correctionDownloadUrl ?? undefined,
+              expiresAt: payload.correctionExpiresAt ?? undefined,
+              filename: payload.correctionFilename ?? undefined,
+              regenerate: {
+                type: "import_corrections",
+                jobId: payload.jobId,
+              },
+            }
+          : {
+              kind: "link",
+              label: "open imports",
+              url: "/passports",
+            },
+        expiresInMs: NOTIFICATION_DEFAULT_EXPIRES_MS,
+      };
+    },
   },
   export_ready: {
     audience: "actor_only",
@@ -180,6 +237,60 @@ export const notificationEventDefinitions: NotificationEventDefinitions = {
         url: "/settings/members",
       },
       expiresInMs: NOTIFICATION_DEFAULT_EXPIRES_MS,
+    }),
+  },
+  credit_limit_warning: {
+    audience: "brand_members",
+    resolve: (payload) => {
+      return {
+        type: "credit_limit_warning",
+        title: "You're approaching your passport credit limit",
+        message: `You've used ${payload.used.toLocaleString()} of ${payload.limit.toLocaleString()} passport credits. Purchase additional passports or upgrade your plan. ${ACTION_PLACEHOLDER}`,
+        resourceType: "credit_balance",
+        resourceId: payload.brandId,
+        actionUrl: "/settings/usage",
+        actionData: {
+          kind: "open_plan_selector",
+          label: "View plans",
+        },
+        expiresInMs: 30 * 24 * 60 * 60 * 1000,
+      };
+    },
+  },
+  credit_limit_reached: {
+    audience: "brand_members",
+    resolve: (payload) => ({
+      type: "credit_limit_reached",
+      title: "You've reached your passport credit limit",
+      message: `You've used all ${payload.limit.toLocaleString()} passport credits. Purchase additional passports or upgrade your plan to publish more. ${ACTION_PLACEHOLDER}`,
+      resourceType: "credit_balance",
+      resourceId: payload.brandId,
+      actionUrl: "/settings/usage",
+      actionData: {
+        kind: "open_plan_selector",
+        label: "View plans",
+      },
+      expiresInMs: 30 * 24 * 60 * 60 * 1000,
+    }),
+  },
+  pack_purchased: {
+    audience: "brand_members",
+    resolve: (payload) => ({
+      type: "pack_purchased",
+      title: "Additional credits added",
+      message: `${payload.credits.toLocaleString()} passport credits were added to your balance. ${ACTION_PLACEHOLDER}`,
+      resourceType: "credit_pack",
+      resourceId: toNotificationResourceUuid(
+        "pack_purchased",
+        payload.purchaseId,
+      ),
+      actionUrl: "/settings/billing",
+      actionData: {
+        kind: "link",
+        label: "View billing",
+        url: "/settings/billing",
+      },
+      expiresInMs: 30 * 24 * 60 * 60 * 1000,
     }),
   },
 };

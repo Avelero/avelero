@@ -1,3 +1,6 @@
+/**
+ * Defines the input and output types used by the brand access policy resolver.
+ */
 import type { Role } from "../../config/roles.js";
 
 export type BrandLifecyclePhase =
@@ -20,6 +23,7 @@ export type BrandAccessDecision =
   | "payment_required"
   | "past_due"
   | "suspended"
+  | "temporary_blocked"
   | "cancelled";
 
 export interface BrandAccessCapabilities {
@@ -32,26 +36,33 @@ export type BrandAccessOverlay =
   | "none"
   | "payment_required"
   | "suspended"
+  | "temporary_blocked"
   | "cancelled";
 
-export type BrandAccessBanner = "none" | "past_due";
+export type BrandAccessBanner = "none" | "past_due" | "pending_cancellation";
 
 export interface BrandAccessSnapshot {
   brandId: string;
   lifecycle: {
     phase: BrandLifecyclePhase;
+    trialStartedAt: string | null;
     trialEndsAt: string | null;
   } | null;
   billing: {
+    billingMode: "stripe_checkout" | "stripe_invoice" | null;
+    stripeCustomerId: string | null;
+    stripeSubscriptionId: string | null;
     billingAccessOverride: BillingAccessOverride;
     billingOverrideExpiresAt: string | null;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+    pastDueSince: string | null;
+    pendingCancellation: boolean;
   } | null;
   plan: {
-    skuAnnualLimit: number | null;
-    skuOnboardingLimit: number | null;
-    skuLimitOverride: number | null;
-    skusCreatedThisYear: number;
-    skusCreatedOnboarding: number;
+    totalCredits: number;
+    onboardingDiscountUsed: boolean;
+    variantGlobalCap?: number | null;
   } | null;
 }
 
@@ -68,6 +79,11 @@ export interface ResolvedBrandAccessDecision {
   banner: BrandAccessBanner;
   phase: BrandLifecyclePhase;
   trialEndsAt: string | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  pastDueSince: string | null;
+  pendingCancellation: boolean;
+  graceEndsAt: string | null;
 }
 
 export type SkuAccessStatus = "allowed" | "warning" | "blocked";
@@ -79,19 +95,29 @@ export interface SkuAccessBudget {
   utilization: number | null;
 }
 
+export interface ActiveSkuBudget extends SkuAccessBudget {
+  kind: "credits" | null;
+  phase: BrandLifecyclePhase | "none";
+  totalCredits: number;
+  publishedCount: number;
+}
+
 export interface ResolveSkuAccessDecisionInput {
   brandAccess: ResolvedBrandAccessDecision;
   snapshot: BrandAccessSnapshot;
-  intendedCreateCount?: number;
+  intendedPublishCount: number;
+  currentPublishUsageCount?: number;
+  currentSkuUsageCount?: number;
+  currentNonGhostSkuCount?: number;
+  trialStartedAt?: Date | string | null;
+  evaluationDate?: Date | string | null;
 }
 
 export interface ResolvedSkuAccessDecision {
   status: SkuAccessStatus;
-  annual: SkuAccessBudget;
-  onboarding: SkuAccessBudget;
+  activeBudget: ActiveSkuBudget;
   warningThreshold: number;
-  trialUniversalCap: number;
-  remainingCreateBudget: number | null;
-  intendedCreateCount: number;
-  wouldExceedIntendedCreateCount: boolean;
+  remainingPublishBudget: number | null;
+  intendedPublishCount: number;
+  wouldExceedIntendedPublishCount: boolean;
 }

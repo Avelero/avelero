@@ -1,5 +1,15 @@
+/**
+ * Sidebar layout chrome.
+ *
+ * This layout renders the shared dashboard shell and overlays blocked-brand
+ * messaging inside the content area while keeping brand switching available.
+ */
+import { BlockedAccessScreen } from "@/components/access/blocked-access-screen";
+import { PaymentRequiredOverlay } from "@/components/access/payment-required-overlay";
+import { PlanSelectorShell } from "@/components/billing/plan-selector-shell";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
+import { isSidebarContentBlocked } from "@/lib/brand-access";
 import { RealtimeWrapper } from "@/providers/realtime-wrapper";
 import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import { connection } from "next/server";
@@ -31,6 +41,17 @@ export default async function SidebarLayout({
     trpc.composite.initDashboard.queryOptions(),
   );
 
+  const access = workflowInit.access;
+  const isBlocked = isSidebarContentBlocked(access.overlay);
+  const hasTopBanner = access.banner !== "none";
+  const blockedReason = isSidebarContentBlocked(access.overlay)
+    ? access.overlay
+    : access.overlay === "payment_required" && access.phase === "trial"
+      ? "trial_expired"
+      : null;
+  const showPaymentRequiredOverlay =
+    access.overlay === "payment_required" && access.phase !== "trial";
+
   // Seed caches for client components (Header, Sidebar, BrandDropdown, etc.)
   queryClient.setQueryData(
     trpc.user.get.queryOptions().queryKey,
@@ -47,7 +68,9 @@ export default async function SidebarLayout({
     workflowInit.myInvites,
   );
 
-  if (workflowInit.activeBrand) {
+  // Skip notification fetches when brand access is blocked to avoid
+  // ACCESS_CANCELLED errors that cause hydration warnings.
+  if (workflowInit.activeBrand && !isBlocked) {
     await queryClient.fetchQuery(
       trpc.notifications.getUnreadCount.queryOptions(),
     );
@@ -64,15 +87,26 @@ export default async function SidebarLayout({
   // Note: children (page content) has its own HydrateClient for page-specific data.
   return (
     <HydrateClient>
-      <div className="relative h-full">
-        <Header />
-        <div className="flex flex-row justify-start h-[calc(100%_-_56px)]">
-          <Sidebar />
-          <div className="relative w-[calc(100%_-_56px)] h-full ml-[56px]">
-            <RealtimeWrapper>{children}</RealtimeWrapper>
+      <PlanSelectorShell>
+        <div className="relative h-full">
+          <Header disableNotifications={isBlocked} />
+          <div className="flex flex-row justify-start h-[calc(100%_-_56px)]">
+            <Sidebar hasTopBanner={hasTopBanner} />
+            <div className="relative w-[calc(100%_-_56px)] h-full ml-[56px]">
+              <RealtimeWrapper>
+                {children}
+                {blockedReason && workflowInit.activeBrand ? (
+                  <BlockedAccessScreen
+                    reason={blockedReason}
+                    brandId={workflowInit.activeBrand.id}
+                  />
+                ) : null}
+                {showPaymentRequiredOverlay ? <PaymentRequiredOverlay /> : null}
+              </RealtimeWrapper>
+            </div>
           </div>
         </div>
-      </div>
+      </PlanSelectorShell>
     </HydrateClient>
   );
 }

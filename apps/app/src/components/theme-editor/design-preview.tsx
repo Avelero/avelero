@@ -64,7 +64,10 @@ export function DesignPreview() {
           className={`relative h-full w-full bg-white border border-border scrollbar-hide cursor-default [&_*]:!cursor-default ${previewModalType ? "overflow-hidden" : "overflow-auto"}`}
         >
           <PreviewThemeInjector tokens={passportDraft.tokens} />
-          <div ref={dppRootRef} className="dpp-root min-h-full flex flex-col @container">
+          <div
+            ref={dppRootRef}
+            className="dpp-root min-h-full flex flex-col @container"
+          >
             <Header
               header={resolvedPassport.header}
               tokens={resolvedPassport.tokens}

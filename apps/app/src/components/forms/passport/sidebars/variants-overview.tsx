@@ -111,6 +111,12 @@ export function VariantsOverview({
           includeAttributes: true,
         }),
       });
+      await queryClient.invalidateQueries({
+        queryKey: trpc.brand.billing.getStatus.queryKey(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: trpc.composite.initDashboard.queryKey(),
+      });
 
       toast.success("Variant deleted successfully");
       setDeleteDialogOpen(false);

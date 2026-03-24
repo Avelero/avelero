@@ -61,6 +61,8 @@ interface SyncContext {
    */
   matchIdentifier: MatchIdentifier;
   productsTotal?: number;
+  variantGlobalCap: number | null;
+  totalExistingVariants: number;
   onProgress?: (progress: {
     productsProcessed: number;
     productsTotal?: number;
@@ -177,6 +179,8 @@ interface CreateSyncContextOptions {
    */
   matchIdentifier?: MatchIdentifier;
   productsTotal?: number;
+  variantGlobalCap?: number | null;
+  totalExistingVariants?: number;
   onProgress?: (progress: {
     productsProcessed: number;
     productsTotal?: number;
@@ -224,6 +228,8 @@ export function createTestSyncContext(
     isPrimary: options.isPrimary ?? true,
     matchIdentifier: options.matchIdentifier ?? "barcode",
     productsTotal: options.productsTotal,
+    variantGlobalCap: options.variantGlobalCap ?? null,
+    totalExistingVariants: options.totalExistingVariants ?? 0,
     onProgress: options.onProgress,
   };
 }

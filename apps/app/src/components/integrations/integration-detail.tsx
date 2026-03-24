@@ -1,3 +1,6 @@
+/**
+ * Integration detail workspace with setup, syncing, and field ownership controls.
+ */
 "use client";
 
 import {

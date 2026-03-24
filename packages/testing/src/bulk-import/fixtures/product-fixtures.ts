@@ -38,7 +38,6 @@ export const completeProduct: TestProduct = {
   manufacturer: "Premium Textiles Co",
   description: "A fully specified hoodie with all fields",
   image: "https://example.com/images/hoodie.jpg",
-  status: "published",
   category: "Clothing",
   season: "FW25",
   tags: ["Bestseller", "New Arrival"],

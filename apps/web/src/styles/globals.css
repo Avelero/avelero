@@ -4,28 +4,28 @@
 
 @layer base {
   :root {
-    /* Base colors - customize these to your brand */
-    --background: 240 100% 99%;
-    --foreground: 240 80% 4%;
-    --border: 240 11% 89%;
-    --input: 240 100% 99%;
-    --ring: 240 100% 50%;
+    /* Base colors */
+    --background: #FEFEFE;
+    --foreground: #020212;
+    --border: #EBEBEC;
+    --ring: #0000FF;
 
-    /* Card */
-    --card: 240 23% 95%;
-    --card-foreground: 240 80% 4%;
-
-    /* Popover */
-    --popover: 240 100% 99%;
-    --popover-foreground: 240 80% 4%;
+    /* Muted */
+    --muted: #F0F0F1;
+    --muted-foreground: #808088;
 
     /* Primary */
-    --primary: 240 100% 50%;
-    --primary-foreground: 240 100% 99%;
+    --primary: #0000FF;
+    --primary-foreground: #FEFEFE;
 
     /* Destructive */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: #EB1414;
+    --destructive-foreground: #FEFEFE;
+
+    /* Radius */
+    --radius-sm: 2px;
+    --radius: 4px;
+    --radius-lg: 8px;
   }
 }
 
@@ -39,10 +39,9 @@
   }
 
   ::selection {
-    background-color: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
+    background-color: var(--primary);
+    color: var(--primary-foreground);
   }
-
 }
 
 @layer utilities {

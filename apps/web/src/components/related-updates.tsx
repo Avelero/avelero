@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { getAllUpdates } from "@/lib/updates";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
@@ -5,9 +6,10 @@ import { UpdateCard } from "./update-card";
 
 interface RelatedUpdatesProps {
   currentSlug: string;
+  title?: ReactNode;
 }
 
-export async function RelatedUpdates({ currentSlug }: RelatedUpdatesProps) {
+export async function RelatedUpdates({ currentSlug, title }: RelatedUpdatesProps) {
   const allUpdates = await getAllUpdates();
 
   // Only show if there are 3 or more total updates
@@ -27,11 +29,13 @@ export async function RelatedUpdates({ currentSlug }: RelatedUpdatesProps) {
   return (
     <section className="w-full py-[45px] sm:py-[62px]">
       {/* Header with title and link */}
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="text-h5 md:text-h4 text-foreground">Updates</h2>
+      <div className="flex items-end justify-between mb-4 sm:mb-8">
+        <h2 className={title ? "text-h6" : "text-h6 sm:text-h4"}>
+          {title ?? <span className="text-foreground">Updates</span>}
+        </h2>
         <Link
           href="/updates/"
-          className="text-button text-foreground hover:text-foreground/70 transition-colors duration-150"
+          className="text-button text-foreground hover:opacity-[0.7] transition-all duration-100"
         >
           See more <ChevronRight className="inline size-[14px]" />
         </Link>

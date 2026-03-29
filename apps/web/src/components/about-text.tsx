@@ -8,12 +8,12 @@ export function AboutText() {
             Fashion brands are investing more in sustainability than ever
             before.
           </span>{" "}
-          <span className="text-foreground/40">
+          <span className="text-muted-foreground">
             The Digital Product Passport is the infrastructure to make that work
             visible. We're building the tools to get you there.
           </span>
         </h2>
-        <div className="flex flex-col gap-4 text-small text-foreground/50">
+        <div className="flex flex-col gap-4 text-small text-muted-foreground">
           <p>
             Brands are making real progress on materials, sourcing, and
             production practices. But most of that effort stays invisible to the
@@ -45,7 +45,7 @@ export function AboutText() {
         <h2 className="text-h5 text-foreground">
           <span>We care deeply about the quality of our work</span>
         </h2>
-        <div className="flex flex-col gap-4 text-small text-foreground/50">
+        <div className="flex flex-col gap-4 text-small text-muted-foreground">
           <p>
             A product passport is only useful if people engage with it. That
             means the design has to be good. Not good enough, but genuinely
@@ -77,7 +77,7 @@ export function AboutText() {
         <h2 className="text-h5 text-foreground">
           <span>Built in Amsterdam</span>
         </h2>
-        <div className="flex flex-col gap-4 text-small text-foreground/50">
+        <div className="flex flex-col gap-4 text-small text-muted-foreground">
           <p>
             <strong>Rafaël Mevis</strong> · Co-founder. Five years of building
             products, with a background in fashion and computer science. Worked

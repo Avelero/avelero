@@ -1,38 +1,56 @@
-import { Icons } from "@v1/ui/icons";
-import { Button } from "./button";
-import { ContactDrawer } from "./contact-drawer";
+import type { ReactNode } from "react";
 
-export function Hero() {
+export function Hero({ children }: { children: ReactNode }) {
   return (
     <div className="w-full pt-[58px] pb-[45px] sm:pt-[92px] sm:pb-[62px] flex flex-col gap-8 md:gap-16">
-      <h1 className="text-[10vw] sm:text-[clamp(3.8rem,9.5vw,4.8rem)] md:text-[clamp(4.8rem,10vw,6.7rem)] lg:text-[clamp(6.7rem,10.5vw,8.625rem)] xl:text-[8.625rem] leading-none text-foreground">
-        Product passpo<span className="tracking-wide">rt</span>s that{" "}
-        <span className="text-primary">engage</span>
-      </h1>
-      <div className="flex flex-col md:flex-row justify-start gap-8 md:gap-0 md:justify-between items-start md:items-end">
+      {children}
+    </div>
+  );
+}
+
+export function HeroHeader({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-4">
+      {children}
+    </div>
+  );
+}
+
+export function HeroLabel({ children }: { children: ReactNode }) {
+  return (
+    <h5 className="text-body md:text-h5 text-muted-foreground">{children}</h5>
+  );
+}
+
+export function HeroHeadline({ children }: { children: ReactNode }) {
+  return (
+    <h1 className="text-[10vw] sm:text-[clamp(3.8rem,9.5vw,4.8rem)] md:text-[clamp(4.8rem,10vw,6.7rem)] lg:text-[clamp(6.7rem,10.5vw,8.625rem)] xl:text-[8.625rem] leading-none text-foreground">
+      {children}
+    </h1>
+  );
+}
+
+export function HeroAccent({ children }: { children: ReactNode }) {
+  return <span className="text-primary">{children}</span>;
+}
+
+export function HeroContent({
+  description,
+  children,
+}: {
+  description: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col md:flex-row justify-start gap-8 md:gap-0 md:justify-between items-start md:items-end">
+      {children && (
         <div className="flex flex-row gap-4 order-last md:order-first">
-          <ContactDrawer />
-          <Button asChild>
-            <a
-              href="https://passport.avelero.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open live digital product passport in new tab"
-            >
-              <span>Live passport</span>
-              <Icons.SquareArrowOutUpRight color="hsl(var(--foreground))" />
-            </a>
-          </Button>
+          {children}
         </div>
-        <p className="w-full md:w-1/2 text-small text-foreground/50">
-          <span className="text-foreground">
-            Avelero is built for fashion brands
-          </span>{" "}
-          that want to launch EU-compliant product passports in days, not
-          months. Connect your article data, estimate product footprints, and
-          design on-brand experiences that customers actually want to explore.
-        </p>
-      </div>
+      )}
+      <p className="w-full md:w-1/2 text-small text-muted-foreground">
+        {description}
+      </p>
     </div>
   );
 }

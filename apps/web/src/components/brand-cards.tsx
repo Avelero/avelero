@@ -6,7 +6,7 @@ interface BrandCardProps {
 
 export function BrandCard({ logo }: BrandCardProps) {
   return (
-    <div className="py-7 border border-border bg-card">
+    <div className="py-7 border border-border bg-muted">
       <div className="h-10 flex items-center justify-center">{logo}</div>
     </div>
   );

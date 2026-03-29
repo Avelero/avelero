@@ -91,7 +91,7 @@ export function GS1DigitalLinkBreakdown() {
 
   return (
     <div className="my-8 w-full">
-      <div className="border border-border bg-card p-4">
+      <div className="border border-border bg-muted p-4">
         {/* URL display */}
         <p className="font-geist-mono text-small leading-relaxed">
           {allSegments.map((segment) => (
@@ -109,7 +109,7 @@ export function GS1DigitalLinkBreakdown() {
                 }
               }}
               className={`cursor-pointer px-1 py-0.5 transition-colors duration-100 ${segment.color} ${
-                activeId === segment.id ? "bg-foreground/10" : ""
+                activeId === segment.id ? "bg-muted" : ""
               }`}
               aria-pressed={lockedSegment === segment.id}
               aria-label={`${segment.label}: ${segment.description}`}
@@ -122,7 +122,7 @@ export function GS1DigitalLinkBreakdown() {
         {/* Explanation area */}
         <div className="mt-3 min-h-[3rem]">
           {activeSegment ? (
-            <p className="text-small text-foreground/70">
+            <p className="text-small text-muted-foreground">
               <span className="font-medium text-foreground">
                 {activeSegment.label}
               </span>
@@ -130,7 +130,7 @@ export function GS1DigitalLinkBreakdown() {
               {activeSegment.description}
             </p>
           ) : (
-            <p className="text-small text-foreground/40">
+            <p className="text-small text-muted-foreground">
               Click a segment to learn what it does.
             </p>
           )}
@@ -140,7 +140,7 @@ export function GS1DigitalLinkBreakdown() {
         <button
           type="button"
           onClick={handleToggleExtended}
-          className="mt-3 cursor-pointer text-small text-foreground/50 underline transition-colors duration-150 hover:text-foreground/80"
+          className="mt-3 cursor-pointer text-small text-muted-foreground underline transition-colors duration-150 hover:text-foreground"
         >
           {showExtended ? "Hide serial number" : "Show with serial number"}
         </button>

@@ -8,7 +8,7 @@ interface PageImageProps {
 export function PageImage({ src, alt }: PageImageProps) {
   return (
     <div className="w-full py-[45px] sm:py-[62px]">
-      <div className="relative w-full aspect-[18/10] overflow-hidden">
+      <div className="relative w-full aspect-[18/10] overflow-hidden rounded">
         <Image
           src={src}
           alt={alt}

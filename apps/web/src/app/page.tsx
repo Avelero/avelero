@@ -6,9 +6,11 @@ import {
   FeatureBlockImage,
 } from "@/components/feature-block";
 import { FeatureCard, FeatureCards } from "@/components/feature-cards";
-import { Hero } from "@/components/hero";
+import { Hero, HeroHeadline, HeroAccent, HeroContent } from "@/components/hero";
 import { HeroImage } from "@/components/hero-image";
-import { TextBlock } from "@/components/text-block";
+import { ContactDrawer } from "@/components/contact-drawer";
+import { Button } from "@/components/button";
+import { Icons } from "@v1/ui/icons";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -42,32 +44,61 @@ export default function Page() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <main className="h-[calc(100%-102px)] w-full flex flex-col items-center justify-center">
-        <Hero />
+        <Hero>
+          <HeroHeadline>
+            Product passpo<span className="tracking-wide">rt</span>s that{" "}
+            <HeroAccent>engage</HeroAccent>
+          </HeroHeadline>
+          <HeroContent
+            description={
+              <>
+                <span className="text-foreground">
+                  Avelero is built for fashion brands
+                </span>{" "}
+                that want to launch EU-compliant product passports in days, not
+                months. Connect your article data, estimate product footprints, and
+                design on-brand experiences that customers actually want to explore.
+              </>
+            }
+          >
+            <ContactDrawer />
+            <Button asChild>
+              <a
+                href="https://passport.avelero.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open live digital product passport in new tab"
+              >
+                <span>Live passport</span>
+                <Icons.SquareArrowOutUpRight color="var(--foreground)" />
+              </a>
+            </Button>
+          </HeroContent>
+        </Hero>
         <HeroImage />
-        <TextBlock
-          spanText="Avelero is purpose-built for brands that are customer obsessed."
-          text="Product passports are the last step in your customer journey — we believe this is an opportunity to delight."
-        />
-        <FeatureCards>
+        <FeatureCards
+          title="A new customer touchpoint"
+          href="/digital-product-passport/"
+        >
           <FeatureCard
-            title="Extend the product lifecycle"
-            description="Embed care guides, repair services, and resale options directly in the passport. Keep products in use and customers returning long after purchase."
-            backgroundImage="/passport-menu-image.webp"
+            title="A reason to visit your passport"
+            description="Add care guides, repair services, and resell opportunities. Give customers a reason to return long after the purchase."
+            backgroundImage="/passport-buttons.webp"
           />
           <FeatureCard
-            title="Re-engage your customers"
-            description="Tell your story, share your impact, and build loyalty. Product passports become part of the brand experience."
-            backgroundImage="/passport-banner-image.webp"
+            title="Re-engage with your brand"
+            description="Tell your story, share your impact, and build loyalty. Product passports are an extension of your brand."
+            backgroundImage="/passport-banner.webp"
           />
           <FeatureCard
-            title="Drive traffic back to your store"
-            description="Link to related products, promote campaigns, or capture newsletter signups directly from your product passport."
-            backgroundImage="/passport-carousel-image.webp"
+            title="An opportunity to convert"
+            description="Drive traffic back to your store with links to related products, newsletter signups, or campaign banners."
+            backgroundImage="/passport-storyblocks.webp"
           />
         </FeatureCards>
         <FeatureBlock id="footprint">
           <FeatureBlockImage
-            image="/lca-engine-image.webp"
+            image="/lca-engine.webp"
             imageAlt="LCA engine illustration"
             topTitle="Estimate your product footprint"
             bottomTitle="with our LCA engine"
@@ -81,7 +112,7 @@ export default function Page() {
         </FeatureBlock>
         <FeatureBlock id="designer">
           <FeatureBlockImage
-            image="/customize-template-image.webp"
+            image="/passport-designer.webp"
             imageAlt="Customize template illustration"
             topTitle="Design passports"
             bottomTitle="that feel like your brand"

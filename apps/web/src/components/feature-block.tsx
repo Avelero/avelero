@@ -35,9 +35,9 @@ export function FeatureBlockContent({
           {topTitle}
           <br />
         </span>
-        <span className="text-foreground/50">{bottomTitle}</span>
+        <span className="text-muted-foreground">{bottomTitle}</span>
       </h4>
-      <p className="text-small text-foreground/50 w-full">{description}</p>
+      <p className="text-small text-muted-foreground w-full">{description}</p>
     </div>
   );
 }
@@ -55,9 +55,9 @@ export function FeatureBlockImage({
           {topTitle}
           <br />
         </span>
-        <span className="text-foreground/50">{bottomTitle}</span>
+        <span className="text-muted-foreground">{bottomTitle}</span>
       </h4>
-      <div className="relative aspect-square w-full flex-shrink-0 overflow-hidden">
+      <div className="relative aspect-square w-full flex-shrink-0 overflow-hidden rounded">
         <Image
           src={image}
           alt={imageAlt}

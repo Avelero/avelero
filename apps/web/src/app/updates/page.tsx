@@ -24,7 +24,7 @@ export default async function UpdatesPage() {
       <Headline headline="Updates" />
       <div className="w-full py-[45px] sm:py-[62px]">
         {updates.length === 0 ? (
-          <p className="text-body text-foreground/50">
+          <p className="text-body text-muted-foreground">
             No updates yet. Check back soon!
           </p>
         ) : (

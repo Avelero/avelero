@@ -9,9 +9,9 @@ export function BentoBlock() {
     >
       <div className="flex md:flex-row flex-col justify-between md:items-center">
         <h4 className="text-h6 md:text-h5 text-foreground">
-          Get compliant in days, <br className="md:hidden" />
-          <span className="text-foreground/50 md:text-foreground">
-            not months
+          From data to passport <br className="md:hidden" />
+          <span className="text-muted-foreground md:text-foreground">
+            in days, not months
           </span>
         </h4>
         <div className="hidden sm:block">
@@ -21,10 +21,10 @@ export function BentoBlock() {
 
       <div className="grid grid-cols-1 gap-4 lg:gap-6 w-full lg:grid-rows-2 lg:auto-rows-fr">
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full">
-          <div className="flex flex-col flex-1 bg-card border border-border">
+          <div className="flex flex-col flex-1 bg-muted border border-border rounded">
             <div className="flex flex-col gap-2 px-6 pt-6">
               <h5 className="text-h6 text-foreground">Raw data uploads</h5>
-              <p className="text-small text-foreground/50">
+              <p className="text-small text-muted-foreground">
                 Drag & drop Excel files, PDFs, or other article data — Avelero
                 understands, transforms, and stores it so your DPPs are ready in
                 days, not months.
@@ -57,10 +57,10 @@ export function BentoBlock() {
             </div>
           </div>
 
-          <div className="flex flex-col flex-1 bg-card border border-border">
+          <div className="flex flex-col flex-1 bg-muted border border-border rounded">
             <div className="flex flex-col gap-2 px-6 pt-6">
               <h5 className="text-h6 text-foreground">System integrations</h5>
-              <p className="text-small text-foreground/50">
+              <p className="text-small text-muted-foreground">
                 Connect via API to your PLM, ERP, or e-commerce platform. Keep
                 passports updated as your product data changes.
               </p>
@@ -80,10 +80,10 @@ export function BentoBlock() {
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row bg-card border border-border w-full lg:gap-6">
+        <div className="flex flex-col lg:flex-row bg-muted border border-border rounded w-full lg:gap-6">
           <div className="flex flex-col gap-2 px-6 pt-6 lg:w-1/2">
             <h5 className="text-h6 text-foreground">Data enrichment</h5>
-            <p className="text-small text-foreground/50">
+            <p className="text-small text-muted-foreground">
               Automatically fill gaps with AI — we detect and complete missing
               information by leveraging patterns in your product data.
             </p>

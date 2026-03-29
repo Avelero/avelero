@@ -43,7 +43,7 @@ export function Header() {
           isMobileMenuOpen ? "border-b-0 md:border-b" : "border-b"
         }`}
         style={{
-          backgroundColor: `color-mix(in srgb, var(--background) 80%, transparent)`,
+          backgroundColor: "color-mix(in srgb, var(--background) 80%, transparent)",
           borderBottomColor: `color-mix(in srgb, var(--border) ${Math.round(scrollProgress * 100)}%, transparent)`,
         }}
       >
@@ -68,25 +68,18 @@ export function Header() {
         <nav className="hidden md:block">
           <div className="flex items-center gap-4">
             <Link
-              href="/#footprint"
-              aria-label="Go to footprint section"
+              href="/digital-product-passport/"
+              aria-label="Go to digital product passport page"
               className="text-button px-2 py-3 text-foreground hover:opacity-[0.7] transition-all duration-150"
             >
-              Footprint
+              Passport
             </Link>
             <Link
-              href="/#designer"
-              aria-label="Go to designer section"
+              href="/passport-designer/"
+              aria-label="Go to passport designer page"
               className="text-button px-2 py-3 text-foreground hover:opacity-[0.7] transition-all duration-150"
             >
               Designer
-            </Link>
-            <Link
-              href="/#compliance"
-              aria-label="Go to compliance section"
-              className="text-button px-2 py-3 text-foreground hover:opacity-[0.7] transition-all duration-150"
-            >
-              Compliance
             </Link>
             <Link
               href="/about/"
@@ -147,28 +140,20 @@ export function Header() {
         <nav className="h-full px-4 sm:px-16 py-8">
           <div className="flex flex-col items-start gap-6">
             <Link
-              href="/#footprint"
-              aria-label="Go to footprint section"
+              href="/digital-product-passport/"
+              aria-label="Go to digital product passport page"
               className="text-2xl font-medium text-foreground hover:opacity-[0.7] transition-all duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Footprint
+              Passport
             </Link>
             <Link
-              href="/#designer"
-              aria-label="Go to designer section"
+              href="/passport-designer/"
+              aria-label="Go to passport designer page"
               className="text-2xl font-medium text-foreground hover:opacity-[0.7] transition-all duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Designer
-            </Link>
-            <Link
-              href="/#compliance"
-              aria-label="Go to compliance section"
-              className="text-2xl font-medium text-foreground hover:opacity-[0.7] transition-all duration-150"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Compliance
             </Link>
             <Link
               href="/about/"

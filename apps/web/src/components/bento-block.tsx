@@ -21,7 +21,7 @@ export function BentoBlock() {
 
       <div className="grid grid-cols-1 gap-4 lg:gap-6 w-full lg:grid-rows-2 lg:auto-rows-fr">
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full">
-          <div className="flex flex-col flex-1 bg-muted border border-border rounded">
+          <div className="flex flex-col flex-1 bg-muted border border-border rounded-sm">
             <div className="flex flex-col gap-2 px-6 pt-6">
               <h5 className="text-h6 text-foreground">Raw data uploads</h5>
               <p className="text-small text-muted-foreground">
@@ -57,7 +57,7 @@ export function BentoBlock() {
             </div>
           </div>
 
-          <div className="flex flex-col flex-1 bg-muted border border-border rounded">
+          <div className="flex flex-col flex-1 bg-muted border border-border rounded-sm">
             <div className="flex flex-col gap-2 px-6 pt-6">
               <h5 className="text-h6 text-foreground">System integrations</h5>
               <p className="text-small text-muted-foreground">
@@ -80,7 +80,7 @@ export function BentoBlock() {
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row bg-muted border border-border rounded w-full lg:gap-6">
+        <div className="flex flex-col lg:flex-row bg-muted border border-border rounded-sm w-full lg:gap-6">
           <div className="flex flex-col gap-2 px-6 pt-6 lg:w-1/2">
             <h5 className="text-h6 text-foreground">Data enrichment</h5>
             <p className="text-small text-muted-foreground">

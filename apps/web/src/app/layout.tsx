@@ -146,7 +146,7 @@ export default function RootLayout({
     name: "Avelero",
     url: "https://avelero.com",
     description:
-      "Avelero helps fashion brands launch EU-compliant digital product passports with our product footprint LCA engine, API-integrations, and customizable templates.",
+      "Avelero helps fashion brands launch EU-compliant digital product passports with our ML-powered footprint prediction engine, API-integrations, and customizable templates.",
     contactPoint: {
       "@type": "ContactPoint",
       email: "raf@avelero.com",

@@ -56,11 +56,11 @@ export function AboutText() {
           <p>
             On the data side, lifecycle environmental impact is the single
             hardest requirement for most brands to fill. Carbon footprint and
-            water scarcity calculations typically require a separate LCA tool, a
+            water scarcity estimates typically require a separate LCA tool, a
             dedicated sustainability team, or both. We built a machine learning
-            prediction engine directly into the platform that calculates these
-            values from your material compositions and production data. No
-            separate subscriptions. No five-figure consulting engagements.
+            prediction engine directly into the platform that predicts these
+            values from as little as a product category and basic material data.
+            No separate subscriptions. No five-figure consulting engagements.
           </p>
           <p>
             Speed matters too. Most DPP platforms require months of integration
@@ -93,7 +93,7 @@ export function AboutText() {
             hard technical problems. Previously built machine learning systems
             at an Amsterdam-based startup. At Avelero, he architects the LCA
             prediction engine that makes product-level environmental impact
-            calculations accessible without dedicated sustainability
+            predictions accessible without dedicated sustainability
             infrastructure.
           </p>
         </div>

@@ -8,24 +8,150 @@ import { RelatedUpdates } from "@/components/related-updates";
 import { FaqBlock } from "@/components/faq-block";
 import { Hero, HeroHeader, HeroLabel, HeroHeadline, HeroAccent, HeroContent } from "@/components/hero";
 import { ContactDrawer } from "@/components/contact-drawer";
+import { Button } from "@/components/button";
+import { Icons } from "@v1/ui/icons";
 
 export const metadata: Metadata = {
-  title: "Digital Product Passport",
+  title: "Digital Product Passport Software for Fashion",
   description:
-    "Create EU-compliant digital product passports that customers actually want to explore. Connect your data, calculate your footprint, design your passport, and go live in days.",
+    "Avelero's digital product passport software helps fashion brands create EU-compliant DPPs with built-in footprint estimates, customizable design, and fast implementation. Go live in days.",
   alternates: {
     canonical: "https://avelero.com/digital-product-passport/",
   },
   openGraph: {
-    title: "Digital Product Passport | Avelero",
+    title: "Digital Product Passport Software for Fashion | Avelero",
     description:
-      "Create EU-compliant digital product passports that customers actually want to explore. Connect your data, calculate your footprint, design your passport, and go live in days.",
+      "Avelero's digital product passport software helps fashion brands create EU-compliant DPPs with built-in footprint estimates, customizable design, and fast implementation. Go live in days.",
     type: "website",
+    images: [
+      {
+        url: "https://avelero.com/hero-image.webp",
+        width: 1200,
+        height: 630,
+        alt: "Digital product passport interface showing sustainable fashion product information",
+      },
+    ],
   },
 };
 
+const FAQ_ITEMS = [
+  {
+    question: "What is a digital product passport?",
+    answer:
+      "A digital product passport (DPP) is a product-level digital record that contains information about a product's materials, origin, environmental impact, and end-of-life options. Consumers access it by scanning a QR code on the product label or packaging.",
+  },
+  {
+    question:
+      "When are digital product passports mandatory in the EU?",
+    answer:
+      "The EU's Ecodesign for Sustainable Products Regulation (ESPR) was adopted in 2024. Textile-specific requirements are expected to be adopted in 2027, with an 18-month transition period, meaning brands selling in the EU should be ready by 2028-2029.",
+  },
+  {
+    question:
+      "What information does a digital product passport need to contain?",
+    answer:
+      "A DPP typically includes material composition by weight, country of origin and manufacturing location, carbon footprint per unit (in kg CO₂e), care and repair instructions, recyclability and end-of-life guidance, and relevant certifications or compliance data.",
+  },
+  {
+    question: "Who needs to comply with DPP regulations?",
+    answer:
+      "Any brand selling products in the EU market must comply, regardless of where the company is headquartered or where the products are manufactured. This includes non-EU brands exporting to European retailers.",
+  },
+  {
+    question:
+      "What is the difference between a DPP and a product label?",
+    answer:
+      "A product label shows static, limited information like size and wash instructions. A digital product passport is a living digital record that can include supply chain data, environmental scores, certifications, care guides, and even resale or recycling options, all accessible via a scannable QR code.",
+  },
+  {
+    question:
+      "How do consumers access a digital product passport?",
+    answer:
+      "By scanning a QR code printed on the product's care label, hangtag, or packaging. The QR code links to a branded web page showing the product's full passport. No app download required.",
+  },
+  {
+    question:
+      "What data do I need to create a digital product passport?",
+    answer:
+      "You can get started with as little as a product category and basic material info. For a more detailed passport, add supplier locations, weights, and certifications. Avelero's ML model predicts your environmental footprint and flags any missing data automatically.",
+  },
+  {
+    question:
+      "Can I customize how my digital product passport looks?",
+    answer:
+      "With Avelero, yes. You can customize the layout, colors, typography, and content sections of your passport to match your brand identity. Every passport is an extension of your brand, not a generic compliance page.",
+  },
+  {
+    question: "How much does a digital product passport cost?",
+    answer:
+      "Costs vary by provider and the number of SKUs you need to cover. Avelero offers plans designed for brands of all sizes, from emerging labels to enterprise catalogs.",
+  },
+  {
+    question:
+      "Do digital product passports apply outside the EU?",
+    answer:
+      "The regulation originates in the EU, but its impact is global. Any company selling into the EU must comply. Additionally, similar regulations are emerging in the UK, France (AGEC/Anti-Waste Law), and other markets, making DPP adoption a future-proof investment regardless of where you sell.",
+  },
+];
+
 export default function DigitalProductPassportPage() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Digital Product Passport Software for Fashion | Avelero",
+    description:
+      "Avelero's digital product passport software helps fashion brands create EU-compliant DPPs with built-in footprint estimates, customizable design, and fast implementation.",
+    url: "https://avelero.com/digital-product-passport/",
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: "https://avelero.com/",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Digital Product Passport",
+      },
+    ],
+  };
+
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQ_ITEMS.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+
   return (
+    <>
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: Required for JSON-LD structured data
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: Required for JSON-LD structured data
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: Required for JSON-LD structured data
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
     <main className="h-[calc(100%-102px)] w-full flex flex-col items-center justify-center">
       <Hero>
         <HeroHeader>
@@ -35,9 +161,20 @@ export default function DigitalProductPassportPage() {
           </HeroHeadline>
         </HeroHeader>
         <HeroContent
-          description="Create EU-compliant digital product passports that customers actually want to explore. Connect your data, calculate your footprint, design your passport, and go live in days."
+          description="Create EU-compliant digital product passports that customers actually want to explore. Connect your data, estimate your footprint, design your passport, and go live in days."
         >
           <ContactDrawer />
+          <Button asChild>
+            <a
+              href="https://passport.avelero.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open live digital product passport in new tab"
+            >
+              <span>Live passport</span>
+              <Icons.SquareArrowOutUpRight color="var(--foreground)" />
+            </a>
+          </Button>
         </HeroContent>
       </Hero>
       <HeroImage />
@@ -67,68 +204,9 @@ export default function DigitalProductPassportPage() {
         topTitle="How it works"
         bottomTitle="in four steps"
       />
-      <FaqBlock
-        items={[
-          {
-            question: "What is a digital product passport?",
-            answer:
-              "A digital product passport (DPP) is a product-level digital record that contains information about a product's materials, origin, environmental impact, and end-of-life options. Consumers access it by scanning a QR code on the product label or packaging.",
-          },
-          {
-            question:
-              "When are digital product passports mandatory in the EU?",
-            answer:
-              "The EU's Ecodesign for Sustainable Products Regulation (ESPR) was adopted in 2024. Textile-specific requirements are expected to be adopted in 2027, with an 18-month transition period — meaning brands selling in the EU should be ready by 2028–2029.",
-          },
-          {
-            question:
-              "What information does a digital product passport need to contain?",
-            answer:
-              "A DPP typically includes material composition by weight, country of origin and manufacturing location, carbon footprint per unit (in kg CO₂e), care and repair instructions, recyclability and end-of-life guidance, and relevant certifications or compliance data.",
-          },
-          {
-            question: "Who needs to comply with DPP regulations?",
-            answer:
-              "Any brand selling products in the EU market must comply — regardless of where the company is headquartered or where the products are manufactured. This includes non-EU brands exporting to European retailers.",
-          },
-          {
-            question:
-              "What is the difference between a DPP and a product label?",
-            answer:
-              "A product label shows static, limited information like size and wash instructions. A digital product passport is a living digital record that can include supply chain data, environmental scores, certifications, care guides, and even resale or recycling options — all accessible via a scannable QR code.",
-          },
-          {
-            question:
-              "How do consumers access a digital product passport?",
-            answer:
-              "By scanning a QR code printed on the product's care label, hangtag, or packaging. The QR code links to a branded web page showing the product's full passport — no app download required.",
-          },
-          {
-            question:
-              "What data do I need to create a digital product passport?",
-            answer:
-              "At minimum, you need material composition, supplier and manufacturing locations, and product weight. For a complete passport, you'll also want environmental impact data (LCA), certifications, and care instructions. Avelero can calculate your footprint and flag any missing data automatically.",
-          },
-          {
-            question:
-              "Can I customize how my digital product passport looks?",
-            answer:
-              "With Avelero, yes. You can customize the layout, colors, typography, and content sections of your passport to match your brand identity. Every passport is an extension of your brand, not a generic compliance page.",
-          },
-          {
-            question: "How much does a digital product passport cost?",
-            answer:
-              "Costs vary by provider and the number of SKUs you need to cover. Avelero offers plans designed for brands of all sizes — from emerging labels to enterprise catalogs.",
-          },
-          {
-            question:
-              "Do digital product passports apply outside the EU?",
-            answer:
-              "The regulation originates in the EU, but its impact is global. Any company selling into the EU must comply. Additionally, similar regulations are emerging in the UK, France (AGEC/Anti-Waste Law), and other markets — making DPP adoption a future-proof investment regardless of where you sell.",
-          },
-        ]}
-      />
+      <FaqBlock items={FAQ_ITEMS} />
       <RelatedUpdates currentSlug="digital-product-passport" />
     </main>
+    </>
   );
 }

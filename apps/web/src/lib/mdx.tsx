@@ -257,7 +257,7 @@ export const mdxComponents: MDXComponents = {
   // Code
   code: ({ children, ...props }) => (
     <code
-      className="bg-muted px-1.5 py-0.5 rounded text-small font-geist-mono"
+      className="bg-muted px-1.5 py-0.5 rounded-sm text-small font-geist-mono"
       {...props}
     >
       {children}

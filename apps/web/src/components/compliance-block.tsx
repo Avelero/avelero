@@ -33,10 +33,10 @@ export function ComplianceBlock() {
         </h4>
         <p className="text-h6 md:text-h5 text-muted-foreground">with Avelero</p>
       </div>
-      <div className="rounded border border-border grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 [&>*+*]:border-t [&>*+*]:sm:border-t-0 [&>*+*]:sm:border-l [&>*:nth-child(3)]:sm:border-t [&>*:nth-child(3)]:sm:border-l-0 [&>*:nth-child(3)]:lg:border-t-0 [&>*:nth-child(3)]:lg:border-l border-border [&>*]:border-border">
+      <div className="rounded-sm border border-border grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 [&>*+*]:border-t [&>*+*]:sm:border-t-0 [&>*+*]:sm:border-l [&>*:nth-child(3)]:sm:border-t [&>*:nth-child(3)]:sm:border-l-0 [&>*:nth-child(3)]:lg:border-t-0 [&>*:nth-child(3)]:lg:border-l border-border [&>*]:border-border">
           <ComplianceCard
             title="ISO 14040-44"
-            description="Footprint data follows ISO 14040-44 lifecycle assessment standards."
+            description="Footprint model trained in accordance with ISO 14040-44 lifecycle assessment standards."
             icon={<IsoLogo height={48} color="var(--muted-foreground)" />}
           />
           <ComplianceCard

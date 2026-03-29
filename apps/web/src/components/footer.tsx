@@ -19,38 +19,20 @@ export function Footer() {
                 <ul>
                   <li>
                     <Link
-                      aria-label="Go to footprint section"
+                      aria-label="Go to digital product passport page"
                       className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
-                      href="/#footprint"
+                      href="/digital-product-passport/"
                     >
-                      Footprint
+                      Passport
                     </Link>
                   </li>
                   <li>
                     <Link
-                      aria-label="Go to designer section"
+                      aria-label="Go to passport designer page"
                       className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
-                      href="/#designer"
+                      href="/passport-designer/"
                     >
                       Designer
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      aria-label="Go to automation section"
-                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
-                      href="/#automation"
-                    >
-                      Automation
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      aria-label="Go to compliance section"
-                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
-                      href="/#compliance"
-                    >
-                      Compliance
                     </Link>
                   </li>
                 </ul>

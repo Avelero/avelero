@@ -11,7 +11,7 @@ interface Step {
 
 const STEP_DURATION = 8000;
 
-const steps: Step[] = [
+const DEFAULT_STEPS: Step[] = [
   {
     label: "Connect your data",
     description:
@@ -19,9 +19,9 @@ const steps: Step[] = [
     image: "/connect-your-data.webp",
   },
   {
-    label: "Calculate your footprint",
+    label: "Estimate your footprint",
     description:
-      "Our LCA engine estimates carbon and water impact from your material and production data using validated open sources.",
+      "Our ML-powered LCA engine predicts carbon and water impact from your product data, even with minimal information.",
     image: "/calculate-your-footprint.webp",
   },
   {
@@ -38,12 +38,16 @@ const steps: Step[] = [
   },
 ];
 
+export type { Step as StepCarouselStep };
+
 export function StepCarousel({
   topTitle,
   bottomTitle,
+  steps = DEFAULT_STEPS,
 }: {
   topTitle: string;
   bottomTitle: string;
+  steps?: Step[];
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -136,7 +140,7 @@ export function StepCarousel({
   );
 
   const imageBlock = (
-    <div className="relative aspect-square w-full flex-shrink-0 overflow-hidden rounded">
+    <div className="relative aspect-square w-full flex-shrink-0 overflow-hidden rounded-sm">
       {steps.map((step, i) => (
         <Image
           key={step.image}

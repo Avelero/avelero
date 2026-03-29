@@ -212,7 +212,7 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
 
           {/* Cover Image - Full width with 18:10 aspect ratio */}
           <div className="w-full max-w-[976px] mx-auto py-[45px] sm:py-[62px]">
-            <div className="relative w-full aspect-[18/10] overflow-hidden rounded">
+            <div className="relative w-full aspect-[18/10] overflow-hidden rounded-sm">
               <Image
                 src={update.image}
                 alt={update.title}

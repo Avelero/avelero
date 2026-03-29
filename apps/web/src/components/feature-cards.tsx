@@ -17,7 +17,7 @@ export function FeatureCard({
 }: FeatureCardProps) {
   return (
     <div className="flex flex-col justify-end gap-6 w-[282.66px] flex-shrink-0 lg:w-full">
-      <div className="relative aspect-square w-full overflow-hidden rounded">
+      <div className="relative aspect-square w-full overflow-hidden rounded-sm">
         <Image
           src={backgroundImage}
           alt={title}
@@ -52,7 +52,7 @@ export function FeatureCards({ title, href, children }: FeatureCardsProps) {
           <h4 className="text-h6 md:text-h5 text-foreground">{title}</h4>
           <Link
             href={href}
-            className="text-button text-foreground hover:opacity-[0.7] transition-all duration-100"
+            className="text-button text-primary hover:text-[#0000D6] transition-all duration-100"
           >
             Learn more <Icons.ChevronRight className="inline size-[14px]" />
           </Link>

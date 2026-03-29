@@ -108,8 +108,8 @@ export function GS1DigitalLinkBreakdown() {
                   handleClick(segment.id);
                 }
               }}
-              className={`cursor-pointer px-1 py-0.5 transition-colors duration-100 ${segment.color} ${
-                activeId === segment.id ? "bg-muted" : ""
+              className={`relative cursor-pointer px-1 py-0.5 transition-colors duration-100 ${segment.color} ${
+                activeId === segment.id ? "before:absolute before:inset-0 before:rounded-sm before:bg-foreground before:opacity-[0.05]" : ""
               }`}
               aria-pressed={lockedSegment === segment.id}
               aria-label={`${segment.label}: ${segment.description}`}

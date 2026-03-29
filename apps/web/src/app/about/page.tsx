@@ -7,13 +7,15 @@ import about from "../../../public/about.webp";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "About Avelero, the story and its people.",
+  description:
+    "About Avelero — the digital product passport platform for fashion brands. Built in Amsterdam by Rafaël Mevis and Moussa Ouallaf.",
   alternates: {
     canonical: "https://avelero.com/about/",
   },
   openGraph: {
     title: "About | Avelero",
-    description: "About Avelero, the story and its people.",
+    description:
+      "About Avelero — the digital product passport platform for fashion brands. Built in Amsterdam by Rafaël Mevis and Moussa Ouallaf.",
     type: "website",
   },
 };

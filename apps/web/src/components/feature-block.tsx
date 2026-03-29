@@ -1,5 +1,7 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode } from "react";
+import { Icons } from "@v1/ui/icons";
 
 export function FeatureBlock({
   children,
@@ -20,11 +22,13 @@ export function FeatureBlockContent({
   bottomTitle,
   description,
   className,
+  href,
 }: {
   topTitle: string;
   bottomTitle: string;
   description: string;
   className?: string;
+  href?: string;
 }) {
   return (
     <div
@@ -37,7 +41,21 @@ export function FeatureBlockContent({
         </span>
         <span className="text-muted-foreground">{bottomTitle}</span>
       </h4>
-      <p className="text-small text-muted-foreground w-full">{description}</p>
+      <div className="flex flex-col gap-4">
+        <p className="text-small text-muted-foreground w-full">{description}</p>
+        {href && (
+          <Link
+            href={href}
+            className="text-button text-primary hover:text-[#0000D6] transition-all duration-100"
+          >
+            <span>Learn more</span>
+            <Icons.ChevronRight
+              size={14}
+              className="inline ml-1"
+            />
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
@@ -57,7 +75,7 @@ export function FeatureBlockImage({
         </span>
         <span className="text-muted-foreground">{bottomTitle}</span>
       </h4>
-      <div className="relative aspect-square w-full flex-shrink-0 overflow-hidden rounded">
+      <div className="relative aspect-square w-full flex-shrink-0 overflow-hidden rounded-sm">
         <Image
           src={image}
           alt={imageAlt}

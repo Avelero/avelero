@@ -35,7 +35,7 @@ export async function RelatedUpdates({ currentSlug, title }: RelatedUpdatesProps
         </h2>
         <Link
           href="/updates/"
-          className="text-button text-foreground hover:opacity-[0.7] transition-all duration-100"
+          className="text-button text-primary hover:text-[#0000D6] transition-all duration-100"
         >
           See more <ChevronRight className="inline size-[14px]" />
         </Link>

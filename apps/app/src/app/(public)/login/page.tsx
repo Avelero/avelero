@@ -4,7 +4,7 @@ import { OTPSignIn } from "@/components/auth/otp-signin";
 import { MainSkeleton } from "@/components/main-skeleton";
 import type { Metadata } from "next";
 import Image from "next/image";
-import LoginPageImage from "public/marketing/login-page-image.webp";
+import LoginPageImage from "public/marketing/hero-image.webp";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {

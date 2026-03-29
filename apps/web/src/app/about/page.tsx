@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { PageImage } from "@/components/page-image";
 import { AboutText } from "@/components/about-text";
 import { Hero, HeroHeader, HeroLabel, HeroHeadline, HeroAccent } from "@/components/hero";
-import about from "../../../public/about.webp";
+import about from "../../../public/about-new.webp";
 
 export const metadata: Metadata = {
   title: "About",

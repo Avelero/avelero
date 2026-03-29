@@ -78,7 +78,7 @@ export function StepCarousel({
 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [activeIndex]);
+  }, [activeIndex, steps.length]);
 
   const titleBlock = (
     <h4 className="text-h6 md:text-h5 w-full">

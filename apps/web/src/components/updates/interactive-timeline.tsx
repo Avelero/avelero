@@ -91,7 +91,7 @@ export function InteractiveTimeline() {
               aria-expanded={isActive}
               aria-controls={`timeline-item-content-${index}`}
             >
-              <p className="text-micro text-foreground/50">{event.date}</p>
+              <p className="text-micro text-muted-foreground">{event.date}</p>
               <p className="mt-1 text-small text-foreground">{event.title}</p>
             </button>
 
@@ -103,7 +103,7 @@ export function InteractiveTimeline() {
               <div className="overflow-hidden">
                 <div
                   id={`timeline-item-content-${index}`}
-                  className="pb-4 text-small text-foreground/60"
+                  className="pb-4 text-small text-muted-foreground"
                 >
                   {event.description}
                 </div>

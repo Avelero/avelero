@@ -192,7 +192,7 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
           {/* Header Section - Author, Date, Title */}
           <header className="w-full max-w-[976px] mx-auto pt-[58px] sm:pt-[92px] pb-[45px] sm:pb-[62px]">
             {/* Author and Date */}
-            <p className="text-body text-center text-foreground/50 mb-2 transition-all duration-150">
+            <p className="text-body text-center text-muted-foreground mb-2 transition-all duration-150">
               <a
                 href={update.linkedin}
                 target="_blank"
@@ -212,7 +212,7 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
 
           {/* Cover Image - Full width with 18:10 aspect ratio */}
           <div className="w-full max-w-[976px] mx-auto py-[45px] sm:py-[62px]">
-            <div className="relative w-full aspect-[18/10] overflow-hidden">
+            <div className="relative w-full aspect-[18/10] overflow-hidden rounded-sm">
               <Image
                 src={update.image}
                 alt={update.title}

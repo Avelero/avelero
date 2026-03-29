@@ -6,3 +6,5 @@ export { AkeneoLogo } from "./akeneo-logo";
 export { DelogueLogo } from "./delogue-logo";
 export { AwlLogo } from "./awl-logo";
 export { EsprLogo } from "./espr-logo";
+export { GdprLogo } from "./gdpr-logo";
+export { IsoLogo } from "./iso-logo";

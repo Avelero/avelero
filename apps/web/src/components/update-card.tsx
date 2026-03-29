@@ -19,7 +19,7 @@ export function UpdateCard({
   return (
     <Link href={`/updates/${slug}/`} className="flex flex-col group">
       {/* Image Container */}
-      <div className="relative aspect-[18/10] w-full overflow-hidden mb-6">
+      <div className="relative aspect-[18/10] w-full overflow-hidden rounded-sm mb-6">
         <Image
           src={image}
           alt={title}
@@ -34,10 +34,10 @@ export function UpdateCard({
 
       {/* Text Content */}
       <div className="flex flex-col">
-        <h2 className="text-h6 text-foreground mb-2 group-hover:text-foreground/70 transition-colors duration-150">
+        <h2 className="text-body sm:text-h6 text-foreground mb-2 group-hover:opacity-[0.9] transition-all duration-150">
           {title}
         </h2>
-        <p className="text-small text-foreground/50 line-clamp-2">
+        <p className="text-small text-muted-foreground line-clamp-2">
           {description}
         </p>
       </div>

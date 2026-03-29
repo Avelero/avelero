@@ -174,8 +174,8 @@ export function ContactDrawer() {
       onOpenChange={setIsOpen}
     >
       <Drawer.Trigger asChild>
-        <Button variant="brand" aria-label="Open talk to founders drawer">
-          Talk to founders
+        <Button variant="brand" aria-label="Open book a demo drawer">
+          Book a demo
         </Button>
       </Drawer.Trigger>
       <Drawer.Portal>
@@ -208,7 +208,7 @@ export function ContactDrawer() {
                 "h-[140px]",
             )}
           >
-            <Drawer.Title className="sr-only">Talk to founders</Drawer.Title>
+            <Drawer.Title className="sr-only">Book a demo</Drawer.Title>
             <Drawer.Description className="sr-only">
               Contact form to connect with the founders
             </Drawer.Description>
@@ -221,7 +221,7 @@ export function ContactDrawer() {
                   <h3 className="text-[16px] leading-[24px] font-medium text-foreground">
                     Check your inbox!
                   </h3>
-                  <p className="text-[14px] leading-[20px] text-foreground/50 mt-1">
+                  <p className="text-[14px] leading-[20px] text-muted-foreground mt-1">
                     One of the founders will reach out shortly
                   </p>
                 </div>
@@ -236,7 +236,7 @@ export function ContactDrawer() {
                   <h3 className="text-[16px] leading-[24px] font-medium text-foreground">
                     Oops, something went wrong
                   </h3>
-                  <p className="text-[14px] leading-[20px] text-foreground/50 mt-1">
+                  <p className="text-[14px] leading-[20px] text-muted-foreground mt-1">
                     Please try again
                   </p>
                 </div>
@@ -309,7 +309,7 @@ export function ContactDrawer() {
                   <div className="space-y-1">
                     <label
                       htmlFor="name"
-                      className="text-small text-foreground/50"
+                      className="text-small text-muted-foreground"
                     >
                       Name
                     </label>
@@ -343,7 +343,7 @@ export function ContactDrawer() {
                   <div className="space-y-1">
                     <label
                       htmlFor="company"
-                      className="text-small text-foreground/50"
+                      className="text-small text-muted-foreground"
                     >
                       Company
                     </label>

@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="px-6 sm:px-16 bg-card border-t border-border overflow-hidden">
+    <footer className="px-6 sm:px-16 bg-muted border-t border-border overflow-hidden">
       <div className="mb-8">
         <nav>
           <div className="flex flex-col md:flex-row justify-between gap-6 md:gap-4 py-6 md:py-8">
@@ -15,53 +15,35 @@ export function Footer() {
             />
             <div className="gap-x-3 gap-y-2 grid grid-cols-2 md:grid-cols-4">
               <div>
-                <h6 className="text-small text-foreground/50 pb-1">Product</h6>
+                <h6 className="text-small text-muted-foreground pb-1">Product</h6>
                 <ul>
                   <li>
                     <Link
-                      aria-label="Go to footprint section"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
-                      href="/#footprint"
+                      aria-label="Go to digital product passport page"
+                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
+                      href="/digital-product-passport/"
                     >
-                      Footprint
+                      Passport
                     </Link>
                   </li>
                   <li>
                     <Link
-                      aria-label="Go to designer section"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
-                      href="/#designer"
+                      aria-label="Go to passport designer page"
+                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
+                      href="/passport-designer/"
                     >
                       Designer
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      aria-label="Go to automation section"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
-                      href="/#automation"
-                    >
-                      Automation
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      aria-label="Go to compliance section"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
-                      href="/#compliance"
-                    >
-                      Compliance
                     </Link>
                   </li>
                 </ul>
               </div>
               <div>
-                <h6 className="text-small text-foreground/50 pb-1">Legal</h6>
+                <h6 className="text-small text-muted-foreground pb-1">Legal</h6>
                 <ul>
                   <li>
                     <Link
                       aria-label="Go to terms and conditions page"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
+                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
                       href="/terms-and-conditions"
                     >
                       Terms & conditions
@@ -70,7 +52,7 @@ export function Footer() {
                   <li>
                     <Link
                       aria-label="Go to privacy policy page"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
+                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
                       href="/privacy-policy"
                     >
                       Privacy policy
@@ -79,14 +61,14 @@ export function Footer() {
                 </ul>
               </div>
               <div>
-                <h6 className="text-small text-foreground/50 pb-1">
+                <h6 className="text-small text-muted-foreground pb-1">
                   Resources
                 </h6>
                 <ul>
                   <li>
                     <Link
                       aria-label="Go to updates page"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
+                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
                       href="/updates/"
                     >
                       Updates
@@ -95,7 +77,7 @@ export function Footer() {
                   <li>
                     <Link
                       aria-label="Go to about page"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
+                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
                       href="/about/"
                     >
                       About
@@ -104,12 +86,12 @@ export function Footer() {
                 </ul>
               </div>
               <div>
-                <h6 className="text-small text-foreground/50 pb-1">Connect</h6>
+                <h6 className="text-small text-muted-foreground pb-1">Connect</h6>
                 <ul>
                   <li>
                     <a
                       aria-label="Send email to Avelero founder"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
+                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
                       href="mailto:raf@avelero.com"
                     >
                       raf@avelero.com
@@ -118,7 +100,7 @@ export function Footer() {
                   <li>
                     <a
                       aria-label="Open Avelero LinkedIn page in new tab"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
+                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
                       href="https://www.linkedin.com/company/avelero"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -129,7 +111,7 @@ export function Footer() {
                   <li>
                     <a
                       aria-label="Open Avelero X page in new tab"
-                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
+                      className="inline-block text-small text-foreground hover:opacity-[0.7] transition-all duration-100 py-1"
                       href="https://x.com/avelerodpp"
                       target="_blank"
                       rel="noopener noreferrer"
@@ -145,7 +127,7 @@ export function Footer() {
       </div>
       <AveleroText
         className="w-full h-auto translate-y-[25%]"
-        color="hsl(var(--border))"
+        color="color-mix(in srgb, var(--foreground) 10%, transparent)"
       />
     </footer>
   );

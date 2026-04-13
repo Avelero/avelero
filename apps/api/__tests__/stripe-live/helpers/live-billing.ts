@@ -48,6 +48,7 @@ export interface LiveStripeCleanupTracker {
   trackClock: (clockId: string) => void;
   trackCustomer: (customerId: string) => void;
   trackSubscription: (subscriptionId: string) => void;
+  trackBrand: (brandId: string) => void;
   cleanup: () => Promise<void>;
 }
 
@@ -200,8 +201,15 @@ export function createLiveStripeCleanupTracker(
   const clockIds = new Set<string>();
   const customerIds = new Set<string>();
   const subscriptionIds = new Set<string>();
+  const brandIds = new Set<string>();
 
   return {
+    /**
+     * Track a brand whose Stripe-backed billing projection must settle before teardown ends.
+     */
+    trackBrand(brandId) {
+      brandIds.add(brandId);
+    },
     trackClock(clockId) {
       clockIds.add(clockId);
     },
@@ -228,19 +236,32 @@ export function createLiveStripeCleanupTracker(
         }
       }
 
-      for (const clockId of clockIds) {
-        try {
-          await stripe.testHelpers.testClocks.del(clockId);
-        } catch {
-          // Ignore clock cleanup failures during test teardown.
-        }
-      }
-
       for (const subscriptionId of subscriptionIds) {
         try {
           await stripe.subscriptions.cancel(subscriptionId);
         } catch {
           // Ignore subscription cleanup failures during test teardown.
+        }
+      }
+
+      for (const brandId of brandIds) {
+        try {
+          await waitForCondition({
+            description: `billing teardown for brand ${brandId}`,
+            timeoutMs: 30_000,
+            evaluate: async () => readLiveBrandBillingState(brandId),
+            isDone: (state) => !state.billing?.stripeSubscriptionId,
+          });
+        } catch {
+          // Ignore webhook settlement failures during test teardown.
+        }
+      }
+
+      for (const clockId of clockIds) {
+        try {
+          await stripe.testHelpers.testClocks.del(clockId);
+        } catch {
+          // Ignore clock cleanup failures during test teardown.
         }
       }
 
@@ -850,6 +871,7 @@ export async function provisionActiveStripeBillingBrand(params?: {
   const harness = await createLiveBillingBrand({
     namePrefix: params?.namePrefix ?? "Provisioned Live Billing Brand",
   });
+  cleanup.trackBrand(harness.brandId);
 
   const clock = await createStripeTestClock({
     stripe,

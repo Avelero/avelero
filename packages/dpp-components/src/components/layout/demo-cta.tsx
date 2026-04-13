@@ -11,7 +11,7 @@ export function DemoCTA() {
           backgroundColor: "var(--primary)",
         }}
       >
-        <div className="inline-flex items-center px-1">Talk to founders</div>
+        <div className="inline-flex items-center px-1">Book a demo</div>
         <span className="inline-flex items-center h-4 w-4">
           <svg
             className="h-full w-full"

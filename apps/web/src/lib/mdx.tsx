@@ -63,7 +63,7 @@ function MdxImage({
         {...props}
       />
       {caption ? (
-        <figcaption className="text-small mt-2 text-center text-foreground/60">
+        <figcaption className="text-small mt-2 text-center text-muted-foreground">
           {caption}
         </figcaption>
       ) : null}
@@ -137,7 +137,7 @@ export const mdxComponents: MDXComponents = {
         {headingId ? (
           <a
             href={`#${headingId}`}
-            className="ml-2 text-foreground/40 no-underline opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus:opacity-100"
+            className="ml-2 text-muted-foreground no-underline opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus:opacity-100"
             aria-label={`Link to section: ${headingText}`}
           >
             #
@@ -160,7 +160,7 @@ export const mdxComponents: MDXComponents = {
         {headingId ? (
           <a
             href={`#${headingId}`}
-            className="ml-2 text-foreground/40 no-underline opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus:opacity-100"
+            className="ml-2 text-muted-foreground no-underline opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus:opacity-100"
             aria-label={`Link to section: ${headingText}`}
           >
             #
@@ -188,7 +188,7 @@ export const mdxComponents: MDXComponents = {
   // Paragraphs and text
   p: ({ children, ...props }) => (
     <p
-      className="text-body text-foreground/80 my-6 leading-relaxed first:mt-0 last:mb-0"
+      className="text-body text-foreground my-6 leading-relaxed first:mt-0 last:mb-0"
       {...props}
     >
       {children}
@@ -206,7 +206,7 @@ export const mdxComponents: MDXComponents = {
     return (
       <Component
         href={href ?? "#"}
-        className="text-primary underline hover:text-primary/70 transition-colors duration-150"
+        className="text-primary underline hover:opacity-70 transition-colors duration-150"
         {...externalProps}
         {...props}
       >
@@ -227,7 +227,7 @@ export const mdxComponents: MDXComponents = {
     </ol>
   ),
   li: ({ children, ...props }) => (
-    <li className="text-body text-foreground/80" {...props}>
+    <li className="text-body text-foreground" {...props}>
       {children}
     </li>
   ),
@@ -247,7 +247,7 @@ export const mdxComponents: MDXComponents = {
   // Block elements
   blockquote: ({ children, ...props }) => (
     <blockquote
-      className="border-l-4 border-border pl-4 py-2 my-4 italic text-foreground/70"
+      className="border-l-4 border-border pl-4 py-2 my-4 italic text-muted-foreground"
       {...props}
     >
       {children}
@@ -257,7 +257,7 @@ export const mdxComponents: MDXComponents = {
   // Code
   code: ({ children, ...props }) => (
     <code
-      className="bg-card px-1.5 py-0.5 rounded text-small font-geist-mono"
+      className="bg-muted px-1.5 py-0.5 rounded-sm text-small font-geist-mono"
       {...props}
     >
       {children}
@@ -265,7 +265,7 @@ export const mdxComponents: MDXComponents = {
   ),
   pre: ({ children, ...props }) => (
     <pre
-      className="bg-card p-4 rounded-lg overflow-x-auto mb-4 text-small font-geist-mono"
+      className="bg-muted p-4 rounded-lg overflow-x-auto mb-4 text-small font-geist-mono"
       {...props}
     >
       {children}
@@ -284,7 +284,7 @@ export const mdxComponents: MDXComponents = {
     </div>
   ),
   thead: ({ children, ...props }) => (
-    <thead className="bg-card" {...props}>
+    <thead className="bg-muted" {...props}>
       {children}
     </thead>
   ),
@@ -304,7 +304,7 @@ export const mdxComponents: MDXComponents = {
   ),
   td: ({ children, ...props }) => (
     <td
-      className="border border-border px-4 py-2 text-small text-foreground/80"
+      className="border border-border px-4 py-2 text-small text-foreground"
       {...props}
     >
       {children}

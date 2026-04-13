@@ -31,6 +31,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly" as const,
     },
     {
+      route: "/digital-product-passport/",
+      lastModified: latestUpdateDate,
+      priority: 0.9,
+      changeFrequency: "monthly" as const,
+    },
+    {
+      route: "/passport-designer/",
+      lastModified: latestUpdateDate,
+      priority: 0.9,
+      changeFrequency: "monthly" as const,
+    },
+    {
+      route: "/about/",
+      lastModified: latestUpdateDate,
+      priority: 0.7,
+      changeFrequency: "monthly" as const,
+    },
+    {
       route: "/updates/",
       lastModified: latestUpdateDate,
       priority: 0.8,

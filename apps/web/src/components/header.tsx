@@ -39,11 +39,12 @@ export function Header() {
     <>
       <div className="h-4" />
       <header
-        className={`sticky top-0 w-full flex items-center justify-between z-30 py-4 px-6 sm:px-16 backdrop-blur-md bg-background/80 transition-none ${
+        className={`sticky top-0 w-full flex items-center justify-between z-30 py-4 px-6 sm:px-16 backdrop-blur-md transition-none ${
           isMobileMenuOpen ? "border-b-0 md:border-b" : "border-b"
         }`}
         style={{
-          borderBottomColor: `hsl(var(--border) / ${scrollProgress})`,
+          backgroundColor: "color-mix(in srgb, var(--background) 80%, transparent)",
+          borderBottomColor: `color-mix(in srgb, var(--border) ${Math.round(scrollProgress * 100)}%, transparent)`,
         }}
       >
         <div className={isMobileMenuOpen ? "invisible md:visible" : ""}>
@@ -67,37 +68,30 @@ export function Header() {
         <nav className="hidden md:block">
           <div className="flex items-center gap-4">
             <Link
-              href="/#footprint"
-              aria-label="Go to footprint section"
-              className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150"
+              href="/digital-product-passport/"
+              aria-label="Go to digital product passport page"
+              className="text-button px-2 py-3 text-foreground hover:opacity-[0.7] transition-all duration-150"
             >
-              Footprint
+              Passport
             </Link>
             <Link
-              href="/#designer"
-              aria-label="Go to designer section"
-              className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150"
+              href="/passport-designer/"
+              aria-label="Go to passport designer page"
+              className="text-button px-2 py-3 text-foreground hover:opacity-[0.7] transition-all duration-150"
             >
               Designer
             </Link>
             <Link
-              href="/#compliance"
-              aria-label="Go to compliance section"
-              className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150"
-            >
-              Compliance
-            </Link>
-            <Link
               href="/about/"
               aria-label="Go to about page"
-              className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150"
+              className="text-button px-2 py-3 text-foreground hover:opacity-[0.7] transition-all duration-150"
             >
               About
             </Link>
             <Link
               href="/updates/"
               aria-label="Go to updates page"
-              className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150"
+              className="text-button px-2 py-3 text-foreground hover:opacity-[0.7] transition-all duration-150"
             >
               Updates
             </Link>
@@ -146,33 +140,25 @@ export function Header() {
         <nav className="h-full px-4 sm:px-16 py-8">
           <div className="flex flex-col items-start gap-6">
             <Link
-              href="/#footprint"
-              aria-label="Go to footprint section"
-              className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
+              href="/digital-product-passport/"
+              aria-label="Go to digital product passport page"
+              className="text-2xl font-medium text-foreground hover:opacity-[0.7] transition-all duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Footprint
+              Passport
             </Link>
             <Link
-              href="/#designer"
-              aria-label="Go to designer section"
-              className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
+              href="/passport-designer/"
+              aria-label="Go to passport designer page"
+              className="text-2xl font-medium text-foreground hover:opacity-[0.7] transition-all duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Designer
             </Link>
             <Link
-              href="/#compliance"
-              aria-label="Go to compliance section"
-              className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Compliance
-            </Link>
-            <Link
               href="/about/"
               aria-label="Go to about page"
-              className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
+              className="text-2xl font-medium text-foreground hover:opacity-[0.7] transition-all duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               About
@@ -180,7 +166,7 @@ export function Header() {
             <Link
               href="/updates/"
               aria-label="Go to updates page"
-              className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
+              className="text-2xl font-medium text-foreground hover:opacity-[0.7] transition-all duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Updates

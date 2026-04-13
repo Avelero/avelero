@@ -5,7 +5,7 @@ const qrCodeImageSrc = "/avelero-dpp-qr-code.webp";
 
 export function DPPDemoCallout() {
   return (
-    <aside className="my-10 border border-border bg-card p-4 sm:-mx-6 sm:w-[calc(100%+3rem)] sm:p-6">
+    <aside className="my-10 border border-border bg-muted p-4 sm:-mx-6 sm:w-[calc(100%+3rem)] sm:p-6">
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:gap-6">
         <a
           href={demoUrl}
@@ -30,7 +30,7 @@ export function DPPDemoCallout() {
           <h5 className="text-h6 text-foreground">
             See what a Digital Product Passport looks like
           </h5>
-          <p className="text-small text-foreground/50">
+          <p className="text-small text-muted-foreground">
             Scan the QR code or click the link below to explore a live product
             passport demo built with Avelero.
           </p>
@@ -38,7 +38,7 @@ export function DPPDemoCallout() {
             href={demoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-small text-primary underline transition-colors duration-150 hover:text-primary/70"
+            className="text-small text-primary underline transition-colors duration-150 hover:opacity-70"
           >
             Explore the live demo
           </a>

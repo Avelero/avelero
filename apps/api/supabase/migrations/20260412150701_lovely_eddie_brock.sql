@@ -31,6 +31,12 @@ DROP TRIGGER IF EXISTS "trg_product_passports_enforce_upid_global_guard" ON "pub
 DROP FUNCTION IF EXISTS "public"."enforce_variant_upid_global_guard"();--> statement-breakpoint
 DROP FUNCTION IF EXISTS "public"."enforce_passport_upid_global_guard"();--> statement-breakpoint
 DELETE FROM "product_passport_versions" AS "ppv"
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM "product_passports" AS "pp"
+  WHERE "pp"."id" = "ppv"."passport_id"
+);--> statement-breakpoint
+DELETE FROM "product_passport_versions" AS "ppv"
 USING "product_passports" AS "pp"
 LEFT JOIN "product_variants" AS "pv" ON "pv"."id" = "pp"."working_variant_id"
 WHERE "ppv"."passport_id" = "pp"."id"

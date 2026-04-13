@@ -1,8 +1,14 @@
 import { baseUrl } from "@/app/sitemap";
 import { MDXRenderer } from "@/components/mdx-renderer";
 import { RelatedUpdates } from "@/components/related-updates";
+import { TableOfContents } from "@/components/table-of-contents";
 import { UpdateFooter } from "@/components/update-footer";
-import { type Update, getAllUpdateSlugs, getUpdateBySlug } from "@/lib/updates";
+import {
+  type Update,
+  extractHeadings,
+  getAllUpdateSlugs,
+  getUpdateBySlug,
+} from "@/lib/updates";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -225,16 +231,25 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
             </div>
           </div>
 
-          {/* MDX Content Section */}
-          <div className="w-full py-[45px] sm:py-[62px]">
-            {/* MDX content with max-width for text readability */}
-            <div className="max-w-[624px] w-full mx-auto">
-              <MDXRenderer source={update.content} />
+          {/* MDX Content Section with TOC */}
+          <div className="w-full max-w-[976px] mx-auto py-[45px] sm:py-[62px]">
+            <div className="flex flex-col lg:flex-row lg:gap-10">
+              {/* TOC sidebar — self-stretch so sticky works against the content height */}
+              <aside className="lg:w-[240px] shrink-0 lg:self-stretch">
+                <TableOfContents headings={extractHeadings(update.content)} />
+              </aside>
+
+              {/* MDX content */}
+              <div className="min-w-0 flex-1">
+                <MDXRenderer source={update.content} />
+              </div>
+            </div>
+
+            {/* Footer aligned with the content column */}
+            <div className="lg:pl-[calc(240px+2.5rem)]">
+              <UpdateFooter title={update.title} slug={slug} />
             </div>
           </div>
-
-          {/* Update Footer with share buttons */}
-          <UpdateFooter title={update.title} slug={slug} />
         </article>
 
         {/* Related Updates Section */}

@@ -69,6 +69,42 @@ export async function getUpdateBySlug(slug: string): Promise<Update> {
   };
 }
 
+export interface TocHeading {
+  id: string;
+  text: string;
+  level: 2 | 3;
+}
+
+/**
+ * Extract h2 and h3 headings from raw MDX content for table of contents.
+ * Uses the same slugification logic as the MDX heading components.
+ */
+export function extractHeadings(content: string): TocHeading[] {
+  const headings: TocHeading[] = [];
+  const headingRegex = /^(#{2,3})\s+(.+)$/gm;
+
+  for (const match of content.matchAll(headingRegex)) {
+    const level = match[1].length as 2 | 3;
+    const rawText = match[2]
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // strip markdown links
+      .replace(/[*_`]/g, "") // strip bold/italic/code markers
+      .trim();
+
+    const id = rawText
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/['"]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    if (id && rawText) {
+      headings.push({ id, text: rawText, level });
+    }
+  }
+
+  return headings;
+}
+
 /**
  * Get all slugs for static generation
  */

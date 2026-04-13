@@ -240,7 +240,6 @@ export const publishRouter = createTRPCRouter({
           const { passport, isNew } = await getOrCreatePassport(
             tx,
             input.variantId,
-            brandId,
           );
           if (!passport) {
             throw badRequest("Failed to create or retrieve passport");

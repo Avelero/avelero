@@ -9,7 +9,7 @@
 import "../../setup";
 
 import { beforeEach, describe, expect, it } from "bun:test";
-import { createPassportForVariant } from "@v1/db/queries/products";
+import { createProductPassport } from "@v1/db/queries/products";
 import * as schema from "@v1/db/schema";
 import { createTestBrand, createTestUser, testDb } from "@v1/db/testing";
 import { eq, inArray } from "drizzle-orm";
@@ -108,7 +108,7 @@ async function createVariant(productId: string): Promise<{
   sku: string;
   barcode: string;
 }> {
-  // Create a variant row plus identifiers that can be copied onto the passport.
+  // Create a variant row plus the public identifiers used by published pages.
   const variantId = crypto.randomUUID();
   const upid = `UPID-${randomSuffix()}`;
   const sku = `SKU-${randomSuffix()}`;
@@ -142,16 +142,7 @@ async function createPassportFixture(options: {
   // Keep the fixture setup concise for each catalog dirty-marking test.
   const productId = await createProduct(options);
   const variant = await createVariant(productId);
-  const passport = await createPassportForVariant(
-    testDb,
-    variant.id,
-    options.brandId,
-    {
-      upid: variant.upid,
-      sku: variant.sku,
-      barcode: variant.barcode,
-    },
-  );
+  const passport = await createProductPassport(testDb, variant.id);
 
   if (!passport) {
     throw new Error("Failed to create passport fixture");

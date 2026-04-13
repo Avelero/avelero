@@ -50,6 +50,29 @@ export function useTriggerJobProgress<
   runStatus: JobProgressStatus | null;
   error: Error | null;
 } {
+  // Subscribe to the run lifecycle first, then derive metadata from it.
+  const { run, runStatus, error } = useTriggerRunStatus(runId, accessToken);
+
+  // Extract progress from run metadata using the specified key.
+  const progress = useMemo(() => {
+    if (!run?.metadata?.[metadataKey]) return null;
+    return run.metadata[metadataKey] as unknown as T;
+  }, [run?.metadata, metadataKey]);
+
+  return { progress, runStatus, error };
+}
+
+/**
+ * Subscribe to a Trigger.dev run when only lifecycle status is needed.
+ */
+export function useTriggerRunStatus(
+  runId: string | null,
+  accessToken: string | null,
+): {
+  run: ReturnType<typeof useRealtimeRun>["run"];
+  runStatus: JobProgressStatus | null;
+  error: Error | null;
+} {
   const isEnabled = !!runId && !!accessToken;
 
   const { run, error } = useRealtimeRun(runId ?? "", {
@@ -57,13 +80,7 @@ export function useTriggerJobProgress<
     enabled: isEnabled,
   });
 
-  // Extract progress from run metadata using the specified key
-  const progress = useMemo(() => {
-    if (!run?.metadata?.[metadataKey]) return null;
-    return run.metadata[metadataKey] as unknown as T;
-  }, [run?.metadata, metadataKey]);
-
-  // Map Trigger.dev run status to our status type
+  // Map Trigger.dev run status to the app-level status type.
   const runStatus = useMemo((): JobProgressStatus | null => {
     if (!run) return null;
     // Trigger.dev statuses from SDK 4.0.6
@@ -86,7 +103,7 @@ export function useTriggerJobProgress<
     }
   }, [run?.status]);
 
-  return { progress, runStatus, error: error ?? null };
+  return { run, runStatus, error: error ?? null };
 }
 
 // =============================================================================

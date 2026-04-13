@@ -46,9 +46,18 @@ type PassportProjectionRow = {
   currentVersionId: string | null;
   firstPublishedAt: string | null;
   dirty: boolean;
-  workingVariantId: string | null;
-  brandId: string | null;
+  workingVariantId: string;
+  brandId: string;
 };
+
+type PassportProjectionLookupRow = Omit<PassportProjectionRow, "upid"> & {
+  upid: string | null;
+};
+
+type PassportProjectionEditableRow = Pick<
+  PassportProjectionRow,
+  "id" | "currentVersionId" | "firstPublishedAt" | "dirty"
+>;
 
 type PassportProjectionStateRow = {
   id: string;
@@ -228,12 +237,14 @@ async function reuseProjectedVersion(
   );
 
   const refreshedPassport = await getPassportProjectionRow(db, passport.id);
+  const projectablePassport =
+    toProjectablePassport(refreshedPassport) ?? passport;
 
   return {
     found: true,
     versionCreated: false,
     dirtyCleared: passport.dirty,
-    passport: refreshedPassport,
+    passport: projectablePassport,
     snapshot,
     version: mapProjectedVersion(version),
   };
@@ -274,20 +285,25 @@ async function getVersionById(
 async function getPassportProjectionRow(
   db: Database,
   passportId: string,
-): Promise<PassportProjectionRow | null> {
+): Promise<PassportProjectionLookupRow | null> {
   // Read only the columns needed to materialize or serve the passport.
   const [passport] = await db
     .select({
       id: productPassports.id,
-      upid: productPassports.upid,
-      barcode: productPassports.barcode,
+      upid: productVariants.upid,
+      barcode: productVariants.barcode,
       currentVersionId: productPassports.currentVersionId,
       firstPublishedAt: productPassports.firstPublishedAt,
       dirty: productPassports.dirty,
       workingVariantId: productPassports.workingVariantId,
-      brandId: productPassports.brandId,
+      brandId: products.brandId,
     })
     .from(productPassports)
+    .innerJoin(
+      productVariants,
+      eq(productVariants.id, productPassports.workingVariantId),
+    )
+    .innerJoin(products, eq(products.id, productVariants.productId))
     .where(eq(productPassports.id, passportId))
     .limit(1);
 
@@ -295,11 +311,36 @@ async function getPassportProjectionRow(
 }
 
 /**
+ * Check whether a passport still has a live, non-blank UPID.
+ */
+function hasLiveUpid(upid: string | null): upid is string {
+  // Treat blank strings the same as a missing UPID so callers can fail cleanly.
+  return typeof upid === "string" && upid.trim().length > 0;
+}
+
+/**
+ * Narrow a lookup row to a projectable passport when a live UPID exists.
+ */
+function toProjectablePassport(
+  passport: PassportProjectionLookupRow | null,
+): PassportProjectionRow | null {
+  // Preserve the distinction between an existing passport and a projectable one.
+  if (!passport || !hasLiveUpid(passport.upid)) {
+    return null;
+  }
+
+  return {
+    ...passport,
+    upid: passport.upid,
+  };
+}
+
+/**
  * Persist the current-version pointer, dirty flag, and optional first-publish timestamp.
  */
 async function finalizeProjectedPassport(
   db: Database,
-  passport: PassportProjectionRow,
+  passport: PassportProjectionEditableRow,
   versionId: string,
   firstPublishedAt?: string,
 ): Promise<void> {
@@ -378,7 +419,7 @@ async function listDirtyPassportsForProducts(
     .innerJoin(products, eq(products.id, productVariants.productId))
     .where(
       and(
-        eq(productPassports.brandId, brandId),
+        eq(products.brandId, brandId),
         inArray(products.id, productIds),
         eq(products.status, "published"),
         eq(productPassports.dirty, true),
@@ -431,11 +472,11 @@ async function listProjectedPassportsForProducts(
     return [];
   }
 
-  return db
+  const rows = await db
     .select({
       id: productPassports.id,
-      upid: productPassports.upid,
-      barcode: productPassports.barcode,
+      upid: productVariants.upid,
+      barcode: productVariants.barcode,
       currentVersionId: productPassports.currentVersionId,
       firstPublishedAt: productPassports.firstPublishedAt,
     })
@@ -453,6 +494,10 @@ async function listProjectedPassportsForProducts(
         isNotNull(productPassports.currentVersionId),
       ),
     );
+
+  return rows.filter(
+    (row): row is ProjectedPassportIdentifierRow => row.upid !== null,
+  );
 }
 
 /**
@@ -509,32 +554,24 @@ export async function projectSinglePassport(
   }
 
   const currentVersion = await getVersionById(db, passport.currentVersionId);
+  const projectablePassport = toProjectablePassport(passport);
 
-  // Orphaned passports keep serving their last materialized snapshot.
-  if (!passport.workingVariantId) {
-    const dirtyCleared = passport.dirty
-      ? (await batchClearDirtyFlags(db, [passport.id])).cleared > 0
-      : false;
-    const refreshedPassport =
-      dirtyCleared || !currentVersion
-        ? await getPassportProjectionRow(db, passport.id)
-        : passport;
-
+  if (!projectablePassport) {
     return {
       found: true,
       versionCreated: false,
-      dirtyCleared,
-      passport: refreshedPassport,
+      dirtyCleared: false,
+      passport: null,
       snapshot: currentVersion ? getVersionSnapshot(currentVersion) : null,
       version: mapProjectedVersion(currentVersion),
-      error: currentVersion ? undefined : "Passport has not been published yet",
+      error: "Passport exists but variant UPID is missing",
     };
   }
 
   const snapshot = await generateDppSnapshot(
     db,
-    passport.workingVariantId,
-    passport.upid,
+    projectablePassport.workingVariantId,
+    projectablePassport.upid,
   );
 
   if (!snapshot) {
@@ -542,7 +579,7 @@ export async function projectSinglePassport(
       found: true,
       versionCreated: false,
       dirtyCleared: false,
-      passport,
+      passport: projectablePassport,
       snapshot: currentVersion ? getVersionSnapshot(currentVersion) : null,
       version: mapProjectedVersion(currentVersion),
       error: "Failed to generate snapshot",
@@ -560,7 +597,7 @@ export async function projectSinglePassport(
       // Reuse the current version when the materialized content is unchanged.
       return reuseProjectedVersion(
         db,
-        passport,
+        projectablePassport,
         latestVersion,
         existingSnapshot,
       );
@@ -584,7 +621,7 @@ export async function projectSinglePassport(
       // Another projector won the race with equivalent content, so reuse it.
       return reuseProjectedVersion(
         db,
-        passport,
+        projectablePassport,
         concurrentVersion,
         concurrentSnapshot,
       );
@@ -594,7 +631,7 @@ export async function projectSinglePassport(
       found: true,
       versionCreated: false,
       dirtyCleared: false,
-      passport,
+      passport: projectablePassport,
       snapshot:
         concurrentSnapshot ??
         (currentVersion ? getVersionSnapshot(currentVersion) : null),
@@ -607,17 +644,19 @@ export async function projectSinglePassport(
 
   await finalizeProjectedPassport(
     db,
-    passport,
+    projectablePassport,
     version.id,
-    !passport.currentVersionId ? version.publishedAt : undefined,
+    !projectablePassport.currentVersionId ? version.publishedAt : undefined,
   );
 
   const refreshedPassport = await getPassportProjectionRow(db, passport.id);
+  const refreshedProjectablePassport =
+    toProjectablePassport(refreshedPassport) ?? projectablePassport;
   return {
     found: true,
     versionCreated: true,
     dirtyCleared: true,
-    passport: refreshedPassport,
+    passport: refreshedProjectablePassport,
     snapshot: getVersionSnapshot(version),
     version: mapProjectedVersion(version),
   };
@@ -675,7 +714,7 @@ export async function projectDirtyPassports(
         .innerJoin(products, eq(products.id, productVariants.productId))
         .where(
           and(
-            eq(productPassports.brandId, brandId),
+            eq(products.brandId, brandId),
             eq(products.status, "published"),
             eq(productPassports.dirty, true),
           ),
@@ -770,15 +809,17 @@ export async function projectDirtyPassportsAllBrands(
 ): Promise<ProjectDirtyPassportsAllBrandsResult> {
   // Scan the dirty-passport index and process brands one at a time.
   const brandRows = await db
-    .select({ brandId: productPassports.brandId })
+    .select({ brandId: products.brandId })
     .from(productPassports)
-    .where(
-      and(
-        eq(productPassports.dirty, true),
-        isNotNull(productPassports.brandId),
-      ),
+    .innerJoin(
+      productVariants,
+      eq(productVariants.id, productPassports.workingVariantId),
     )
-    .groupBy(productPassports.brandId);
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(
+      and(eq(productPassports.dirty, true), isNotNull(products.brandId)),
+    )
+    .groupBy(products.brandId);
 
   const results: ProjectDirtyPassportsResult[] = [];
 

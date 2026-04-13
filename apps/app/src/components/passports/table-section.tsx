@@ -53,6 +53,7 @@ type SortField =
   | "productHandle";
 
 export function TableSection() {
+  // Track the table-wide selection, filtering, and modal state.
   const [selectedCount, setSelectedCount] = useState(0);
   const [selection, setSelection] = useState<SelectionState>({
     mode: "explicit",
@@ -90,6 +91,14 @@ export function TableSection() {
   const billingStatusQuery = useQuery(
     trpc.brand.billing.getStatus.queryOptions(),
   );
+  const activeDeleteJobQuery = useQuery({
+    ...trpc.products.getActiveDeleteJob.queryOptions(),
+    refetchInterval: (query) =>
+      query.state.data?.status === "PENDING" ||
+      query.state.data?.status === "PROCESSING"
+        ? 3000
+        : false,
+  });
   const updateProductMutation = useMutation(
     trpc.products.update.mutationOptions({
       onSuccess: () => {
@@ -123,11 +132,7 @@ export function TableSection() {
     direction: "asc" | "desc";
   } | null>(null);
 
-  const userQuery = useUserQuerySuspense();
-  const brandId = (userQuery.data as any)?.brand_id as
-    | string
-    | null
-    | undefined;
+  const activeDeleteJob = activeDeleteJobQuery.data ?? null;
 
   // Static column order - all columns always visible
   const columnOrder = useMemo(
@@ -224,6 +229,11 @@ export function TableSection() {
 
   // Handle delete from row action (single product)
   const handleDeleteProduct = useCallback((productId: string) => {
+    if (activeDeleteJob) {
+      toast.error("A background product delete job is already running");
+      return;
+    }
+
     // Create a temporary explicit selection with just this product
     setDeleteSelection({
       mode: "explicit",
@@ -232,17 +242,22 @@ export function TableSection() {
     });
     setDeleteCount(1);
     setDeleteModalOpen(true);
-  }, []);
+  }, [activeDeleteJob]);
 
   // Handle bulk delete from Actions button
   const handleDeleteSelected = useCallback(() => {
+    if (activeDeleteJob) {
+      toast.error("A background product delete job is already running");
+      return;
+    }
+
     if (selectedCount > 0) {
       // Pass the current selection state directly to the modal
       setDeleteSelection(selection);
       setDeleteCount(selectedCount);
       setDeleteModalOpen(true);
     }
-  }, [selection, selectedCount]);
+  }, [activeDeleteJob, selection, selectedCount]);
 
   // Clear selection after successful delete
   const handleDeleteSuccess = useCallback(() => {
@@ -582,6 +597,7 @@ function TableContent({
   onChangeStatus,
   onVisibleProductIdsChange,
 }: TableContentProps) {
+  // Load and render the current page of passport rows.
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 

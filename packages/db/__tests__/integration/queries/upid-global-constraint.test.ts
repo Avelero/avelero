@@ -73,7 +73,7 @@ describe("Global UPID Constraints", () => {
     expect(pgError?.constraint_name).toBe("idx_unique_upid_global");
   });
 
-  it("prevents reusing UPID reserved by an orphaned passport", async () => {
+  it("allows reusing a UPID after the original variant and passport are deleted", async () => {
     const upid = "ORPHANUPID000001";
 
     // Create source variant and matching passport.
@@ -88,34 +88,25 @@ describe("Global UPID Constraints", () => {
       .returning({ id: schema.productVariants.id });
 
     await testDb.insert(schema.productPassports).values({
-      upid,
-      brandId: brandAId,
       workingVariantId: sourceVariant!.id,
-      status: "active",
       firstPublishedAt: new Date().toISOString(),
     });
 
-    // Delete the source variant. Passport becomes orphaned and should still reserve UPID.
+    // Delete the source variant. The passport should cascade away with it.
     await testDb
       .delete(schema.productVariants)
       .where(eq(schema.productVariants.id, sourceVariant!.id));
 
-    // Reusing same UPID on another brand must fail.
-    let error: Error | null = null;
-    try {
-      await testDb.insert(schema.productVariants).values({
+    const [replacementVariant] = await testDb
+      .insert(schema.productVariants)
+      .values({
         productId: brandBProductId,
         upid,
         sku: "B-SKU-COLLISION",
         barcode: "4444444444444",
-      });
-    } catch (caughtError) {
-      error = caughtError as Error;
-    }
+      })
+      .returning({ id: schema.productVariants.id, upid: schema.productVariants.upid });
 
-    expect(error).not.toBeNull();
-    const pgError = (error as any)?.cause;
-    expect(pgError?.code).toBe("23505");
-    expect(pgError?.constraint_name).toBe("product_variants_upid_global_guard");
+    expect(replacementVariant?.upid).toBe(upid);
   });
 });

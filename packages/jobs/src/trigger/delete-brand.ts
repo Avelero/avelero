@@ -1,10 +1,29 @@
+/**
+ * Trigger.dev task for hard-deleting brands and their cascading product data.
+ */
+
 import "./configure-trigger";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { db } from "@v1/db/client";
-import { eq, inArray, sql } from "@v1/db/index";
+import { eq } from "@v1/db/index";
+import {
+  type DeleteProductsChunkResult,
+  deleteProductsChunk,
+} from "@v1/db/queries/products";
 import { brands, products } from "@v1/db/schema";
-import type { Database } from "@v1/supabase/types";
+import {
+  revalidateBarcodes,
+  revalidatePassports,
+} from "../lib/dpp-revalidation";
+import {
+  PRODUCT_IMAGES_BUCKET,
+  PRODUCT_QR_CODES_BUCKET,
+  type StorageClient,
+  createStorageClient,
+  getQrCachePathsForDeletedBarcodes,
+  getRejectedSettledReasons,
+  removeStoragePathsInBatches,
+} from "../lib/product-storage-cleanup";
 
 /**
  * Task payload for brand deletion
@@ -45,8 +64,18 @@ export const deleteBrand = task({
   run: async (payload: DeleteBrandPayload): Promise<void> => {
     const { brandId, userId } = payload;
     const jobStartTime = Date.now();
+    const storageSetup = createStorageClient();
+    const storage = storageSetup.client;
 
     logger.info("Starting brand deletion job", { brandId, userId });
+
+    if (!storage) {
+      logger.warn("Supabase env vars missing, skipping brand storage cleanup", {
+        brandId,
+        hasUrl: storageSetup.hasUrl,
+        hasServiceKey: storageSetup.hasServiceKey,
+      });
+    }
 
     try {
       // Verify brand exists and is soft-deleted
@@ -93,23 +122,56 @@ export const deleteBrand = task({
         }
 
         const productIds = productBatch.map((p) => p.id);
+        const chunk: DeleteProductsChunkResult = await db.transaction((tx) =>
+          deleteProductsChunk(tx, brandId, productIds),
+        );
 
-        // Delete products (foreign key cascades handle:
-        // - product_variants
-        // - product_materials
-        // - product_journey_steps -> product_journey_step_facilities
-        // - product_environment
-        // - product_eco_claims
-        // - tags_on_product
-        // )
-        await db.delete(products).where(inArray(products.id, productIds));
+        totalProductsDeleted += chunk.deleted;
 
-        totalProductsDeleted += productBatch.length;
+        await Promise.allSettled([
+          revalidatePassports(chunk.upids),
+          revalidateBarcodes(brandId, chunk.barcodes),
+        ]);
+
+        if (storage) {
+          const qrCachePaths = await getQrCachePathsForDeletedBarcodes(
+            brandId,
+            chunk.storageCleanupBarcodes,
+          );
+
+          const storageCleanupResults = await Promise.allSettled([
+            chunk.imagePaths.length > 0
+              ? removeStoragePathsInBatches(
+                  storage,
+                  PRODUCT_IMAGES_BUCKET,
+                  chunk.imagePaths,
+                )
+              : Promise.resolve(),
+            qrCachePaths.length > 0
+              ? removeStoragePathsInBatches(
+                  storage,
+                  PRODUCT_QR_CODES_BUCKET,
+                  qrCachePaths,
+                )
+              : Promise.resolve(),
+          ]);
+
+          const storageCleanupFailures = getRejectedSettledReasons(
+            storageCleanupResults,
+          );
+          if (storageCleanupFailures.length > 0) {
+            logger.warn("Brand delete storage cleanup failed", {
+              brandId,
+              batchNumber,
+              failures: storageCleanupFailures,
+            });
+          }
+        }
 
         logger.info("Deleted product batch", {
           brandId,
           batchNumber,
-          batchSize: productBatch.length,
+          batchSize: chunk.deleted,
           totalDeleted: totalProductsDeleted,
         });
 
@@ -134,7 +196,7 @@ export const deleteBrand = task({
       });
 
       // Step 2: Clean up storage files
-      await cleanupBrandStorage(brandId);
+      await cleanupBrandStorage(brandId, storage);
 
       // Step 3: Hard-delete the brand row
       // (cascades handle brand_members, brand_invites, brand catalog tables)
@@ -173,25 +235,14 @@ export const deleteBrand = task({
  * Clean up storage files associated with the brand.
  * Removes brand avatars and any other brand-specific storage.
  */
-async function cleanupBrandStorage(brandId: string): Promise<void> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
-
-  if (!url || !serviceKey) {
-    logger.warn("Supabase env vars missing, skipping storage cleanup", {
-      brandId,
-      hasUrl: !!url,
-      hasKey: !!serviceKey,
-    });
+async function cleanupBrandStorage(
+  brandId: string,
+  supabase: StorageClient | null,
+): Promise<void> {
+  // Skip the best-effort storage sweep when no storage client is available.
+  if (!supabase) {
     return;
   }
-
-  const supabase = createSupabaseClient<Database>(url, serviceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
 
   try {
     // Clean up brand avatars

@@ -36,6 +36,7 @@ describe("live Stripe subscription activation", () => {
       namePrefix: "Activation Demo",
       phase: "demo",
     });
+    cleanup.trackBrand(harness.brandId);
 
     const clock = await createStripeTestClock({
       stripe,

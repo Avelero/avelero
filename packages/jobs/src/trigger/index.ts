@@ -9,6 +9,7 @@ export { commitToProduction } from "./bulk/commit-to-production";
 export { exportProducts } from "./bulk/export-products";
 export { exportQrCodes } from "./bulk/export-qr-codes";
 export { deleteBrand } from "./delete-brand";
+export { deleteProducts } from "./delete-products";
 
 // Integration sync tasks.
 export { syncIntegration, integrationSyncScheduler } from "./integrations";

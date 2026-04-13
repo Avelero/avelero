@@ -102,7 +102,7 @@ interface PreFetchedData {
     string,
     Array<{ id: string; upid: string | null }>
   >;
-  /** Map of UPID -> existing global claims (variants + passports). */
+  /** Map of UPID -> existing live variant claims. */
   upidClaims: UpidClaimMap;
 }
 
@@ -132,7 +132,6 @@ const {
   brandTags,
   brandOperators,
   brandManufacturers,
-  productPassports,
   products,
   productVariants,
 } = schema;
@@ -602,24 +601,15 @@ async function batchPreFetchExistingData(
   // Build global UPID claims for this batch so validation can block collisions early.
   let upidClaims: UpidClaimMap = new Map();
   if (batchUpids.length > 0) {
-    const [claimedVariants, claimedPassports] = await Promise.all([
-      database
-        .select({
-          id: productVariants.id,
-          upid: productVariants.upid,
-        })
-        .from(productVariants)
-        .where(inArray(productVariants.upid, batchUpids)),
-      database
-        .select({
-          upid: productPassports.upid,
-          workingVariantId: productPassports.workingVariantId,
-        })
-        .from(productPassports)
-        .where(inArray(productPassports.upid, batchUpids)),
-    ]);
+    const claimedVariants = await database
+      .select({
+        id: productVariants.id,
+        upid: productVariants.upid,
+      })
+      .from(productVariants)
+      .where(inArray(productVariants.upid, batchUpids));
 
-    upidClaims = buildUpidClaimMap(claimedVariants, claimedPassports);
+    upidClaims = buildUpidClaimMap(claimedVariants);
   }
 
   return { existingProductsByHandle, existingVariantsByProductId, upidClaims };

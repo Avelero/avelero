@@ -1211,7 +1211,6 @@ export async function publishProductsSetBased(
       id: productPassports.id,
       workingVariantId: productPassports.workingVariantId,
       currentVersionId: productPassports.currentVersionId,
-      upid: productPassports.upid,
     })
     .from(productPassports)
     .where(inArray(productPassports.workingVariantId, publishableVariantIds));
@@ -1219,15 +1218,12 @@ export async function publishProductsSetBased(
     string,
     {
       id: string;
-      upid: string;
       currentVersionId: string | null;
     }
   >();
   for (const passport of existingPassports) {
-    if (!passport.workingVariantId) continue;
     passportsByVariantId.set(passport.workingVariantId, {
       id: passport.id,
-      upid: passport.upid,
       currentVersionId: passport.currentVersionId,
     });
   }
@@ -1239,20 +1235,12 @@ export async function publishProductsSetBased(
   if (variantsWithoutPassport.length > 0) {
     const createdPassports = await batchCreatePassportsForVariants(
       db,
-      input.brandId,
-      variantsWithoutPassport.map((row) => ({
-        variantId: row.variantId,
-        upid: row.upid,
-        sku: row.sku,
-        barcode: row.barcode,
-      })),
+      variantsWithoutPassport.map((row) => row.variantId),
     );
 
     for (const passport of createdPassports) {
-      if (!passport.workingVariantId) continue;
       passportsByVariantId.set(passport.workingVariantId, {
         id: passport.id,
-        upid: passport.upid,
         currentVersionId: passport.currentVersionId,
       });
     }
@@ -1271,7 +1259,7 @@ export async function publishProductsSetBased(
       return {
         variantId: row.variantId,
         productId: row.productId,
-        upid: passport.upid,
+        upid: row.upid,
         passportId: passport.id,
         currentVersionId: passport.currentVersionId,
       };

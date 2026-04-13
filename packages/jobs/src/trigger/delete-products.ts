@@ -111,7 +111,7 @@ export const deleteProducts = task({
         if (storage) {
           const qrCachePaths = await getQrCachePathsForDeletedBarcodes(
             brandId,
-            chunk.barcodes,
+            chunk.storageCleanupBarcodes,
           );
 
           const storageCleanupResults = await Promise.allSettled([

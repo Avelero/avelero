@@ -51,11 +51,11 @@ function buildQrPngCacheFilename(
   barcode: string,
   width: number,
 ): string {
-  // Keep cache key generation identical across API and worker paths.
+  // Hash the provided barcode verbatim so callers can target both current and legacy keys.
   const key = [
     QR_CACHE_KEY_VERSION,
     normalizeDomain(domain),
-    barcode.trim(),
+    barcode,
     String(width),
     String(DEFAULT_QR_MARGIN),
     DEFAULT_QR_ERROR_CORRECTION_LEVEL,
@@ -72,18 +72,27 @@ function buildQrCachePath(
   domain: string,
   barcode: string,
 ): string[] {
-  // Generate the same pair of cached PNG paths as the API router.
+  // Generate both cached PNG widths for the exact barcode representation provided.
   const normalizedDomain = normalizeDomain(domain);
-  const normalizedBarcode = barcode.trim();
 
   return [DEFAULT_QR_WIDTH, PRINT_QR_WIDTH].map((width) => {
-    const filename = buildQrPngCacheFilename(
-      normalizedDomain,
-      normalizedBarcode,
-      width,
-    );
+    const filename = buildQrPngCacheFilename(normalizedDomain, barcode, width);
     return `${brandId}/${QR_CACHE_NAMESPACE}/${filename}`;
   });
+}
+
+/**
+ * Return every barcode representation whose cache key may exist in storage.
+ */
+function getQrCacheBarcodeCandidates(barcode: string): string[] {
+  // Delete both current trimmed keys and legacy exporter keys when whitespace differs.
+  return Array.from(
+    new Set(
+      [barcode.trim(), barcode].filter(
+        (candidate) => candidate.trim().length > 0,
+      ),
+    ),
+  );
 }
 
 /**
@@ -174,8 +183,10 @@ export async function getQrCachePathsForDeletedBarcodes(
   const paths = new Set<string>();
   for (const domain of domains) {
     for (const barcode of barcodes) {
-      for (const path of buildQrCachePath(brandId, domain, barcode)) {
-        paths.add(path);
+      for (const candidate of getQrCacheBarcodeCandidates(barcode)) {
+        for (const path of buildQrCachePath(brandId, domain, candidate)) {
+          paths.add(path);
+        }
       }
     }
   }

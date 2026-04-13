@@ -18,6 +18,7 @@ export interface ProductDeleteArtifacts {
   imagePaths: string[];
   upids: string[];
   barcodes: string[];
+  storageCleanupBarcodes: string[];
 }
 
 /**
@@ -51,6 +52,7 @@ export async function collectProductDeleteArtifacts(
       imagePaths: [],
       upids: [],
       barcodes: [],
+      storageCleanupBarcodes: [],
     };
   }
 
@@ -89,6 +91,16 @@ export async function collectProductDeleteArtifacts(
         variantRows
           .map((row) => row.barcode?.trim() ?? null)
           .filter((barcode): barcode is string => Boolean(barcode)),
+      ),
+    ),
+    storageCleanupBarcodes: Array.from(
+      new Set(
+        variantRows
+          .map((row) => row.barcode ?? null)
+          .filter(
+            (barcode): barcode is string =>
+              typeof barcode === "string" && barcode.trim().length > 0,
+          ),
       ),
     ),
   };

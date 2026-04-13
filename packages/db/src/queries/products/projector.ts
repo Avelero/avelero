@@ -50,6 +50,15 @@ type PassportProjectionRow = {
   brandId: string;
 };
 
+type PassportProjectionLookupRow = Omit<PassportProjectionRow, "upid"> & {
+  upid: string | null;
+};
+
+type PassportProjectionEditableRow = Pick<
+  PassportProjectionRow,
+  "id" | "currentVersionId" | "firstPublishedAt" | "dirty"
+>;
+
 type PassportProjectionStateRow = {
   id: string;
   currentVersionId: string | null;
@@ -228,12 +237,14 @@ async function reuseProjectedVersion(
   );
 
   const refreshedPassport = await getPassportProjectionRow(db, passport.id);
+  const projectablePassport =
+    toProjectablePassport(refreshedPassport) ?? passport;
 
   return {
     found: true,
     versionCreated: false,
     dirtyCleared: passport.dirty,
-    passport: refreshedPassport,
+    passport: projectablePassport,
     snapshot,
     version: mapProjectedVersion(version),
   };
@@ -274,7 +285,7 @@ async function getVersionById(
 async function getPassportProjectionRow(
   db: Database,
   passportId: string,
-): Promise<PassportProjectionRow | null> {
+): Promise<PassportProjectionLookupRow | null> {
   // Read only the columns needed to materialize or serve the passport.
   const [passport] = await db
     .select({
@@ -296,7 +307,25 @@ async function getPassportProjectionRow(
     .where(eq(productPassports.id, passportId))
     .limit(1);
 
-  if (!passport?.upid) {
+  return passport ?? null;
+}
+
+/**
+ * Check whether a passport still has a live, non-blank UPID.
+ */
+function hasLiveUpid(upid: string | null): upid is string {
+  // Treat blank strings the same as a missing UPID so callers can fail cleanly.
+  return typeof upid === "string" && upid.trim().length > 0;
+}
+
+/**
+ * Narrow a lookup row to a projectable passport when a live UPID exists.
+ */
+function toProjectablePassport(
+  passport: PassportProjectionLookupRow | null,
+): PassportProjectionRow | null {
+  // Preserve the distinction between an existing passport and a projectable one.
+  if (!passport || !hasLiveUpid(passport.upid)) {
     return null;
   }
 
@@ -311,7 +340,7 @@ async function getPassportProjectionRow(
  */
 async function finalizeProjectedPassport(
   db: Database,
-  passport: PassportProjectionRow,
+  passport: PassportProjectionEditableRow,
   versionId: string,
   firstPublishedAt?: string,
 ): Promise<void> {
@@ -525,11 +554,24 @@ export async function projectSinglePassport(
   }
 
   const currentVersion = await getVersionById(db, passport.currentVersionId);
+  const projectablePassport = toProjectablePassport(passport);
+
+  if (!projectablePassport) {
+    return {
+      found: true,
+      versionCreated: false,
+      dirtyCleared: false,
+      passport: null,
+      snapshot: currentVersion ? getVersionSnapshot(currentVersion) : null,
+      version: mapProjectedVersion(currentVersion),
+      error: "Passport exists but variant UPID is missing",
+    };
+  }
 
   const snapshot = await generateDppSnapshot(
     db,
-    passport.workingVariantId,
-    passport.upid,
+    projectablePassport.workingVariantId,
+    projectablePassport.upid,
   );
 
   if (!snapshot) {
@@ -537,7 +579,7 @@ export async function projectSinglePassport(
       found: true,
       versionCreated: false,
       dirtyCleared: false,
-      passport,
+      passport: projectablePassport,
       snapshot: currentVersion ? getVersionSnapshot(currentVersion) : null,
       version: mapProjectedVersion(currentVersion),
       error: "Failed to generate snapshot",
@@ -555,7 +597,7 @@ export async function projectSinglePassport(
       // Reuse the current version when the materialized content is unchanged.
       return reuseProjectedVersion(
         db,
-        passport,
+        projectablePassport,
         latestVersion,
         existingSnapshot,
       );
@@ -579,7 +621,7 @@ export async function projectSinglePassport(
       // Another projector won the race with equivalent content, so reuse it.
       return reuseProjectedVersion(
         db,
-        passport,
+        projectablePassport,
         concurrentVersion,
         concurrentSnapshot,
       );
@@ -589,7 +631,7 @@ export async function projectSinglePassport(
       found: true,
       versionCreated: false,
       dirtyCleared: false,
-      passport,
+      passport: projectablePassport,
       snapshot:
         concurrentSnapshot ??
         (currentVersion ? getVersionSnapshot(currentVersion) : null),
@@ -602,17 +644,19 @@ export async function projectSinglePassport(
 
   await finalizeProjectedPassport(
     db,
-    passport,
+    projectablePassport,
     version.id,
-    !passport.currentVersionId ? version.publishedAt : undefined,
+    !projectablePassport.currentVersionId ? version.publishedAt : undefined,
   );
 
   const refreshedPassport = await getPassportProjectionRow(db, passport.id);
+  const refreshedProjectablePassport =
+    toProjectablePassport(refreshedPassport) ?? projectablePassport;
   return {
     found: true,
     versionCreated: true,
     dirtyCleared: true,
-    passport: refreshedPassport,
+    passport: refreshedProjectablePassport,
     snapshot: getVersionSnapshot(version),
     version: mapProjectedVersion(version),
   };

@@ -4,7 +4,7 @@
  * Manages the DB-backed state for large asynchronous product deletions.
  */
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { Database, DatabaseOrTransaction } from "../../client";
 import { productDeleteJobItems, productDeleteJobs } from "../../schema";
 
@@ -117,7 +117,7 @@ export async function getActiveProductDeleteJob(
   db: Database,
   brandId: string,
 ): Promise<ProductDeleteJobStatus | null> {
-  // Surface only jobs that still block new async deletions.
+  // Surface the newest job that still blocks new async deletions.
   const [job] = await db
     .select()
     .from(productDeleteJobs)
@@ -127,7 +127,7 @@ export async function getActiveProductDeleteJob(
         inArray(productDeleteJobs.status, ["PENDING", "PROCESSING"]),
       ),
     )
-    .orderBy(asc(productDeleteJobs.startedAt))
+    .orderBy(desc(productDeleteJobs.startedAt))
     .limit(1);
 
   return job ? mapProductDeleteJob(job) : null;

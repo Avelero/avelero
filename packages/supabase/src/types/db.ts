@@ -2042,6 +2042,107 @@ export type Database = {
           },
         ];
       };
+      product_delete_job_items: {
+        Row: {
+          id: string;
+          job_id: string;
+          processed_at: string | null;
+          product_id: string;
+          status: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          processed_at?: string | null;
+          product_id: string;
+          status?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          processed_at?: string | null;
+          product_id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_delete_job_items_job_id_product_delete_jobs_id_fk";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "product_delete_jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_delete_jobs: {
+        Row: {
+          brand_id: string;
+          exclude_ids: string[] | null;
+          filter_state: Json | null;
+          finished_at: string | null;
+          id: string;
+          include_ids: string[] | null;
+          products_processed: number | null;
+          search_query: string | null;
+          selection_mode: string;
+          started_at: string;
+          status: string;
+          summary: Json | null;
+          total_products: number | null;
+          user_email: string | null;
+          user_id: string;
+        };
+        Insert: {
+          brand_id: string;
+          exclude_ids?: string[] | null;
+          filter_state?: Json | null;
+          finished_at?: string | null;
+          id?: string;
+          include_ids?: string[] | null;
+          products_processed?: number | null;
+          search_query?: string | null;
+          selection_mode: string;
+          started_at?: string;
+          status?: string;
+          summary?: Json | null;
+          total_products?: number | null;
+          user_email?: string | null;
+          user_id: string;
+        };
+        Update: {
+          brand_id?: string;
+          exclude_ids?: string[] | null;
+          filter_state?: Json | null;
+          finished_at?: string | null;
+          id?: string;
+          include_ids?: string[] | null;
+          products_processed?: number | null;
+          search_query?: string | null;
+          selection_mode?: string;
+          started_at?: string;
+          status?: string;
+          summary?: Json | null;
+          total_products?: number | null;
+          user_email?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_delete_jobs_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_delete_jobs_user_id_users_id_fk";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_environment: {
         Row: {
           created_at: string;
@@ -2210,58 +2311,33 @@ export type Database = {
       };
       product_passports: {
         Row: {
-          barcode: string | null;
-          brand_id: string | null;
           created_at: string;
           current_version_id: string | null;
           dirty: boolean;
           first_published_at: string | null;
           id: string;
-          orphaned_at: string | null;
-          sku: string | null;
-          status: string;
           updated_at: string;
-          upid: string;
-          working_variant_id: string | null;
+          working_variant_id: string;
         };
         Insert: {
-          barcode?: string | null;
-          brand_id?: string | null;
           created_at?: string;
           current_version_id?: string | null;
           dirty?: boolean;
           first_published_at?: string | null;
           id?: string;
-          orphaned_at?: string | null;
-          sku?: string | null;
-          status?: string;
           updated_at?: string;
-          upid: string;
-          working_variant_id?: string | null;
+          working_variant_id: string;
         };
         Update: {
-          barcode?: string | null;
-          brand_id?: string | null;
           created_at?: string;
           current_version_id?: string | null;
           dirty?: boolean;
           first_published_at?: string | null;
           id?: string;
-          orphaned_at?: string | null;
-          sku?: string | null;
-          status?: string;
           updated_at?: string;
-          upid?: string;
-          working_variant_id?: string | null;
+          working_variant_id?: string;
         };
         Relationships: [
-          {
-            foreignKeyName: "product_passports_brand_id_brands_id_fk";
-            columns: ["brand_id"];
-            isOneToOne: false;
-            referencedRelation: "brands";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "product_passports_working_variant_id_product_variants_id_fk";
             columns: ["working_variant_id"];

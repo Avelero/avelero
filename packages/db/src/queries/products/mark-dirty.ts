@@ -1,8 +1,5 @@
 /**
- * Passport Dirty Marking Queries.
- *
- * Centralizes the lightweight write paths that mark published passports as dirty
- * when working-layer data changes.
+ * Product passport dirty-marking helpers.
  */
 
 import { and, eq, inArray } from "drizzle-orm";
@@ -22,11 +19,7 @@ export interface MarkDirtyResult {
  * Published working variant plus any existing passport row.
  */
 interface PublishedVariantPassportRow {
-  brandId: string;
   variantId: string;
-  upid: string | null;
-  sku: string | null;
-  barcode: string | null;
   passportId: string | null;
 }
 
@@ -100,11 +93,7 @@ async function loadPublishedVariantPassports(
 
   return db
     .select({
-      brandId: products.brandId,
       variantId: productVariants.id,
-      upid: productVariants.upid,
-      sku: productVariants.sku,
-      barcode: productVariants.barcode,
       passportId: productPassports.id,
     })
     .from(productVariants)
@@ -131,38 +120,21 @@ async function ensurePassportsForPublishedVariants(
   const passportIds = variants.flatMap((variant) =>
     variant.passportId ? [variant.passportId] : [],
   );
-  const variantsByBrandId = new Map<
-    string,
-    Array<{
-      variantId: string;
-      upid: string;
-      sku: string | null;
-      barcode: string | null;
-    }>
-  >();
+  const variantsWithoutPassport: string[] = [];
 
   for (const variant of variants) {
-    if (variant.passportId || !variant.upid) {
+    if (variant.passportId) {
       continue;
     }
 
-    const brandVariants = variantsByBrandId.get(variant.brandId) ?? [];
-    brandVariants.push({
-      variantId: variant.variantId,
-      upid: variant.upid,
-      sku: variant.sku,
-      barcode: variant.barcode,
-    });
-    variantsByBrandId.set(variant.brandId, brandVariants);
+    variantsWithoutPassport.push(variant.variantId);
   }
 
-  for (const [brandId, brandVariants] of variantsByBrandId) {
+  if (variantsWithoutPassport.length > 0) {
     const createdPassports = await batchCreatePassportsForVariants(
       db,
-      brandId,
-      brandVariants,
+      variantsWithoutPassport,
     );
-
     passportIds.push(...createdPassports.map((passport) => passport.id));
   }
 

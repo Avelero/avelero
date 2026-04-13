@@ -1,10 +1,28 @@
+/**
+ * Trigger.dev task for hard-deleting brands and their cascading product data.
+ */
+
 import "./configure-trigger";
+import { createHash } from "node:crypto";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { db } from "@v1/db/client";
-import { eq, inArray, sql } from "@v1/db/index";
-import { brands, products } from "@v1/db/schema";
+import { eq } from "@v1/db/index";
+import {
+  type DeleteProductsChunkResult,
+  deleteProductsChunk,
+} from "@v1/db/queries/products";
+import {
+  brandCustomDomains,
+  brands,
+  products,
+  qrExportJobs,
+} from "@v1/db/schema";
 import type { Database } from "@v1/supabase/types";
+import {
+  revalidateBarcodes,
+  revalidatePassports,
+} from "../lib/dpp-revalidation";
 
 /**
  * Task payload for brand deletion
@@ -16,6 +34,139 @@ interface DeleteBrandPayload {
 
 const BATCH_SIZE = 1000;
 const MAX_DURATION_SECONDS = 1800; // 30 minutes
+const PRODUCT_IMAGES_BUCKET = "products";
+const PRODUCT_QR_CODES_BUCKET = "product-qr-codes";
+const STORAGE_REMOVE_BATCH_SIZE = 1000;
+const QR_CACHE_NAMESPACE = "00000000-0000-0000-0000-000000000000";
+const QR_CACHE_KEY_VERSION = "v2";
+const DEFAULT_QR_WIDTH = 1024;
+const PRINT_QR_WIDTH = 2048;
+const DEFAULT_QR_MARGIN = 1;
+const DEFAULT_QR_ERROR_CORRECTION_LEVEL = "H";
+
+/**
+ * Normalize a domain string for QR cache key generation.
+ */
+function normalizeDomain(domain: string): string {
+  // Match the QR cache key generation used by the API and background delete task.
+  return domain
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/+$/g, "")
+    .toLowerCase();
+}
+
+/**
+ * Build one QR cache filename.
+ */
+function buildQrPngCacheFilename(
+  domain: string,
+  barcode: string,
+  width: number,
+): string {
+  // Keep the cache key stable between all delete entrypoints.
+  const key = [
+    QR_CACHE_KEY_VERSION,
+    normalizeDomain(domain),
+    barcode.trim(),
+    String(width),
+    String(DEFAULT_QR_MARGIN),
+    DEFAULT_QR_ERROR_CORRECTION_LEVEL,
+  ].join("|");
+
+  return `${createHash("sha256").update(key).digest("hex")}.png`;
+}
+
+/**
+ * Build the QR cache paths for one domain/barcode pair.
+ */
+function buildQrCachePath(
+  brandId: string,
+  domain: string,
+  barcode: string,
+): string[] {
+  // Generate both cached PNG widths for one barcode lookup path.
+  const normalizedDomain = normalizeDomain(domain);
+  const normalizedBarcode = barcode.trim();
+
+  return [DEFAULT_QR_WIDTH, PRINT_QR_WIDTH].map((width) => {
+    const filename = buildQrPngCacheFilename(
+      normalizedDomain,
+      normalizedBarcode,
+      width,
+    );
+    return `${brandId}/${QR_CACHE_NAMESPACE}/${filename}`;
+  });
+}
+
+/**
+ * Remove storage objects in manageable batches.
+ */
+async function removeStoragePathsInBatches(
+  supabase: ReturnType<typeof createSupabaseClient<Database>>,
+  bucket: string,
+  paths: string[],
+): Promise<void> {
+  // Chunk deletes to stay under storage API payload limits.
+  for (let i = 0; i < paths.length; i += STORAGE_REMOVE_BATCH_SIZE) {
+    const chunk = paths.slice(i, i + STORAGE_REMOVE_BATCH_SIZE);
+    if (chunk.length === 0) {
+      continue;
+    }
+
+    const { error } = await supabase.storage.from(bucket).remove(chunk);
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+}
+
+/**
+ * Compute QR cache paths for deleted barcodes across current and historical domains.
+ */
+async function getQrCachePathsForDeletedBarcodes(
+  brandId: string,
+  barcodes: string[],
+): Promise<string[]> {
+  // Include both the live domain and historical QR export domains.
+  if (barcodes.length === 0) {
+    return [];
+  }
+
+  const [currentDomainRows, historicalDomainRows] = await Promise.all([
+    db
+      .select({ domain: brandCustomDomains.domain })
+      .from(brandCustomDomains)
+      .where(eq(brandCustomDomains.brandId, brandId)),
+    db
+      .selectDistinct({ domain: qrExportJobs.customDomain })
+      .from(qrExportJobs)
+      .where(eq(qrExportJobs.brandId, brandId)),
+  ]);
+
+  const domains = Array.from(
+    new Set(
+      [...currentDomainRows, ...historicalDomainRows]
+        .map((row) => normalizeDomain(row.domain))
+        .filter((domain) => domain.length > 0),
+    ),
+  );
+
+  if (domains.length === 0) {
+    return [];
+  }
+
+  const paths = new Set<string>();
+  for (const domain of domains) {
+    for (const barcode of barcodes) {
+      for (const path of buildQrCachePath(brandId, domain, barcode)) {
+        paths.add(path);
+      }
+    }
+  }
+
+  return Array.from(paths);
+}
 
 /**
  * Background job for deleting a brand and all its associated data.
@@ -45,6 +196,19 @@ export const deleteBrand = task({
   run: async (payload: DeleteBrandPayload): Promise<void> => {
     const { brandId, userId } = payload;
     const jobStartTime = Date.now();
+    const storage =
+      process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY
+        ? createSupabaseClient<Database>(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_KEY,
+            {
+              auth: {
+                autoRefreshToken: false,
+                persistSession: false,
+              },
+            },
+          )
+        : null;
 
     logger.info("Starting brand deletion job", { brandId, userId });
 
@@ -93,23 +257,45 @@ export const deleteBrand = task({
         }
 
         const productIds = productBatch.map((p) => p.id);
+        const chunk: DeleteProductsChunkResult = await db.transaction((tx) =>
+          deleteProductsChunk(tx, brandId, productIds),
+        );
 
-        // Delete products (foreign key cascades handle:
-        // - product_variants
-        // - product_materials
-        // - product_journey_steps -> product_journey_step_facilities
-        // - product_environment
-        // - product_eco_claims
-        // - tags_on_product
-        // )
-        await db.delete(products).where(inArray(products.id, productIds));
+        totalProductsDeleted += chunk.deleted;
 
-        totalProductsDeleted += productBatch.length;
+        await Promise.allSettled([
+          revalidatePassports(chunk.upids),
+          revalidateBarcodes(brandId, chunk.barcodes),
+        ]);
+
+        if (storage) {
+          const qrCachePaths = await getQrCachePathsForDeletedBarcodes(
+            brandId,
+            chunk.barcodes,
+          );
+
+          await Promise.allSettled([
+            chunk.imagePaths.length > 0
+              ? removeStoragePathsInBatches(
+                  storage,
+                  PRODUCT_IMAGES_BUCKET,
+                  chunk.imagePaths,
+                )
+              : Promise.resolve(),
+            qrCachePaths.length > 0
+              ? removeStoragePathsInBatches(
+                  storage,
+                  PRODUCT_QR_CODES_BUCKET,
+                  qrCachePaths,
+                )
+              : Promise.resolve(),
+          ]);
+        }
 
         logger.info("Deleted product batch", {
           brandId,
           batchNumber,
-          batchSize: productBatch.length,
+          batchSize: chunk.deleted,
           totalDeleted: totalProductsDeleted,
         });
 

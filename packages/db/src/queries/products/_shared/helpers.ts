@@ -479,14 +479,12 @@ export async function loadPassportDataForProducts(
   const map = new Map<string, ProductPassportData>();
   if (productIds.length === 0) return map;
 
-  // Import the passport table schema
-  const { productPassports } = await import("../../../schema");
-
   // Load all variants so aggregation can be resolved in one pass.
   const variantRows = await db
     .select({
       id: productVariants.id,
       productId: productVariants.productId,
+      upid: productVariants.upid,
       barcode: productVariants.barcode,
       createdAt: productVariants.createdAt,
     })
@@ -530,32 +528,14 @@ export async function loadPassportDataForProducts(
     return map;
   }
 
-  const variantIds = variantRows.map((v) => v.id);
-
-  // Get all passports for these variants
-  const passportRows = await db
-    .select({
-      workingVariantId: productPassports.workingVariantId,
-      upid: productPassports.upid,
-    })
-    .from(productPassports)
-    .where(inArray(productPassports.workingVariantId, variantIds));
-
-  // Build a map of variantId -> passport upid
-  const passportByVariant = new Map<string, string>();
-  for (const row of passportRows) {
-    if (row.workingVariantId) {
-      passportByVariant.set(row.workingVariantId, row.upid);
-    }
-  }
-
-  // Resolve the first passport UPID for each product by variant creation order.
+  // Resolve the first live variant UPID for each product by variant creation order.
   for (const productId of productIds) {
     const orderedVariantIds = orderedVariantIdsByProduct.get(productId) ?? [];
 
     let firstVariantUpid: string | null = null;
     for (const variantId of orderedVariantIds) {
-      const upid = passportByVariant.get(variantId);
+      const upid =
+        variantRows.find((row) => row.id === variantId)?.upid?.trim() ?? null;
       if (upid) {
         firstVariantUpid = upid;
         break;

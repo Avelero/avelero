@@ -14,7 +14,6 @@ import {
   batchClearDirtyFlags,
   batchCreatePassportsForVariants,
   clearDirtyFlag,
-  createPassportForVariant,
   createProductPassport,
   markAllBrandPassportsDirty,
   markPassportsDirtyByProductIds,
@@ -53,11 +52,7 @@ async function createPassportFixture(
     barcode: options.barcode ?? null,
   });
   const passport = requireValue(
-    await createPassportForVariant(testDb, variant.id, brandId, {
-      upid: variant.upid!,
-      sku: variant.sku,
-      barcode: variant.barcode,
-    }),
+    await createProductPassport(testDb, variant.id),
     "Failed to create passport fixture",
   );
 
@@ -111,34 +106,16 @@ describe("Passport dirty infrastructure", () => {
     });
 
     const passportA = requireValue(
-      await createProductPassport(testDb, variantA.id, brandId),
+      await createProductPassport(testDb, variantA.id),
       "Failed to create passport A",
     );
     const passportB = requireValue(
-      await createPassportForVariant(testDb, variantB.id, brandId, {
-        upid: variantB.upid!,
-        sku: variantB.sku,
-        barcode: variantB.barcode,
-      }),
+      await createProductPassport(testDb, variantB.id),
       "Failed to create passport B",
     );
     const passportsCAndD = await batchCreatePassportsForVariants(
       testDb,
-      brandId,
-      [
-        {
-          variantId: variantC.id,
-          upid: variantC.upid!,
-          sku: variantC.sku,
-          barcode: variantC.barcode,
-        },
-        {
-          variantId: variantD.id,
-          upid: variantD.upid!,
-          sku: variantD.sku,
-          barcode: variantD.barcode,
-        },
-      ],
+      [variantC.id, variantD.id],
     );
 
     const createdPassportIds = [
@@ -253,21 +230,15 @@ describe("Passport dirty infrastructure", () => {
     });
 
     const publishedPassportA = requireValue(
-      await createPassportForVariant(testDb, publishedVariantA.id, brandId, {
-        upid: publishedVariantA.upid!,
-      }),
+      await createProductPassport(testDb, publishedVariantA.id),
       "Failed to create published passport A",
     );
     const publishedPassportB = requireValue(
-      await createPassportForVariant(testDb, publishedVariantB.id, brandId, {
-        upid: publishedVariantB.upid!,
-      }),
+      await createProductPassport(testDb, publishedVariantB.id),
       "Failed to create published passport B",
     );
     const unpublishedPassport = requireValue(
-      await createPassportForVariant(testDb, unpublishedVariant.id, brandId, {
-        upid: unpublishedVariant.upid!,
-      }),
+      await createProductPassport(testDb, unpublishedVariant.id),
       "Failed to create unpublished passport",
     );
 

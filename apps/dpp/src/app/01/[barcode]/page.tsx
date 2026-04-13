@@ -132,7 +132,6 @@ export default async function BarcodeDPPPage({
     notFound();
   }
 
-  const isInactive = data.passport?.isInactive ?? false;
   const brandName = data.dppData.productAttributes.manufacturer?.name ?? "";
 
   // Use brand passport from API, fall back to demo passport
@@ -172,16 +171,6 @@ export default async function BarcodeDPPPage({
           tokens={passport.tokens}
           brandName={brandName}
         />
-
-        {isInactive && (
-          <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mx-4 mt-4">
-            <p className="font-medium">This passport is no longer active</p>
-            <p className="text-sm">
-              The product variant has been removed, but this historical record
-              is preserved.
-            </p>
-          </div>
-        )}
 
         <ContentFrame
           passport={passport}

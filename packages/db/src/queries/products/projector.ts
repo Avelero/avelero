@@ -46,8 +46,8 @@ type PassportProjectionRow = {
   currentVersionId: string | null;
   firstPublishedAt: string | null;
   dirty: boolean;
-  workingVariantId: string | null;
-  brandId: string | null;
+  workingVariantId: string;
+  brandId: string;
 };
 
 type PassportProjectionStateRow = {
@@ -279,19 +279,31 @@ async function getPassportProjectionRow(
   const [passport] = await db
     .select({
       id: productPassports.id,
-      upid: productPassports.upid,
-      barcode: productPassports.barcode,
+      upid: productVariants.upid,
+      barcode: productVariants.barcode,
       currentVersionId: productPassports.currentVersionId,
       firstPublishedAt: productPassports.firstPublishedAt,
       dirty: productPassports.dirty,
       workingVariantId: productPassports.workingVariantId,
-      brandId: productPassports.brandId,
+      brandId: products.brandId,
     })
     .from(productPassports)
+    .innerJoin(
+      productVariants,
+      eq(productVariants.id, productPassports.workingVariantId),
+    )
+    .innerJoin(products, eq(products.id, productVariants.productId))
     .where(eq(productPassports.id, passportId))
     .limit(1);
 
-  return passport ?? null;
+  if (!passport?.upid) {
+    return null;
+  }
+
+  return {
+    ...passport,
+    upid: passport.upid,
+  };
 }
 
 /**
@@ -378,7 +390,7 @@ async function listDirtyPassportsForProducts(
     .innerJoin(products, eq(products.id, productVariants.productId))
     .where(
       and(
-        eq(productPassports.brandId, brandId),
+        eq(products.brandId, brandId),
         inArray(products.id, productIds),
         eq(products.status, "published"),
         eq(productPassports.dirty, true),
@@ -431,11 +443,11 @@ async function listProjectedPassportsForProducts(
     return [];
   }
 
-  return db
+  const rows = await db
     .select({
       id: productPassports.id,
-      upid: productPassports.upid,
-      barcode: productPassports.barcode,
+      upid: productVariants.upid,
+      barcode: productVariants.barcode,
       currentVersionId: productPassports.currentVersionId,
       firstPublishedAt: productPassports.firstPublishedAt,
     })
@@ -453,6 +465,10 @@ async function listProjectedPassportsForProducts(
         isNotNull(productPassports.currentVersionId),
       ),
     );
+
+  return rows.filter(
+    (row): row is ProjectedPassportIdentifierRow => row.upid !== null,
+  );
 }
 
 /**
@@ -509,27 +525,6 @@ export async function projectSinglePassport(
   }
 
   const currentVersion = await getVersionById(db, passport.currentVersionId);
-
-  // Orphaned passports keep serving their last materialized snapshot.
-  if (!passport.workingVariantId) {
-    const dirtyCleared = passport.dirty
-      ? (await batchClearDirtyFlags(db, [passport.id])).cleared > 0
-      : false;
-    const refreshedPassport =
-      dirtyCleared || !currentVersion
-        ? await getPassportProjectionRow(db, passport.id)
-        : passport;
-
-    return {
-      found: true,
-      versionCreated: false,
-      dirtyCleared,
-      passport: refreshedPassport,
-      snapshot: currentVersion ? getVersionSnapshot(currentVersion) : null,
-      version: mapProjectedVersion(currentVersion),
-      error: currentVersion ? undefined : "Passport has not been published yet",
-    };
-  }
 
   const snapshot = await generateDppSnapshot(
     db,
@@ -675,7 +670,7 @@ export async function projectDirtyPassports(
         .innerJoin(products, eq(products.id, productVariants.productId))
         .where(
           and(
-            eq(productPassports.brandId, brandId),
+            eq(products.brandId, brandId),
             eq(products.status, "published"),
             eq(productPassports.dirty, true),
           ),
@@ -770,15 +765,17 @@ export async function projectDirtyPassportsAllBrands(
 ): Promise<ProjectDirtyPassportsAllBrandsResult> {
   // Scan the dirty-passport index and process brands one at a time.
   const brandRows = await db
-    .select({ brandId: productPassports.brandId })
+    .select({ brandId: products.brandId })
     .from(productPassports)
-    .where(
-      and(
-        eq(productPassports.dirty, true),
-        isNotNull(productPassports.brandId),
-      ),
+    .innerJoin(
+      productVariants,
+      eq(productVariants.id, productPassports.workingVariantId),
     )
-    .groupBy(productPassports.brandId);
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(
+      and(eq(productPassports.dirty, true), isNotNull(products.brandId)),
+    )
+    .groupBy(products.brandId);
 
   const results: ProjectDirtyPassportsResult[] = [];
 

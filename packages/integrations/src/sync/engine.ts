@@ -35,7 +35,6 @@ import {
   batchUpsertVariantDisplayOverrides,
   batchUpsertVariantLinks,
 } from "@v1/db/queries/integrations";
-import { batchCreatePassportsForVariants } from "@v1/db/queries/products";
 import { generateGloballyUniqueUpids } from "@v1/db/queries/products";
 import { productPassports, productVariants, products } from "@v1/db/schema";
 import { sendBulkBroadcast, slugifyProductName } from "@v1/db/utils";
@@ -708,8 +707,7 @@ async function processBatch(
     const { inserted, upids } = await db.transaction(async (tx) => {
       await enforceVariantGlobalCap(tx, ctx.brandId, variantCreates.length);
 
-      // Generate UPIDs using the centralized function that checks both
-      // product_variants AND product_passports tables.
+      // Generate UPIDs using the centralized live-variant uniqueness helper.
       const upids = await generateGloballyUniqueUpids(
         tx,
         variantCreates.length,
@@ -730,21 +728,10 @@ async function processBatch(
         )
         .returning({ id: productVariants.id });
 
-      await batchCreatePassportsForVariants(
-        tx,
-        ctx.brandId,
-        inserted.map((v, i) => ({
-          variantId: v.id,
-          upid: upids[i]!,
-          sku: variantCreates[i]?.sku,
-          barcode: variantCreates[i]?.barcode,
-        })),
-      );
-
       return { inserted, upids };
     });
 
-    result.queries.variantCreates = 2;
+    result.queries.variantCreates = 1;
 
     // Add variant links and attribute assignments for newly created variants
     for (let i = 0; i < inserted.length; i++) {

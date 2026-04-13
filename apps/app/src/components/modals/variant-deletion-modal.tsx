@@ -4,7 +4,7 @@
  * Variant Deletion Warning Modal
  *
  * Shown when user attempts to delete variants that have active passports.
- * Warns that the passport pages will become orphaned (but still resolvable via QR code).
+ * Warns that published passport pages and version history will be deleted too.
  */
 
 import { Button } from "@v1/ui/button";
@@ -41,10 +41,7 @@ interface VariantDeletionModalProps {
 }
 
 /**
- * Modal warning users about variant deletion and passport orphaning.
- *
- * When variants are deleted, their associated passports become "orphaned" -
- * they remain resolvable via QR code but no longer link to an active variant.
+ * Modal warning users about variant deletion and hard delete semantics.
  */
 export function VariantDeletionModal({
   open,
@@ -68,8 +65,8 @@ export function VariantDeletionModal({
         <div className="px-6 py-4 space-y-4">
           <DialogDescription className="text-secondary">
             {isSingle
-              ? "This variant has an active passport. Removing it will orphan the passport page."
-              : `These ${count} variants have active passports. Removing them will orphan their passport pages.`}
+              ? "This variant has an active passport. Removing it will permanently delete the passport page and its version history."
+              : `These ${count} variants have active passports. Removing them will permanently delete their passport pages and version history.`}
           </DialogDescription>
           {/* Variant table */}
           <div className="border border-border max-h-[200px] overflow-y-auto">
@@ -120,8 +117,8 @@ export function VariantDeletionModal({
           <div className="flex gap-3 p-3 border border-warning bg-warning/10">
             <Icons.AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
             <p className="type-small text-secondary">
-              Orphaned passports will still be accessible via their QR codes,
-              but will show limited information.
+              Deleting these variants also deletes their published passports and
+              all associated snapshot versions. This cannot be undone.
             </p>
           </div>
         </div>

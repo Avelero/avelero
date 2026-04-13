@@ -1,3 +1,7 @@
+/**
+ * Product passport version schema.
+ */
+
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -49,18 +53,8 @@ const bytea = customType<{
 /**
  * Product Passport Versions Table
  *
- * Immutable version history for product passports. Each publish action creates
- * a new record; records are NEVER updated or deleted. This provides a complete
- * audit trail of all passport content over time.
- *
- * The data_snapshot column contains a complete, self-contained JSON-LD object
- * that can be rendered without any additional database queries.
- *
- * Key design decisions:
- * - No cascade delete - versions are permanent audit records
- * - No UPDATE or DELETE RLS policies - versions are append-only
- * - content_hash enables integrity verification
- * - schema_version tracks the JSON structure version for migration purposes
+ * Immutable version history for active product passports. Versions are append-only
+ * while a passport exists, and cascade away when the parent passport is deleted.
  */
 export const productPassportVersions = pgTable(
   "product_passport_versions",
@@ -68,11 +62,10 @@ export const productPassportVersions = pgTable(
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     /**
      * Reference to the parent passport.
-     * CRITICAL: No cascade delete - versions must persist indefinitely for compliance.
      */
     passportId: uuid("passport_id")
       .references(() => productPassports.id, {
-        onDelete: "no action",
+        onDelete: "cascade",
         onUpdate: "cascade",
       })
       .notNull(),
@@ -144,16 +137,18 @@ export const productPassportVersions = pgTable(
       table.passportId.asc().nullsLast().op("uuid_ops"),
       table.publishedAt.desc().nullsLast().op("timestamptz_ops"),
     ),
-    // RLS policies - brand members can read their passport versions
-    // Note: Updates and deletes are NOT allowed - versions are immutable
+    // RLS policies - brand members can read their passport versions.
     pgPolicy("product_passport_versions_select_for_brand_members", {
       as: "permissive",
       for: "select",
       to: ["authenticated", "service_role"],
       using: sql`EXISTS (
-        SELECT 1 FROM product_passports
-        WHERE product_passports.id = passport_id
-        AND is_brand_member(product_passports.brand_id)
+        SELECT 1
+        FROM product_passports pp
+        JOIN product_variants pv ON pv.id = pp.working_variant_id
+        JOIN products p ON p.id = pv.product_id
+        WHERE pp.id = passport_id
+          AND is_brand_member(p.brand_id)
       )`,
     }),
     pgPolicy("product_passport_versions_insert_by_brand_members", {
@@ -161,20 +156,27 @@ export const productPassportVersions = pgTable(
       for: "insert",
       to: ["authenticated", "service_role"],
       withCheck: sql`EXISTS (
-        SELECT 1 FROM product_passports
-        WHERE product_passports.id = passport_id
-        AND is_brand_member(product_passports.brand_id)
+        SELECT 1
+        FROM product_passports pp
+        JOIN product_variants pv ON pv.id = pp.working_variant_id
+        JOIN products p ON p.id = pv.product_id
+        WHERE pp.id = passport_id
+          AND is_brand_member(p.brand_id)
       )`,
     }),
-    // Public read access for all versions (anyone can view via passport)
+    // Public read access for all versions of an active published passport.
     pgPolicy("product_passport_versions_select_public", {
       as: "permissive",
       for: "select",
       to: ["anon"],
       using: sql`EXISTS (
-        SELECT 1 FROM product_passports
-        WHERE product_passports.id = passport_id
-        AND product_passports.current_version_id IS NOT NULL
+        SELECT 1
+        FROM product_passports pp
+        JOIN product_variants pv ON pv.id = pp.working_variant_id
+        JOIN products p ON p.id = pv.product_id
+        WHERE pp.id = passport_id
+          AND pp.current_version_id IS NOT NULL
+          AND p.status = 'published'
       )`,
     }),
   ],

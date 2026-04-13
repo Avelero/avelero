@@ -1,9 +1,9 @@
 import { getBrandBySlug, getBrandTheme } from "@v1/db/queries";
-import { getPublicDppByUpid } from "@v1/db/queries/dpp";
+import { getPublicDppByUpid, getPublicPassportByBarcode } from "@v1/db/queries/dpp";
 import { projectSinglePassport } from "@v1/db/queries/products";
-import { brandCustomDomains, brands, productPassports } from "@v1/db/schema";
+import { brandCustomDomains, brands } from "@v1/db/schema";
 import { getPublicUrl } from "@v1/supabase/storage";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 /**
  * Public DPP (Digital Product Passport) router.
  *
@@ -138,7 +138,7 @@ function buildPublicPassportResponse(
     brandPassport: resolvedBrandPassport,
     passport: {
       upid: result.upid,
-      isInactive: result.isInactive,
+      isInactive: false,
       version: result.version,
     },
   };
@@ -158,16 +158,11 @@ async function resolvePublicPassportResponse(
     return null;
   }
 
-  const isWorkingPassport = result.passport.workingVariantId !== null;
-  if (isWorkingPassport && result.productStatus !== "published") {
+  if (result.productStatus !== "published") {
     return null;
   }
 
-  if (
-    result.passport.dirty &&
-    result.passport.workingVariantId &&
-    result.productStatus === "published"
-  ) {
+  if (result.passport.dirty) {
     const projection = await projectSinglePassport(ctx.db, result.passport.id);
 
     if (projection.error) {
@@ -186,10 +181,7 @@ async function resolvePublicPassportResponse(
     if (!result.found || !result.passport) {
       return null;
     }
-    if (
-      result.passport.workingVariantId &&
-      result.productStatus !== "published"
-    ) {
+    if (result.productStatus !== "published") {
       return null;
     }
 
@@ -334,19 +326,12 @@ export const dppPublicRouter = createTRPCRouter({
         barcodes.push(normalizedBarcode);
       }
 
-      // Find the passport by barcode within this brand
-      const [passport] = await ctx.db
-        .select({
-          upid: productPassports.upid,
-        })
-        .from(productPassports)
-        .where(
-          and(
-            eq(productPassports.brandId, input.brandId),
-            inArray(productPassports.barcode, barcodes),
-          ),
-        )
-        .limit(1);
+      // Resolve the live variant/passport by brand-scoped barcode.
+      const passport = await getPublicPassportByBarcode(
+        ctx.db,
+        input.brandId,
+        input.barcode,
+      );
 
       if (!passport) {
         return null;

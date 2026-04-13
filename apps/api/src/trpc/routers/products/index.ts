@@ -1,4 +1,9 @@
+/**
+ * Products tRPC router.
+ */
+
 import { createHash } from "node:crypto";
+import { auth, tasks } from "@trigger.dev/sdk/v3";
 import { and, eq, inArray } from "@v1/db/queries";
 import type { DatabaseOrTransaction } from "@v1/db/client";
 import {
@@ -17,12 +22,10 @@ import {
  * - Merged `get` and `getByUpid` into single `get` endpoint with discriminated union
  */
 import {
-  bulkDeleteProductsByFilter,
-  bulkDeleteProductsByIds,
   bulkUpdateProductsByFilter,
   bulkUpdateProductsByIds,
   createProduct,
-  deleteProduct,
+  deleteProductsChunk,
   getProductWithIncludes,
   getProductSelectionCounts,
   listProductsWithIncludes,
@@ -36,6 +39,11 @@ import {
   upsertProductMaterials,
   upsertProductWeight,
 } from "@v1/db/queries/products";
+import {
+  createProductDeleteJob,
+  getActiveProductDeleteJob,
+  updateProductDeleteJobStatus,
+} from "@v1/db/queries/bulk";
 import {
   brandCustomDomains,
   productVariants,
@@ -262,6 +270,7 @@ type AttributeInput = {
 const PRODUCT_IMAGES_BUCKET = "products";
 const PRODUCT_QR_CODES_BUCKET = "product-qr-codes";
 const STORAGE_REMOVE_BATCH_SIZE = 1000;
+const SYNC_PRODUCT_DELETE_LIMIT = 100;
 const QR_CACHE_NAMESPACE = "00000000-0000-0000-0000-000000000000";
 
 // Keep in sync with packages/jobs/src/lib/qr-export.ts.
@@ -333,36 +342,11 @@ async function removeStoragePathsInBatches(
   }
 }
 
-async function getQrCachePathsForDeletedProducts(
+async function getQrCachePathsForDeletedBarcodes(
   ctx: BrandContext,
   brandId: string,
-  productIds: string[],
+  barcodes: string[],
 ): Promise<string[]> {
-  if (productIds.length === 0) {
-    return [];
-  }
-
-  const variantRows = await ctx.db
-    .select({
-      barcode: productVariants.barcode,
-    })
-    .from(productVariants)
-    .innerJoin(products, eq(productVariants.productId, products.id))
-    .where(
-      and(
-        eq(products.brandId, brandId),
-        inArray(productVariants.productId, productIds),
-      ),
-    );
-
-  const barcodes = Array.from(
-    new Set(
-      variantRows
-        .map((row) => row.barcode?.trim() ?? null)
-        .filter((barcode): barcode is string => !!barcode),
-    ),
-  );
-
   if (barcodes.length === 0) {
     return [];
   }
@@ -468,6 +452,14 @@ export const productsRouter = createTRPCRouter({
         await getProductSelectionCounts(brandCtx.db, brandId, productIds),
       );
     }),
+
+  /**
+   * Get the currently active background product delete job for the active brand.
+   */
+  getActiveDeleteJob: brandReadProcedure.query(async ({ ctx }) => {
+    const brandCtx = ctx as BrandContext;
+    return getActiveProductDeleteJob(brandCtx.db, brandCtx.brandId);
+  }),
 
   /**
    * Get a single product by ID or handle.
@@ -881,103 +873,145 @@ export const productsRouter = createTRPCRouter({
               : [input.id],
           ),
         );
-        const qrCachePaths = await getQrCachePathsForDeletedProducts(
-          brandCtx,
-          brandId,
-          productIdsForCacheCleanup,
-        );
         const storageClient = ctx.supabaseAdmin ?? ctx.supabase;
 
-        // Check if this is a bulk operation (has selection property)
-        if ("selection" in input) {
-          const selection = input.selection;
-
-          let result: { deleted: number; imagePaths: string[] };
-          if (selection.mode === "all") {
-            // Bulk delete by filter
-            result = await bulkDeleteProductsByFilter(brandCtx.db, brandId, {
-              filterState: selection.filters,
-              search: selection.search,
-              excludeIds: selection.excludeIds,
-            });
-          } else {
-            // Bulk delete by explicit IDs
-            result = await bulkDeleteProductsByIds(
-              brandCtx.db,
-              brandId,
-              selection.ids,
-            );
-          }
-
-          // Clean up product images from storage after deletion
-          if (result.imagePaths.length > 0) {
-            try {
-              await removeStoragePathsInBatches(
-                storageClient,
-                PRODUCT_IMAGES_BUCKET,
-                result.imagePaths,
-              );
-            } catch {
-              // Silently ignore storage cleanup errors - products are already deleted
-            }
-          }
-
-          // Invalidate QR PNG cache for deleted product barcodes
-          if (qrCachePaths.length > 0) {
-            try {
-              await removeStoragePathsInBatches(
-                storageClient,
-                PRODUCT_QR_CODES_BUCKET,
-                qrCachePaths,
-              );
-            } catch {
-              // Silently ignore storage cleanup errors - products are already deleted
-            }
-          }
-
+        if (productIdsForCacheCleanup.length === 0) {
           return {
-            success: true,
-            deleted: result.deleted,
-            failed: 0,
+            mode: "sync" as const,
+            deleted: 0,
           };
         }
 
-        // Single product delete
-        const [productRow] = await brandCtx.db
-          .select({ imagePath: products.imagePath })
-          .from(products)
-          .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
-          .limit(1);
+        const shouldRunAsync =
+          "selection" in input &&
+          (input.selection.mode === "all" ||
+            input.selection.ids.length > SYNC_PRODUCT_DELETE_LIMIT);
 
-        const deleted = await deleteProduct(brandCtx.db, brandId, input.id);
-
-        // Clean up product image from storage after successful deletion
-        if (deleted && productRow?.imagePath) {
-          try {
-            await removeStoragePathsInBatches(
-              storageClient,
-              PRODUCT_IMAGES_BUCKET,
-              [productRow.imagePath],
+        if (shouldRunAsync) {
+          const activeJob = await getActiveProductDeleteJob(brandCtx.db, brandId);
+          if (activeJob) {
+            throw badRequest(
+              "A product delete job is already running for this brand",
             );
-          } catch {
-            // Silently ignore storage cleanup errors - product is already deleted
           }
+
+          const job = await createProductDeleteJob(brandCtx.db, {
+            brandId,
+            userId: ctx.user.id,
+            userEmail: ctx.user.email ?? null,
+            selectionMode: input.selection.mode,
+            includeIds:
+              input.selection.mode === "explicit" ? input.selection.ids : [],
+            excludeIds:
+              input.selection.mode === "all"
+                ? input.selection.excludeIds ?? []
+                : [],
+            filterState:
+              input.selection.mode === "all"
+                ? input.selection.filters ?? null
+                : null,
+            searchQuery:
+              input.selection.mode === "all"
+                ? input.selection.search ?? null
+                : null,
+            productIds: productIdsForCacheCleanup,
+          });
+
+          let handle: Awaited<ReturnType<typeof tasks.trigger>>;
+          try {
+            handle = await tasks.trigger("delete-products", {
+              jobId: job.id,
+              brandId,
+            });
+          } catch (triggerError) {
+            await updateProductDeleteJobStatus(brandCtx.db, {
+              jobId: job.id,
+              status: "FAILED",
+              finishedAt: new Date().toISOString(),
+              summary: {
+                error: `Failed to start background job: ${
+                  triggerError instanceof Error
+                    ? triggerError.message
+                    : String(triggerError)
+                }`,
+              },
+            });
+
+            throw new Error(
+              `Failed to start background delete job. Please ensure Trigger.dev dev server is running. Error: ${
+                triggerError instanceof Error
+                  ? triggerError.message
+                  : String(triggerError)
+              }`,
+            );
+          }
+
+          let publicToken: string | null = null;
+          try {
+            publicToken = await auth.createPublicToken({
+              scopes: {
+                read: { runs: [handle.id] },
+              },
+            });
+          } catch (tokenError) {
+            console.warn(
+              `Failed to create public token for delete job ${job.id}: ${
+                tokenError instanceof Error
+                  ? tokenError.message
+                  : String(tokenError)
+              }`,
+            );
+          }
+
+          return {
+            mode: "async" as const,
+            jobId: job.id,
+            runId: handle.id,
+            publicAccessToken: publicToken,
+            totalScheduled: productIdsForCacheCleanup.length,
+          };
         }
 
-        // Invalidate QR PNG cache for deleted product barcodes
-        if (deleted && qrCachePaths.length > 0) {
-          try {
-            await removeStoragePathsInBatches(
+        const result = await deleteProductsChunk(
+          brandCtx.db,
+          brandId,
+          productIdsForCacheCleanup,
+        );
+        const qrCachePaths = await getQrCachePathsForDeletedBarcodes(
+          brandCtx,
+          brandId,
+          result.barcodes,
+        );
+
+        await Promise.allSettled([
+          revalidatePassports(result.upids),
+          revalidateBarcodes(brandId, result.barcodes),
+        ]);
+
+        if (result.imagePaths.length > 0) {
+          await Promise.allSettled([
+            removeStoragePathsInBatches(
+              storageClient,
+              PRODUCT_IMAGES_BUCKET,
+              result.imagePaths,
+            ),
+          ]);
+        }
+
+        if (qrCachePaths.length > 0) {
+          await Promise.allSettled([
+            removeStoragePathsInBatches(
               storageClient,
               PRODUCT_QR_CODES_BUCKET,
               qrCachePaths,
-            );
-          } catch {
-            // Silently ignore storage cleanup errors - product is already deleted
-          }
+            ),
+          ]);
         }
 
-        return createEntityResponse(deleted);
+        return {
+          mode: "sync" as const,
+          deleted: result.deleted,
+        };
       } catch (error) {
         throw wrapError(error, "Failed to delete product");
       }
